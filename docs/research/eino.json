@@ -1,0 +1,12 @@
+{
+  "repo": "cloudwego/eino",
+  "sha": "4a4b7186693d9805539c7f0c36db7d03a3485c6a",
+  "license": {
+    "key": "apache-2.0",
+    "name": "Apache License 2.0",
+    "spdx_id": "Apache-2.0",
+    "url": "https://api.github.com/licenses/apache-2.0",
+    "node_id": "MDc6TGljZW5zZTI="
+  },
+  "description": "The ultimate LLM/AI application development framework in Go."
+}

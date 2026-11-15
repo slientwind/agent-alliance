@@ -1,0 +1,13 @@
+.tools/
+node_modules/
+frontend/dist/
+data/
+*.log
+artifacts/
+.DS_Store
+backend/alliance
+backend/alliance-production
+.env
+.env.*
+!.env.example
+playwright/.auth/

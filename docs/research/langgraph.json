@@ -1,0 +1,12 @@
+{
+  "repo": "langchain-ai/langgraph",
+  "sha": "08a2016953789a4f579b4d36bd1967941ec62012",
+  "license": {
+    "key": "mit",
+    "name": "MIT License",
+    "spdx_id": "MIT",
+    "url": "https://api.github.com/licenses/mit",
+    "node_id": "MDc6TGljZW5zZTEz"
+  },
+  "description": "Build resilient agents."
+}

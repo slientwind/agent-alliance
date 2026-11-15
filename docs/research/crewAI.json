@@ -1,0 +1,12 @@
+{
+  "repo": "crewAIInc/crewAI",
+  "sha": "d7dfa0ef5ade793bd48ff7357c6eb45a45294371",
+  "license": {
+    "key": "mit",
+    "name": "MIT License",
+    "spdx_id": "MIT",
+    "url": "https://api.github.com/licenses/mit",
+    "node_id": "MDc6TGljZW5zZTEz"
+  },
+  "description": "Framework for orchestrating role-playing, autonomous AI agents. By fostering collaborative intelligence, CrewAI empowers agents to work together seamlessly, tackling complex tasks."
+}

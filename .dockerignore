@@ -1,0 +1,10 @@
+.git
+.tools
+artifacts
+data
+**/node_modules
+frontend/dist
+backend/alliance
+backend/alliance-production
+.env
+.env.*

@@ -1,0 +1,12 @@
+{
+  "repo": "langfuse/langfuse",
+  "sha": "48a31810e1c6e6a4a589b1eacc5eecc7960c9b87",
+  "license": {
+    "key": "other",
+    "name": "Other",
+    "spdx_id": "NOASSERTION",
+    "url": null,
+    "node_id": "MDc6TGljZW5zZTA="
+  },
+  "description": "\ud83e\udea2 Open source AI engineering platform: AI Gateway, agent observability, evals, and prompt/skill management, built on OpenTelemetry. One open platform for every AI call and every agent. Self-host or use Langfuse Cloud."
+}

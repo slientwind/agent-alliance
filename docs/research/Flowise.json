@@ -1,0 +1,12 @@
+{
+  "repo": "FlowiseAI/Flowise",
+  "sha": "9291856d1ea4a4ceea9f8fef8ce14f4f6c81e8eb",
+  "license": {
+    "key": "other",
+    "name": "Other",
+    "spdx_id": "NOASSERTION",
+    "url": null,
+    "node_id": "MDc6TGljZW5zZTA="
+  },
+  "description": "Build AI Agents, Visually"
+}
