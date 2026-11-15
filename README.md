@@ -78,4 +78,4 @@ docker build -t agent-alliance:local .
 
 当前运行器支持文本/结构化文本 Agent 和 DAG。工作区状态保存在事务保护的 JSONB 中，工作区内写入仍串行；没有宣称已通过大规模负载 SLO 认证。远端副作用及 Langfuse 摄入不提供跨系统 exactly-once。A2A 使用固定版本的官方 alpha SDK，并记录必要兼容补丁；可选协议能力和限制均在版本矩阵中明确。
 
-`third_party/a2a-go-v1` 保留上游 Apache-2.0 许可证与补丁说明。其余依赖通过 Go modules 和 npm lockfile 固定。本仓库不包含账号、私有密钥、本地运行数据、工具缓存或 node_modules。
+`third_party/a2a-go-v1` 保留上游 Apache-2.0 许可证与补丁说明。其余依赖通过 Go modules 和 npm lockfile 固定。本仓库不包含真实账号凭据、私有密钥、本地运行数据、工具缓存或 node_modules；开发和测试所用的公开 fixture 凭据已明确标注。
