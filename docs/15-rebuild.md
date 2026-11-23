@@ -380,7 +380,7 @@ Chromium 与本地 HTTPS 协议替身核对了 PNG 和 JPEG 原件摘要、同�
 
 ### 企业单点登录
 
-在独立 Keycloak 实例中用合成账号走过企业登录、原账号绑定、邀请加入、解除绑定、强制登录和身份源中断后的管理员应急访问。相同邮箱无法替代绑定，主体冲突时邀请仍可使用，停用成员无法通过已绑定的身份重新进入。切换强制模式后旧的密码会话失效，移除配置后 API 拒绝启动。适配范围与登录步骤见[企业配置](../README.md#接入企业单点登录)。[真实协议集成回执](evidence/rebuild-oidc/result.json) · [强制登录界面](evidence/rebuild-oidc/required-login.png)
+在独立 Keycloak 实例中用合成账号走过企业登录、原账号绑定、邀请加入、解除绑定、强制登录和身份源中断后的管理员应急访问。相同邮箱无法替代绑定，主体冲突时邀请仍可使用，停用成员无法通过已绑定的身份重新进入。切换强制模式后旧的密码会话失效，移除配置后 API 拒绝启动。适配范围与登录步骤见[企业配置](USER-GUIDE.md#接入企业单点登录)。[真实协议集成回执](evidence/rebuild-oidc/result.json) · [强制登录界面](evidence/rebuild-oidc/required-login.png)
 
 ### 项目资料回收与清除
 

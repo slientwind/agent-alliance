@@ -1,0 +1,14 @@
+Agent Alliance
+Copyright 2026 Agent Alliance contributors
+
+The project's original material is provided under the Apache License,
+Version 2.0. The following material retains its upstream license and
+attribution:
+
+- third_party/a2a-go-v1/ contains upstream A2A Go sources. See that
+  directory's LICENSE and UPSTREAM.md.
+- docs/uiux/assets/icons.js includes Lucide icons. See
+  docs/uiux/assets/lucide-LICENSE.txt for the upstream notice.
+- docs/research/ contains study snapshots distributed under the terms
+  of the respective upstream projects. See docs/research/NOTICE.md
+  and the adjacent license files.
