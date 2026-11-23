@@ -1,0 +1,6 @@
+arm64 pandoc/core@sha256:5b8a29d9b70d5d8ca766e5d1dcfc41916b23ab79276a80527be70516110f4c1e
+pandoc 3.6.4
+Features: +server +lua
+Scripting engine: Lua 5.4
+LibreOfficeDev 26.8.0.0.alpha0 2c87e51eeaa2b413ff4ae097b2705eea1995d8e5
+

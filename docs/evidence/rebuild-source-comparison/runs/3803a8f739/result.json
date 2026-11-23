@@ -1,0 +1,22 @@
+{
+  "started": "2026-11-22T15:27:28.348089+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "course-deck",
+    "Source comparison for verified Word and course files, both versions"
+  ],
+  "ended": "2026-11-22T15:28:39.996143+00:00"
+}

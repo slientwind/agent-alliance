@@ -1,0 +1,72 @@
+{
+  "uid": 65534,
+  "cases": 72,
+  "accepted": 33,
+  "rejected": 39,
+  "mapped": [
+    {
+      "case": "mapped only in second source",
+      "attempt": 1,
+      "status": 200,
+      "expected": "90.30",
+      "total": "90.3",
+      "covered": [
+        [
+          "fixture-1",
+          1
+        ],
+        [
+          "fixture-2",
+          2
+        ]
+      ],
+      "sha256": "e4a526fdca0009798db4190d9a1f473d389a8dd495b1d0049ded605e1b9b7e7e",
+      "cellType": "n"
+    },
+    {
+      "case": "mapped only in second source",
+      "attempt": 2,
+      "status": 200,
+      "expected": "90.30",
+      "total": "90.3",
+      "covered": [
+        [
+          "fixture-1",
+          1
+        ],
+        [
+          "fixture-2",
+          2
+        ]
+      ],
+      "sha256": "e4a526fdca0009798db4190d9a1f473d389a8dd495b1d0049ded605e1b9b7e7e",
+      "cellType": "n"
+    },
+    {
+      "case": "mapped only in second source",
+      "attempt": 3,
+      "status": 200,
+      "expected": "90.30",
+      "total": "90.3",
+      "covered": [
+        [
+          "fixture-1",
+          1
+        ],
+        [
+          "fixture-2",
+          2
+        ]
+      ],
+      "sha256": "e4a526fdca0009798db4190d9a1f473d389a8dd495b1d0049ded605e1b9b7e7e",
+      "cellType": "n"
+    }
+  ],
+  "image": "sha256:cf92eabd0c3561d8e9d6d7ddabcc679866d7ababa13c451371affdab01b22145",
+  "previewImage": "sha256:850dbff0bc98687cf0fd2394b16f06cf03eaaddb699f1387bb92e3bad20589e4",
+  "network": "none",
+  "wrappedFieldsVerifiedOn": [
+    "macOS LibreOffice",
+    "Debian LibreOffice"
+  ]
+}

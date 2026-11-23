@@ -1,0 +1,69 @@
+{
+  "fixture": "synthetic; real API, database, worker and Chromium",
+  "teamResult": {
+    "to": "2026-11-21T01:01:54.093488+00:00",
+    "from": "2026-11-14T01:01:54.093488+00:00",
+    "runs": 1,
+    "costs": null,
+    "adopted": 0,
+    "checked": 0,
+    "waiting": 0,
+    "editions": 1,
+    "reviewed": 1,
+    "checkedAt": "2026-11-21T01:01:54.094094+00:00",
+    "completed": 1,
+    "expiresAt": "2026-12-21T01:01:53.251164+00:00"
+  },
+  "deptResult": {
+    "to": "2026-11-21T01:01:54.097954+00:00",
+    "from": "2026-11-14T01:01:54.097954+00:00",
+    "runs": 1,
+    "costs": {
+      "calls": 1,
+      "tokens": 12,
+      "pending": 1,
+      "unknown": 1,
+      "recordedCny": "0.000000",
+      "remainingEstimateCny": "0"
+    },
+    "adopted": 0,
+    "checked": 0,
+    "waiting": 0,
+    "editions": 1,
+    "reviewed": 1,
+    "checkedAt": "2026-11-21T01:01:54.098235+00:00",
+    "completed": 1,
+    "expiresAt": "2026-11-28T01:01:53.278265+00:00"
+  },
+  "teamCosts": {
+    "to": "2026-11-21T01:01:54.503456+00:00",
+    "from": "2026-11-14T01:01:54.503456+00:00",
+    "runs": 1,
+    "costs": {
+      "calls": 0,
+      "tokens": 0,
+      "pending": 0,
+      "unknown": 0,
+      "recordedCny": "0",
+      "remainingEstimateCny": "0"
+    },
+    "adopted": 0,
+    "checked": 0,
+    "waiting": 0,
+    "editions": 1,
+    "reviewed": 1,
+    "checkedAt": "2026-11-21T01:01:54.503196+00:00",
+    "completed": 1,
+    "expiresAt": "2026-11-28T01:01:54.499194+00:00"
+  },
+  "newDepartmentRuns": 0,
+  "payerTeamCallsAdded": 1,
+  "endReasonsVisibleToAdmin": true,
+  "unauthorized": 404,
+  "ordinaryEnterpriseDashboard": 403,
+  "staleDepartmentUpdate": 409,
+  "duplicateGrant": 409,
+  "revocationClearedVisibleResult": true,
+  "returnDidNotRestoreGrants": true,
+  "expiredGrantStayedInaccessibleAfterReissue": true
+}

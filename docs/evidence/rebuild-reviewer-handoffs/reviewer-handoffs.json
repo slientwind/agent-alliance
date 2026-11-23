@@ -1,0 +1,20 @@
+{
+  "project": "a79ae0b7-62f3-4afe-a5b8-37a8fbee26d9",
+  "ordinaryHandoff": "50434a10-63f8-49e3-b865-df66e41daf12",
+  "emergencyAssignment": "ce481f28-ad33-4bc3-8305-1df6b489c8fd",
+  "acceptedBy": "d18153f8-54ab-4955-9fe4-3abce623205e",
+  "packageReview": "2026-11-21T01:21:51.09044+08:00",
+  "deliveredVersion": 2,
+  "checks": [
+    "decline and withdrawal",
+    "replacement and stale request",
+    "nominee accepts in browser",
+    "former final reviewer denied",
+    "admin and project access checked",
+    "no takeover while reviewer available",
+    "business role accepted separately",
+    "historical approval preserved and explicit takeover review required",
+    "source revision invalidates takeover check",
+    "final manifest fixed"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "project": "d8bbf52a-968f-4815-9984-56aaef1c636c",
+  "composedProject": "b1841f00-6d09-47b4-b1ec-f46c0206bbf0",
+  "rejectedProject": "acde87b5-0118-4193-ab32-8f1157223384",
+  "externalSlideEdit": 409,
+  "agent": "648c4806-83f6-42e3-947a-73315c1018ff",
+  "trialFailed": "failed",
+  "sourceVersion": 1,
+  "slideEdited": 2,
+  "reviewedVersion": 2,
+  "editRun": "bb1d2ea4-bd79-466f-86ac-aa316677b23f",
+  "rows": [
+    [
+      "领取设备",
+      "员工填写设备用途和预计归还日。\n领取前由部门负责人确认。"
+    ],
+    [
+      "归还设备",
+      "保管员核对设备编号并登记。"
+    ],
+    [
+      "遗失报告",
+      "遗失时立即报告保管员。"
+    ]
+  ],
+  "replacement": "保管员核对设备编号并登记归还日期。"
+}

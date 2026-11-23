@@ -1,0 +1,25 @@
+{
+  "provider": "HTTPS fixture",
+  "project": "4392d679-4aeb-45e2-a2e2-2421c89b7410",
+  "run": "054207d9-499b-4973-ae0a-ce53a861c22a",
+  "chargeCalls": [
+    1,
+    2
+  ],
+  "quote": "设备借出前，由库房主管核对出库单并签字。",
+  "position": 73,
+  "archive": "lookup-receipt-fixture-web.zip",
+  "service": {
+    "run": "9661823e-d326-4176-a874-c7e8f0d5e487",
+    "idempotent": true,
+    "concurrentReplay": true,
+    "archive": "lookup-receipt-fixture-api.zip"
+  },
+  "browserEntry": {
+    "run": "dcef31fb-9a53-40a7-aeaa-415a4b91ce5e",
+    "archive": "lookup-receipt-fixture-chat.zip"
+  },
+  "wordPreviewVerified": true,
+  "revokedSourceRejected": true,
+  "withdrawalBeforeSecondDispatch": true
+}

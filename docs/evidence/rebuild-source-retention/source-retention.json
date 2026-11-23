@@ -1,0 +1,18 @@
+{
+  "original": "projects/94004bbc-4faf-48f6-b9b3-0a9585ae9134/sources/66da95f2-173b-48e6-a4a5-d9cf31ea3f42",
+  "restored": "projects/94004bbc-4faf-48f6-b9b3-0a9585ae9134/sources/4156717f-035d-47a6-9f11-130921d4e84a",
+  "independent": "projects/e7c5c5a1-cd37-4f39-91da-e76e428b8eb1/sources/78f9c1ee-81e6-4392-b934-45b530ac67e7",
+  "expiring": "projects/94004bbc-4faf-48f6-b9b3-0a9585ae9134/sources/773b1be3-98e3-4d19-86eb-f7df10672c79",
+  "oldAccess": "denied",
+  "restoredVersions": 2,
+  "previouslyRevoked": "still denied",
+  "sealedDelivery": "fresh distribution review required",
+  "expiredSource": "773b1be3-98e3-4d19-86eb-f7df10672c79",
+  "concurrentUploadSurvived": true,
+  "failedCleanupRetried": true,
+  "uniqueFileReclaimed": true,
+  "sharedFilePreserved": true,
+  "expiredBy": "hourly cleanup invoked on worker restart",
+  "expiredAt": "controlled database time",
+  "originalNamesAndExtractsCleared": true
+}

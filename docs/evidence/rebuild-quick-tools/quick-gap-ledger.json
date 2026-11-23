@@ -1,0 +1,12 @@
+{
+  "resource": "d2a9892f-0277-460d-b5dc-a9b80a6af97c",
+  "suggestedGap": "待补能力 · 可编辑的Word文件生成能力",
+  "planner": "local-course-qwen",
+  "team": "519bdc83-a6ee-4729-9e0b-8b41f1d635cd",
+  "agent": "d54a4d78-32e4-4ba8-a016-6160207506e7",
+  "run": "e0b5fafa-0e14-4e66-acfb-ff52f5502a03",
+  "operation": "docx",
+  "calls": 3,
+  "answer": "09:00 复核文案\n10:00 核对物料清单",
+  "replacedBindingStatus": 409
+}

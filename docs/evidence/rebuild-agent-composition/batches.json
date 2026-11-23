@@ -1,0 +1,37 @@
+[
+  {
+    "batch": "smoke_1897cbe484",
+    "status": "passed",
+    "started": "2026-11-22T12:36:00.643365+00:00",
+    "ended": "2026-11-22T12:36:11.605736+00:00",
+    "checkCount": 2
+  },
+  {
+    "batch": "smoke_cae98b86b6",
+    "status": "failed",
+    "started": "2026-11-22T12:36:51.138539+00:00",
+    "ended": "2026-11-22T12:37:24.190809+00:00",
+    "checkCount": 1
+  },
+  {
+    "batch": "smoke_ff72b02c16",
+    "status": "passed",
+    "started": "2026-11-22T12:37:45.475924+00:00",
+    "ended": "2026-11-22T12:37:55.501646+00:00",
+    "checkCount": 2
+  },
+  {
+    "batch": "smoke_034a0307a4",
+    "status": "passed",
+    "started": "2026-11-22T12:39:39.556258+00:00",
+    "ended": "2026-11-22T12:39:49.045971+00:00",
+    "checkCount": 2
+  },
+  {
+    "batch": "smoke_1e0953b305",
+    "status": "passed",
+    "started": "2026-11-22T12:39:04.039682+00:00",
+    "ended": "2026-11-22T12:47:16.762946+00:00",
+    "checkCount": 66
+  }
+]

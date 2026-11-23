@@ -1,0 +1,89 @@
+[
+  {
+    "question": "请查证冷链交接规程：谁核对铅封，温度超过多少时暂停接收？请引用原文。",
+    "input": [
+      "private-regulation.txt",
+      "unselected-internal.txt"
+    ],
+    "selected": [
+      "private-regulation.txt"
+    ],
+    "status": "ready",
+    "result": {
+      "executionBrief": "请查证冷链交接规程：谁核对铅封，温度超过多少时暂停接收？请引用原文。\n\n执行方案：根据规程查证资料，回答冷链交接规程中的铅封核对和温度暂停接收的问题。",
+      "lookupSteps": [
+        1
+      ],
+      "reasons": [
+        "需要查阅规程以获取准确的铅封核对和温度暂停接收的原文依据"
+      ],
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "根据规程查证资料，回答冷链交接规程中的铅封核对和温度暂停接收的问题。",
+      "agents": [
+        "4dd4fb12-1506-4423-98cf-0299f0b267cb"
+      ],
+      "missing": []
+    },
+    "plan": [
+      [
+        "text",
+        "search"
+      ],
+      [
+        "text",
+        "answer"
+      ]
+    ],
+    "answer": "冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。\n\n原文依据\n[1] private-regulation.txt v1 【S1v1:1-32】冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。",
+    "run": "0bca26c2-a1d2-4714-8e85-1e73daa6a723"
+  },
+  {
+    "question": "按 region 汇总两份 CSV 中的 amount 金额，交付一个 Excel。",
+    "input": [
+      "private-east.csv",
+      "private-west.csv"
+    ],
+    "selected": [
+      "private-east.csv",
+      "private-west.csv"
+    ],
+    "status": "ready",
+    "result": {
+      "executionBrief": "按 region 汇总两份 CSV 中的 amount 金额，交付一个 Excel。\n\n执行方案：按 region 汇总两份 CSV 中的 amount 金额，交付 Excel",
+      "reasons": [
+        "A1 是唯一能完成 CSV 分组求和、合计复核及 Excel 文件交付的行动，符合用户要求"
+      ],
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "按 region 汇总两份 CSV 中的 amount 金额，交付 Excel",
+      "agents": [
+        "d9adbec5-1c75-4609-be73-90cad75c525d"
+      ],
+      "missing": []
+    },
+    "plan": [
+      [
+        "aggregate",
+        ""
+      ]
+    ],
+    "answer": "region · amount\nEast · 30.10\nWest · 60.20\n合计 · 90.30\n已核对 2 份输入，共 2 行，纳入 2 行。\n金额单位：未提供单位列，需核对同一口径",
+    "run": "b6db57d5-6cda-41d8-8827-9590e3fda8dd"
+  },
+  {
+    "question": "我有附件需要处理。请先询问交付目标。",
+    "input": [
+      "private-regulation.txt",
+      "unselected-internal.txt"
+    ],
+    "selected": [
+      "private-regulation.txt"
+    ],
+    "status": "invalid"
+  }
+]

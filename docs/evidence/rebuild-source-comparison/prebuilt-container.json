@@ -1,0 +1,10 @@
+{
+  "artifact": "prebuilt assets, root Dockerfile runtime stage",
+  "image": "sha256:7e78e5560d9141148adf2bb222bff13cc23b6888d5febe0b1e1b92a6fdbc0fdc",
+  "runtimeUser": "alliance",
+  "schema": "schema/089_verified_document_format.sql",
+  "servedWebBundle": "/assets/index-D9xq-CCW.js",
+  "initialAdministrator": true,
+  "oneJoinedTeam": true,
+  "readOnlyFilesystem": true
+}

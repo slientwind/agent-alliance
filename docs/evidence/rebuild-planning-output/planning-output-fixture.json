@@ -1,0 +1,24 @@
+{
+  "model": "controlled",
+  "nonCsvAggregate": 422,
+  "wrongReuse": 422,
+  "wrongPlan": 422,
+  "differentFormatReplay": 409,
+  "calls": 3,
+  "chosen": [
+    "xlsx"
+  ],
+  "suggested": {
+    "outputFormat": "xlsx",
+    "outputGap": "生成 Excel 工作簿（XLSX）",
+    "executionBrief": "OUTPUT_FORMAT_PROBE 请把已确认的物品清单逐行原样写进可编辑的 Excel 工作簿，每行一格，保留前导零。",
+    "kind": "plan",
+    "text": "OUTPUT_FORMAT_PROBE 请把已确认的物品清单逐行原样写进可编辑的 Excel 工作簿，每行一格，保留前导零。",
+    "agents": [],
+    "missing": [
+      "生成 Excel 工作簿（XLSX）"
+    ]
+  },
+  "run": "78520ab0-289e-4e4d-bb6b-986dc0490649",
+  "required": "xlsx"
+}

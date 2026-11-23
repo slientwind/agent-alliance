@@ -1,0 +1,8 @@
+{
+  "fixture": "fresh synthetic enterprise",
+  "transport": "Chromium with shared session cookie, Go API and PostgreSQL",
+  "signedInSecondMember": true,
+  "firstMemberDraftVisible": false,
+  "adminControlVisible": false,
+  "noticeSubjectMatched": true
+}

@@ -1,0 +1,56 @@
+[
+  {
+    "batch": "smoke_5857266d0b",
+    "status": "failed",
+    "passedChecks": 0,
+    "note": "工具登记的浏览器步骤未正确定位操作选择器，已改为定位具名表单控件。"
+  },
+  {
+    "batch": "smoke_1f010b0e7e",
+    "status": "failed",
+    "passedChecks": 0,
+    "note": "浏览器在审核响应后、交付清单渲染前断言条目数，已等待清单出现。"
+  },
+  {
+    "batch": "smoke_c12c657b66",
+    "status": "passed",
+    "passedChecks": 2,
+    "note": "首次完成跨团队工具登记、异步回执以及两份成果审核交付。"
+  },
+  {
+    "batch": "smoke_4eb77c339a",
+    "status": "passed",
+    "passedChecks": 2,
+    "note": "增加草稿编辑期撤销团队资格及普通成员发起项目。"
+  },
+  {
+    "batch": "smoke_10f6cbc13c",
+    "status": "failed",
+    "passedChecks": 32,
+    "note": "并发环境下既有并行故障测试在等待指定状态时超时，Worker 同期记录 Temporal 任务处理超时。"
+  },
+  {
+    "batch": "smoke_e174b4f905",
+    "status": "failed",
+    "passedChecks": 0,
+    "note": "同机多批次并行时，专项测试的启动等待期先于迁移结束。"
+  },
+  {
+    "batch": "smoke_f1fe195193",
+    "status": "failed",
+    "passedChecks": 0,
+    "note": "旧集成夹具同样在 API 启动期限内未取得就绪状态。现检查进程状态并为新库迁移预留 90 秒。"
+  },
+  {
+    "batch": "smoke_bb3bc5af00",
+    "status": "passed",
+    "passedChecks": 2,
+    "note": "专项检查包含真实汇总值传递、原编号与凭据、撤权拒绝、审批界面及无默认团队的选择。"
+  },
+  {
+    "batch": "smoke_b24e64050b",
+    "status": "passed",
+    "passedChecks": 57,
+    "note": "当前实现的完整集成回归通过，单独保留浏览器 Mock 和恢复演练结果。"
+  }
+]

@@ -1,0 +1,1 @@
+从业务描述生成一个团队 Agent 的配置草稿，请只返回 JSON 对象。包含 name（名称）、instructions（未来每次任务实际使用的完整中文系统提示词）、operations（所需既有操作名的数组）、state（draft）、verification（入库前试运行要求）。运行时你可以让模型输出按页的 Markdown，工具会把它转换为 PPTX 并生成预览。不要许诺目录外能力。草稿作者不能宣布入库已通过。

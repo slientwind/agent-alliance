@@ -1,0 +1,24 @@
+{
+  "provider": "controlled HTTPS, synthetic data",
+  "firstAdmin": "opened setup",
+  "independentConnectivityProbe": true,
+  "probeReplayRows": 1,
+  "failedTrialConnected": true,
+  "plannerAdopted": true,
+  "preservedSourceAfterPlanning": true,
+  "readyBeforePublication": false,
+  "reviewedBeforePass": true,
+  "feedbackRevisions": [
+    1,
+    1,
+    2
+  ],
+  "replayedProject": "8b0baa4f-0391-4361-95f9-b15d7fe7ffa3",
+  "privateProjectHidden": true,
+  "disabledModelReadyCount": 1,
+  "connectionLedgerRows": 1,
+  "package": {
+    "approvedItems": 3,
+    "checkedWordBody": true
+  }
+}

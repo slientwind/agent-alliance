@@ -1,0 +1,10 @@
+{
+  "duringOutage": "unavailable",
+  "restored": {
+    "extraction": "ready",
+    "readable": true,
+    "version": 1
+  },
+  "originalIdRetained": true,
+  "locationRecovered": true
+}

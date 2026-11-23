@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "现在应该制作海报并准备底图。",
+  "usage": {
+    "completion_tokens": 10,
+    "prompt_tokens": 213,
+    "total_tokens": 223,
+    "prompt_tokens_details": {
+      "cached_tokens": 162
+    }
+  }
+}

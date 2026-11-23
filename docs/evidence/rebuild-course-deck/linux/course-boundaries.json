@@ -1,0 +1,82 @@
+[
+  {
+    "case": "CRLF and BOM",
+    "accepted": true,
+    "pages": 1
+  },
+  {
+    "case": "source order",
+    "accepted": true,
+    "pages": 2
+  },
+  {
+    "case": "upstream outline precedence",
+    "accepted": true,
+    "pages": 1
+  },
+  {
+    "case": "mixed plain source",
+    "accepted": false,
+    "reason": "请用“## 页标题”开始提纲，再填写本页正文"
+  },
+  {
+    "case": "40 pages",
+    "accepted": true,
+    "pages": 40
+  },
+  {
+    "case": "41 pages",
+    "accepted": false,
+    "reason": "一份课件最多 40 页，请拆分提纲"
+  },
+  {
+    "case": "full width title and seven rows",
+    "accepted": true,
+    "pages": 1
+  },
+  {
+    "case": "26 fullwidth title",
+    "accepted": false,
+    "reason": "第 1 页需要短标题（最多 25 个全角字符）"
+  },
+  {
+    "case": "36 fullwidth body",
+    "accepted": true,
+    "pages": 1
+  },
+  {
+    "case": "37 fullwidth body",
+    "accepted": false,
+    "reason": "第 1 页正文过长。每页最多 7 行，每行最多 36 个全角字符，请分行或拆页"
+  },
+  {
+    "case": "eight paragraphs",
+    "accepted": false,
+    "reason": "第 1 页正文过长。每页最多 7 行，每行最多 36 个全角字符，请分行或拆页"
+  },
+  {
+    "case": "control character",
+    "accepted": false,
+    "reason": "提纲含有无法显示的控制字符"
+  },
+  {
+    "case": "unicode line separator",
+    "accepted": false,
+    "reason": "提纲含有无法显示的控制字符"
+  },
+  {
+    "case": "trailing separator",
+    "accepted": false,
+    "reason": "提纲含有无法显示的控制字符"
+  },
+  {
+    "case": "empty page",
+    "accepted": false,
+    "reason": "第 2 页缺少正文"
+  },
+  {
+    "case": "legacy config remains legacy",
+    "accepted": true,
+    "pages": 2
+  }
+]

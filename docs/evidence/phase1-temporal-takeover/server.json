@@ -1,0 +1,13 @@
+{
+  "serverVersion": "1.28.1",
+  "supportedClients": {
+    "Nexus-go-sdk": "<2.0.0",
+    "temporal-cli": "<2.0.0",
+    "temporal-go": "<2.0.0",
+    "temporal-java": "<2.0.0",
+    "temporal-php": "<2.0.0",
+    "temporal-server": "<2.0.0",
+    "temporal-typescript": "<2.0.0",
+    "temporal-ui": "<3.0.0"
+  }
+}

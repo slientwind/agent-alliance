@@ -1,0 +1,6 @@
+@@ -1 +1 @@
+-8a6b7d8a037d29f7432ca148598d8abc448b0f32b06cf1ee37c63b5c55134aae ppt/slides/slide1.xml
++971c8d51e42172ac09edcfc709dec1798ba95167b03fd31c33132e6bce125190 ppt/slides/slide1.xml
+变更 第1页
+同图 第2页
+同图 第3页

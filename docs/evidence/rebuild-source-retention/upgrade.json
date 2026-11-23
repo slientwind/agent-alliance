@@ -1,0 +1,12 @@
+{
+  "fromSchema": 74,
+  "toSchema": 75,
+  "priorRevocationPreserved": true,
+  "legacyFilenameNullable": true,
+  "fixedPlanPin": 1,
+  "versionsRecovered": 2,
+  "missingOrCorruptOriginalRejected": true,
+  "concurrentRestores": 2,
+  "newSources": 1,
+  "oldLinkStatus": 404
+}

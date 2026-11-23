@@ -1,0 +1,29 @@
+{
+  "started": "2026-11-23T03:25:13.745305+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "Image contract: PNG validation, human qualification, planner isolation, project preview, approved immutable original",
+    "Member service page from shared link or recommendation: version consent, pinned attachment, replay, separate reviewer and approved Word delivery",
+    "Credential rotation via Chromium: provider rejection, explicit verification, independent Agent key and pinned revision preserved",
+    "Fresh enterprise setup in Chromium: concrete team model, three validated Agents, explicit approval and fixed Word delivery",
+    "Isolated database, Go worker and provider fixture",
+    "Two parallel Agent branches completed the same large-source run with a single attempt at every step"
+  ],
+  "imageGeneration": "image-generation.json",
+  "teamSetup": "team-setup.json",
+  "serviceEntry": "service-entry.json",
+  "modelMaintenance": "model-maintenance.json",
+  "ended": "2026-11-23T03:25:44.790886+00:00"
+}

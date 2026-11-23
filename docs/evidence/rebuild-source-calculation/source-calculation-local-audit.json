@@ -1,0 +1,19 @@
+[
+  {
+    "run": "6664e5d9-5eb9-4de1-8fdc-a6c8d48e183c",
+    "calls": 2,
+    "amount": "78.50",
+    "packageSHA256": "e6061d0de80c30ea3c75c7dcbacffd303b873d791c37b258abf517accfa9d8ab"
+  },
+  {
+    "run": "cbc0619b-8f2e-4ad8-9346-c05fb80f98ee",
+    "calls": 2,
+    "amount": "26.05",
+    "packageSHA256": "106cbc4a24fc04b6bf7ce0ab495005aa78affdc8decd7f296d361cea25d33304"
+  },
+  {
+    "run": "e7444acf-0f36-4d30-8fcd-d79027ac281a",
+    "calls": 1,
+    "result": "needs_review"
+  }
+]

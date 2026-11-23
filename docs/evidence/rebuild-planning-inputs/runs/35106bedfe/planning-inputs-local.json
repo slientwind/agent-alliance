@@ -1,0 +1,121 @@
+[
+  {
+    "question": "请查证冷链交接规程：谁核对铅封，温度超过多少时暂停接收？请引用原文。",
+    "input": [
+      "private-regulation.txt",
+      "unselected-internal.txt"
+    ],
+    "selected": [
+      "private-regulation.txt"
+    ],
+    "status": "ready",
+    "result": {
+      "executionBrief": "请查证冷链交接规程：谁核对铅封，温度超过多少时暂停接收？请引用原文。\n\n执行方案：根据冷链交接规程查证铅封核对责任及温度暂停标准",
+      "lookupSteps": [
+        1
+      ],
+      "reasons": [
+        "需核对规程中关于铅封核对责任及温度暂停的具体条款"
+      ],
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "根据冷链交接规程查证铅封核对责任及温度暂停标准",
+      "agents": [
+        "f5245d8e-d009-43f9-9eb7-e77c4bb17348"
+      ],
+      "missing": []
+    },
+    "plan": [
+      [
+        "text",
+        "search"
+      ],
+      [
+        "text",
+        "answer"
+      ]
+    ],
+    "answer": "冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。\n\n原文依据\n[1] private-regulation.txt v1 【S1v1:1-32】冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。",
+    "run": "cee148a0-e6bf-498a-b0a2-c4c0b602d175"
+  },
+  {
+    "question": "按 region 汇总两份 CSV 中的 amount 金额，交付一个 Excel。",
+    "input": [
+      "private-east.csv",
+      "private-west.csv"
+    ],
+    "selected": [
+      "private-east.csv",
+      "private-west.csv"
+    ],
+    "status": "ready",
+    "result": {
+      "executionBrief": "按 region 汇总两份 CSV 中的 amount 金额，交付一个 Excel。\n\n执行方案：按 region 汇总两份 CSV 中的 amount 金额，交付 Excel 文件",
+      "reasons": [
+        "区域流水汇总 local 是唯一能完成 CSV 分组求和及 Excel 交付的行动"
+      ],
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "按 region 汇总两份 CSV 中的 amount 金额，交付 Excel 文件",
+      "agents": [
+        "997d77e2-18c5-421e-bd5c-220a121c489d"
+      ],
+      "missing": []
+    },
+    "plan": [
+      [
+        "aggregate",
+        ""
+      ]
+    ],
+    "answer": "region · amount\nEast · 30.10\nWest · 60.20\n合计 · 90.30\n已核对 2 份输入，共 2 行，纳入 2 行。\n金额单位：未提供单位列，需核对同一口径",
+    "run": "453dd2bf-4748-426b-a35d-ba33e8f86d7a"
+  },
+  {
+    "question": "我有附件需要处理。请先询问交付目标。",
+    "input": [
+      "private-regulation.txt",
+      "unselected-internal.txt"
+    ],
+    "selected": [
+      "private-regulation.txt"
+    ],
+    "status": "ready",
+    "result": {
+      "kind": "question",
+      "text": "你希望根据这些资料核对哪项事实，或制作什么成果？",
+      "agents": [],
+      "missing": []
+    },
+    "supplement": "只核对冷链交接时谁查铅封、温度超过多少时暂停接收，引用原文。",
+    "replanned": {
+      "executionBrief": "我有附件需要处理。请先询问交付目标。\n只核对冷链交接时谁查铅封、温度超过多少时暂停接收，引用原文。\n\n执行方案：核对冷链交接时谁查铅封、温度超过多少时暂停接收，并引用原文。",
+      "lookupSteps": [
+        1
+      ],
+      "reasons": [
+        "规程查证 local（原文核对） 能力符合核对事实并引用原文的要求"
+      ],
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "核对冷链交接时谁查铅封、温度超过多少时暂停接收，并引用原文。",
+      "agents": [
+        "f5245d8e-d009-43f9-9eb7-e77c4bb17348"
+      ],
+      "missing": []
+    },
+    "persistedSources": [
+      {
+        "id": "c24089a6-5def-43bd-a9d7-8ac135f511e4",
+        "version": 1
+      }
+    ],
+    "planningCalls": 2
+  }
+]

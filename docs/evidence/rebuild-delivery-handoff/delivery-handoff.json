@@ -1,0 +1,58 @@
+{
+  "items": [
+    {
+      "name": "Writer",
+      "step": 1,
+      "version": 2,
+      "artifact": "3140b262-632b-4ef2-869c-8f8f7f8828d1",
+      "dependencies": []
+    },
+    {
+      "name": "Checker",
+      "step": 2,
+      "version": 2,
+      "artifact": "12ac81cb-1547-4383-b595-2fe4d120bd66",
+      "dependencies": [
+        {
+          "name": "Writer",
+          "step": 1,
+          "version": 2,
+          "artifact": "3140b262-632b-4ef2-869c-8f8f7f8828d1"
+        }
+      ]
+    },
+    {
+      "name": "Writer",
+      "step": 3,
+      "version": 1,
+      "artifact": "7ced4b20-02ea-4c04-98a7-3d88970325eb",
+      "dependencies": []
+    },
+    {
+      "name": "Checker",
+      "step": 4,
+      "version": 3,
+      "artifact": "72f85ea5-a906-49ec-9e43-593b8afd46e5",
+      "dependencies": [
+        {
+          "name": "Checker",
+          "step": 2,
+          "version": 2,
+          "artifact": "12ac81cb-1547-4383-b595-2fe4d120bd66"
+        },
+        {
+          "name": "Writer",
+          "step": 3,
+          "version": 1,
+          "artifact": "7ced4b20-02ea-4c04-98a7-3d88970325eb"
+        }
+      ]
+    }
+  ],
+  "handoff": {
+    "purpose": "用于跨部门评审",
+    "limitations": "仅供内部评审",
+    "instructions": "先读简报，再核对交接清单。"
+  },
+  "delivery": "b8e2aaf7-46fb-472c-945f-be6d504fd39c"
+}

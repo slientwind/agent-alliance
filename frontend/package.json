@@ -1,23 +1,23 @@
 {
-  "name": "agent-alliance-console",
-  "version": "1.0.0",
+  "name": "alliance-workspace",
   "private": true,
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1",
-    "test:e2e": "playwright test",
-    "format": "prettier --write src tests *.js"
+    "build": "tsc --noEmit && vite build"
   },
   "dependencies": {
     "lucide-react": "0.468.0",
+    "pdfjs-dist": "5.4.624",
     "react": "19.1.1",
     "react-dom": "19.1.1"
   },
   "devDependencies": {
-    "@playwright/test": "1.56.1",
-    "prettier": "3.6.2",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "playwright": "1.56.1",
+    "typescript": "~5.9.2",
     "vite": "6.4.6"
   }
 }

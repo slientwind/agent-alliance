@@ -1,0 +1,30 @@
+[
+  {
+    "operation": "aggregate",
+    "agent": "6e21d159-4d7d-4ae8-b72e-f0ada56bf8e4",
+    "plan": "projects/9cba5c34-9d88-4c1c-a282-f6a2e81bf9f1",
+    "charges": 1,
+    "answer": "中心,区域 · 实收\n华东 · 19.65\n合计 · 19.65\n已核对 1 份输入，共 3 行，纳入 2 行。\n金额单位：CNY\n筛选条件：状态 = 通过"
+  },
+  {
+    "operation": "docx",
+    "agent": "fd47a7b7-8747-4590-abe3-b82e7dd07eaf",
+    "plan": "projects/1b06f4b4-ae43-452d-883a-22a1a98d749d",
+    "charges": 1,
+    "answer": "经办人核对设备序列号。\n请接收人签收。"
+  },
+  {
+    "operation": "xlsx",
+    "agent": "68adfd17-cb37-44a5-a34d-255e95d41bd7",
+    "plan": "projects/28eaf072-0b2a-4876-85ef-f0899998fb8f",
+    "charges": 1,
+    "answer": "00017\n=待核对\n投影仪"
+  },
+  {
+    "operation": "extract",
+    "agent": "c1d0563b-08b1-4efd-bea1-a695eb8ae218",
+    "plan": "projects/52a8153e-2e26-42fa-b04d-8d9651e1abbf",
+    "charges": 1,
+    "answer": "归档说明.txt v1\n由采购专员核对交付编号。"
+  }
+]

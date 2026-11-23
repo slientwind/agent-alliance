@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "现在应该创建试用。",
+  "usage": {
+    "completion_tokens": 7,
+    "prompt_tokens": 220,
+    "total_tokens": 227,
+    "prompt_tokens_details": {
+      "cached_tokens": 162
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "reuse": {
+    "outputFormat": "xlsx",
+    "executionBrief": "把清点结果逐行写入可编辑 Excel，每行一格，保留前导零。\n\n执行方案：将清点结果逐行写入可编辑 Excel，每行一格，保留前导零。",
+    "revisions": [
+      1
+    ],
+    "kind": "plan",
+    "text": "将清点结果逐行写入可编辑 Excel，每行一格，保留前导零。",
+    "agents": [
+      "227d5953-06dd-4480-bae4-f86ee841290e"
+    ],
+    "missing": []
+  },
+  "sourceOnly": {
+    "outputFormat": "text",
+    "outputGap": "根据业务要求给出文本答复",
+    "executionBrief": "请阅读附件中的 Word 会议议程，以纯文本回答签到时间并给出依据。",
+    "kind": "plan",
+    "text": "请阅读附件中的 Word 会议议程，以纯文本回答签到时间并给出依据。",
+    "agents": null,
+    "missing": [
+      "根据业务要求给出文本答复"
+    ]
+  },
+  "both": {
+    "executionBrief": "使用已确认的领用清单，分别交付两份独立文件：第一份为保留原文的 Word，第二份为每行一个物品的 Excel。",
+    "revisions": [
+      1,
+      1
+    ],
+    "kind": "plan",
+    "text": "使用已确认的领用清单，分别交付两份独立文件：第一份为保留原文的 Word，第二份为每行一个物品的 Excel。",
+    "agents": [
+      "0c05f1b9-4ef1-40d7-9469-c2d87fc107f8",
+      "227d5953-06dd-4480-bae4-f86ee841290e"
+    ],
+    "missing": []
+  }
+}

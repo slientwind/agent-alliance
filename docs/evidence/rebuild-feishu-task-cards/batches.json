@@ -1,0 +1,51 @@
+[
+  {
+    "batch": "smoke_39e57469ae",
+    "scope": "专项初跑",
+    "status": "failed",
+    "passedChecks": 0,
+    "detail": "浏览器用例切回同一地址前需显式关闭已打开的账号面板"
+  },
+  {
+    "batch": "smoke_abd03d18fe",
+    "scope": "权限与采纳",
+    "status": "failed",
+    "passedChecks": 0,
+    "detail": "合成资料测试地址未对文件名进行编码"
+  },
+  {
+    "batch": "smoke_e5c938cc6e",
+    "scope": "标准专项、回调验证与网页审核",
+    "status": "passed",
+    "passedChecks": 1,
+    "detail": ""
+  },
+  {
+    "batch": "smoke_e03138eaad",
+    "scope": "网页版显示采纳人和时间",
+    "status": "passed",
+    "passedChecks": 1,
+    "detail": ""
+  },
+  {
+    "batch": "smoke_bd9dd49599",
+    "scope": "独立普通成员采纳",
+    "status": "passed",
+    "passedChecks": 1,
+    "detail": ""
+  },
+  {
+    "batch": "smoke_f88950c720",
+    "scope": "最终手机回执、普通成员及签名协议",
+    "status": "passed",
+    "passedChecks": 1,
+    "detail": ""
+  },
+  {
+    "batch": "smoke_0caf6737eb",
+    "scope": "全量回归，本地 Qwen 与 BGE",
+    "status": "passed",
+    "passedChecks": 99,
+    "detail": ""
+  }
+]

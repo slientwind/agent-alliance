@@ -1,0 +1,76 @@
+{
+  "run": "d0b590d1-3039-4492-97df-cd1ef5135118",
+  "delivery": "e12ebcb2-4b90-4f32-b1cd-cefcfd9aa011",
+  "steps": [
+    [
+      {
+        "end": "2026-11-20T18:44:53.641998+00:00",
+        "start": "2026-11-20T18:44:53.631995+00:00",
+        "number": 1,
+        "spanId": "bb2376713721e6b1",
+        "status": "completed"
+      }
+    ],
+    [
+      {
+        "end": "2026-11-20T18:44:53.664116+00:00",
+        "start": "2026-11-20T18:44:53.654497+00:00",
+        "number": 1,
+        "spanId": "80fa3dd6d9437b42",
+        "status": "unknown"
+      },
+      {
+        "end": "2026-11-20T18:44:55.6259+00:00",
+        "start": "2026-11-20T18:44:55.612391+00:00",
+        "number": 2,
+        "spanId": "93729c2beff3c81d",
+        "status": "completed"
+      }
+    ]
+  ],
+  "originalRunCalls": 3,
+  "totalProjectCalls": 5,
+  "revision": {
+    "run": "ee032841-6215-4961-bf13-241e79e1fd75",
+    "approvedVersions": [
+      1,
+      2
+    ],
+    "history": [
+      {
+        "time": "2026-11-20T18:44:56.695698+00:00",
+        "actor": "讲义复核人",
+        "attempt": 1,
+        "decision": "redo",
+        "evidence": "核实局部改稿未收到回执，允许重复执行一次。"
+      }
+    ]
+  },
+  "review": [
+    {
+      "time": "2026-11-20T18:44:53.69956+00:00",
+      "actor": "Reviewer",
+      "attempt": 1,
+      "decision": "hold",
+      "evidence": "值班人员核对供应商记录，仍无回执。"
+    },
+    {
+      "time": "2026-11-20T18:44:54.103578+00:00",
+      "actor": "Reviewer",
+      "attempt": 1,
+      "decision": "redo",
+      "evidence": "已核实缺少回执，可接受再生成一份讲义和额外费用。"
+    }
+  ],
+  "checks": [
+    "non-owner denied",
+    "hold/replay/stale review",
+    "risk consent separate",
+    "budget blocked before additional spend",
+    "prior unknown and prior step preserved",
+    "revision actor loses and regains explicit review permission",
+    "new revision requires separate approval and retains upstream review",
+    "separate actual attempt receipts",
+    "version review and confirmed delivery"
+  ]
+}

@@ -1,0 +1,18 @@
+Traceback (most recent call last):
+  File "/usr/local/bin/markitdown", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/markitdown/__main__.py", line 257, in main
+    result = markitdown.convert(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/markitdown/_markitdown.py", line 349, in convert
+    return self.convert_local(source, stream_info=stream_info, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/markitdown/_markitdown.py", line 403, in convert_local
+    return self._convert(file_stream=fh, stream_info_guesses=guesses, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/markitdown/_markitdown.py", line 690, in _convert
+    raise FileConversionException(attempts=failed_attempts)
+markitdown._exceptions.FileConversionException: File conversion failed after 1 attempts:
+ - DocxConverter threw BadZipFile with message: File is not a zip file
+

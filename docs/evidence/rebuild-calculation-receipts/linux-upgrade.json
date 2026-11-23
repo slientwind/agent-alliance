@@ -1,0 +1,99 @@
+{
+  "originalPlan": 1,
+  "amendment": 2,
+  "sources": [
+    {
+      "id": "6d90ee64-f6fa-456a-af0e-8f269eae200c",
+      "pinned": 1,
+      "revoked": false,
+      "observed": 1,
+      "assessments": [],
+      "revisionInputs": []
+    },
+    {
+      "id": "edce2211-4014-40d5-83fa-503f6017cf09",
+      "pinned": 1,
+      "revoked": false,
+      "observed": 1,
+      "assessments": [],
+      "revisionInputs": [],
+      "calculationReceipt": {
+        "to": 13,
+        "from": 1,
+        "plan": 2,
+        "step": 2
+      }
+    }
+  ],
+  "sameRun": "6c9c14f0-9ba9-4f44-83eb-0231c3fc1b25",
+  "previous": "sha256:ec493eedff175d1949aa363a57b98e72b0ffbbd47e2300c266fa64d0a7ba5816",
+  "legacyServicePhases": [
+    "search",
+    "answer_calc"
+  ],
+  "queuedOldRun": "b10f5cc3-59cc-426a-ae0e-30b19b3535e8",
+  "queuedCalls": 1,
+  "app": "sha256:bd3d088e226b59f19adc4a0806c5aee344595c51a2fef3f4f92a7d22d8047e66",
+  "runtime": "Linux containers: API, Worker, local HTTPS protocol fixture and document connector",
+  "workflow": "delivered",
+  "phases": [
+    "search",
+    "answer_calc",
+    ""
+  ],
+  "costs": 3,
+  "quote": "合计为 12.65 元。\n4.10 元 [1] + 8.55 元 [2] = 12.65 元\n\n原文依据\n[1] invoice-b.txt v1 【S2v1:1-13】返程运费为 4.10 元。\n[2] invoice-a.txt v1 【S1v1:1-13】去程运费为 8.55 元。",
+  "packageSHA256": "ebdee629b05aacc4c35d0b47910bcaf985eb07b7316f48e3c1ce03630da4f677",
+  "files": [
+    {
+      "step": 1,
+      "dependencies": [],
+      "artifact": "c40d92bd-413e-4188-aeb1-eb2095e41fa7",
+      "name": "移交核对 · 检索依据",
+      "version": 1,
+      "reviewer": "11e3257d-4292-47ba-bd71-ec2d93a2294b",
+      "reviewedAt": "2026-11-22T17:54:08.521111Z",
+      "path": "artifacts/01-v1-移交核对 · 检索依据.txt",
+      "mediaType": "text/plain; charset=utf-8",
+      "sha256": "b1da7c81c652afa8ee7c301716d8aa4f498c544eb931a95a4330db9603c13f27"
+    },
+    {
+      "step": 2,
+      "dependencies": [
+        {
+          "name": "移交核对 · 检索依据",
+          "step": 1,
+          "version": 1,
+          "artifact": "c40d92bd-413e-4188-aeb1-eb2095e41fa7"
+        }
+      ],
+      "artifact": "3a0ccd6c-e767-4e82-b564-10ca3b928ee9",
+      "name": "移交核对 · 原文与金额核算",
+      "version": 1,
+      "reviewer": "11e3257d-4292-47ba-bd71-ec2d93a2294b",
+      "reviewedAt": "2026-11-22T17:54:08.527368Z",
+      "path": "artifacts/02-v1-移交核对 · 原文与金额核算.txt",
+      "mediaType": "text/plain; charset=utf-8",
+      "sha256": "02ca0d7e3bc264691cb634dab77f6ce4d81f941834d1da4f25dfa23545df854e"
+    },
+    {
+      "step": 3,
+      "dependencies": [
+        {
+          "name": "移交核对 · 原文与金额核算",
+          "step": 2,
+          "version": 1,
+          "artifact": "3a0ccd6c-e767-4e82-b564-10ca3b928ee9"
+        }
+      ],
+      "artifact": "982303b0-48c3-4e2d-8a0f-014806ac5146",
+      "name": "核对成稿",
+      "version": 1,
+      "reviewer": "11e3257d-4292-47ba-bd71-ec2d93a2294b",
+      "reviewedAt": "2026-11-22T17:54:08.53266Z",
+      "path": "artifacts/03-v1-deliverable.docx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "sha256": "c1eb0b7c447f5ddb847309ee268d76e05649a7ef9a3e8a12a5edfef88f5bfe5a"
+    }
+  ]
+}

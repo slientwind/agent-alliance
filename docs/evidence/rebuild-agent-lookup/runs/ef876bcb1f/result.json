@@ -1,0 +1,23 @@
+{
+  "started": "2026-11-22T15:59:45.603155+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "Source lookup from chat: same Agent selects search terms, answers with verified quotes, missing evidence and invalid references handled",
+    "Lookup checkpoint resumed after Worker restart, revoked source denied before charging, reusable service read new caller's attachment",
+    "Local open-weight model and native source lookup completed"
+  ],
+  "ended": "2026-11-22T16:00:31.455300+00:00"
+}

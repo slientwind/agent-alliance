@@ -1,0 +1,38 @@
+{
+  "batch": "smoke_88bc831d66",
+  "input": "synthetic",
+  "browser": "Chromium",
+  "text": {
+    "project": "05d34162-b95b-4047-b9a6-145f5f4a7640",
+    "artifact": "8cecd3ed-8296-49df-ac0b-10cfdf4d5130",
+    "base": 4,
+    "rejectedStatus": 409,
+    "independentVersions": [
+      1,
+      1
+    ],
+    "before": [
+      1,
+      4,
+      4
+    ],
+    "after": [
+      1,
+      6,
+      6
+    ]
+  },
+  "office": {
+    "project": "3aa67371-df56-4f8c-95ef-7a22f4b28728",
+    "artifact": "1b7ac139-df3d-4901-8c05-620123bb86e9",
+    "base": 2,
+    "final": 4,
+    "previousSha256": "7c1b051483fd9e7d600b7b28da2a84580c32f9c8577b64935807cd8cba5709fa",
+    "submittedSha256": "48cb5cf79b385fcc0b21b59c3fac178e30c607f6642a0676b771a7a87c9a5716",
+    "storedSha256": "48cb5cf79b385fcc0b21b59c3fac178e30c607f6642a0676b771a7a87c9a5716"
+  },
+  "permission": {
+    "revokedStatus": 403,
+    "restoredSummary": ""
+  }
+}

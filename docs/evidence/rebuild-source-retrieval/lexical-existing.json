@@ -1,0 +1,221 @@
+{
+  "mode": "lexical",
+  "indexed": 0,
+  "passages": 14,
+  "firstOrEmptyCorrect": 10,
+  "total": 16,
+  "cases": [
+    {
+      "id": "K01",
+      "query": "设备归还时由谁核对设备编号并登记？",
+      "expected": "training-v2.4",
+      "actual": "training-v2.4",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "f269722c-c923-4a79-a792-21751921f28e",
+          "end": 89,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 74,
+          "excerpt": "归还时由保管员核对设备编号并登记",
+          "lexical": true,
+          "version": 2,
+          "semantic": false
+        }
+      ]
+    },
+    {
+      "id": "K02",
+      "query": "跨部门借用还需要谁确认？",
+      "expected": "training-v2.3",
+      "actual": "training-v2.3",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "f269722c-c923-4a79-a792-21751921f28e",
+          "end": 72,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 57,
+          "excerpt": "跨部门借用还需接收部门负责人确认",
+          "lexical": true,
+          "version": 2,
+          "semantic": false
+        }
+      ]
+    },
+    {
+      "id": "K03",
+      "query": "遗失时报告谁？",
+      "expected": "training-v2.5",
+      "actual": "training-v2.5",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "f269722c-c923-4a79-a792-21751921f28e",
+          "end": 100,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 91,
+          "excerpt": "遗失时立即报告保管员",
+          "lexical": true,
+          "version": 2,
+          "semantic": false
+        }
+      ]
+    },
+    {
+      "id": "K04",
+      "query": "CW-01 的容量是多少 mL？",
+      "expected": "product-v2.2",
+      "actual": "product-v2.2",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "381be952-1d32-43f7-a7ee-c59c0f9b85a4",
+          "end": 72,
+          "name": "P3-v2.md",
+          "exact": false,
+          "start": 30,
+          "excerpt": "编号 CW-01，容量 420 mL，杯身海蓝色，零售价 79 元，包装内含杯和说明卡",
+          "lexical": true,
+          "version": 2,
+          "semantic": false
+        }
+      ]
+    },
+    {
+      "id": "K05",
+      "query": "设备弄丢了找谁？",
+      "expected": "training-v2.5",
+      "actual": "EMPTY",
+      "correct": false,
+      "candidates": []
+    },
+    {
+      "id": "K06",
+      "query": "借设备之前要说明拿来干什么吗？",
+      "expected": "training-v2.2",
+      "actual": "EMPTY",
+      "correct": false,
+      "candidates": []
+    },
+    {
+      "id": "K07",
+      "query": "谁负责报销差旅费？",
+      "expected": "EMPTY",
+      "actual": "EMPTY",
+      "correct": true,
+      "candidates": []
+    },
+    {
+      "id": "K08",
+      "query": "保温时长是多少？",
+      "expected": "product-v2.3",
+      "actual": "product-v2.3",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "381be952-1d32-43f7-a7ee-c59c0f9b85a4",
+          "end": 83,
+          "name": "P3-v2.md",
+          "exact": false,
+          "start": 74,
+          "excerpt": "保温时长尚无测量资料",
+          "lexical": true,
+          "version": 2,
+          "semantic": false
+        }
+      ]
+    },
+    {
+      "id": "K09",
+      "query": "不慎把借来的器材弄没了，第一时间联系谁？",
+      "expected": "training-v2.5",
+      "actual": "EMPTY",
+      "correct": false,
+      "candidates": []
+    },
+    {
+      "id": "K10",
+      "query": "CW-01 卖多少钱？",
+      "expected": "product-v2.2",
+      "actual": "product-v2.2",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "381be952-1d32-43f7-a7ee-c59c0f9b85a4",
+          "end": 72,
+          "name": "P3-v2.md",
+          "exact": false,
+          "start": 30,
+          "excerpt": "编号 CW-01，容量 420 mL，杯身海蓝色，零售价 79 元，包装内含杯和说明卡",
+          "lexical": true,
+          "version": 2,
+          "semantic": false
+        }
+      ]
+    },
+    {
+      "id": "K11",
+      "query": "这个杯子的标准质保期是几年？",
+      "expected": "EMPTY",
+      "actual": "EMPTY",
+      "correct": true,
+      "candidates": []
+    },
+    {
+      "id": "K12",
+      "query": "课件里应当写谁在归还时登记？",
+      "expected": "training-v2.4",
+      "actual": "EMPTY",
+      "correct": false,
+      "candidates": []
+    },
+    {
+      "id": "K13",
+      "query": "CW-01 包装内含什么？",
+      "expected": "product-v2.2",
+      "actual": "product-v2.2",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "381be952-1d32-43f7-a7ee-c59c0f9b85a4",
+          "end": 72,
+          "name": "P3-v2.md",
+          "exact": false,
+          "start": 30,
+          "excerpt": "编号 CW-01，容量 420 mL，杯身海蓝色，零售价 79 元，包装内含杯和说明卡",
+          "lexical": true,
+          "version": 2,
+          "semantic": false
+        }
+      ]
+    },
+    {
+      "id": "K14",
+      "query": "领取设备时需要谁确认用途？",
+      "expected": "training-v2.2",
+      "actual": "EMPTY",
+      "correct": false,
+      "candidates": []
+    },
+    {
+      "id": "K15",
+      "query": "资料里有随行杯的耐摔高度吗？",
+      "expected": "EMPTY",
+      "actual": "EMPTY",
+      "correct": true,
+      "candidates": []
+    },
+    {
+      "id": "K16",
+      "query": "遗失设备时能不能等到明天再报告？",
+      "expected": "training-v2.5",
+      "actual": "EMPTY",
+      "correct": false,
+      "candidates": []
+    }
+  ]
+}

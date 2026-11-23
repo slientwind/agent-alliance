@@ -1,0 +1,33 @@
+{
+  "initial": {
+    "queued": 1,
+    "running": 1,
+    "paused": 1,
+    "blocked": 1,
+    "reconcile": 1,
+    "failed": 1,
+    "cancelled": 1,
+    "completed": 1,
+    "other": 1
+  },
+  "temporaryTakeoverAccessAfterFailure": false,
+  "requestAndOfferClosed": true,
+  "afterConfirmation": {
+    "other": 1,
+    "failed": 2,
+    "paused": 1,
+    "queued": 1,
+    "blocked": 1,
+    "running": 1,
+    "cancelled": 1,
+    "completed": 1
+  },
+  "includedAtStart": true,
+  "excludedAtEnd": true,
+  "unknownHistoricalCodeRedacted": true,
+  "crossTeamCount": 0,
+  "parallelSubmissionBlockedClosure": true,
+  "unresolvedSupersededAttemptBlockedClosure": true,
+  "unfinishedLateRemoteReceiptBlockedClosure": true,
+  "failureFinishAndTraceExpiryRecorded": true
+}

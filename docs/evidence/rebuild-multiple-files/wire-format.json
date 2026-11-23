@@ -1,0 +1,5 @@
+{
+  "previousResult": "invalid",
+  "previousReply": "{\n  \"kind\": \"plan\",\n  \"text\": \"按已确认的领用清单分别制作 Word 和 Excel。两份都保留完整原文，Excel 每行一个物品，保留前导零。\",\n  \"outputFormat\": [\"docx\", \"xlsx\"],\n  \"agents\": [\"A1\", \"A2\"],\n  \"missing\": []\n}",
+  "acceptedReply": "{\n  \"kind\": \"plan\",\n  \"text\": \"按已确认的领用清单分别制作 Word 和 Excel。两份都保留完整原文，Excel 每行一个物品，保留前导零。\",\n  \"outputFormat\": [\"docx\", \"xlsx\"],\n  \"agents\": [\"A1\", \"A2\"],\n  \"missing\": []\n}"
+}

@@ -1,0 +1,53 @@
+{
+  "lookup": {
+    "answer": "值班主管核对编号，超过 8°C 暂停接收。\n\n原文依据\n[1] private-regulation.txt v1 【S1v1:1-32】冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。",
+    "sources": [
+      {
+        "id": "a3c770f2-60f2-4a4f-843d-70da3f37b981",
+        "pinned": 1,
+        "revoked": false,
+        "observed": 1,
+        "assessments": [],
+        "revisionInputs": []
+      }
+    ]
+  },
+  "aggregate": {
+    "rows": [
+      [
+        "region",
+        "amount"
+      ],
+      [
+        "East",
+        "30.1"
+      ],
+      [
+        "West",
+        "60.2"
+      ],
+      [
+        "合计",
+        "90.3"
+      ]
+    ],
+    "sources": [
+      {
+        "id": "4ee5e858-06d0-4d0e-89b5-ccdaa4a67e5c",
+        "pinned": 1,
+        "revoked": false,
+        "observed": 1,
+        "assessments": [],
+        "revisionInputs": []
+      },
+      {
+        "id": "6214ccab-f1b9-4785-afeb-af15773e51ff",
+        "pinned": 1,
+        "revoked": false,
+        "observed": 1,
+        "assessments": [],
+        "revisionInputs": []
+      }
+    ]
+  }
+}

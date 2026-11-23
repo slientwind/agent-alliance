@@ -1,0 +1,8 @@
+{
+  "fixture": "synthetic browser responses",
+  "periodStayedFixed": true,
+  "transientFailureReusedKey": true,
+  "expiredReceiptGeneratedNewKey": true,
+  "viewOnlyAfterExportWithdrawal": true,
+  "mobileOverflow": false
+}

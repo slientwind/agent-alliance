@@ -1,0 +1,270 @@
+[
+  {
+    "width": 320,
+    "form": 268,
+    "fieldset": 268.40625,
+    "scroll": 268,
+    "thread": 296,
+    "threadScroll": 983,
+    "offenders": [
+      [
+        "DETAILS",
+        "file-preview",
+        1062,
+        268,
+        "预览 DRAFT_contract_revision_contract_revision_contrac"
+      ],
+      [
+        "SUMMARY",
+        "",
+        1062,
+        268,
+        "预览 DRAFT_contract_revision_contract_revision_contrac"
+      ],
+      [
+        "DETAILS",
+        "card",
+        982,
+        294,
+        "拟定协作方案交付目标与确认要求查原文添加执行步骤选择 Agent规程查证 fixture · 已发布 v"
+      ],
+      [
+        "FORM",
+        "",
+        969,
+        268,
+        "交付目标与确认要求查原文添加执行步骤选择 Agent规程查证 fixture · 已发布 v1区域流水汇"
+      ],
+      [
+        "FIELDSET",
+        "plan-fields",
+        969,
+        268,
+        "交付目标与确认要求查原文添加执行步骤选择 Agent规程查证 fixture · 已发布 v1区域流水汇"
+      ],
+      [
+        "LABEL",
+        "",
+        969,
+        969,
+        "交付目标与确认要求查原文"
+      ],
+      [
+        "TEXTAREA",
+        "",
+        967,
+        967,
+        "查原文"
+      ],
+      [
+        "LABEL",
+        "",
+        969,
+        969,
+        "添加执行步骤选择 Agent规程查证 fixture · 已发布 v1区域流水汇总 fixture · "
+      ],
+      [
+        "SELECT",
+        "",
+        967,
+        967,
+        "选择 Agent规程查证 fixture · 已发布 v1区域流水汇总 fixture · 已发布 v1"
+      ],
+      [
+        "DETAILS",
+        "",
+        969,
+        969,
+        "比较候选能力与验证依据"
+      ],
+      [
+        "SUMMARY",
+        "",
+        969,
+        969,
+        "比较候选能力与验证依据"
+      ],
+      [
+        "OL",
+        "plan-steps",
+        969,
+        969,
+        ""
+      ],
+      [
+        "LABEL",
+        "",
+        969,
+        969,
+        "引用资料 · DRAFT_contract_revision_contract_revision_con"
+      ],
+      [
+        "SELECT",
+        "",
+        967,
+        967,
+        "不引用v1"
+      ]
+    ]
+  },
+  {
+    "width": 390,
+    "form": 338,
+    "fieldset": 338.40625,
+    "scroll": 338,
+    "thread": 366,
+    "threadScroll": 983,
+    "offenders": [
+      [
+        "DETAILS",
+        "file-preview",
+        1062,
+        338,
+        "预览 DRAFT_contract_revision_contract_revision_contrac"
+      ],
+      [
+        "SUMMARY",
+        "",
+        1062,
+        338,
+        "预览 DRAFT_contract_revision_contract_revision_contrac"
+      ],
+      [
+        "DETAILS",
+        "card",
+        982,
+        364,
+        "拟定协作方案交付目标与确认要求查原文添加执行步骤选择 Agent规程查证 fixture · 已发布 v"
+      ],
+      [
+        "FORM",
+        "",
+        969,
+        338,
+        "交付目标与确认要求查原文添加执行步骤选择 Agent规程查证 fixture · 已发布 v1区域流水汇"
+      ],
+      [
+        "FIELDSET",
+        "plan-fields",
+        969,
+        338,
+        "交付目标与确认要求查原文添加执行步骤选择 Agent规程查证 fixture · 已发布 v1区域流水汇"
+      ],
+      [
+        "LABEL",
+        "",
+        969,
+        969,
+        "交付目标与确认要求查原文"
+      ],
+      [
+        "TEXTAREA",
+        "",
+        967,
+        967,
+        "查原文"
+      ],
+      [
+        "LABEL",
+        "",
+        969,
+        969,
+        "添加执行步骤选择 Agent规程查证 fixture · 已发布 v1区域流水汇总 fixture · "
+      ],
+      [
+        "SELECT",
+        "",
+        967,
+        967,
+        "选择 Agent规程查证 fixture · 已发布 v1区域流水汇总 fixture · 已发布 v1"
+      ],
+      [
+        "DETAILS",
+        "",
+        969,
+        969,
+        "比较候选能力与验证依据"
+      ],
+      [
+        "SUMMARY",
+        "",
+        969,
+        969,
+        "比较候选能力与验证依据"
+      ],
+      [
+        "OL",
+        "plan-steps",
+        969,
+        969,
+        ""
+      ],
+      [
+        "LABEL",
+        "",
+        969,
+        969,
+        "引用资料 · DRAFT_contract_revision_contract_revision_con"
+      ],
+      [
+        "SELECT",
+        "",
+        967,
+        967,
+        "不引用v1"
+      ]
+    ]
+  },
+  {
+    "width": 1440,
+    "form": 813,
+    "fieldset": 812.8125,
+    "scroll": 813,
+    "thread": 1368,
+    "threadScroll": 1368,
+    "offenders": [
+      [
+        "DIV",
+        "",
+        1151,
+        813,
+        "DRAFT_contract_revision_contract_revision_contract_r"
+      ],
+      [
+        "DETAILS",
+        "file-preview",
+        1062,
+        813,
+        "预览 DRAFT_contract_revision_contract_revision_contrac"
+      ],
+      [
+        "SUMMARY",
+        "",
+        1062,
+        813,
+        "预览 DRAFT_contract_revision_contract_revision_contrac"
+      ],
+      [
+        "DETAILS",
+        "card",
+        987,
+        848,
+        "拟定协作方案交付目标与确认要求查原文添加执行步骤选择 Agent规程查证 fixture · 已发布 v"
+      ],
+      [
+        "FORM",
+        "",
+        969,
+        813,
+        "交付目标与确认要求查原文添加执行步骤选择 Agent规程查证 fixture · 已发布 v1区域流水汇"
+      ],
+      [
+        "FIELDSET",
+        "plan-fields",
+        969,
+        813,
+        "交付目标与确认要求查原文添加执行步骤选择 Agent规程查证 fixture · 已发布 v1区域流水汇"
+      ]
+    ]
+  }
+]

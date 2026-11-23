@@ -1,0 +1,22 @@
+{
+  "started": "2026-11-23T00:24:02.971178+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "Draft revision, protocol fixture",
+    "Draft revision, real local Qwen"
+  ],
+  "ended": "2026-11-23T00:24:33.244841+00:00"
+}

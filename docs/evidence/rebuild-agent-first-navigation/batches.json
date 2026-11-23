@@ -1,0 +1,22 @@
+[
+  {
+    "batch": "smoke_570b297c02",
+    "status": "failed",
+    "checksPassed": 17,
+    "finding": "用量页首次打开与测试主动刷新同时发送请求，导出断言取到另一个统计窗口",
+    "report": "regression-smoke_570b297c02.json"
+  },
+  {
+    "batch": "smoke_8c8ad2516e",
+    "status": "failed",
+    "checksPassed": 17,
+    "finding": "授权清单的最终检查未切回高级设置",
+    "report": "regression-smoke_8c8ad2516e.json"
+  },
+  {
+    "batch": "smoke_e012a14cbd",
+    "status": "passed",
+    "checksPassed": 108,
+    "report": "regression.json"
+  }
+]

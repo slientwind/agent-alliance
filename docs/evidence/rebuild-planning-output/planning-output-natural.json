@@ -1,0 +1,15 @@
+{
+  "id": "d4d3529d-1459-46c0-aa59-fbf8b6a4f280",
+  "result": {
+    "outputFormat": "xlsx",
+    "outputGap": "生成 Excel 工作簿（XLSX）",
+    "executionBrief": "请把已确认的物品清单逐行原样写进可编辑的 Excel 工作簿，每行一格，保留前导零。",
+    "kind": "plan",
+    "text": "请把已确认的物品清单逐行原样写进可编辑的 Excel 工作簿，每行一格，保留前导零。",
+    "agents": null,
+    "missing": [
+      "生成 Excel 工作簿（XLSX）"
+    ]
+  },
+  "status": "ready"
+}

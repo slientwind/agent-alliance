@@ -1,0 +1,130 @@
+[
+  {
+    "batch": "smoke_2ec673a876",
+    "start": "2026-11-22T18:37:19.622077+00:00",
+    "end": "2026-11-22T18:37:27.705707+00:00",
+    "status": "failed",
+    "checks": 1,
+    "failure": "CalledProcessError"
+  },
+  {
+    "batch": "smoke_6993619d6d",
+    "start": "2026-11-22T18:39:02.957360+00:00",
+    "end": "2026-11-22T18:39:20.304821+00:00",
+    "status": "passed",
+    "checks": 2,
+    "failure": null
+  },
+  {
+    "batch": "smoke_38ee1a4799",
+    "start": "2026-11-22T18:39:11.641757+00:00",
+    "end": "2026-11-22T18:39:34.374050+00:00",
+    "status": "passed",
+    "checks": 2,
+    "failure": null
+  },
+  {
+    "batch": "smoke_0838cbef4d",
+    "start": "2026-11-22T18:40:24.561442+00:00",
+    "end": "2026-11-22T18:40:36.510818+00:00",
+    "status": "failed",
+    "checks": 1,
+    "failure": "CalledProcessError"
+  },
+  {
+    "batch": "smoke_bc8c1a1ff2",
+    "start": "2026-11-22T18:41:00.861444+00:00",
+    "end": "2026-11-22T18:41:17.300027+00:00",
+    "status": "passed",
+    "checks": 2,
+    "failure": null
+  },
+  {
+    "batch": "smoke_5e7eca75d2",
+    "start": "2026-11-22T18:42:03.896641+00:00",
+    "end": "2026-11-22T18:42:24.257355+00:00",
+    "status": "failed",
+    "checks": 1,
+    "failure": "CalledProcessError"
+  },
+  {
+    "batch": "smoke_4f17babfa8",
+    "start": "2026-11-22T18:42:55.498937+00:00",
+    "end": "2026-11-22T18:47:36.191298+00:00",
+    "status": "failed",
+    "checks": 33,
+    "failure": "KeyboardInterrupt"
+  },
+  {
+    "batch": "smoke_883189915c",
+    "start": "2026-11-22T18:42:59.957010+00:00",
+    "end": "2026-11-22T18:43:20.606300+00:00",
+    "status": "passed",
+    "checks": 2,
+    "failure": null
+  },
+  {
+    "batch": "smoke_ba0eb89c1b",
+    "start": "2026-11-22T18:44:00.995243+00:00",
+    "end": "2026-11-22T18:47:36.241334+00:00",
+    "status": "failed",
+    "checks": 32,
+    "failure": "KeyboardInterrupt"
+  },
+  {
+    "batch": "smoke_a4e5fb8f4c",
+    "start": "2026-11-22T18:45:20.645497+00:00",
+    "end": "2026-11-22T18:45:58.049515+00:00",
+    "status": "failed",
+    "checks": 1,
+    "failure": "CalledProcessError"
+  },
+  {
+    "batch": "smoke_4ebb6f3bd5",
+    "start": "2026-11-22T18:46:01.207643+00:00",
+    "end": "2026-11-22T18:46:24.289488+00:00",
+    "status": "passed",
+    "checks": 2,
+    "failure": null
+  },
+  {
+    "batch": "smoke_87b9405c38",
+    "start": "2026-11-22T18:46:51.434495+00:00",
+    "end": "2026-11-22T18:47:31.924473+00:00",
+    "status": "passed",
+    "checks": 2,
+    "failure": null
+  },
+  {
+    "batch": "smoke_4876698261",
+    "start": "2026-11-22T18:47:45.966875+00:00",
+    "end": "2026-11-22T19:01:17.716582+00:00",
+    "status": "passed",
+    "checks": 85,
+    "failure": null
+  },
+  {
+    "batch": "smoke_85d3db3a27",
+    "start": "2026-11-22T18:48:28.251054+00:00",
+    "end": "2026-11-22T18:48:49.664611+00:00",
+    "status": "passed",
+    "checks": 2,
+    "failure": null
+  },
+  {
+    "batch": "smoke_a5be2be7a0",
+    "start": "2026-11-22T18:49:10.678268+00:00",
+    "end": "2026-11-22T18:49:33.717298+00:00",
+    "status": "passed",
+    "checks": 2,
+    "failure": null
+  },
+  {
+    "batch": "smoke_2f14ecae00",
+    "start": "2026-11-22T18:49:32.247966+00:00",
+    "end": "2026-11-22T19:03:00.453261+00:00",
+    "status": "passed",
+    "checks": 85,
+    "failure": null
+  }
+]

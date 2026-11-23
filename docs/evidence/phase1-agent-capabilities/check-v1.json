@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "题1：符合  \n依据原文：员工先填写设备用途和预计归还日，经部门负责人确认后领取。\n\n题2：符合  \n依据原文：归还时由保管员核对设备编号并登记。",
+  "usage": {
+    "completion_tokens": 48,
+    "prompt_tokens": 224,
+    "total_tokens": 272,
+    "prompt_tokens_details": {
+      "cached_tokens": 4
+    }
+  }
+}

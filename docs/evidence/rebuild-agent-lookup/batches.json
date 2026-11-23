@@ -1,0 +1,107 @@
+[
+  {
+    "batch": "0f9ec5110e",
+    "status": "failed",
+    "checks": 1,
+    "scope": "A generic JSON fixture overrode the dedicated search decision; first run produced no quotes. The protocol fixture was separated before rerunning.",
+    "result": "runs/0f9ec5110e/result.json"
+  },
+  {
+    "batch": "11b9c5df44",
+    "status": "passed",
+    "checks": 3,
+    "scope": "Real local Qwen on cold-chain and missing-evidence cases. This revision still called the model after a miss.",
+    "result": "runs/11b9c5df44/result.json"
+  },
+  {
+    "batch": "f714606bcd",
+    "status": "failed",
+    "checks": 2,
+    "scope": "Budget recovery test correctly received 403 because the test account had no budget-owner grant. The test now assigns an explicit owner in a separate team.",
+    "result": "runs/f714606bcd/result.json"
+  },
+  {
+    "batch": "9f3ee3423c",
+    "status": "failed",
+    "checks": 2,
+    "scope": "The test tried to add the team creator again. The existing membership produced 409. Removed the redundant join.",
+    "result": "runs/9f3ee3423c/result.json"
+  },
+  {
+    "batch": "669c9325cb",
+    "status": "passed",
+    "checks": 4,
+    "scope": "Observed evidence, missing source, invalid citation, follow-up lookup, Worker restart, withdrawal and service republishing.",
+    "result": "runs/669c9325cb/result.json"
+  },
+  {
+    "batch": "ef876bcb1f",
+    "status": "passed",
+    "checks": 4,
+    "scope": "Versioned citation anchors, trace decisions and ordinary member workflow.",
+    "result": "runs/ef876bcb1f/result.json"
+  },
+  {
+    "batch": "8b65208b1a",
+    "status": "passed",
+    "checks": 4,
+    "scope": "Independent two-document purchasing case, signed Feishu handoff with no external launch.",
+    "result": "runs/8b65208b1a/result.json"
+  },
+  {
+    "batch": "2d50ed5946",
+    "status": "passed",
+    "checks": 4,
+    "scope": "Measured amounts, temperatures, percent points and out-of-range references.",
+    "result": "runs/2d50ed5946/result.json"
+  },
+  {
+    "batch": "630e226755",
+    "status": "passed",
+    "checks": 4,
+    "scope": "Query composed with a native Word operation, including a document handing off a missing-evidence notice.",
+    "result": "runs/630e226755/result.json"
+  },
+  {
+    "batch": "8fbc145166",
+    "status": "passed",
+    "checks": 4,
+    "scope": "Checked reviewed ZIP, original DOCX paragraphs, both source pins and three immutable artifact versions.",
+    "result": "runs/8fbc145166/result.json"
+  },
+  {
+    "batch": "542f1393f0",
+    "status": "passed",
+    "checks": 4,
+    "scope": "Malformed search decision distinguished from absence of matching evidence.",
+    "result": "runs/542f1393f0/result.json"
+  },
+  {
+    "batch": "90f6148135",
+    "status": "passed",
+    "checks": 4,
+    "scope": "Visible current-version original links after a plan update. Frozen three-case local model run.",
+    "result": "runs/90f6148135/result.json"
+  },
+  {
+    "batch": "d5a3733697",
+    "status": "passed",
+    "checks": 77,
+    "scope": "First full regression snapshot, before final composition and numeric validation.",
+    "result": "runs/d5a3733697/result.json"
+  },
+  {
+    "batch": "73ec2b0eb6",
+    "status": "passed",
+    "checks": 78,
+    "scope": "Full regression after composable retrieval and Word handoff, before the final citation-link refresh and file checks.",
+    "result": "runs/73ec2b0eb6/result.json"
+  },
+  {
+    "batch": "c9c9c88ceb",
+    "status": "passed",
+    "checks": 78,
+    "scope": "Final full regression. Includes current-version source links on mobile, signed channel handoff, exact approved Word and ZIP bytes, worker restart, source withdrawal, local model evidence and protocol failure paths.",
+    "result": "runs/c9c9c88ceb/result.json"
+  }
+]

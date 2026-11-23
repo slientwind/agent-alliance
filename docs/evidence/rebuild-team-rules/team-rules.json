@@ -1,0 +1,22 @@
+{
+  "input": "synthetic rule and controlled HTTPS provider",
+  "oldPlan": "6552b2d9-bd0a-4f9b-9a3d-cfc3bc438fdb",
+  "planningReplay": "stale",
+  "latePlanning": "stale",
+  "expiredAnswerAdoption": 409,
+  "reviewChangesDeadline": false,
+  "staleReview": 409,
+  "staleDraft": 409,
+  "expiredWeb": 409,
+  "expiredService": 409,
+  "inFlight": "blocked after provider response",
+  "newServiceRevision": 2,
+  "disabledOmitted": true,
+  "upgrade": {
+    "fromSchema": 39,
+    "oldPinReadable": true,
+    "publishedDueButUsable": true,
+    "draftExcluded": true,
+    "nonmemberAdminDenied": true
+  }
+}

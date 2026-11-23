@@ -11,3 +11,5 @@ backend/alliance-production
 .env.*
 !.env.example
 playwright/.auth/
+backend/var/
+__pycache__/

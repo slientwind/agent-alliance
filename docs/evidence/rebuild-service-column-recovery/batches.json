@@ -1,0 +1,88 @@
+[
+  {
+    "batch": "smoke_68a99023cd",
+    "observation": "应用审核人确认成功，执行器仍按旧职责表拦截后续调用。",
+    "result": {
+      "started": "2026-11-23T06:59:15.014812+00:00",
+      "input": "synthetic",
+      "externalProviders": "local HTTPS model and A2A fixtures",
+      "runtime": [
+        "PostgreSQL",
+        "Temporal",
+        "Eino",
+        "DuckDB",
+        "LibreOffice",
+        "PDF.js",
+        "Chromium",
+        "OpenTelemetry Collector"
+      ],
+      "status": "failed",
+      "checks": [
+        "real storage + TLS fixture + model and external A2A register/verify/publish OK"
+      ],
+      "failureType": "CalledProcessError",
+      "failureLine": 528,
+      "ended": "2026-11-23T06:59:45.624319+00:00"
+    }
+  },
+  {
+    "batch": "smoke_0ed775fa87",
+    "observation": "按字段补正职责重新核验后，两种身份都完成原运行。",
+    "result": {
+      "started": "2026-11-23T07:00:30.890249+00:00",
+      "input": "synthetic",
+      "externalProviders": "local HTTPS model and A2A fixtures",
+      "runtime": [
+        "PostgreSQL",
+        "Temporal",
+        "Eino",
+        "DuckDB",
+        "LibreOffice",
+        "PDF.js",
+        "Chromium",
+        "OpenTelemetry Collector"
+      ],
+      "status": "passed",
+      "checks": [
+        "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+        "Released multi-CSV service: delegated advice and exact correction, autonomous reviewer, withdrawal and two approved workbooks"
+      ],
+      "serviceColumnRecovery": "service-column-recovery.json",
+      "ended": "2026-11-23T07:00:50.828116+00:00"
+    }
+  },
+  {
+    "batch": "smoke_4cafc84cf8",
+    "observation": "复验字段补正职责不开放未知调用重试。",
+    "result": {
+      "started": "2026-11-23T07:01:51.319453+00:00",
+      "input": "synthetic",
+      "externalProviders": "local HTTPS model and A2A fixtures",
+      "runtime": [
+        "PostgreSQL",
+        "Temporal",
+        "Eino",
+        "DuckDB",
+        "LibreOffice",
+        "PDF.js",
+        "Chromium",
+        "OpenTelemetry Collector"
+      ],
+      "status": "passed",
+      "checks": [
+        "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+        "Released multi-CSV service: delegated advice and exact correction, autonomous reviewer, withdrawal and two approved workbooks"
+      ],
+      "serviceColumnRecovery": "service-column-recovery.json",
+      "ended": "2026-11-23T07:02:09.105019+00:00"
+    }
+  },
+  {
+    "batch": "smoke_c7fba6358b",
+    "observation": "全量回归通过",
+    "result": {
+      "status": "passed",
+      "checks": 103
+    }
+  }
+]

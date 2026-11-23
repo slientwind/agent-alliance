@@ -1,0 +1,69 @@
+{
+  "body": {
+    "elements": [
+      {
+        "tag": "div",
+        "text": {
+          "content": "Feishu review desk · 待人工审核",
+          "tag": "plain_text"
+        }
+      },
+      {
+        "tag": "div",
+        "text": {
+          "content": "Writer",
+          "tag": "plain_text"
+        }
+      },
+      {
+        "behaviors": [
+          {
+            "default_url": "https://workspace.invalid/?task=review-8b440af8-2e9a-4c67-8c1b-8d92b1f9a7b8-1#e614b296-74e2-4112-bfc9-94400abe8d29",
+            "type": "open_url"
+          }
+        ],
+        "tag": "button",
+        "text": {
+          "content": "审核成果 v1",
+          "tag": "plain_text"
+        }
+      },
+      {
+        "behaviors": [
+          {
+            "default_url": "https://workspace.invalid/#e614b296-74e2-4112-bfc9-94400abe8d29",
+            "type": "open_url"
+          }
+        ],
+        "tag": "button",
+        "text": {
+          "content": "打开项目",
+          "tag": "plain_text"
+        }
+      },
+      {
+        "behaviors": [
+          {
+            "default_url": "https://workspace.invalid/?inbox=review",
+            "type": "open_url"
+          }
+        ],
+        "tag": "button",
+        "text": {
+          "content": "打开我的待办",
+          "tag": "plain_text"
+        }
+      }
+    ]
+  },
+  "config": {
+    "enable_forward": false
+  },
+  "header": {
+    "title": {
+      "content": "任务卡",
+      "tag": "plain_text"
+    }
+  },
+  "schema": "2.0"
+}

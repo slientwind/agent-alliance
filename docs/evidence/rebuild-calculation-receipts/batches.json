@@ -1,0 +1,66 @@
+[
+  {
+    "id": "smoke_0a2c3b78ed",
+    "started": "2026-11-22T17:43:54.427068+00:00",
+    "ended": "2026-11-22T17:44:13.303990+00:00",
+    "status": "passed",
+    "groups": 3,
+    "error": null
+  },
+  {
+    "id": "smoke_62eb5e44fa",
+    "started": "2026-11-22T17:46:27.728478+00:00",
+    "ended": "2026-11-22T17:46:50.035535+00:00",
+    "status": "passed",
+    "groups": 2,
+    "error": null
+  },
+  {
+    "id": "smoke_efd2a1c1e1",
+    "started": "2026-11-22T17:47:42.122378+00:00",
+    "ended": "2026-11-22T18:00:45.002342+00:00",
+    "status": "passed",
+    "groups": 81,
+    "error": null
+  },
+  {
+    "id": "smoke_c48704621c",
+    "started": "2026-11-22T17:50:03.019222+00:00",
+    "ended": "2026-11-22T17:50:22.174787+00:00",
+    "status": "passed",
+    "groups": 3,
+    "error": null
+  },
+  {
+    "id": "smoke_17da392f88",
+    "started": "2026-11-22T17:52:13.002972+00:00",
+    "ended": "2026-11-22T17:52:23.202712+00:00",
+    "status": "passed",
+    "groups": 2,
+    "error": null
+  },
+  {
+    "id": "smoke_34e0c4010f",
+    "started": "2026-11-22T17:52:48.106483+00:00",
+    "ended": "2026-11-22T17:53:10.691087+00:00",
+    "status": "passed",
+    "groups": 1,
+    "error": null
+  },
+  {
+    "id": "smoke_cef1d63d9e",
+    "started": "2026-11-22T17:53:53.638666+00:00",
+    "ended": "2026-11-22T17:54:20.877662+00:00",
+    "status": "passed",
+    "groups": 2,
+    "error": null
+  },
+  {
+    "id": "smoke_f122b8f3dc",
+    "started": "2026-11-22T17:54:16.333178+00:00",
+    "ended": "2026-11-22T18:07:20.933562+00:00",
+    "status": "passed",
+    "groups": 81,
+    "error": null
+  }
+]

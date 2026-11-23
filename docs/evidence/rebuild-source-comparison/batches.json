@@ -1,0 +1,107 @@
+[
+  {
+    "batch": "2bc47281be",
+    "scope": "Initial comparison workflow. Test supplied the wrong source-update query parameter and observed HTTP 409. Corrected the test.",
+    "outcome": "failed",
+    "groups": 1,
+    "report": "runs/2bc47281be/result.json"
+  },
+  {
+    "batch": "99ec84c3c5",
+    "scope": "Actual Qwen3-4B training and product inputs, comparison before anchored feedback.",
+    "outcome": "passed",
+    "groups": 2,
+    "report": "runs/99ec84c3c5/result.json"
+  },
+  {
+    "batch": "46e47e5a86",
+    "scope": "Anchored feedback, selected text replacement, scope checks and native file verification.",
+    "outcome": "passed",
+    "groups": 2,
+    "report": "runs/46e47e5a86/result.json"
+  },
+  {
+    "batch": "ab3b101d45",
+    "scope": "Actual Qwen3-4B output and reviewed correction submitted; new file awaiting approval.",
+    "outcome": "passed",
+    "groups": 2,
+    "report": "runs/ab3b101d45/result.json"
+  },
+  {
+    "batch": "8e0268fe8b",
+    "scope": "DOCX source evidence exposed the paragraph label twice. Separated stored location metadata from text and checked the actual paragraph.",
+    "outcome": "failed",
+    "groups": 1,
+    "report": "runs/8e0268fe8b/result.json"
+  },
+  {
+    "batch": "0c6cccde2e",
+    "scope": "DOCX label and original content checked separately in the browser.",
+    "outcome": "passed",
+    "groups": 3,
+    "report": "runs/0c6cccde2e/result.json"
+  },
+  {
+    "batch": "408b65ecf3",
+    "scope": "Multiple pinned sources, paging, filter and Unicode offsets, authorized quote access.",
+    "outcome": "passed",
+    "groups": 2,
+    "report": "runs/408b65ecf3/result.json"
+  },
+  {
+    "batch": "229a842b9d",
+    "scope": "Open browser comparison clears withdrawn source content and rejects further reads.",
+    "outcome": "passed",
+    "groups": 2,
+    "report": "runs/229a842b9d/result.json"
+  },
+  {
+    "batch": "bc363605a4",
+    "scope": "Private older runner required a retired mock marker. The resulting invalid outline was rejected; reran using the current provider fixture.",
+    "outcome": "failed",
+    "groups": 1,
+    "report": "runs/bc363605a4/result.json"
+  },
+  {
+    "batch": "3803a8f739",
+    "scope": "Current provider fixture, editable PPTX and revision-pinned Word forms.",
+    "outcome": "passed",
+    "groups": 3,
+    "report": "runs/3803a8f739/result.json"
+  },
+  {
+    "batch": "7e83df2e8e",
+    "scope": "Verified Word original and denial for an external replacement with identical summary.",
+    "outcome": "passed",
+    "groups": 2,
+    "report": "runs/7e83df2e8e/result.json"
+  },
+  {
+    "batch": "b5cb7c6670",
+    "scope": "Original quality evidence, reviewed correction, draft synchronization, dependency review and confirmed ZIP with the actual local model.",
+    "outcome": "passed",
+    "groups": 2,
+    "report": "runs/b5cb7c6670/result.json"
+  },
+  {
+    "batch": "8fb910da20",
+    "scope": "New archive handover case, frozen separately before generation. Previous two cases repeated. Native text and first attempt retained.",
+    "outcome": "passed",
+    "groups": 2,
+    "report": "runs/8fb910da20/result.json"
+  },
+  {
+    "batch": "aac7816c5f",
+    "scope": "Frozen intermediate application regression.",
+    "outcome": "passed",
+    "groups": 74,
+    "report": "runs/aac7816c5f/result.json"
+  },
+  {
+    "batch": "8796b116d3",
+    "scope": "Final application regression including ordinary members, Word, slide and source permissions.",
+    "outcome": "passed",
+    "groups": 75,
+    "report": "runs/8796b116d3/result.json"
+  }
+]

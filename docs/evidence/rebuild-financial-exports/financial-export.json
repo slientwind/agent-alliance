@@ -1,0 +1,34 @@
+{
+  "source": "synthetic calls and bills, PostgreSQL, Go and Chromium",
+  "scope": "department",
+  "before": {
+    "calls": 1,
+    "tokens": 12,
+    "pending": 1,
+    "unknown": 1,
+    "recordedCny": "0.000000",
+    "remainingEstimateCny": "0"
+  },
+  "after": {
+    "calls": 1,
+    "tokens": 12,
+    "pending": 0,
+    "unknown": 0,
+    "recordedCny": "0.120001",
+    "remainingEstimateCny": "0"
+  },
+  "postings": [
+    {
+      "amountCny": "0.000001",
+      "final": false
+    },
+    {
+      "amountCny": "0.120000",
+      "final": true
+    }
+  ],
+  "originalSnapshotUnchanged": true,
+  "restoredPermissionRevivedFile": false,
+  "independentSummaryDownloads": true,
+  "filename": "逐笔费用.json"
+}

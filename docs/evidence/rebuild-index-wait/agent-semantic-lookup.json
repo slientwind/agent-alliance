@@ -1,0 +1,225 @@
+{
+  "model": "local CPU BGE with HTTPS search and answer fixture",
+  "agent": "820fcf55-40c1-4178-a9db-f7e827bd069c",
+  "online": {
+    "project": "cc20b4b6-336b-44fa-b107-c9c5e65afc18",
+    "run": "ab5fd542-f619-46ac-be59-89377d0e9400",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_searched",
+      "completed",
+      "submitted",
+      "lookup_answer",
+      "completed",
+      "completed"
+    ],
+    "calls": 2,
+    "answer": "签到设备发生故障时，现场负责人启用离线纸质名册登记",
+    "archive": "semantic-answer-cc20b4b6-336b-44fa-b107-c9c5e65afc18.zip",
+    "response": "签到设备发生故障时，现场负责人启用离线纸质名册登记\n\n原文依据\n[1] 现场制度.txt v1 【S1v1:3-27】签到设备发生故障时，现场负责人启用离线纸质名册登记",
+    "position": 3
+  },
+  "alternative": {
+    "project": "407f9b28-8eba-46c5-8800-b750379620a4",
+    "run": "4c9f975d-205b-46ea-9f1e-1af6066b41d2",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_searched",
+      "completed",
+      "submitted",
+      "lookup_answer",
+      "completed",
+      "completed"
+    ],
+    "calls": 2,
+    "answer": "客户变更收货地址需在发货前提交工单，客服在工单中记录新地址",
+    "archive": "semantic-answer-407f9b28-8eba-46c5-8800-b750379620a4.zip",
+    "response": "客户变更收货地址需在发货前提交工单，客服在工单中记录新地址\n\n原文依据\n[1] 客户支持.txt v1 【S1v1:1-29】客户变更收货地址需在发货前提交工单，客服在工单中记录新地址",
+    "position": 1
+  },
+  "unrelated": {
+    "project": "040e09eb-a6a3-456d-a5f1-1e9e2a794908",
+    "run": "1893823c-d9e3-454e-b2c1-270778cd4870",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_empty_search",
+      "completed",
+      "lookup_receipt_requested",
+      "blocked"
+    ],
+    "calls": 1
+  },
+  "historical": {
+    "project": "67c799bb-a528-4483-bb33-a292412e59ca",
+    "run": "6441edf5-6c02-406d-9637-b15eb9c0907b",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_empty_search",
+      "completed",
+      "lookup_receipt_requested",
+      "blocked"
+    ],
+    "calls": 1
+  },
+  "offline": {
+    "project": "024985ea-efad-4212-850c-c197e59dfdba",
+    "run": "351ef1aa-6f3f-472a-af19-82298d98a6c3",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_unavailable",
+      "completed",
+      "lookup_receipt_requested",
+      "blocked"
+    ],
+    "calls": 1
+  },
+  "lexical": {
+    "project": "61fcfd9e-a00a-40af-bb59-856451a7bf58",
+    "run": "bf163a9e-c3c6-41c9-b118-1968061eee9f",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_searched",
+      "completed",
+      "submitted",
+      "lookup_answer",
+      "completed",
+      "completed"
+    ],
+    "calls": 2,
+    "answer": "签到设备发生故障时，现场负责人启用离线纸质名册登记",
+    "response": "签到设备发生故障时，现场负责人启用离线纸质名册登记。\n\n原文依据\n[1] 现场制度.txt v1 【S1v1:1-26】签到设备发生故障时，现场负责人启用离线纸质名册登记。"
+  },
+  "freshProject": {
+    "project": "6c4cf9c7-e457-451a-8b3a-4c3016be9c41",
+    "indexedBeforeDispatch": 0,
+    "run": "ca3dea34-9746-4fe9-bcd5-ac78fd0c2d60",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_fresh",
+      "completed",
+      "submitted",
+      "lookup_answer",
+      "completed",
+      "completed"
+    ],
+    "calls": 2,
+    "answer": "签到设备发生故障时，现场负责人启用离线纸质名册登记",
+    "archive": "semantic-answer-6c4cf9c7-e457-451a-8b3a-4c3016be9c41.zip",
+    "response": "签到设备发生故障时，现场负责人启用离线纸质名册登记\n\n原文依据\n[1] 新上传制度.txt v1 【S1v1:3-27】签到设备发生故障时，现场负责人启用离线纸质名册登记",
+    "position": 3,
+    "ledger": {
+      "charges": 2,
+      "attempts": 2,
+      "freshCitation": true
+    }
+  },
+  "backlog": {
+    "project": "9ad7437c-90fd-4475-9aa2-1800be17520f",
+    "run": "e2d8f551-cdf4-4002-9574-aec52f18639e",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_index_pending",
+      "completed",
+      "lookup_index_waiting",
+      "blocked"
+    ],
+    "calls": 1,
+    "reason": "资料仍在建立语义索引。若已掌握其他依据，可以先补充原句。",
+    "position": 292,
+    "initialSearch": {
+      "id": "b21a6fca-464a-4d5c-8994-d9304ac02389",
+      "body": "检索词：刷脸终端、应急替代\n资料仍在建立语义索引，当前未能核对全部方案资料。\n现有资料没有找到可引用的原文。请补充相关资料或换一个更具体的问题。"
+    },
+    "ledger": {
+      "charges": 1,
+      "attempts": 1,
+      "freshCitation": false
+    }
+  },
+  "service": {
+    "id": "323e7244-ce77-463e-8406-701b9a98b465",
+    "project": "96e121de-32e4-43c0-80e3-446dcc64dad4",
+    "run": "18da9385-a3f9-4bc4-afa3-c161b05e5c54",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_fresh",
+      "completed",
+      "submitted",
+      "lookup_answer",
+      "completed",
+      "completed"
+    ],
+    "calls": 2,
+    "archive": "semantic-fresh-service.zip",
+    "answer": "签到设备发生故障时，现场负责人启用离线纸质名册登记",
+    "position": 1,
+    "ledger": {
+      "charges": 2,
+      "attempts": 2,
+      "freshCitation": true
+    }
+  },
+  "freshApi": {
+    "project": "bff71c3d-6294-4a90-9189-7b18a152b11e",
+    "run": "8a9d34f4-85d2-48ab-8c83-3854680471d3",
+    "steps": [
+      "completed",
+      "completed"
+    ],
+    "archive": "semantic-fresh-api.zip",
+    "answer": "签到设备发生故障时，现场负责人启用离线纸质名册登记",
+    "position": 1,
+    "ledger": {
+      "charges": 2,
+      "attempts": 2,
+      "freshCitation": true
+    }
+  },
+  "resumedBacklog": {
+    "run": "e2d8f551-cdf4-4002-9574-aec52f18639e",
+    "project": "9ad7437c-90fd-4475-9aa2-1800be17520f",
+    "position": 292,
+    "answer": "签到设备发生故障时，现场负责人启用离线纸质名册登记",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_index_pending",
+      "completed",
+      "lookup_index_waiting",
+      "blocked",
+      "running",
+      "lookup_index_rechecked",
+      "submitted",
+      "lookup_answer",
+      "completed",
+      "completed"
+    ],
+    "calls": 2,
+    "archive": "semantic-backlog-resumed.zip",
+    "ledger": {
+      "charges": 2,
+      "attempts": 2,
+      "citationsOnly": true,
+      "completedRechecks": 1
+    }
+  }
+}

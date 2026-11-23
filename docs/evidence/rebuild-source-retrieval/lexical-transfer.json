@@ -1,0 +1,61 @@
+{
+  "mode": "lexical",
+  "firstOrEmptyCorrect": 3,
+  "total": 6,
+  "cases": [
+    {
+      "query": "活动现场没法用机器签到，要怎么登记？",
+      "expected": "签到设备发生故障时，现场负责人启用离线纸质名册登记",
+      "actual": null,
+      "correct": false,
+      "hits": []
+    },
+    {
+      "query": "展架最晚什么时候还？",
+      "expected": "活动结束后由场务清点借出的展架，并在次日上午归还",
+      "actual": null,
+      "correct": false,
+      "hits": []
+    },
+    {
+      "query": "重复扣款",
+      "expected": "对于重复扣款，客服先索取交易流水号，再交结算专员核实",
+      "actual": "对于重复扣款，客服先索取交易流水号，再交结算专员核实",
+      "correct": true,
+      "hits": [
+        {
+          "id": "79dc9aaf-1b01-49ae-9d62-377e02561d39",
+          "end": 28,
+          "name": "support.txt",
+          "exact": true,
+          "start": 3,
+          "excerpt": "对于重复扣款，客服先索取交易流水号，再交结算专员核实",
+          "lexical": true,
+          "version": 1,
+          "semantic": false
+        }
+      ]
+    },
+    {
+      "query": "货还没发，换个收件地点该怎么办？",
+      "expected": "客户变更收货地址需在发货前提交工单，客服在工单中记录新地址",
+      "actual": null,
+      "correct": false,
+      "hits": []
+    },
+    {
+      "query": "地铁公交费报销需要哪种票据？",
+      "expected": null,
+      "actual": null,
+      "correct": true,
+      "hits": []
+    },
+    {
+      "query": "场地最多可以入场几人？",
+      "expected": null,
+      "actual": null,
+      "correct": true,
+      "hits": []
+    }
+  ]
+}

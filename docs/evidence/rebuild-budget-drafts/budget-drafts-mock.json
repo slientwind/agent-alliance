@@ -1,0 +1,28 @@
+{
+  "input": "synthetic",
+  "transport": "mock",
+  "checks": [
+    {
+      "width": 390,
+      "projectIsolation": true,
+      "missingTargetAndRunBlocked": true,
+      "lateReceiptPreservedNewerDraft": true,
+      "terminalReadOnly": true,
+      "revocationClearedDraft": true,
+      "lostReceiptReusedKey": true,
+      "acceptedDraftEditDidNotDuplicate": true,
+      "requests": 4
+    },
+    {
+      "width": 1440,
+      "projectIsolation": true,
+      "missingTargetAndRunBlocked": true,
+      "lateReceiptPreservedNewerDraft": true,
+      "terminalReadOnly": true,
+      "revocationClearedDraft": true,
+      "lostReceiptReusedKey": true,
+      "acceptedDraftEditDidNotDuplicate": true,
+      "requests": 4
+    }
+  ]
+}

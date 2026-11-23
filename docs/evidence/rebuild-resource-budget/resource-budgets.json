@@ -1,0 +1,29 @@
+{
+  "batch": "smoke_7fb7113419",
+  "started": "2026-11-20T14:29:18.995978+00:00",
+  "ended": "2026-11-20T14:31:29.071461+00:00",
+  "scope": "real database, API and worker with controlled HTTPS provider",
+  "competingTrials": 2,
+  "acceptedTrials": 1,
+  "modelRevisions": 2,
+  "modelCalls": 4,
+  "reservedCNY": "0.625003",
+  "approvals": [
+    "resource_calls",
+    "resource"
+  ],
+  "limitsChecked": [
+    "model",
+    "tool",
+    "external"
+  ],
+  "resumedRun": "271b2130-8ab5-408a-9b35-194ecff70f14",
+  "project": "7515f62f-f075-4997-8e02-78e5780dedae",
+  "upgrade": {
+    "priorSchema": 35,
+    "matchedOperations": 3,
+    "unlinkedHistoricalCharges": 1,
+    "legacySettlement": "0.500000",
+    "resourceUsedCNY": "4.000000"
+  }
+}

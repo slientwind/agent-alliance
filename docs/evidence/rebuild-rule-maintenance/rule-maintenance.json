@@ -1,0 +1,36 @@
+{
+  "rule": "1b1681e8-9336-48df-8ae1-b915389739f3",
+  "project": "14f5cc61-0ed3-47d1-855c-509e4e9d03ec",
+  "delivery": "d22f2fb7-16f8-4c9d-b51d-13772e885af6",
+  "creator": "rule-author",
+  "maintainer": "rule-successor",
+  "priorPin": 1,
+  "newPin": 2,
+  "actions": [
+    "rule.maintenance.authority",
+    "rule.maintenance.nominate",
+    "rule.maintenance.accept",
+    "rule.maintenance.nominate",
+    "rule.maintenance.membership",
+    "rule.maintenance.nominate",
+    "rule.maintenance.accept",
+    "rule.maintenance.nominate",
+    "rule.maintenance.cancel",
+    "rule.maintenance.nominate"
+  ],
+  "checks": [
+    "nominee acceptance in mobile browser",
+    "review and publication isolated",
+    "private project references concealed",
+    "old plan and delivery retained",
+    "new plans adopt new publication",
+    "outsider and stale action denied",
+    "team exit and rejoin",
+    "multi-team inbox",
+    "suspension invalidates pending authority",
+    "filtered history",
+    "due review transferred without extending the deadline",
+    "expired new rule blocked while delivered older pin preserved",
+    "creator departure preserves successor and vacates other duties"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "template": "189651ab-6179-4a19-abf9-8b38b0013d87",
+  "versionUsed": 1,
+  "versionThenPublished": 2,
+  "original": "18a05664-8139-48a1-bcd6-d2e9671e8ba6",
+  "reused": "79781e55-ad42-4ea4-99fd-ea20a41fb3e0",
+  "originalReviewer": "ed9f97ed-8eb3-4970-95e4-bba5c2801b3d",
+  "newReviewer": "37f9cb24-deb4-428f-84ee-daaab09185fc",
+  "dependencies": [
+    [],
+    [],
+    [
+      1,
+      2
+    ]
+  ],
+  "originalSource": "d9be77f5-8cb2-43ba-811a-eb71693a85e0",
+  "newSource": "a5c76042-de69-44c8-bc0c-28d828a6c6b5",
+  "originalRun": "f8adff2e-c18b-4a45-bdea-951fea7aaced",
+  "newRun": "2772033e-d661-4c89-9ff8-e2fec9c8fa59",
+  "callsPerRun": 3,
+  "passed": {
+    "sameKeyReplay": true,
+    "previousVersionPinned": true,
+    "scopedPublication": true,
+    "mandatoryNewSources": true,
+    "replacement": true,
+    "archivedAfterDelivery": true
+  },
+  "verifiedTotals": {
+    "original": "12.40",
+    "reused": "35.20"
+  }
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "id": "run_3248d955a6cf4b1e42d8060c",
+    "outputEqualsCheckingOpinion": true,
+    "outputEqualsDraft": false,
+    "sourceToDraft": true,
+    "draftToCheck": true,
+    "mockFlags": [
+      false,
+      false,
+      false
+    ]
+  },
+  {
+    "id": "run_3d1887242bea9aa6eb4d0e54",
+    "outputEqualsCheckingOpinion": true,
+    "outputEqualsDraft": false,
+    "sourceToDraft": true,
+    "draftToCheck": true,
+    "mockFlags": [
+      false,
+      false,
+      false
+    ]
+  },
+  {
+    "id": "run_87d10e1da8c445fe8eac7818",
+    "outputEqualsCheckingOpinion": true,
+    "outputEqualsDraft": false,
+    "sourceToDraft": true,
+    "draftToCheck": true,
+    "mockFlags": [
+      false,
+      false,
+      false
+    ]
+  },
+  {
+    "id": "run_33008ea8a27115754f85014c",
+    "outputEqualsCheckingOpinion": true,
+    "outputEqualsDraft": false,
+    "sourceToDraft": true,
+    "draftToCheck": true,
+    "mockFlags": [
+      false,
+      false,
+      false
+    ]
+  }
+]

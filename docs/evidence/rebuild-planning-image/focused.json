@@ -1,0 +1,22 @@
+{
+  "started": "2026-11-22T20:10:50.410630+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "Multi-format planning (controlled HTTPS)",
+    "Multi-format planning (local Qwen)"
+  ],
+  "ended": "2026-11-22T20:11:51.854680+00:00"
+}

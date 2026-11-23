@@ -1,0 +1,26 @@
+[
+  {
+    "width": 320,
+    "form": 268,
+    "fieldset": 997.234375,
+    "scroll": 1001,
+    "thread": 296,
+    "threadScroll": 1015
+  },
+  {
+    "width": 390,
+    "form": 338,
+    "fieldset": 997.234375,
+    "scroll": 1001,
+    "thread": 366,
+    "threadScroll": 1015
+  },
+  {
+    "width": 1440,
+    "form": 813,
+    "fieldset": 997.234375,
+    "scroll": 1001,
+    "thread": 1368,
+    "threadScroll": 1368
+  }
+]

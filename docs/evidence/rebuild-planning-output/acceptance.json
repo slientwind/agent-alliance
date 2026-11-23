@@ -1,0 +1,46 @@
+{
+  "controlled": {
+    "environment": "Chromium, Go API, PostgreSQL, Temporal, native XLSX",
+    "planningModel": "controlled",
+    "explicitOutput": "xlsx",
+    "executedOperations": [
+      "xlsx"
+    ],
+    "projectCalls": 3,
+    "bindingRejected": 422,
+    "wrongPlanRejected": 422,
+    "nonCSVCalculationRejected": 422,
+    "replayedWithDifferentFormat": 409,
+    "cells": [
+      "00017",
+      "投影仪"
+    ],
+    "records": "planning-output-fixture.json"
+  },
+  "localModel": {
+    "environment": "Chromium, Go API, PostgreSQL, Temporal, native XLSX",
+    "planningModel": "Qwen3-4B",
+    "explicitOutput": "xlsx",
+    "executedOperations": [
+      "xlsx"
+    ],
+    "projectCalls": 4,
+    "bindingRejected": 422,
+    "wrongPlanRejected": 422,
+    "nonCSVCalculationRejected": 422,
+    "replayedWithDifferentFormat": 409,
+    "cells": [
+      "00017",
+      "投影仪"
+    ],
+    "records": "planning-output-local.json",
+    "naturalLanguage": {
+      "missing": "生成 Excel 工作簿（XLSX）",
+      "laterReuseCount": 1,
+      "textFromWord": "text",
+      "multiStepCount": 2
+    },
+    "projectCallsNote": "同项目先用自然语言授权规划一次，再指定 Excel 授权一次，随后试运行一次、执行一次。"
+  },
+  "enterprisePilot": "待真实企业团队、资源和业务基线。"
+}

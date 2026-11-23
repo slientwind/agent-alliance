@@ -1,0 +1,12 @@
+{
+  "provider": "local Qwen",
+  "project": "69e2f27b-af1b-47fa-8498-3d92a6576926",
+  "run": "64a30711-3da8-4f01-913a-13814514462c",
+  "chargeCalls": [
+    1,
+    2
+  ],
+  "quote": "设备借出前，由库房主管核对出库单并签字。",
+  "position": 73,
+  "archive": "lookup-receipt-local-web.zip"
+}

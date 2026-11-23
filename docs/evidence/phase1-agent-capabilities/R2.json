@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "动作｜相关能力或对象｜原因  \n创建试用｜数据助手｜可以继续的工作和还不能承诺的结果：请求人工确认",
+  "usage": {
+    "completion_tokens": 29,
+    "prompt_tokens": 135,
+    "total_tokens": 164,
+    "prompt_tokens_details": {
+      "cached_tokens": 87
+    }
+  }
+}

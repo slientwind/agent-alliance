@@ -1,0 +1,53 @@
+{
+  "lookup": {
+    "answer": "出发前由部门主管预审，单晚住宿报销上限是450元。\n\n原文依据\n[1] 培训差旅规程.txt v1 【S1v1:18-37】每人每晚住宿费的报销上限是 450 元。\n[2] 培训差旅规程.txt v1 【S1v1:1-17】参加异地培训前，须由部门主管预审。",
+    "sources": [
+      {
+        "id": "f89e0644-fe15-4c4d-bcdd-60044da8763c",
+        "pinned": 1,
+        "revoked": false,
+        "observed": 1,
+        "assessments": [],
+        "revisionInputs": []
+      }
+    ]
+  },
+  "aggregate": {
+    "rows": [
+      [
+        "部门",
+        "报销额"
+      ],
+      [
+        "研发",
+        "410.75"
+      ],
+      [
+        "财务",
+        "89.25"
+      ],
+      [
+        "合计",
+        "500"
+      ]
+    ],
+    "sources": [
+      {
+        "id": "23d5d2f9-66ef-486d-9c77-c320440c1044",
+        "pinned": 1,
+        "revoked": false,
+        "observed": 1,
+        "assessments": [],
+        "revisionInputs": []
+      },
+      {
+        "id": "93b6f181-a0dc-4be0-a27a-72d80477c282",
+        "pinned": 1,
+        "revoked": false,
+        "observed": 1,
+        "assessments": [],
+        "revisionInputs": []
+      }
+    ]
+  }
+}

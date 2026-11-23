@@ -1,0 +1,233 @@
+[
+  {
+    "started": "2026-11-22T20:25:03.163038+00:00",
+    "ended": "2026-11-22T20:25:13.362441+00:00",
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Chromium: search, reuse by description, single and combined Agent delivery"
+    ],
+    "batch": "06605e8119"
+  },
+  {
+    "started": "2026-11-22T20:26:19.297338+00:00",
+    "ended": "2026-11-22T20:26:29.351412+00:00",
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Chromium: search, reuse by description, single and combined Agent delivery"
+    ],
+    "batch": "b1bc1c1212"
+  },
+  {
+    "started": "2026-11-22T20:28:11.521481+00:00",
+    "ended": "2026-11-22T20:29:19.722272+00:00",
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Multi-format planning (controlled HTTPS)",
+      "Multi-format planning (local Qwen)"
+    ],
+    "batch": "7186f2a916"
+  },
+  {
+    "started": "2026-11-22T20:29:12.033687+00:00",
+    "ended": "2026-11-22T20:29:22.897996+00:00",
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Chromium: search, reuse by description, single and combined Agent delivery"
+    ],
+    "batch": "68c7a1483d"
+  },
+  {
+    "started": "2026-11-22T20:30:26.659270+00:00",
+    "ended": "2026-11-22T20:30:36.455514+00:00",
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Chromium: search, reuse by description, single and combined Agent delivery"
+    ],
+    "batch": "b0c6fffbbb"
+  },
+  {
+    "started": "2026-11-22T20:30:26.521304+00:00",
+    "ended": "2026-11-22T20:31:28.808906+00:00",
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Multi-format planning (controlled HTTPS)",
+      "Multi-format planning (local Qwen)"
+    ],
+    "batch": "556a653e9c"
+  },
+  {
+    "started": "2026-11-22T20:31:36.315478+00:00",
+    "ended": "2026-11-22T20:31:46.269720+00:00",
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Chromium: search, reuse by description, single and combined Agent delivery"
+    ],
+    "batch": "62f80e1196"
+  },
+  {
+    "started": "2026-11-22T20:35:46.562368+00:00",
+    "ended": "2026-11-22T20:35:56.579055+00:00",
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Chromium: search, reuse by description, single and combined Agent delivery"
+    ],
+    "batch": "dad4679e04"
+  },
+  {
+    "started": "2026-11-22T20:36:49.764042+00:00",
+    "ended": "2026-11-22T20:36:59.469871+00:00",
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Chromium: search, reuse by description, single and combined Agent delivery"
+    ],
+    "batch": "d2037cfa6d"
+  },
+  {
+    "started": "2026-11-22T20:26:50.346430+00:00",
+    "ended": "2026-11-22T20:36:24.642086+00:00",
+    "status": "failed",
+    "checks": [
+      "Image contract: PNG validation, human qualification, planner isolation, project preview, approved immutable original",
+      "Member service page from shared link or recommendation: version consent, pinned attachment, replay, separate reviewer and approved Word delivery",
+      "Credential rotation via Chromium: provider rejection, explicit verification, independent Agent key and pinned revision preserved",
+      "Fresh enterprise setup in Chromium: concrete team model, three validated Agents, explicit approval and fixed Word delivery",
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Versioned feedback: commenter, blocking change, manual revision, evidence, reviewer transfer and closure OK",
+      "Post-delivery scoped cost grant and revocation, immutable version receipts OK",
+      "Run traces: timed DAG spans, checkpoint failure, role and expiry enforcement, scoped exports, source revocation and audit",
+      "Real OpenTelemetry Collector received the run and two linked Protobuf call spans after receiver recovery; no business text or repeat charge",
+      "Delegated team policy pins future expiry; expired detailed events and telemetry queue cleared on worker restart, delivery retained",
+      "Temporal + Eino + two-step execution, idempotency, source binding, revision, dependent review and fixed manifest OK",
+      "Planner answer adoption OK",
+      "Budget update and idempotent decimal settlement OK",
+      "Scoped budget delegation, concurrent project reservations, exact settlement, team ceiling and resumed execution",
+      "Management outcomes: initiator attribution, explicit adoption, reviewed versions, repeat editions, historical windows and permissions",
+      "Post-delivery revision: scoped admission, fixed first edition during review, linked approved successor and explicit external downloads",
+      "Delegated API: source withdrawal blocks original JSON and ZIP, independently approved successor, retained evidence and distribution events",
+      "Explicit enterprise-wide management: admin and delegated exports, precise reconciled totals, separate detail rights and lifecycle",
+      "Member profile: scoped usage, account history, stale role protection and mobile review",
+      "Scoped financial export: separate grant, partially and finally posted costs, frozen snapshot, JSON download and withdrawal",
+      "Scoped actor and task drilldown: independent permissions, cost attribution, redaction, keyset pagination and current access",
+      "Scoped JSON export: field minimization, authenticated download, expiry, revocation, audit and concurrent creation",
+      "Explicit team and department aggregates: independent cost grants, original attribution, current scope and revocation",
+      "External lifecycle: service discovery, original step supplement, idempotent controls and feedback, resumed live events, grant revocation and final delivery",
+      "Reviewer handoff and exceptional takeover: explicit acceptance, superseded requests, scoped role, mandatory version review and confirmed package",
+      "Unstaffed project recovery: scoped nomination, explicit acceptance, expiry and revocation, browser review and single-response approved package",
+      "Project feedback: evidence-based targeting, dependencies, deferred items, atomic version checks, replay and authority",
+      "Rule maintenance: accepted duties, scoped references and inbox, vacancy recovery, pinned project delivery and new publication",
+      "Chromium: withdrawn review notes, grouped originals, assessment history, authorized reviewer and independently cleared delivery version",
+      "Recycled sources: new authorized version history, withdrawn legacy links, reopened delivery review, worker purge and shared object survival",
+      "Source revision impact: pin history, per-artifact decisions, scoped revision, sealed evidence and revoked original",
+      "Uncertain model operation: recorded investigation, scoped one-call risk consent, independent budget and attempt history",
+      "Missing provider response: original receipt recovery, explicit risk consent, quarantined late receipt and actual worker crash",
+      "Review clocks: owner escalation, transfer and extension, mobile review during Feishu outage, bounded digest retry and current-state recovery",
+      "Feishu local protocol: binding, service discovery and private consent, version rejection, replay, scoped group reply, browser review and delivery",
+      "XLSX source withdrawal: suspended original, historical drafts, preview and ZIP; only cleared version becomes downloadable",
+      "Office delivery editions: external XLSX edit, new human approval, file-only difference and two immutable downloads",
+      "Approved ZIP: corrupted and missing originals block confirmation; restored XLSX, fixed text, review receipt, hashes and scope checked",
+      "Isolated DuckDB filter and decimal sum, version-bound source, stored editable XLSX download OK",
+      "Published service, scoped application API, human review, manifest, member delegation, revocation and usage OK",
+      "Revision checks: pinned samples, named human reviewer, all required cases, service admission, in-flight hold, no duplicate charge on resume, inherited tests and real Office evidence",
+      "Run status distribution, confirmed remote rejection, idempotent failure closure and scoped reporting in Chromium",
+      "A2A trial replay across concurrent clicks and API crash, billed once; pinned multi-interface selection, async trial, durable pause/restart, downstream delivery, one remote cancel, source identity, human input, deadlines, public Card discovery, pinned revision policy, credentials and bounded rechecks",
+      "LibreOffice DOCX, XLSX and PPTX previews, authorized original PDF, rejection of embedded objects and source preview revocation",
+      "Office regeneration returns an editable DOCX version while the former file remains readable",
+      "One authorized Agent rerun at step 2, one charge per request, late result retained, explicit merge and dependent-only review",
+      "Resource money and call caps across model revisions, planning, trials, tools and A2A; scoped approval and resumed run",
+      "Personal preference review, renewal, admission, offboarding, guarded return and worker purge",
+      "Candidate selection: published revision, verified checks, project budget, output format and independently scoped visibility",
+      "Pinned team rules, independent review and expiry, project/service admission, in-flight recheck and verified replacement",
+      "Mobile management: exact money, scope and period changes, stale and failed responses, restored dashboard",
+      "Chromium: branch configuration, feedback, version approval, fixed delivery, service reuse, planner gap, PDF.js pages, native image, scoped trace inspection and export, desktop and mobile monochrome workspace",
+      "Chromium: text and Office draft recovery, concurrent revision checks, dependent-only review, file identity and reviewer revocation",
+      "Chromium: cross-team finance inbox, restricted project titles, withdrawn application, change of approver and exact settlement of approval",
+      "Chromium: scoped enhancement request, replay, maintainer decision and verified published revision",
+      "Chromium: fixed rule visibility, team draft, publish, review and disable",
+      "Project-only Agent access: separate resource and cost decisions, pinned revision, revocation in flight, one charged invocation and delivery",
+      "Borrowed DuckDB and asynchronous A2A: team registration, independent approval, fixed receipt after revocation, exact charges and two reviewed deliverables",
+      "Provider replacement in Chromium: atomic cohort, fresh evidence, protected edits, old workflow and service pins, new model and segregated spend",
+      "Mock Chromium: target credential rotation requires new consent, revoked management clears endpoint details, long model addresses fit three viewports",
+      "Mock Chromium: isolated budget drafts, missing targets, late receipts, changed submissions, lost response replay and project revocation",
+      "Mock Chromium: stale deadline edit requires explicit reconciliation and retains the draft on three screen sizes",
+      "Mock Chromium: team withdrawal while the draft stays open is detected without focus, retains the draft and requires an explicit new team",
+      "Agent-first workflow: member description, single-run verification, separate publication, attached evidence, review and delivered output",
+      "Project image gap: member creates a PNG Agent, assigned reviewer inspects its sample, published revision and Word producer deliver two reviewed originals",
+      "Multiple required files: incomplete plans rejected; separately bound Word and Excel producers generate two reviewed originals from the same pinned input",
+      "Explicit Excel requirement checked against revision, input, replay and final workbook despite a conflicting planning reply",
+      "Member creates four reusable tool Agents from chat, resumes drafts, validates samples and delivers reviewed private documents, spreadsheets and source extracts",
+      "Receipt amendment resumes the same run; budget, withdrawal and cancellation rechecked after worker restart",
+      "Lookup checkpoint resumed after Worker restart, revoked source denied before charging, reusable service read new caller's attachment"
+    ],
+    "batch": "295eca6a35",
+    "note": "两个已发布的图片候选均匹配，旧测试未指定要选的版本。"
+  },
+  {
+    "started": "2026-11-22T20:36:22.880554+00:00",
+    "ended": "2026-11-22T20:37:51.845592+00:00",
+    "status": "failed",
+    "checks": [
+      "Image contract: PNG validation, human qualification, planner isolation, project preview, approved immutable original",
+      "Member service page from shared link or recommendation: version consent, pinned attachment, replay, separate reviewer and approved Word delivery",
+      "Credential rotation via Chromium: provider rejection, explicit verification, independent Agent key and pinned revision preserved",
+      "Fresh enterprise setup in Chromium: concrete team model, three validated Agents, explicit approval and fixed Word delivery",
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Versioned feedback: commenter, blocking change, manual revision, evidence, reviewer transfer and closure OK",
+      "Post-delivery scoped cost grant and revocation, immutable version receipts OK",
+      "Run traces: timed DAG spans, checkpoint failure, role and expiry enforcement, scoped exports, source revocation and audit",
+      "Real OpenTelemetry Collector received the run and two linked Protobuf call spans after receiver recovery; no business text or repeat charge",
+      "Delegated team policy pins future expiry; expired detailed events and telemetry queue cleared on worker restart, delivery retained",
+      "Temporal + Eino + two-step execution, idempotency, source binding, revision, dependent review and fixed manifest OK",
+      "Planner answer adoption OK",
+      "Budget update and idempotent decimal settlement OK",
+      "Scoped budget delegation, concurrent project reservations, exact settlement, team ceiling and resumed execution",
+      "Management outcomes: initiator attribution, explicit adoption, reviewed versions, repeat editions, historical windows and permissions",
+      "Post-delivery revision: scoped admission, fixed first edition during review, linked approved successor and explicit external downloads",
+      "Delegated API: source withdrawal blocks original JSON and ZIP, independently approved successor, retained evidence and distribution events",
+      "Explicit enterprise-wide management: admin and delegated exports, precise reconciled totals, separate detail rights and lifecycle",
+      "Member profile: scoped usage, account history, stale role protection and mobile review",
+      "Scoped financial export: separate grant, partially and finally posted costs, frozen snapshot, JSON download and withdrawal",
+      "Scoped actor and task drilldown: independent permissions, cost attribution, redaction, keyset pagination and current access",
+      "Scoped JSON export: field minimization, authenticated download, expiry, revocation, audit and concurrent creation",
+      "Explicit team and department aggregates: independent cost grants, original attribution, current scope and revocation",
+      "External lifecycle: service discovery, original step supplement, idempotent controls and feedback, resumed live events, grant revocation and final delivery",
+      "Reviewer handoff and exceptional takeover: explicit acceptance, superseded requests, scoped role, mandatory version review and confirmed package",
+      "Unstaffed project recovery: scoped nomination, explicit acceptance, expiry and revocation, browser review and single-response approved package",
+      "Project feedback: evidence-based targeting, dependencies, deferred items, atomic version checks, replay and authority",
+      "Rule maintenance: accepted duties, scoped references and inbox, vacancy recovery, pinned project delivery and new publication",
+      "Chromium: withdrawn review notes, grouped originals, assessment history, authorized reviewer and independently cleared delivery version",
+      "Recycled sources: new authorized version history, withdrawn legacy links, reopened delivery review, worker purge and shared object survival",
+      "Source revision impact: pin history, per-artifact decisions, scoped revision, sealed evidence and revoked original",
+      "Uncertain model operation: recorded investigation, scoped one-call risk consent, independent budget and attempt history"
+    ],
+    "batch": "40ed30d544",
+    "note": "停止仍使用旧浏览器选择条件的全量测试快照。"
+  },
+  {
+    "started": "2026-11-22T20:38:16.061545+00:00",
+    "ended": "2026-11-22T20:39:00.856909+00:00",
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Browser discovery in populated installation: quick-tools",
+      "Browser discovery in populated installation: image-agent-entry",
+      "Browser discovery in populated installation: agent-entry"
+    ],
+    "batch": "fdf09b2ffe"
+  },
+  {
+    "batch": "aff0b458ce",
+    "status": "passed",
+    "checksPassed": 92,
+    "started": "2026-11-22T20:38:19.306588+00:00",
+    "ended": "2026-11-22T20:52:47.218401+00:00"
+  }
+]

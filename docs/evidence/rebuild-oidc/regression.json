@@ -1,0 +1,22 @@
+{
+  "platform": {
+    "status": "passed",
+    "checks": 53,
+    "batch": "smoke_899cf0ac75",
+    "data": "synthetic"
+  },
+  "recovery": {
+    "status": "passed",
+    "checks": 10,
+    "batch": "e6e03a97a2"
+  },
+  "identity": {
+    "status": "passed",
+    "phases": [
+      "optional",
+      "required",
+      "outage"
+    ],
+    "environment": "local Keycloak and synthetic accounts"
+  }
+}

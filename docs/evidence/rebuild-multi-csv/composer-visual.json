@@ -1,0 +1,36 @@
+{
+  "browser": "Chromium",
+  "input": "synthetic ordinary member with one team and two attachments",
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844,
+      "composerArea": 0.6944469444950784,
+      "headerWeight": "700",
+      "bodyWeight": "400",
+      "maxColorChannelDifference": 2,
+      "horizontalOverflow": false,
+      "allToolButtonsVisible": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "composerArea": 0.6935,
+      "headerWeight": "700",
+      "bodyWeight": "400",
+      "maxColorChannelDifference": 2,
+      "horizontalOverflow": false,
+      "allToolButtonsVisible": true
+    },
+    {
+      "width": 320,
+      "height": 740,
+      "composerArea": 0.6844921875,
+      "headerWeight": "700",
+      "bodyWeight": "400",
+      "maxColorChannelDifference": 2,
+      "horizontalOverflow": false,
+      "allToolButtonsVisible": true
+    }
+  ]
+}

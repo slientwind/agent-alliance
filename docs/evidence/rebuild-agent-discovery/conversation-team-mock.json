@@ -1,0 +1,170 @@
+{
+  "evidence": "Chromium / mock API / no live execution",
+  "results": [
+    {
+      "width": 320,
+      "height": 740,
+      "nativeWordSegmentation": false,
+      "queries": [
+        {
+          "query": "对各地区网点的流水做金额汇总",
+          "results": [
+            "流水汇总"
+          ]
+        },
+        {
+          "query": "请把有前导零的设备编号逐行整理成清单",
+          "results": [
+            "设备逐行清单"
+          ]
+        },
+        {
+          "query": "Ｗｏｒｄ",
+          "results": [
+            "会议议程"
+          ]
+        },
+        {
+          "query": "Excel",
+          "results": [
+            "流水汇总",
+            "设备逐行清单"
+          ]
+        },
+        {
+          "query": "火星地层年代",
+          "results": []
+        }
+      ],
+      "composerArea": 0.6844921875,
+      "horizontalOverflow": false,
+      "checks": [
+        "choose a destination only at send when no default exists; no request before choice",
+        "withdrawn choice blocks send and preserves draft",
+        "only non-default team automatically selected",
+        "zero memberships cannot submit",
+        "published Agent relevant to the brief ranks first with matching words; interaction requires explicit choice",
+        "library shows a shared team once; choosing the published revision preserves the conversation draft",
+        "choosing a published Agent resolves its team and shows its payer before submitting",
+        "missing image access disables creation and hides administrator action",
+        "same-named resources use the correct PNG revision; blocked credentials excluded",
+        "goal carried into draft; image wizard fits viewport",
+        "only matching ready published output offered; direct reuse keeps new description",
+        "paraphrased search ranks published title matches, ignores draft-only words and carries the task into an empty composer",
+        "combining Agents keeps the initial task wording while seeking later steps by name",
+        "creating a specific capability preserves the wider task; returning from search retains the unfinished description and output choice",
+        "adding a similar Agent preserves previous steps and pins published revisions"
+      ]
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "nativeWordSegmentation": true,
+      "queries": [
+        {
+          "query": "对各地区网点的流水做金额汇总",
+          "results": [
+            "流水汇总"
+          ]
+        },
+        {
+          "query": "请把有前导零的设备编号逐行整理成清单",
+          "results": [
+            "设备逐行清单"
+          ]
+        },
+        {
+          "query": "Ｗｏｒｄ",
+          "results": [
+            "会议议程"
+          ]
+        },
+        {
+          "query": "Excel",
+          "results": [
+            "流水汇总",
+            "设备逐行清单"
+          ]
+        },
+        {
+          "query": "火星地层年代",
+          "results": []
+        }
+      ],
+      "composerArea": 0.6944469444950784,
+      "horizontalOverflow": false,
+      "checks": [
+        "choose a destination only at send when no default exists; no request before choice",
+        "withdrawn choice blocks send and preserves draft",
+        "only non-default team automatically selected",
+        "zero memberships cannot submit",
+        "published Agent relevant to the brief ranks first with matching words; interaction requires explicit choice",
+        "library shows a shared team once; choosing the published revision preserves the conversation draft",
+        "choosing a published Agent resolves its team and shows its payer before submitting",
+        "missing image access disables creation and hides administrator action",
+        "same-named resources use the correct PNG revision; blocked credentials excluded",
+        "goal carried into draft; image wizard fits viewport",
+        "only matching ready published output offered; direct reuse keeps new description",
+        "paraphrased search ranks published title matches, ignores draft-only words and carries the task into an empty composer",
+        "combining Agents keeps the initial task wording while seeking later steps by name",
+        "creating a specific capability preserves the wider task; returning from search retains the unfinished description and output choice",
+        "adding a similar Agent preserves previous steps and pins published revisions"
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "nativeWordSegmentation": true,
+      "queries": [
+        {
+          "query": "对各地区网点的流水做金额汇总",
+          "results": [
+            "流水汇总"
+          ]
+        },
+        {
+          "query": "请把有前导零的设备编号逐行整理成清单",
+          "results": [
+            "设备逐行清单"
+          ]
+        },
+        {
+          "query": "Ｗｏｒｄ",
+          "results": [
+            "会议议程"
+          ]
+        },
+        {
+          "query": "Excel",
+          "results": [
+            "流水汇总",
+            "设备逐行清单"
+          ]
+        },
+        {
+          "query": "火星地层年代",
+          "results": []
+        }
+      ],
+      "composerArea": 0.6935,
+      "horizontalOverflow": false,
+      "checks": [
+        "choose a destination only at send when no default exists; no request before choice",
+        "withdrawn choice blocks send and preserves draft",
+        "only non-default team automatically selected",
+        "zero memberships cannot submit",
+        "published Agent relevant to the brief ranks first with matching words; interaction requires explicit choice",
+        "library shows a shared team once; choosing the published revision preserves the conversation draft",
+        "choosing a published Agent resolves its team and shows its payer before submitting",
+        "missing image access disables creation and hides administrator action",
+        "same-named resources use the correct PNG revision; blocked credentials excluded",
+        "goal carried into draft; image wizard fits viewport",
+        "only matching ready published output offered; direct reuse keeps new description",
+        "paraphrased search ranks published title matches, ignores draft-only words and carries the task into an empty composer",
+        "combining Agents keeps the initial task wording while seeking later steps by name",
+        "creating a specific capability preserves the wider task; returning from search retains the unfinished description and output choice",
+        "adding a similar Agent preserves previous steps and pins published revisions"
+      ]
+    }
+  ]
+}

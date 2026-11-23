@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "题1：部门负责人；制度写的责任人；候选答案写的责任人；相同或不同。  \n题2：保管员；制度写的责任人；候选答案写的责任人；相同或不同。",
+  "usage": {
+    "completion_tokens": 44,
+    "prompt_tokens": 238,
+    "total_tokens": 282,
+    "prompt_tokens_details": {
+      "cached_tokens": 166
+    }
+  }
+}

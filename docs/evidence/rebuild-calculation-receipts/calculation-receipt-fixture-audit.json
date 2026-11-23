@@ -1,0 +1,89 @@
+{
+  "run": "c778da28-2ff4-41ed-afcd-5deba4fd3753",
+  "manifest": {
+    "delivery": "e0309317-225e-4d12-b2c9-8048ded782c8",
+    "edition": 1,
+    "changes": [],
+    "changedNotes": [],
+    "handoff": {},
+    "confirmedBy": "992ce2ed-9aeb-4729-a998-8878dce84ce0",
+    "confirmedAt": "2026-11-23T02:03:59.289321+08:00",
+    "sources": [
+      {
+        "id": "8bf005df-e5fc-45cb-8ca9-4695bb412998",
+        "pinned": 1,
+        "revoked": false,
+        "observed": 1,
+        "assessments": [],
+        "revisionInputs": []
+      },
+      {
+        "id": "1af147a6-9c62-4cbc-a2f6-bf95fa49a017",
+        "pinned": 1,
+        "revoked": false,
+        "observed": 1,
+        "assessments": [],
+        "revisionInputs": [],
+        "calculationReceipt": {
+          "to": 16,
+          "from": 1,
+          "plan": 3,
+          "step": 2
+        }
+      }
+    ],
+    "items": [
+      {
+        "step": 1,
+        "dependencies": [],
+        "artifact": "eb07e20f-2ee4-47b3-b5ec-931a38dd57ce",
+        "name": "原文核对助手 · 检索依据",
+        "version": 1,
+        "reviewer": "992ce2ed-9aeb-4729-a998-8878dce84ce0",
+        "reviewedAt": "2026-11-23T02:03:58.971554+08:00",
+        "path": "artifacts/01-v1-原文核对助手 · 检索依据.txt",
+        "mediaType": "text/plain; charset=utf-8",
+        "sha256": "95cb03bf7aabbf34c65edaa6b1d1b18d6174d3afc90dcd26b40da734db9d9569"
+      },
+      {
+        "step": 2,
+        "dependencies": [
+          {
+            "name": "原文核对助手 · 检索依据",
+            "step": 1,
+            "version": 1,
+            "artifact": "eb07e20f-2ee4-47b3-b5ec-931a38dd57ce"
+          }
+        ],
+        "artifact": "b7f90eda-2ffd-45e2-a520-9a23e6448e44",
+        "name": "原文核对助手 · 原文与金额核算",
+        "version": 1,
+        "reviewer": "992ce2ed-9aeb-4729-a998-8878dce84ce0",
+        "reviewedAt": "2026-11-23T02:03:59.073285+08:00",
+        "path": "artifacts/02-v1-原文核对助手 · 原文与金额核算.txt",
+        "mediaType": "text/plain; charset=utf-8",
+        "sha256": "953b352a63f1e94c709279f58a65f47d70de48fb136cc6bc3af7abf780f87a2f"
+      },
+      {
+        "step": 3,
+        "dependencies": [
+          {
+            "name": "原文核对助手 · 原文与金额核算",
+            "step": 2,
+            "version": 1,
+            "artifact": "b7f90eda-2ffd-45e2-a520-9a23e6448e44"
+          }
+        ],
+        "artifact": "09fbe9e7-da06-4ca5-9f43-050a5e307d9e",
+        "name": "检索交付成稿 fixture",
+        "version": 1,
+        "reviewer": "992ce2ed-9aeb-4729-a998-8878dce84ce0",
+        "reviewedAt": "2026-11-23T02:03:59.171888+08:00",
+        "path": "artifacts/03-v1-deliverable.docx",
+        "mediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "sha256": "62c49d379991ac6def07d18ca353ed4b1da18a71da8214508bd8f168566bc0b0"
+      }
+    ]
+  },
+  "bytesVerified": true
+}

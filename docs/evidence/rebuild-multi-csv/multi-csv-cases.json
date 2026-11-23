@@ -1,0 +1,764 @@
+[
+  {
+    "case": "east",
+    "attempt": 1,
+    "status": 200,
+    "expected": "30.10",
+    "total": "30.1",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ]
+    ],
+    "sha256": "683e4d4d054ade399224babc86b9deee10355a796d6fa1a0c0ba191e1f1505e7",
+    "cellType": "n"
+  },
+  {
+    "case": "east",
+    "attempt": 2,
+    "status": 200,
+    "expected": "30.10",
+    "total": "30.1",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ]
+    ],
+    "sha256": "683e4d4d054ade399224babc86b9deee10355a796d6fa1a0c0ba191e1f1505e7",
+    "cellType": "n"
+  },
+  {
+    "case": "east",
+    "attempt": 3,
+    "status": 200,
+    "expected": "30.10",
+    "total": "30.1",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ]
+    ],
+    "sha256": "683e4d4d054ade399224babc86b9deee10355a796d6fa1a0c0ba191e1f1505e7",
+    "cellType": "n"
+  },
+  {
+    "case": "west",
+    "attempt": 1,
+    "status": 200,
+    "expected": "60.20",
+    "total": "60.2",
+    "covered": [
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "fd9332c434789754ab0b3b223e65a8d475d59a46989d9dbd3a71f4b8c24909d1",
+    "cellType": "n"
+  },
+  {
+    "case": "west",
+    "attempt": 2,
+    "status": 200,
+    "expected": "60.20",
+    "total": "60.2",
+    "covered": [
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "fd9332c434789754ab0b3b223e65a8d475d59a46989d9dbd3a71f4b8c24909d1",
+    "cellType": "n"
+  },
+  {
+    "case": "west",
+    "attempt": 3,
+    "status": 200,
+    "expected": "60.20",
+    "total": "60.2",
+    "covered": [
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "fd9332c434789754ab0b3b223e65a8d475d59a46989d9dbd3a71f4b8c24909d1",
+    "cellType": "n"
+  },
+  {
+    "case": "both",
+    "attempt": 1,
+    "status": 200,
+    "expected": "90.30",
+    "total": "90.3",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "7c14f1422d9dc4e66992c9d17fbb4d2f784e0d2811297d3ee16720cd3dc5bd54",
+    "cellType": "n"
+  },
+  {
+    "case": "both",
+    "attempt": 2,
+    "status": 200,
+    "expected": "90.30",
+    "total": "90.3",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "cd14510d0b7c6a1f2a4e15d3e6c0c0a2365d6e316797d31118537a504501b189",
+    "cellType": "n"
+  },
+  {
+    "case": "both",
+    "attempt": 3,
+    "status": 200,
+    "expected": "90.30",
+    "total": "90.3",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "cd14510d0b7c6a1f2a4e15d3e6c0c0a2365d6e316797d31118537a504501b189",
+    "cellType": "n"
+  },
+  {
+    "case": "reversed",
+    "attempt": 1,
+    "status": 200,
+    "expected": "90.30",
+    "total": "90.3",
+    "covered": [
+      [
+        "fixture-2",
+        2
+      ],
+      [
+        "fixture-1",
+        1
+      ]
+    ],
+    "sha256": "434a8ec867ee797aa124751c8e99f4947ac35cd55efd4a5c2308748a4623af37",
+    "cellType": "n"
+  },
+  {
+    "case": "reversed",
+    "attempt": 2,
+    "status": 200,
+    "expected": "90.30",
+    "total": "90.3",
+    "covered": [
+      [
+        "fixture-2",
+        2
+      ],
+      [
+        "fixture-1",
+        1
+      ]
+    ],
+    "sha256": "434a8ec867ee797aa124751c8e99f4947ac35cd55efd4a5c2308748a4623af37",
+    "cellType": "n"
+  },
+  {
+    "case": "reversed",
+    "attempt": 3,
+    "status": 200,
+    "expected": "90.30",
+    "total": "90.3",
+    "covered": [
+      [
+        "fixture-2",
+        2
+      ],
+      [
+        "fixture-1",
+        1
+      ]
+    ],
+    "sha256": "434a8ec867ee797aa124751c8e99f4947ac35cd55efd4a5c2308748a4623af37",
+    "cellType": "n"
+  },
+  {
+    "case": "same filename",
+    "attempt": 1,
+    "status": 200,
+    "expected": "90.30",
+    "total": "90.3",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "745a491d5cb976866bc67f461d0465d33d58f1fde4cc60a1bbd677c8c704b149",
+    "cellType": "n"
+  },
+  {
+    "case": "same filename",
+    "attempt": 2,
+    "status": 200,
+    "expected": "90.30",
+    "total": "90.3",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "745a491d5cb976866bc67f461d0465d33d58f1fde4cc60a1bbd677c8c704b149",
+    "cellType": "n"
+  },
+  {
+    "case": "same filename",
+    "attempt": 3,
+    "status": 200,
+    "expected": "90.30",
+    "total": "90.3",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "745a491d5cb976866bc67f461d0465d33d58f1fde4cc60a1bbd677c8c704b149",
+    "cellType": "n"
+  },
+  {
+    "case": "same group",
+    "attempt": 1,
+    "status": 200,
+    "expected": "30.00",
+    "total": "30",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "d638934eb214eb8640389f8db883a0f2c4fe532f722971a36c524cd2adfd8bb8",
+    "cellType": "n"
+  },
+  {
+    "case": "same group",
+    "attempt": 2,
+    "status": 200,
+    "expected": "30.00",
+    "total": "30",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "d638934eb214eb8640389f8db883a0f2c4fe532f722971a36c524cd2adfd8bb8",
+    "cellType": "n"
+  },
+  {
+    "case": "same group",
+    "attempt": 3,
+    "status": 200,
+    "expected": "30.00",
+    "total": "30",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "d638934eb214eb8640389f8db883a0f2c4fe532f722971a36c524cd2adfd8bb8",
+    "cellType": "n"
+  },
+  {
+    "case": "filtered source",
+    "attempt": 1,
+    "status": 200,
+    "expected": "30.10",
+    "total": "30.1",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "69bf3ac59b36238b3bda9537e657a91da80d41e4ec82648bac48c46370359a56",
+    "cellType": "n"
+  },
+  {
+    "case": "filtered source",
+    "attempt": 2,
+    "status": 200,
+    "expected": "30.10",
+    "total": "30.1",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "69bf3ac59b36238b3bda9537e657a91da80d41e4ec82648bac48c46370359a56",
+    "cellType": "n"
+  },
+  {
+    "case": "filtered source",
+    "attempt": 3,
+    "status": 200,
+    "expected": "30.10",
+    "total": "30.1",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "69bf3ac59b36238b3bda9537e657a91da80d41e4ec82648bac48c46370359a56",
+    "cellType": "n"
+  },
+  {
+    "case": "missing column",
+    "attempt": 1,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 2 份资料《second.csv》v2缺少配置的列：amount"
+  },
+  {
+    "case": "missing column",
+    "attempt": 2,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 2 份资料《second.csv》v2缺少配置的列：amount"
+  },
+  {
+    "case": "missing column",
+    "attempt": 3,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 2 份资料《second.csv》v2缺少配置的列：amount"
+  },
+  {
+    "case": "duplicate header",
+    "attempt": 1,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 1 份资料《second.csv》v2的表头为空或存在重复列名"
+  },
+  {
+    "case": "duplicate header",
+    "attempt": 2,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 1 份资料《second.csv》v2的表头为空或存在重复列名"
+  },
+  {
+    "case": "duplicate header",
+    "attempt": 3,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 1 份资料《second.csv》v2的表头为空或存在重复列名"
+  },
+  {
+    "case": "malformed row",
+    "attempt": 1,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 2 份资料《second.csv》v2第 2 行的列数与表头不一致"
+  },
+  {
+    "case": "malformed row",
+    "attempt": 2,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 2 份资料《second.csv》v2第 2 行的列数与表头不一致"
+  },
+  {
+    "case": "malformed row",
+    "attempt": 3,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 2 份资料《second.csv》v2第 2 行的列数与表头不一致"
+  },
+  {
+    "case": "precision",
+    "attempt": 1,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 1 份资料《second.csv》v2第 2 行的金额无效，最多保留两位小数"
+  },
+  {
+    "case": "precision",
+    "attempt": 2,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 1 份资料《second.csv》v2第 2 行的金额无效，最多保留两位小数"
+  },
+  {
+    "case": "precision",
+    "attempt": 3,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 1 份资料《second.csv》v2第 2 行的金额无效，最多保留两位小数"
+  },
+  {
+    "case": "no matches",
+    "attempt": 1,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "全部选定资料中没有符合筛选条件的记录"
+  },
+  {
+    "case": "no matches",
+    "attempt": 2,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "全部选定资料中没有符合筛选条件的记录"
+  },
+  {
+    "case": "no matches",
+    "attempt": 3,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "全部选定资料中没有符合筛选条件的记录"
+  },
+  {
+    "case": "duplicate reference",
+    "attempt": 1,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "选定资料中有重复的资料标识，请核对所选版本"
+  },
+  {
+    "case": "duplicate reference",
+    "attempt": 2,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "选定资料中有重复的资料标识，请核对所选版本"
+  },
+  {
+    "case": "duplicate reference",
+    "attempt": 3,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "选定资料中有重复的资料标识，请核对所选版本"
+  },
+  {
+    "case": "unsupported document",
+    "attempt": 1,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "分组汇总要求每份选定资料都是 CSV，请将表格导出为 CSV 后重新选择"
+  },
+  {
+    "case": "unsupported document",
+    "attempt": 2,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "分组汇总要求每份选定资料都是 CSV，请将表格导出为 CSV 后重新选择"
+  },
+  {
+    "case": "unsupported document",
+    "attempt": 3,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "分组汇总要求每份选定资料都是 CSV，请将表格导出为 CSV 后重新选择"
+  },
+  {
+    "case": "formula-shaped group",
+    "attempt": 1,
+    "status": 200,
+    "expected": "2.00",
+    "total": "2",
+    "covered": [
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "0708d9b976b8bb568c316ece77a1e82b7126eb6c689c428891b05f88b045e961",
+    "cellType": "n"
+  },
+  {
+    "case": "formula-shaped group",
+    "attempt": 2,
+    "status": 200,
+    "expected": "2.00",
+    "total": "2",
+    "covered": [
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "0708d9b976b8bb568c316ece77a1e82b7126eb6c689c428891b05f88b045e961",
+    "cellType": "n"
+  },
+  {
+    "case": "formula-shaped group",
+    "attempt": 3,
+    "status": 200,
+    "expected": "2.00",
+    "total": "2",
+    "covered": [
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "0708d9b976b8bb568c316ece77a1e82b7126eb6c689c428891b05f88b045e961",
+    "cellType": "n"
+  },
+  {
+    "case": "large exact amount",
+    "attempt": 1,
+    "status": 200,
+    "expected": "99999999999999.99",
+    "total": "99999999999999.99",
+    "covered": [
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "6dfc114a664c8d1377a1ac573965f776978cf94aad2fa0681e2820af6586493c",
+    "cellType": "s"
+  },
+  {
+    "case": "large exact amount",
+    "attempt": 2,
+    "status": 200,
+    "expected": "99999999999999.99",
+    "total": "99999999999999.99",
+    "covered": [
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "6dfc114a664c8d1377a1ac573965f776978cf94aad2fa0681e2820af6586493c",
+    "cellType": "s"
+  },
+  {
+    "case": "large exact amount",
+    "attempt": 3,
+    "status": 200,
+    "expected": "99999999999999.99",
+    "total": "99999999999999.99",
+    "covered": [
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "6dfc114a664c8d1377a1ac573965f776978cf94aad2fa0681e2820af6586493c",
+    "cellType": "s"
+  },
+  {
+    "case": "consistent currency",
+    "attempt": 1,
+    "status": 200,
+    "expected": "20.00",
+    "total": "20",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "0c0860670e402250069c4a2cb52bd0d09f7f9991d0d289d4c03b6bcf032b578d",
+    "cellType": "n"
+  },
+  {
+    "case": "consistent currency",
+    "attempt": 2,
+    "status": 200,
+    "expected": "20.00",
+    "total": "20",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "0c0860670e402250069c4a2cb52bd0d09f7f9991d0d289d4c03b6bcf032b578d",
+    "cellType": "n"
+  },
+  {
+    "case": "consistent currency",
+    "attempt": 3,
+    "status": 200,
+    "expected": "20.00",
+    "total": "20",
+    "covered": [
+      [
+        "fixture-1",
+        1
+      ],
+      [
+        "fixture-2",
+        2
+      ]
+    ],
+    "sha256": "0c0860670e402250069c4a2cb52bd0d09f7f9991d0d289d4c03b6bcf032b578d",
+    "cellType": "n"
+  },
+  {
+    "case": "mixed currency",
+    "attempt": 1,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "选定资料的金额单位不同或部分缺失，请核对单位后再汇总"
+  },
+  {
+    "case": "mixed currency",
+    "attempt": 2,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "选定资料的金额单位不同或部分缺失，请核对单位后再汇总"
+  },
+  {
+    "case": "mixed currency",
+    "attempt": 3,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "选定资料的金额单位不同或部分缺失，请核对单位后再汇总"
+  },
+  {
+    "case": "missing currency",
+    "attempt": 1,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "选定资料的金额单位不同或部分缺失，请核对单位后再汇总"
+  },
+  {
+    "case": "missing currency",
+    "attempt": 2,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "选定资料的金额单位不同或部分缺失，请核对单位后再汇总"
+  },
+  {
+    "case": "missing currency",
+    "attempt": 3,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "选定资料的金额单位不同或部分缺失，请核对单位后再汇总"
+  },
+  {
+    "case": "blank currency",
+    "attempt": 1,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 1 份资料《second.csv》v2第 2 行缺少金额单位"
+  },
+  {
+    "case": "blank currency",
+    "attempt": 2,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 1 份资料《second.csv》v2第 2 行缺少金额单位"
+  },
+  {
+    "case": "blank currency",
+    "attempt": 3,
+    "status": 422,
+    "expected": null,
+    "code": "aggregate_input",
+    "reason": "第 1 份资料《second.csv》v2第 2 行缺少金额单位"
+  }
+]

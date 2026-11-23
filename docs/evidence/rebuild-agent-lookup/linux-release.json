@@ -1,0 +1,65 @@
+{
+  "app": "sha256:f34af276a34d30a4297ddf11831277b322765e3c754db15f4df2cb1e3f3b4b7e",
+  "runtime": "Linux containers: API, Worker, local HTTPS protocol fixture and document connector",
+  "workflow": "delivered",
+  "phases": [
+    "search",
+    "answer",
+    ""
+  ],
+  "costs": 3,
+  "quote": "移交时须在 30 分钟内回执。\n\n原文依据\n[1] intake.md v1 【S1v1:1-16】移交关键流程 30 分钟内回执。",
+  "packageSHA256": "a3985426fc30a13ffdd79b5703eaf38ba9b64a90192b7798a0d454fe1cf50674",
+  "files": [
+    {
+      "step": 1,
+      "dependencies": [],
+      "artifact": "a472e105-09cf-4e4d-8487-f2fda46318f5",
+      "name": "移交核对 · 检索依据",
+      "version": 1,
+      "reviewer": "26137201-8f3d-4995-8832-ecc557275292",
+      "reviewedAt": "2026-11-22T16:11:12.591588Z",
+      "path": "artifacts/01-v1-移交核对 · 检索依据.txt",
+      "mediaType": "text/plain; charset=utf-8",
+      "sha256": "80fe7d868eae1feab0f0b3c48fffe2be530108e04f77f12ef539bdd286f964e6"
+    },
+    {
+      "step": 2,
+      "dependencies": [
+        {
+          "name": "移交核对 · 检索依据",
+          "step": 1,
+          "version": 1,
+          "artifact": "a472e105-09cf-4e4d-8487-f2fda46318f5"
+        }
+      ],
+      "artifact": "09f749f2-a76d-43e8-906e-ea7b063f0573",
+      "name": "移交核对 · 据原文回答",
+      "version": 1,
+      "reviewer": "26137201-8f3d-4995-8832-ecc557275292",
+      "reviewedAt": "2026-11-22T16:11:12.598366Z",
+      "path": "artifacts/02-v1-移交核对 · 据原文回答.txt",
+      "mediaType": "text/plain; charset=utf-8",
+      "sha256": "a974aeac858180e1486b2b133fde2207a1f372b7729e36e516ed7448d378b96d"
+    },
+    {
+      "step": 3,
+      "dependencies": [
+        {
+          "name": "移交核对 · 据原文回答",
+          "step": 2,
+          "version": 1,
+          "artifact": "09f749f2-a76d-43e8-906e-ea7b063f0573"
+        }
+      ],
+      "artifact": "05f3d308-c039-4c13-8951-4356c3ae4f13",
+      "name": "核对成稿",
+      "version": 1,
+      "reviewer": "26137201-8f3d-4995-8832-ecc557275292",
+      "reviewedAt": "2026-11-22T16:11:12.604648Z",
+      "path": "artifacts/03-v1-deliverable.docx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "sha256": "dc93cf19f8ce6fbdfeabd335ab1fa1ee79c9742612c71a21d6241f000cc91b3b"
+    }
+  ]
+}

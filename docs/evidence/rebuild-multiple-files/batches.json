@@ -1,0 +1,121 @@
+[
+  {
+    "batch": "af31971ee9",
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Real Qwen model plans a missing tool capability, member configures, verifies and delivers a native Word file"
+    ],
+    "error": null
+  },
+  {
+    "batch": "14cd276bc5",
+    "status": "failed",
+    "checks": [
+      "Image contract: PNG validation, human qualification, planner isolation, project preview, approved immutable original",
+      "Member service page from shared link or recommendation: version consent, pinned attachment, replay, separate reviewer and approved Word delivery",
+      "Credential rotation via Chromium: provider rejection, explicit verification, independent Agent key and pinned revision preserved",
+      "Fresh enterprise setup in Chromium: concrete team model, three validated Agents, explicit approval and fixed Word delivery",
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Multi-format planning (controlled HTTPS)"
+    ],
+    "error": null
+  },
+  {
+    "batch": "4e79a78a70",
+    "status": "failed",
+    "checks": [
+      "Image contract: PNG validation, human qualification, planner isolation, project preview, approved immutable original",
+      "Member service page from shared link or recommendation: version consent, pinned attachment, replay, separate reviewer and approved Word delivery",
+      "Credential rotation via Chromium: provider rejection, explicit verification, independent Agent key and pinned revision preserved",
+      "Fresh enterprise setup in Chromium: concrete team model, three validated Agents, explicit approval and fixed Word delivery",
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Versioned feedback: commenter, blocking change, manual revision, evidence, reviewer transfer and closure OK",
+      "Post-delivery scoped cost grant and revocation, immutable version receipts OK",
+      "Run traces: timed DAG spans, checkpoint failure, role and expiry enforcement, scoped exports, source revocation and audit",
+      "Real OpenTelemetry Collector received the run and two linked Protobuf call spans after receiver recovery; no business text or repeat charge",
+      "Delegated team policy pins future expiry; expired detailed events and telemetry queue cleared on worker restart, delivery retained",
+      "Temporal + Eino + two-step execution, idempotency, source binding, revision, dependent review and fixed manifest OK",
+      "Planner answer adoption OK",
+      "Budget update and idempotent decimal settlement OK",
+      "Scoped budget delegation, concurrent project reservations, exact settlement, team ceiling and resumed execution",
+      "Management outcomes: initiator attribution, explicit adoption, reviewed versions, repeat editions, historical windows and permissions",
+      "Post-delivery revision: scoped admission, fixed first edition during review, linked approved successor and explicit external downloads",
+      "Delegated API: source withdrawal blocks original JSON and ZIP, independently approved successor, retained evidence and distribution events",
+      "Explicit enterprise-wide management: admin and delegated exports, precise reconciled totals, separate detail rights and lifecycle",
+      "Member profile: scoped usage, account history, stale role protection and mobile review",
+      "Scoped financial export: separate grant, partially and finally posted costs, frozen snapshot, JSON download and withdrawal",
+      "Scoped actor and task drilldown: independent permissions, cost attribution, redaction, keyset pagination and current access",
+      "Scoped JSON export: field minimization, authenticated download, expiry, revocation, audit and concurrent creation",
+      "Explicit team and department aggregates: independent cost grants, original attribution, current scope and revocation",
+      "External lifecycle: service discovery, original step supplement, idempotent controls and feedback, resumed live events, grant revocation and final delivery",
+      "Reviewer handoff and exceptional takeover: explicit acceptance, superseded requests, scoped role, mandatory version review and confirmed package",
+      "Unstaffed project recovery: scoped nomination, explicit acceptance, expiry and revocation, browser review and single-response approved package",
+      "Project feedback: evidence-based targeting, dependencies, deferred items, atomic version checks, replay and authority",
+      "Rule maintenance: accepted duties, scoped references and inbox, vacancy recovery, pinned project delivery and new publication"
+    ],
+    "error": null
+  },
+  {
+    "batch": "62823d2d83",
+    "status": "passed",
+    "checks": [
+      "Image contract: PNG validation, human qualification, planner isolation, project preview, approved immutable original",
+      "Member service page from shared link or recommendation: version consent, pinned attachment, replay, separate reviewer and approved Word delivery",
+      "Credential rotation via Chromium: provider rejection, explicit verification, independent Agent key and pinned revision preserved",
+      "Fresh enterprise setup in Chromium: concrete team model, three validated Agents, explicit approval and fixed Word delivery",
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Multi-format planning (controlled HTTPS)",
+      "Multi-format planning (local Qwen)"
+    ],
+    "error": null
+  },
+  {
+    "batch": "b4486b2c6c",
+    "status": "passed",
+    "checks": [
+      "Image contract: PNG validation, human qualification, planner isolation, project preview, approved immutable original",
+      "Member service page from shared link or recommendation: version consent, pinned attachment, replay, separate reviewer and approved Word delivery",
+      "Credential rotation via Chromium: provider rejection, explicit verification, independent Agent key and pinned revision preserved",
+      "Fresh enterprise setup in Chromium: concrete team model, three validated Agents, explicit approval and fixed Word delivery",
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Multi-format planning (controlled HTTPS)",
+      "Multi-format planning (local Qwen)"
+    ],
+    "error": null
+  },
+  {
+    "batch": "9856ea96fb",
+    "status": "passed",
+    "checks": [
+      "Image contract: PNG validation, human qualification, planner isolation, project preview, approved immutable original",
+      "Member service page from shared link or recommendation: version consent, pinned attachment, replay, separate reviewer and approved Word delivery",
+      "Credential rotation via Chromium: provider rejection, explicit verification, independent Agent key and pinned revision preserved",
+      "Fresh enterprise setup in Chromium: concrete team model, three validated Agents, explicit approval and fixed Word delivery",
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Multi-format planning (controlled HTTPS)",
+      "Multi-format planning (local Qwen)"
+    ],
+    "error": null
+  },
+  {
+    "batch": "smoke_d6e2ade58d",
+    "status": "passed",
+    "checks": 89,
+    "note": "Original test filenames collided in retained JSON. Both archives passed verification when generated."
+  },
+  {
+    "batch": "smoke_e29eec49ae",
+    "status": "passed",
+    "checks": [
+      "Image contract: PNG validation, human qualification, planner isolation, project preview, approved immutable original",
+      "Member service page from shared link or recommendation: version consent, pinned attachment, replay, separate reviewer and approved Word delivery",
+      "Credential rotation via Chromium: provider rejection, explicit verification, independent Agent key and pinned revision preserved",
+      "Fresh enterprise setup in Chromium: concrete team model, three validated Agents, explicit approval and fixed Word delivery",
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Multi-format planning (controlled HTTPS)",
+      "Multi-format planning (local Qwen)"
+    ],
+    "note": "Distinct evidence names rechecked alongside both original source-lookup and aggregation ZIPs."
+  }
+]

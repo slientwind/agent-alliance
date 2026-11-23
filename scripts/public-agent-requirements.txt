@@ -1,0 +1,8 @@
+a2a-sdk==0.3.0
+uvicorn==0.34.2
+sse-starlette==2.3.6
+starlette==0.46.2
+fastapi==0.115.12
+google-api-core==2.30.3
+googleapis-common-protos==1.75.0
+proto-plus==1.28.2

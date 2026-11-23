@@ -1,0 +1,13 @@
+{
+  "provider": "synthetic HTTPS",
+  "project": "ace0e2f9-c8c7-426f-ae26-48dabec2fb21",
+  "trial": "86a9358d-226b-4bd3-827c-cade93bca7f8",
+  "operation": "png",
+  "preview": [
+    320,
+    192
+  ],
+  "versions": 3,
+  "serviceOperation": "png",
+  "sha256": "f27f315b043e2900da58e9525bbc8d0e7f2907c2fb1116711a197f8433941ee3"
+}

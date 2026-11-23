@@ -1,0 +1,13 @@
+{
+  "before": {
+    "reconcile": 2
+  },
+  "after": {
+    "failed": 1,
+    "reconcile": 1
+  },
+  "source": "local A2A rejection, real Go API and PostgreSQL",
+  "runs": 2,
+  "extraCalls": 0,
+  "repeatStatus": 202
+}

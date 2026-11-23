@@ -1,0 +1,15 @@
+{
+  "version": "5.4.624",
+  "files": {
+    "sales-fonts-configured.pdf": [
+      "record_id region approved_units unit_price_yuan status001 东区 3 12.50 已核准002 东区 2 9.90 已核准003 西区 4 8.25 已核准004 西区 1 999.00 待核准"
+    ],
+    "training-slides.pdf": [
+      "领取设备员工先填写设备用途和预计归还日，经部门负责人确认后领取。",
+      "归还设备归还时由保管员核对设备编号并登记。"
+    ],
+    "training-doc.pdf": [
+      "借用设备培训员工先填写设备用途和预计归还日，经部门负责人确认后领取。归还时由保管员核对设备编号并登记。"
+    ]
+  }
+}

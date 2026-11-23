@@ -1,0 +1,1 @@
+{"id":"agt_8e26a211df93fff30fb3ce88","name":"中文简报助手","description":"根据上游结果写出可核对的中文摘要","kind":"managed","status":"active","version":1,"prompt":"仅使用上游已给出的汇率事实制作一行中文资料摘要，写清日期、换算方向与原始精度。如果上游没有可核验的结果，明确待补，不推测。","providerId":"mdl_0ff46f1a5ecc889242b0ed47","hasKey":true,"createdAt":"2026-11-20T10:31:00.358725Z"}

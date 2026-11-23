@@ -1,0 +1,4 @@
+worker: go1.27.4
+	dep	go.temporal.io/sdk	v1.51.0	h1:RsEghFfg91qWgNaecRgPrms9TA7iXskSzSQO2BwhJRs=
+	build	vcs.revision=79eadc2aec8c865ef5787cd563a1d472ca8dd4ce
+	build	vcs.modified=false

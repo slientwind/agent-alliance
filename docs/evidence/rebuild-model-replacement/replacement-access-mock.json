@@ -1,0 +1,23 @@
+{
+  "source": "Chromium, synthetic HTTP responses",
+  "evidence": [
+    {
+      "width": 320,
+      "rotatedTargetRequiredNewConsent": true,
+      "withdrawnScopeRemoved": true,
+      "submitted": 0
+    },
+    {
+      "width": 390,
+      "rotatedTargetRequiredNewConsent": true,
+      "withdrawnScopeRemoved": true,
+      "submitted": 0
+    },
+    {
+      "width": 1440,
+      "rotatedTargetRequiredNewConsent": true,
+      "withdrawnScopeRemoved": true,
+      "submitted": 0
+    }
+  ]
+}

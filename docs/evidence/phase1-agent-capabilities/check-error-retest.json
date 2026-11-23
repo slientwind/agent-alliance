@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "题1：员工  \n制度写的责任人：部门负责人  \n候选答案写的责任人：员工  \n相同或不同：不同  \n\n题2：归还  \n制度写的责任人：保管员  \n候选答案写的责任人：归还由财务登记  \n相同或不同：不同",
+  "usage": {
+    "completion_tokens": 59,
+    "prompt_tokens": 212,
+    "total_tokens": 271,
+    "prompt_tokens_details": {
+      "cached_tokens": 3
+    }
+  }
+}

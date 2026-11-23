@@ -1,0 +1,12 @@
+{
+  "first_line_as_final": {
+    "after_partial": "2.00,0.00,8.00",
+    "competing_request": "prepared",
+    "expected_competing_request": "budget unavailable"
+  },
+  "staged": {
+    "after_partial": "2.00,6.00,2.00",
+    "competing_request": "budget unavailable",
+    "after_final": "5.00,0.00,5.00"
+  }
+}

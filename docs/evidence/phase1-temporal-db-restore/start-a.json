@@ -1,0 +1,7 @@
+{
+  "workflowId": "demo-A",
+  "runId": "01a1f862-0928-7bed-a947-f2b6874e954d",
+  "type": "AuditSample",
+  "namespace": "default",
+  "taskQueue": "unstaffed-fixture"
+}

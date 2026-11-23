@@ -1,0 +1,21 @@
+{
+  "started": "2026-11-22T15:30:01.893924+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "Actual local Qwen3 model and PPTX tool executed; per-case outcomes retained"
+  ],
+  "ended": "2026-11-22T15:30:14.371309+00:00"
+}

@@ -1,0 +1,68 @@
+[
+  {
+    "question": "请查证冷链交接规程：谁核对铅封，温度超过多少时暂停接收？请引用原文。",
+    "input": [
+      "private-regulation.txt"
+    ],
+    "status": "ready",
+    "result": {
+      "lookupSteps": [
+        1
+      ],
+      "reasons": [
+        "需要查阅规程以获取准确的铅封核对和温度暂停接收的原文依据"
+      ],
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "根据规程查证资料，回答冷链交接规程中的铅封核对和温度暂停接收的问题。",
+      "agents": [
+        "752a7d04-b0db-4f78-963d-4a7cbfb34076"
+      ],
+      "missing": []
+    },
+    "plan": [
+      [
+        "text",
+        "search"
+      ],
+      [
+        "text",
+        "answer"
+      ]
+    ],
+    "answer": "冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。\n\n原文依据\n[1] private-regulation.txt v1 【S1v1:1-32】冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。",
+    "run": "4521d44a-f57c-4858-a926-0119abd66d31"
+  },
+  {
+    "question": "按 region 汇总两份 CSV 中的 amount 金额，交付一个 Excel。",
+    "input": [
+      "private-east.csv",
+      "private-west.csv"
+    ],
+    "status": "ready",
+    "result": {
+      "reasons": [
+        "A1 是唯一能完成 CSV 分组求和、合计复核及 Excel 文件交付的行动，符合用户要求"
+      ],
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "按 region 汇总两份 CSV 中的 amount 金额，交付 Excel",
+      "agents": [
+        "012ba10e-9c56-40c0-a195-138a8eee0565"
+      ],
+      "missing": []
+    },
+    "plan": [
+      [
+        "aggregate",
+        ""
+      ]
+    ],
+    "answer": "region · amount\nEast · 30.10\nWest · 60.20\n合计 · 90.30\n已核对 2 份输入，共 2 行，纳入 2 行。\n金额单位：未提供单位列，需核对同一口径",
+    "run": "f58e72a7-f5c5-4196-b175-71cded7993ae"
+  }
+]

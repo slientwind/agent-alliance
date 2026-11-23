@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "现在应该做什么？  \n请组织者确认报名表是否已获取并授权读取。",
+  "usage": {
+    "completion_tokens": 20,
+    "prompt_tokens": 214,
+    "total_tokens": 234,
+    "prompt_tokens_details": {
+      "cached_tokens": 163
+    }
+  }
+}

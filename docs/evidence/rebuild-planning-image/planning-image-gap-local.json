@@ -1,0 +1,29 @@
+{
+  "mode": "local",
+  "project": "85e5fa49-2ed2-420c-be87-e4444f92c0e6",
+  "agent": "61131602-0846-4100-ae36-9e23c95b9330",
+  "trial": "69e731ec-f7c9-4337-8e2d-6251d8cce8ab",
+  "run": "7892c0fd-50dc-49da-9069-5503a54a1e8b",
+  "sampleReviewer": "02eca476-31c3-4f95-be33-490c444bba25",
+  "finalReviewer": "1bd5d758-1f07-46a6-a4ac-3062312fad0c",
+  "plan": [
+    {
+      "name": "会议议程成稿助手",
+      "agent": "12466f74-c9da-480e-8e72-bbc9fbf12744",
+      "revision": 1,
+      "dependsOn": [],
+      "operation": "docx",
+      "lookupPhase": ""
+    },
+    {
+      "name": "培训封面制作 local",
+      "agent": "61131602-0846-4100-ae36-9e23c95b9330",
+      "revision": 1,
+      "dependsOn": [],
+      "operation": "png",
+      "lookupPhase": ""
+    }
+  ],
+  "calls": 4,
+  "imageProvider": "local HTTPS protocol fixture"
+}

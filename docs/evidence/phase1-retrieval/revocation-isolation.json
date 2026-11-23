@@ -1,0 +1,14 @@
+[
+  {
+    "isolation": "READ COMMITTED",
+    "before_revoke": 1,
+    "after_revocation_committed_same_transaction": 0,
+    "new_statement_after_reader_commit": 0
+  },
+  {
+    "isolation": "REPEATABLE READ",
+    "before_revoke": 1,
+    "after_revocation_committed_same_transaction": 1,
+    "new_statement_after_reader_commit": 0
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "workerExit": -9,
+  "resumedCalls": 2,
+  "revokedCalls": 1,
+  "revokedStage": "blocked",
+  "serviceAnswer": "值班主管核对编号，超过 8°C 暂停接收。\n\n原文依据\n[1] service.txt v1 【S1:1-37】冷链交接由值班主管核对铅封，超过 8°C 时暂停接收，使用 Z7 交接单。"
+}

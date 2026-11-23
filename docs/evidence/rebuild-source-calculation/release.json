@@ -1,0 +1,11 @@
+{
+  "image": "sha256:ec493eedff175d1949aa363a57b98e72b0ffbbd47e2300c266fa64d0a7ba5816",
+  "webAssets": {
+    "index-6ZfDvPHW.js": "9c61375ee46e171bbf5f42079bf19ceb64a022a923ba74b6f71668376c4bf706",
+    "index-kpRXS1aq.css": "ddbe087fd36fc8f52cc690bb1f70fe2e265c3d377c06c63283bc5e873a7ceadc",
+    "pdf-CE_K4jFx.js": "cc2e67417cd9342a7d899b09f00c9dd2e4700ae503a71524ef6ecfc95cc7265b",
+    "pdf.worker.min-wgc6bjNh.mjs": "f499515a0dc93d97787d693a75218a439675719283f56812067c036dcae1f8d5",
+    "work-BDnW988l.js": "763c0725d20c90f2287192fd7cfc1958e3c002b474c2f664ecc6aa0ac8d72812"
+  },
+  "schema": "093_lookup_calculation.sql"
+}

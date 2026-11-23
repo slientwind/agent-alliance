@@ -1,0 +1,82 @@
+services:
+  api:
+    networks: [default, preview-internal]
+    build:
+      context: ..
+    image: alliance-workspace:local
+    environment:
+      DATABASE_URL: postgres://alliance:${DB_PASSWORD}@database:5432/alliance?sslmode=disable
+      OBJECT_ROOT: /data/objects
+      BOOTSTRAP_TOKEN: ${BOOTSTRAP_TOKEN:?Run make configure}
+      RESOURCE_KEY: ${RESOURCE_KEY:?Run make configure}
+      PREVIEW_URL: http://preview:18727
+      AGENT_ALLOWED_HOSTS: ${AGENT_ALLOWED_HOSTS:-}
+      CONNECTOR_URL: http://tools:18726
+      CONNECTOR_TOKEN: ${CONNECTOR_TOKEN:?Generate a private connector token}
+      TEMPORAL_ADDR: temporal:7233
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      OIDC_CA_FILE: ${OIDC_CA_FILE:-}
+      OIDC_MODE: ${OIDC_MODE:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_EMERGENCY_MEMBER_ID: ${OIDC_EMERGENCY_MEMBER_ID:-}
+      FEISHU_APP_ID: ${FEISHU_APP_ID:-}
+      FEISHU_APP_SECRET: ${FEISHU_APP_SECRET:-}
+      FEISHU_ENCRYPT_KEY: ${FEISHU_ENCRYPT_KEY:-}
+      FEISHU_VERIFICATION_TOKEN: ${FEISHU_VERIFICATION_TOKEN:-}
+      FEISHU_TENANT_KEY: ${FEISHU_TENANT_KEY:-}
+      FEISHU_BOT_OPEN_ID: ${FEISHU_BOT_OPEN_ID:-}
+    volumes: [objects:/data/objects]
+    ports: ["127.0.0.1:18485:8080"]
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+  worker:
+    image: alliance-workspace:local
+    command: ["worker"]
+    volumes: [objects:/data/objects]
+    environment:
+      DATABASE_URL: postgres://alliance:${DB_PASSWORD}@database:5432/alliance?sslmode=disable
+      RESOURCE_KEY: ${RESOURCE_KEY}
+      AGENT_ALLOWED_HOSTS: ${AGENT_ALLOWED_HOSTS:-}
+      CONNECTOR_URL: http://tools:18726
+      CONNECTOR_TOKEN: ${CONNECTOR_TOKEN:?Generate a private connector token}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+      TEMPORAL_ADDR: temporal:7233
+      OBJECT_ROOT: /data/objects
+    depends_on: [api, temporal]
+    restart: unless-stopped
+
+  tools:
+    build: ../connectors
+    environment:
+      CONNECTOR_TOKEN: ${CONNECTOR_TOKEN}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp:size=128m]
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 64
+    restart: unless-stopped
+  preview:
+    build: ../preview
+    environment:
+      CONNECTOR_TOKEN: ${CONNECTOR_TOKEN}
+    networks: [preview-internal]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp:size=192m,mode=1777]
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 96
+    restart: unless-stopped
+networks:
+  preview-internal:
+    internal: true
+volumes:
+  objects:

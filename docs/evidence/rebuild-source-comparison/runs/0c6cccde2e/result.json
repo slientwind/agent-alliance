@@ -1,0 +1,22 @@
+{
+  "started": "2026-11-22T15:23:37.653286+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "Office parsing service outage retained the original, retry indexed the same version after repair",
+    "Ordinary member used a published Agent and Word attachment, checked source location and delivered; Excel, PowerPoint and PDF positions verified"
+  ],
+  "ended": "2026-11-22T15:23:46.750125+00:00"
+}

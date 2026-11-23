@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "现在应该做终审。请人工确认。",
+  "usage": {
+    "completion_tokens": 11,
+    "prompt_tokens": 222,
+    "total_tokens": 233,
+    "prompt_tokens_details": {
+      "cached_tokens": 162
+    }
+  }
+}

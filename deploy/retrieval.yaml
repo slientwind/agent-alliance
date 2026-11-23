@@ -1,0 +1,26 @@
+services:
+  api:
+    environment:
+      RETRIEVAL_URL: http://retrieval:18728
+    networks: [default, preview-internal, retrieval-internal]
+  worker:
+    environment:
+      RETRIEVAL_URL: http://retrieval:18728
+    networks: [default, retrieval-internal]
+  retrieval:
+    build: ../retrieval
+    networks: [retrieval-internal]
+    environment:
+      CONNECTOR_TOKEN: ${CONNECTOR_TOKEN:?Generate a private connector token}
+    volumes:
+      - ${RETRIEVAL_MODEL_DIR:?Set the local retrieval model directory}:/model:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    cpus: 2.0
+    pids_limit: 64
+    restart: unless-stopped
+networks:
+  retrieval-internal:
+    internal: true

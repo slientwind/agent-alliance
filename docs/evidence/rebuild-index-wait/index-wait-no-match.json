@@ -1,0 +1,48 @@
+{
+  "report": {
+    "path": "projects/1afadb27-bb1a-44da-8c5b-4335dbaf22bb",
+    "run": "2e99a50c-694d-4cbf-9673-b4a2854da45a",
+    "stage": "review",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_index_pending",
+      "completed",
+      "lookup_index_waiting",
+      "blocked",
+      "running",
+      "lookup_index_no_evidence",
+      "lookup_no_evidence",
+      "completed"
+    ],
+    "ledger": {
+      "empty": true,
+      "charges": 1,
+      "answerAttempts": 0
+    }
+  },
+  "receipt": {
+    "path": "projects/6a5bf9dd-5ed9-45c2-b726-183d36a24a33",
+    "run": "7b2ac168-80ae-4eea-84af-7f72fb968de1",
+    "stage": "blocked",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_index_pending",
+      "completed",
+      "lookup_index_waiting",
+      "blocked",
+      "running",
+      "lookup_index_no_evidence",
+      "lookup_receipt_requested",
+      "blocked"
+    ],
+    "ledger": {
+      "empty": true,
+      "charges": 1,
+      "answerAttempts": 0
+    }
+  }
+}

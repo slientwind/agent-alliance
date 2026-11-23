@@ -1,0 +1,26 @@
+{
+  "evidence": "Chromium / synthetic API / no model calls",
+  "results": [
+    {
+      "width": 320,
+      "height": 740,
+      "composerArea": 0.6844921875,
+      "singleTeamSelectorHidden": true,
+      "multipleWithDefaultCollapsed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "composerArea": 0.6944469444950783,
+      "singleTeamSelectorHidden": true,
+      "multipleWithDefaultCollapsed": true
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "composerArea": 0.6935,
+      "singleTeamSelectorHidden": true,
+      "multipleWithDefaultCollapsed": true
+    }
+  ]
+}

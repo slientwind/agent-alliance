@@ -1,5 +1,7 @@
 # Agent Alliance 技术方案
 
+> 当前设计入口：本文保留既有实现历史。新一期架构以[技术方案讨论稿](11-technical-blueprint.md)和[产品方案](10-product-blueprint.md)为准；新方案尚未实现，不能沿用本文历史测试结论作为验收证据。
+
 > 历史版本说明：本文件记录第一阶段设计/验收。当前多租户、独立 Agent 凭据、分布式执行、A2A 与 Langfuse 方案以 [生产化产品与技术增补](07-production-architecture.md) 为准；登录流程已不要求输入模型或平台 API key。
 
 ## 1. 架构与边界

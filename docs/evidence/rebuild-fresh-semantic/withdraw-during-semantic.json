@@ -1,0 +1,19 @@
+{
+  "run": "c9f455e1-2885-4a94-9d3a-6e2fe79af5b4",
+  "project": "fe97a24d-3316-4260-9a5a-fe6c1a8a5785",
+  "realPassageEncoded": true,
+  "revokedWhileQueryResponseHeld": true,
+  "events": [
+    "queued",
+    "submitted",
+    "running",
+    "lookup_empty_search",
+    "completed",
+    "input_changed",
+    "blocked"
+  ],
+  "calls": 1,
+  "answerDispatched": false,
+  "recoveredBodyHasWithdrawnQuote": false,
+  "persistedPassages": 0
+}

@@ -1,0 +1,39 @@
+{
+  "all": 3,
+  "more": false,
+  "name": "员工制度.txt",
+  "page": 1,
+  "pin": 1,
+  "rows": [
+    {
+      "text": "员工先填写设备用途和预计归还日，经部门负责人确认后领取。",
+      "start": 1,
+      "end": 28,
+      "hash": "8c35eadd490ccdaba35373527dc40c36e6338b722cbf9797a8bb959af60f6e7a",
+      "matches": [
+        1
+      ]
+    },
+    {
+      "text": "归还时由保管员核对设备编号并登记。",
+      "start": 29,
+      "end": 45,
+      "hash": "50dccdddee267cd0b516d6d06815d7b9efe60723b6d319c35f3dab7b91f76e1a",
+      "matches": [
+        2
+      ]
+    },
+    {
+      "text": "遗失时立即报告保管员。",
+      "start": 46,
+      "end": 56,
+      "hash": "417884655f6f1a4c18aff6062ad236df48384bf609923380df6924393ab10d5c",
+      "matches": [
+        3
+      ]
+    }
+  ],
+  "total": 3,
+  "unmatched": 0,
+  "version": 1
+}

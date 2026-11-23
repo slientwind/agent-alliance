@@ -1,0 +1,23 @@
+{
+  "started": "2026-11-22T17:11:33.410391+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "failed",
+  "checks": [
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "Source-grounded money calculation, TLS protocol fixture"
+  ],
+  "failureType": "CalledProcessError",
+  "failureLine": 528,
+  "ended": "2026-11-22T17:12:29.519536+00:00"
+}

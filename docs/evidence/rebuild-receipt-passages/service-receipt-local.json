@@ -1,0 +1,28 @@
+{
+  "web": {
+    "run": "9fd2bb7e-534f-42d1-b44a-5673141354be",
+    "answer": "差额为 78.50 元。\n528.50 元 [1] − 450 元 [2] = 78.50 元\n\n原文依据\n[1] 结算说明.txt v1 【S2v1:1-16】住宿结算实付 528.50 元。\n[2] 差旅标准.txt v1 【S1v1:1-16】单晚住宿报销标准为 450 元。",
+    "finalCalls": 2,
+    "planVersion": 2,
+    "reviewer": "c263214b-af38-4250-88cc-51d3da48209c",
+    "requester": "e787fedd-23a6-4343-93bd-1d4effddb504"
+  },
+  "api": {
+    "run": "7093d393-10d8-43da-a616-9d20a9b48f82",
+    "answer": "差额为 78.50 元。\n528.50 元 [1] − 450 元 [2] = 78.50 元\n\n原文依据\n[1] 结算说明.txt v1 【S2v1:30-45】住宿结算实付 528.50 元。\n[2] 标准.txt v1 【S1v1:1-16】单晚住宿报销标准为 450 元。",
+    "finalCalls": 2,
+    "planVersion": 2,
+    "reviewer": "c263214b-af38-4250-88cc-51d3da48209c",
+    "requester": "e787fedd-23a6-4343-93bd-1d4effddb504"
+  },
+  "apiRange": {
+    "from": 30,
+    "to": 45
+  },
+  "initialCalls": 1,
+  "replayed": true,
+  "wrongPrincipal": 404,
+  "changedScope": 409,
+  "revokedDelegation": 403,
+  "receiptEvents": 1
+}

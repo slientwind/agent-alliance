@@ -1,0 +1,68 @@
+{
+  "previous": "sha256:f34af276a34d30a4297ddf11831277b322765e3c754db15f4df2cb1e3f3b4b7e",
+  "oldRequestReplayed": true,
+  "oldPlanAdopted": true,
+  "app": "sha256:6527fb98ff2364cc6586458664383e33caebfd22645a70db321e182869d371e9",
+  "runtime": "Linux containers: API, Worker, local HTTPS protocol fixture and document connector",
+  "workflow": "delivered",
+  "phases": [
+    "search",
+    "answer",
+    ""
+  ],
+  "costs": 5,
+  "quote": "移交时须在 30 分钟内回执。\n\n原文依据\n[1] intake.md v1 【S1v1:1-16】移交关键流程 30 分钟内回执。",
+  "packageSHA256": "6154f32a4d4c9a15ab33c738084c7f7364acd0a75819697ecfd0696637c12ef6",
+  "files": [
+    {
+      "step": 1,
+      "dependencies": [],
+      "artifact": "00f66a78-0bad-4b11-9764-a9803e41a129",
+      "name": "移交核对 · 检索依据",
+      "version": 1,
+      "reviewer": "95dcda89-bb68-4e89-85d5-b9948bcfcc2a",
+      "reviewedAt": "2026-11-22T16:54:38.000429Z",
+      "path": "artifacts/01-v1-移交核对 · 检索依据.txt",
+      "mediaType": "text/plain; charset=utf-8",
+      "sha256": "80fe7d868eae1feab0f0b3c48fffe2be530108e04f77f12ef539bdd286f964e6"
+    },
+    {
+      "step": 2,
+      "dependencies": [
+        {
+          "name": "移交核对 · 检索依据",
+          "step": 1,
+          "version": 1,
+          "artifact": "00f66a78-0bad-4b11-9764-a9803e41a129"
+        }
+      ],
+      "artifact": "34825b12-17b3-47e9-95f5-d4f50b92253d",
+      "name": "移交核对 · 据原文回答",
+      "version": 1,
+      "reviewer": "95dcda89-bb68-4e89-85d5-b9948bcfcc2a",
+      "reviewedAt": "2026-11-22T16:54:38.008557Z",
+      "path": "artifacts/02-v1-移交核对 · 据原文回答.txt",
+      "mediaType": "text/plain; charset=utf-8",
+      "sha256": "a974aeac858180e1486b2b133fde2207a1f372b7729e36e516ed7448d378b96d"
+    },
+    {
+      "step": 3,
+      "dependencies": [
+        {
+          "name": "移交核对 · 据原文回答",
+          "step": 2,
+          "version": 1,
+          "artifact": "34825b12-17b3-47e9-95f5-d4f50b92253d"
+        }
+      ],
+      "artifact": "02e137b6-20c7-4f7e-91b0-4419b83155ed",
+      "name": "核对成稿",
+      "version": 1,
+      "reviewer": "95dcda89-bb68-4e89-85d5-b9948bcfcc2a",
+      "reviewedAt": "2026-11-22T16:54:38.014818Z",
+      "path": "artifacts/03-v1-deliverable.docx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "sha256": "77c5f08009da539276ddd30fcb28999434b8c376dc88480250a6c1060b8e1fb0"
+    }
+  ]
+}

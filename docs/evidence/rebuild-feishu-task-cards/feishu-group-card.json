@@ -1,0 +1,29 @@
+{
+  "body": {
+    "elements": [
+      {
+        "behaviors": [
+          {
+            "default_url": "https://workspace.invalid/#e614b296-74e2-4112-bfc9-94400abe8d29",
+            "type": "open_url"
+          }
+        ],
+        "tag": "button",
+        "text": {
+          "content": "打开企业工作区",
+          "tag": "plain_text"
+        }
+      }
+    ]
+  },
+  "config": {
+    "enable_forward": false
+  },
+  "header": {
+    "title": {
+      "content": "任务卡",
+      "tag": "plain_text"
+    }
+  },
+  "schema": "2.0"
+}

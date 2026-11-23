@@ -1,0 +1,2 @@
+附件目录：{"version":"I2","read":"granted","compute":"granted","owner":"巡检负责人","fields":{"route":"路线","segments":"路段数（段）","meters_per_segment":"每段长度（米/段）","review":"复核状态"},"choices":{"review":["通过","待复核"]}}
+业务任务：请按路线汇总通过复核的巡检里程，并给出总计，单位米。里程以段数乘每段长度计算。

@@ -1,0 +1,11 @@
+{
+  "operations": [
+    "png",
+    "text",
+    "vision"
+  ],
+  "originalKeysIntact": 2,
+  "pausedRunUnaffected": 1,
+  "legacyOpaqueAttachmentUnchanged": true,
+  "validatedPictureEligible": true
+}

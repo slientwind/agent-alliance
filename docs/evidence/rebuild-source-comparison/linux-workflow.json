@@ -1,0 +1,19 @@
+{
+  "app": "sha256:3097ef2be0972e07e0ab9edf022fa02c2695394faa1984bc63930e4c787a69c8",
+  "tools": "sha256:6f190bd25d8c62394205dffe219f48866dec2fa566660d361d935af8d89d8290",
+  "defaultTeams": 1,
+  "publishedTrial": "passed",
+  "project": "delivered",
+  "version": 1,
+  "pptxSHA256": "fb207613f348257ba612e96e5e7c7f2ba404aeabf8a97a0f57d76639561b9a93",
+  "comparedSentence": {
+    "text": "保管员核对设备编号。",
+    "start": 9,
+    "end": 18,
+    "hash": "5b97affb0c86c2abd0a49498d7422dcb39235621749acc9d2718ba3280e841c2",
+    "matches": [
+      1
+    ]
+  },
+  "member": "synthetic first administrator"
+}

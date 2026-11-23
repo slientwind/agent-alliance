@@ -1,0 +1,19 @@
+{
+  "input": "synthetic",
+  "projects": 2,
+  "roles": [
+    "project-only",
+    "resource admin",
+    "budget owner",
+    "dual role"
+  ],
+  "projectTitleRedacted": true,
+  "revokedDecisionStatus": 403,
+  "staleVersionStatus": 409,
+  "viewports": [
+    320,
+    390,
+    1440
+  ],
+  "resourceAndBudgetDecidedSeparately": true
+}

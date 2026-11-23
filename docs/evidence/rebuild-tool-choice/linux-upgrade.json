@@ -1,0 +1,12 @@
+{
+  "previousImage": "sha256:a924ec589679bb740b3e500dc6cfb3da3ba0885dde3bad2ab03bc8b751407acf",
+  "currentImage": "sha256:6d852ec3871c94d8f82253c048f85aef76c600a27cf128c04fbc0bebba0ff2bf",
+  "schemaBefore": "schema/097_agent_release_requests.sql",
+  "schemaAfter": "schema/098_tool_choices.sql",
+  "existingRun": "e7eb7b5e-92fc-4a99-9fef-0554fd0951e6",
+  "existingCalls": 1,
+  "routedRun": "43e4f74e-7393-4c4e-aaeb-c45712175120",
+  "selected": 2,
+  "calls": 2,
+  "result": "部门 · 金额\n培训 · 10.35\n合计 · 10.35\n已核对 1 份输入，共 2 行，纳入 2 行。\n金额单位：未提供单位列，需核对同一口径"
+}

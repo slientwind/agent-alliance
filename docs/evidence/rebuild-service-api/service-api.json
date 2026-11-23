@@ -1,0 +1,21 @@
+{
+  "run": "1445e868-9b75-420d-8ec1-f845dad90834",
+  "serviceVersion": 1,
+  "originalInputPreserved": true,
+  "supplementApplied": true,
+  "idempotentFeedback": "746f6296-b991-49ef-836b-892dbd7a04ab",
+  "cancelled": "a3804468-06b0-4280-81b9-cc36d803d9bd",
+  "reviewEvent": {
+    "at": "2026-11-20T16:48:15.33097+00:00",
+    "seq": 11,
+    "kind": "artifact",
+    "step": 1,
+    "state": "approved",
+    "version": 1,
+    "artifact": "97d5445e-09da-4a55-b2bd-718455139edb"
+  },
+  "replayedAfterCursor": 2,
+  "liveDelegationRevocation": true,
+  "queuedRunRecheckedAppTeamGrant": true,
+  "deliveryVersion": 1
+}

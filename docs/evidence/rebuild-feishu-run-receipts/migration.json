@@ -1,0 +1,15 @@
+{
+  "sameProject": true,
+  "existingConfirmation": true,
+  "normalReply": true,
+  "noNewImport": true,
+  "nativeCardMigration": {
+    "privateBindingKept": true,
+    "legacyTextReply": true,
+    "noSyntheticCardActions": true
+  },
+  "runReceiptMigration": {
+    "launchApprovalKept": true,
+    "leasedFileKept": true
+  }
+}

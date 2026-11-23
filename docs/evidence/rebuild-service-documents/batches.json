@@ -1,0 +1,85 @@
+[
+  {
+    "batch": "smoke_5bdad0b6cb",
+    "started": "2026-11-23T08:09:08.950778+00:00",
+    "input": "synthetic",
+    "externalProviders": "local HTTPS model and A2A fixtures",
+    "runtime": [
+      "PostgreSQL",
+      "Temporal",
+      "Eino",
+      "DuckDB",
+      "LibreOffice",
+      "PDF.js",
+      "Chromium",
+      "OpenTelemetry Collector"
+    ],
+    "status": "failed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Project Office intake and all document types with source positions"
+    ],
+    "failureType": "CalledProcessError",
+    "failureLine": 528,
+    "ended": "2026-11-23T08:09:19.579882+00:00",
+    "observation": "新浏览器用例创建模型 Agent 时误传团队字段，接口按契约拒绝，测试已修正为使用模型提供的团队。"
+  },
+  {
+    "batch": "smoke_8179d65577",
+    "started": "2026-11-23T08:09:41.275067+00:00",
+    "input": "synthetic",
+    "externalProviders": "local HTTPS model and A2A fixtures",
+    "runtime": [
+      "PostgreSQL",
+      "Temporal",
+      "Eino",
+      "DuckDB",
+      "LibreOffice",
+      "PDF.js",
+      "Chromium",
+      "OpenTelemetry Collector"
+    ],
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Project Office intake and all document types with source positions",
+      "Published service document intake, scoped originals, and two reviewed deliveries",
+      "Project retry after parsing outage and service idempotent replay during outage"
+    ],
+    "serviceDocuments": "service-documents.json",
+    "officeRecovery": "office-recovery.json",
+    "ended": "2026-11-23T08:09:57.553109+00:00",
+    "observation": "项目和已发布服务均完成读取和交付，解析中断与重放验证通过。"
+  },
+  {
+    "batch": "smoke_9c06701a42",
+    "started": "2026-11-23T08:17:08.792960+00:00",
+    "input": "synthetic",
+    "externalProviders": "local HTTPS model and A2A fixtures",
+    "runtime": [
+      "PostgreSQL",
+      "Temporal",
+      "Eino",
+      "DuckDB",
+      "LibreOffice",
+      "PDF.js",
+      "Chromium",
+      "OpenTelemetry Collector"
+    ],
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Application and delegation revocation after private parsing prevent original storage and run admission"
+    ],
+    "ended": "2026-11-23T08:17:10.905718+00:00",
+    "observation": "在隔离环境暂缓向 API 返回真实解析结果，分别在此时撤销委托与应用凭据。两条请求均未产生任务与原件记录。"
+  },
+  {
+    "batch": "smoke_a238dd6fe0",
+    "status": "passed",
+    "checksPassed": 105,
+    "started": "2026-11-23T08:10:45.908476+00:00",
+    "ended": "2026-11-23T08:31:55.927385+00:00",
+    "report": "regression.json"
+  }
+]

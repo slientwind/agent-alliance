@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>对话 · Agent Alliance</title>
+  <link rel="stylesheet" href="studio.css">
+</head>
+<body>
+  <a class="skip" href="#main">跳到主要内容</a>
+  <div class="shell">
+    <header class="top" id="top"></header>
+    <main id="main" tabindex="-1"></main>
+  </div>
+  <dialog id="sheet" aria-labelledby="sheet-title">
+    <div class="sheet-head"><h2 id="sheet-title"></h2><button class="icon" data-act="close" aria-label="关闭"></button></div>
+    <div id="sheet-body"></div>
+  </dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="assets/icons.js"></script><script src="studio.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "started": "2026-11-23T05:08:30.679993+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "Feishu native task cards, versioned adoption, signed callback and mobile browser review"
+  ],
+  "feishuTaskCards": "feishu-task-cards.json",
+  "ended": "2026-11-23T05:09:45.710664+00:00"
+}

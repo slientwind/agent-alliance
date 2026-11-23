@@ -1,0 +1,5 @@
+record_id region approved_units unit_price_yuan status
+001 东东 3 12.50 东东东
+002 东东 2 9.90 东东东
+003 东东 4 8.25 东东东
+004 东东 1 999.00 东东东

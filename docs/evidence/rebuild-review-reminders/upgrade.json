@@ -1,0 +1,16 @@
+{
+  "upgradeUsesRecordedTime": true,
+  "hours": 24.0,
+  "immediateCoordination": true,
+  "reviewerAssigned": true,
+  "sameClock": true,
+  "silentBinding": true,
+  "businessUntouched": true,
+  "beforeDeadline": "due",
+  "newReviewPeriodGetsNewClock": true,
+  "afterCancellation": {
+    "openClocks": 0,
+    "recipients": 0,
+    "queued": 0
+  }
+}

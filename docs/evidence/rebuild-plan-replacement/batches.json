@@ -1,0 +1,58 @@
+[
+  {
+    "batch": "smoke_9adb609382",
+    "status": "failed",
+    "checksPassed": 0,
+    "finding": "专项启动器遗漏工具与预览服务的本地文件",
+    "report": "focused-smoke_9adb609382.json"
+  },
+  {
+    "batch": "smoke_3a930e6d10",
+    "status": "failed",
+    "checksPassed": 5,
+    "finding": "专项启动器缺少浏览器证据目录参数",
+    "report": "focused-smoke_3a930e6d10.json"
+  },
+  {
+    "batch": "smoke_2e08a34960",
+    "status": "passed",
+    "checksPassed": 6,
+    "finding": "通过浏览器换步、拒绝旧草稿、审核及交付走查",
+    "report": "focused-smoke_2e08a34960.json"
+  },
+  {
+    "batch": "smoke_183a329d53",
+    "status": "passed",
+    "checksPassed": 6,
+    "finding": "通过浏览器走查并独立核对审计及 Word 文件",
+    "report": "focused-smoke_183a329d53.json"
+  },
+  {
+    "batch": "smoke_f4339f3e42",
+    "status": "failed",
+    "checksPassed": 5,
+    "finding": "额外团队边界样例提交了模型建档接口不接受的字段",
+    "report": "focused-smoke_f4339f3e42.json"
+  },
+  {
+    "batch": "smoke_8a6b522eaf",
+    "status": "passed",
+    "checksPassed": 6,
+    "finding": "其他团队文本 Agent 未进入工具选择步骤的替换候选",
+    "report": "focused-smoke_8a6b522eaf.json"
+  },
+  {
+    "batch": "smoke_3b8281df74",
+    "status": "passed",
+    "checksPassed": 6,
+    "finding": "最终专项通过团队边界、并发、审计与交付核对",
+    "report": "focused-smoke_3b8281df74.json"
+  },
+  {
+    "batch": "smoke_34279b05c0",
+    "status": "passed",
+    "checksPassed": 109,
+    "finding": "原位替换、现有协作模板与各业务流程通过全量回归。最终的项目团队候选筛选见专项批次。",
+    "report": "regression.json"
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "run": "676553eb-8770-4e09-bd68-5b80567d1688",
+  "calls": 4,
+  "searches": 2,
+  "answers": 2,
+  "recheckSteps": [
+    4,
+    2
+  ],
+  "attempts": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "stages": [
+    "blocked",
+    "review"
+  ]
+}

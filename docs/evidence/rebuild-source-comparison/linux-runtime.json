@@ -1,0 +1,10 @@
+{
+  "artifact": "mounted Linux binaries and web bundle",
+  "image": "sha256:6f190bd25d8c62394205dffe219f48866dec2fa566660d361d935af8d89d8290",
+  "runtimeUser": "10001:10001",
+  "schema": "schema/089_verified_document_format.sql",
+  "servedWebBundle": "/assets/index-D9xq-CCW.js",
+  "initialAdministrator": true,
+  "oneJoinedTeam": true,
+  "readOnlyFilesystem": true
+}

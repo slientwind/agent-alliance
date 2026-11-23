@@ -1,0 +1,35 @@
+{
+  "started": "2026-11-23T12:44:50.405674+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "Image contract: PNG validation, human qualification, planner isolation, project preview, approved immutable original",
+    "Member service page from shared link or recommendation: version consent, pinned attachment, replay, separate reviewer and approved Word delivery",
+    "Credential rotation via Chromium: provider rejection, explicit verification, independent Agent key and pinned revision preserved",
+    "Fresh enterprise setup in Chromium: concrete team model, three validated Agents, explicit approval and fixed Word delivery",
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "Pinned PNG and JPEG vision inputs: Chromium, private trial, planner isolation, exact model bytes, signed API and reviewed ZIP delivery",
+    "Feishu vision service hands off to the member web entry without starting a run",
+    "Schema 110 upgrade: existing text and PNG resources and accepted inputs retained; proven image classification applies to new uploads"
+  ],
+  "imageGeneration": "image-generation.json",
+  "teamSetup": "team-setup.json",
+  "serviceEntry": "service-entry.json",
+  "modelMaintenance": "model-maintenance.json",
+  "vision": "vision-browser.json",
+  "visionProvider": "vision-provider.json",
+  "visionFeishu": "vision-feishu.json",
+  "visionUpgrade": "vision-upgrade.json",
+  "ended": "2026-11-23T12:45:41.140047+00:00"
+}

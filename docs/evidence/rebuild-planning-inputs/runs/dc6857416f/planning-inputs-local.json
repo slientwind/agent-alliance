@@ -1,0 +1,62 @@
+[
+  {
+    "question": "请查证冷链交接规程：谁核对铅封，温度超过多少时暂停接收？请引用原文。",
+    "input": [
+      "private-regulation.txt"
+    ],
+    "status": "ready",
+    "result": {
+      "lookupSteps": [
+        1
+      ],
+      "reasons": [
+        "需核对规程原文以回答问题，且用户明确要求引用原文"
+      ],
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "查证冷链交接规程并引用原文",
+      "agents": [
+        "dfe832a6-5e8d-4a02-b4bd-cefbefc86626"
+      ],
+      "missing": []
+    },
+    "plan": [
+      [
+        "text",
+        "search"
+      ],
+      [
+        "text",
+        "answer"
+      ]
+    ],
+    "answer": "冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。\n\n原文依据\n[1] private-regulation.txt v1 【S1v1:1-32】冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。",
+    "run": "62dc9eef-cdec-4105-9051-64787f5d95ec"
+  },
+  {
+    "question": "按 region 汇总两份 CSV 中的 amount 金额，交付一个 Excel。",
+    "input": [
+      "private-east.csv",
+      "private-west.csv"
+    ],
+    "status": "ready",
+    "result": {
+      "lookupSteps": [
+        2
+      ],
+      "revisions": [
+        1,
+        1
+      ],
+      "kind": "plan",
+      "text": "按 region 汇总两份 CSV 中的 amount 金额，生成 Excel 文件",
+      "agents": [
+        "54b1a854-4a3f-445c-bd42-bad5b73c4e03",
+        "dfe832a6-5e8d-4a02-b4bd-cefbefc86626"
+      ],
+      "missing": []
+    }
+  }
+]

@@ -1,0 +1,47 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "summarize_rows",
+      "description": "按指定版本、已选状态筛选，在每组内对两个数值字段的乘积求和，并给出总计。仅返回工具实际算出的数值。",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "source_version",
+          "group_field",
+          "filter_field",
+          "filter_value",
+          "quantity_field",
+          "rate_field"
+        ],
+        "properties": {
+          "source_version": {
+            "type": "string",
+            "description": "资料修订编号，见 version"
+          },
+          "group_field": {
+            "type": "string",
+            "description": "每条汇总结果以何维度拆分，填写分组列名"
+          },
+          "filter_field": {
+            "type": "string",
+            "description": "用于判断某行能否计入的状态列名，只填字段名"
+          },
+          "filter_value": {
+            "type": "string",
+            "description": "该状态列要匹配的状态值，逐字取自 choices"
+          },
+          "quantity_field": {
+            "type": "string",
+            "description": "行内乘法的数量列名"
+          },
+          "rate_field": {
+            "type": "string",
+            "description": "行内乘法的单位数值列名"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+]

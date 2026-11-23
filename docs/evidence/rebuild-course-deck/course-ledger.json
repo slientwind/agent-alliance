@@ -1,0 +1,12 @@
+{
+  "project": {
+    "execution": 1,
+    "revision": 1
+  },
+  "composedProject": {
+    "execution": 2
+  },
+  "rejectedProject": {
+    "execution": 1
+  }
+}

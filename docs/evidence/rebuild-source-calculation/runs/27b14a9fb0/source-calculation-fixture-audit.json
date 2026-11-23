@@ -1,0 +1,45 @@
+[
+  {
+    "run": "a4910459-0cf9-4d0a-8feb-3ffb99fcd510",
+    "calls": 2,
+    "amount": "78.50",
+    "packageSHA256": "88c15476862d60c81cb7bb33d46f779cb1a2ea395c99ca0aa2af14b0ea407dcb"
+  },
+  {
+    "run": "167c1a46-eaf5-408f-a056-a9eed770a95d",
+    "calls": 2,
+    "amount": "26.05",
+    "packageSHA256": "67c5d66df6c9ce6aa9d94df9d398acc0434af1af6bd13e7f8384361b9b8f8fc5"
+  },
+  {
+    "run": "7ed62760-7ad2-443f-b3d3-d3aea9e1680f",
+    "calls": 1,
+    "result": "needs_review"
+  },
+  {
+    "run": "4b3a48ef-34b0-4bab-838e-3ff301a2b0de",
+    "calls": 1,
+    "result": "needs_review"
+  },
+  {
+    "run": "abadcbd5-f970-4eea-a17f-e0b412f1dde0",
+    "calls": 2,
+    "result": "needs_review"
+  },
+  {
+    "run": "cf2fe6ff-5365-46ac-9796-03b38c43cb85",
+    "calls": 2,
+    "amount": "9876543210986.90",
+    "packageSHA256": "af617953bca194c304501309f051aaed7118119a9a6b71cc1da4426ade8e9907"
+  },
+  {
+    "run": "8a650d76-c441-417b-85c2-7a549686b075",
+    "calls": 1,
+    "result": "needs_review"
+  },
+  {
+    "run": "578ce11c-b731-4279-836e-221eb6b77691",
+    "calls": 1,
+    "result": "needs_review"
+  }
+]

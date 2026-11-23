@@ -1,0 +1,35 @@
+{
+  "batch": "smoke_d52816fa6a",
+  "started": "2026-11-20T14:11:11.090455+00:00",
+  "ended": "2026-11-20T14:13:18.704086+00:00",
+  "source": "controlled HTTPS model; real database, worker and API",
+  "project": "805eccfc-2ea6-4216-b12f-3b8e9e010b64",
+  "increases": {
+    "project": "805eccfc-2ea6-4216-b12f-3b8e9e010b64",
+    "approved": "0.200002",
+    "applicantCanResume": true,
+    "rejected": "rejected",
+    "withdrawn": "withdrawn",
+    "teamIncrease": "2.550000",
+    "teamLimitVisibleToApplicant": false,
+    "pendingAtDelivery": "closed"
+  },
+  "contendingRequests": 2,
+  "accepted": 1,
+  "projectReservation": "0.200002",
+  "settled": {
+    "calls": 2,
+    "unknown": 0,
+    "recorded": "0.125000",
+    "reserved": "0.100001"
+  },
+  "checks": [
+    "scope authorization",
+    "concurrent reservation",
+    "replay",
+    "team and project ceilings",
+    "resume",
+    "settlement",
+    "delegation revocation"
+  ]
+}

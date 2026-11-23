@@ -1,0 +1,45 @@
+{
+  "previous": "sha256:bd3d088e226b59f19adc4a0806c5aee344595c51a2fef3f4f92a7d22d8047e66",
+  "app": "sha256:4c78267d65a2a33d92722c6eba3d5fcc51b00865d583bef3e08e5ba8aa76f795",
+  "existingRun": "9d618adb-0e85-4ba2-819b-d78e9b0bfcb7",
+  "existingOutput": "核对订单号后签收。",
+  "existingDraftResumed": {
+    "estimate": "0",
+    "operation": "aggregate"
+  },
+  "sample": "地区 · 金额\n华东 · 19.40\n合计 · 19.40\n已核对 1 份输入，共 2 行，纳入 2 行。\n金额单位：未提供单位列，需核对同一口径",
+  "declaredOfficeFailures": [
+    {
+      "case": "无文件",
+      "trial": "failed",
+      "publish": 409
+    },
+    {
+      "case": "错误类型",
+      "trial": "failed",
+      "publish": 409
+    },
+    {
+      "case": "扩展名冲突",
+      "trial": "failed",
+      "publish": 409
+    },
+    {
+      "case": "损坏压缩包",
+      "trial": "failed",
+      "publish": 409
+    },
+    {
+      "case": "不是Word正文",
+      "trial": "failed",
+      "publish": 409
+    }
+  ],
+  "webAssets": {
+    "index-kpRXS1aq.css": "ddbe087fd36fc8f52cc690bb1f70fe2e265c3d377c06c63283bc5e873a7ceadc",
+    "index-BGubY9Ve.js": "4dec549466fe06c7dc6219181123f9651724743654de43070392ece2bf6cd3e9",
+    "pdf.worker.min-wgc6bjNh.mjs": "f499515a0dc93d97787d693a75218a439675719283f56812067c036dcae1f8d5",
+    "pdf-CE_K4jFx.js": "cc2e67417cd9342a7d899b09f00c9dd2e4700ae503a71524ef6ecfc95cc7265b",
+    "work-B2UN-ona.js": "e6da407ce9bc6e00d7a63d108c36e0522c034543014f12307e2ca0bc1c00a4d4"
+  }
+}

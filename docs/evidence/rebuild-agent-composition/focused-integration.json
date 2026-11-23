@@ -1,0 +1,21 @@
+{
+  "started": "2026-11-22T12:39:39.556258+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "Agent entry: member creation to verified and delivered task, attachment pin and stale selection rollback"
+  ],
+  "ended": "2026-11-22T12:39:49.045971+00:00"
+}

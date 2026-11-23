@@ -1,0 +1,56 @@
+{
+  "evidence": "Chromium / mock API / no live execution",
+  "results": [
+    {
+      "width": 320,
+      "height": 740,
+      "composerArea": 0.6844921875,
+      "horizontalOverflow": false,
+      "checks": [
+        "explicit choice when no default",
+        "withdrawn choice blocks send and preserves draft",
+        "only non-default team automatically selected",
+        "zero memberships cannot submit",
+        "missing image access disables creation and hides administrator action",
+        "same-named resources use the correct PNG revision; blocked credentials excluded",
+        "goal carried into draft; image wizard fits viewport",
+        "only matching ready published output offered; direct reuse keeps new description",
+        "adding a similar Agent preserves previous steps and pins published revisions"
+      ]
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "composerArea": 0.6944469444950784,
+      "horizontalOverflow": false,
+      "checks": [
+        "explicit choice when no default",
+        "withdrawn choice blocks send and preserves draft",
+        "only non-default team automatically selected",
+        "zero memberships cannot submit",
+        "missing image access disables creation and hides administrator action",
+        "same-named resources use the correct PNG revision; blocked credentials excluded",
+        "goal carried into draft; image wizard fits viewport",
+        "only matching ready published output offered; direct reuse keeps new description",
+        "adding a similar Agent preserves previous steps and pins published revisions"
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "composerArea": 0.6935,
+      "horizontalOverflow": false,
+      "checks": [
+        "explicit choice when no default",
+        "withdrawn choice blocks send and preserves draft",
+        "only non-default team automatically selected",
+        "zero memberships cannot submit",
+        "missing image access disables creation and hides administrator action",
+        "same-named resources use the correct PNG revision; blocked credentials excluded",
+        "goal carried into draft; image wizard fits viewport",
+        "only matching ready published output offered; direct reuse keeps new description",
+        "adding a similar Agent preserves previous steps and pins published revisions"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"headers": [{"fields": [{"name": "amount", "role": "金额"}], "columns": ["标价合计", "折后实收金额"]}, {"fields": [{"name": "amount", "role": "金额"}], "columns": ["Gross sales", "Net settled amount"]}], "reply": "[{\"file\":1,\"field\":1,\"column\":2},{\"file\":2,\"field\":1,\"column\":2}]"}

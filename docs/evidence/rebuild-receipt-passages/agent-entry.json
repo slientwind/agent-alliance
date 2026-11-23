@@ -1,0 +1,42 @@
+{
+  "input": "synthetic",
+  "runtime": [
+    "Chromium",
+    "Go",
+    "PostgreSQL",
+    "Temporal",
+    "Eino"
+  ],
+  "provider": "local HTTPS fixture",
+  "createdBy": "member",
+  "publishedBy": "admin",
+  "draftRevision": 1,
+  "documentVersion": 1,
+  "deliveredVersion": 1,
+  "discovery": {
+    "query": "请根据客户访谈提取需求，并注明原文",
+    "publishedRevision": 1,
+    "retainedBrief": true,
+    "writes": []
+  },
+  "singleAgentSteps": 1,
+  "temporaryAgent": {
+    "agentProject": "77b794d6-eed6-49ed-9b25-cc4b79d54c9a",
+    "nextBrief": "fb831844-54d7-48d1-823b-5370bb3b60bf",
+    "retainedExplicitDestination": true
+  },
+  "legacySingleAccepted": true,
+  "combination": {
+    "steps": 2,
+    "separatelyBilledTeams": 2,
+    "reordered": true,
+    "pinnedWithAndWithoutAttachment": true,
+    "consumedPreviousOutput": true,
+    "authorizedCalls": 2,
+    "reviewedAndDelivered": true,
+    "invalidSelectionsRolledBack": true,
+    "revokedSecondStepRejected": true
+  },
+  "runBeforeConfirmation": null,
+  "invalidSelectionRolledBack": true
+}

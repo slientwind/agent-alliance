@@ -1,0 +1,9 @@
+{
+  "source": "Chromium with synthetic dashboard responses",
+  "viewport": "390x844",
+  "fullReportAvailableOnAllOnly": true,
+  "preparedWindowSurvivedRefresh": true,
+  "adminFeesNotInBusinessOnlyExport": true,
+  "withdrawalRetainedDashboard": true,
+  "overflow": false
+}

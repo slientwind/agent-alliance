@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "动作｜相关能力或对象｜原因  \n创建试用｜当前版本｜可以继续的工作和还不能承诺的结果：需要确认最终确认人，以确保版本正确归档。",
+  "usage": {
+    "completion_tokens": 39,
+    "prompt_tokens": 132,
+    "total_tokens": 171,
+    "prompt_tokens_details": {
+      "cached_tokens": 87
+    }
+  }
+}

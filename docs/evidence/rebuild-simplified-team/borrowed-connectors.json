@@ -1,0 +1,22 @@
+{
+  "data": "synthetic",
+  "connector": "DuckDB and openpyxl",
+  "external": "local authenticated A2A JSON-RPC fixture",
+  "payer": "培训内容提供方",
+  "requesterRole": "member",
+  "sourceTeam": "培训内容提供方",
+  "projectTeam": "地区运营组",
+  "draftPreservedAfterWithdrawal": true,
+  "chargedCalls": 2,
+  "unknownPrices": 1,
+  "remoteSubmissions": 1,
+  "remoteReads": 2,
+  "readsDuringWithdrawal": 0,
+  "receiptIds": 1,
+  "reviewedVersions": [
+    1,
+    1
+  ],
+  "total": "90.30",
+  "xlsxSha256": "e56cbaa8c68eeaa33a8e625ec11f8df905e931d4f78e8f9eb32c73f16573807e"
+}

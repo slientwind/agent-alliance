@@ -1,0 +1,11 @@
+{
+  "data": "mock",
+  "widths": [
+    320,
+    390,
+    1440
+  ],
+  "staleSubmitDisabled": true,
+  "draftPreserved": true,
+  "currentRevisionSubmitted": 2
+}

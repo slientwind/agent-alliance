@@ -1,0 +1,1 @@
+{"id":"svc_7df4aea99e6344c4c3e3b54a","name":"历史参考数据简报","description":"由外部查询助手取得公开事实，受管助手据此形成中文摘要","nodes":[{"id":"lookup","agentId":"agt_432967a49367ea67af1fe7f2","dependsOn":[],"instruction":"Look up the requested exchange rate."},{"id":"brief","agentId":"agt_d29b8164e67165d4bd9f6cd5","dependsOn":["lookup"],"instruction":"引用上游查询结果形成中文简报。"}],"version":1,"releaseVersion":0}

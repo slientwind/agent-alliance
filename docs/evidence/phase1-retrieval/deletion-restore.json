@@ -1,0 +1,23 @@
+{
+  "before": {
+    "admin_body_lexical_semantic_rows": 11,
+    "reviewer_by_ref": 1,
+    "other_product_rows": 10
+  },
+  "dump_sha256": "f1fc0a1f6846b93517fc0cb80d637146886a1404f1835d936572088389140ebf",
+  "after_source_delete": {
+    "admin_body_lexical_semantic_rows": 0,
+    "reviewer_by_ref": 0,
+    "other_product_rows": 10
+  },
+  "isolated_restore": {
+    "admin_body_lexical_semantic_rows": 11,
+    "reviewer_by_ref": 1,
+    "other_product_rows": 10
+  },
+  "after_reconciliation": {
+    "admin_body_lexical_semantic_rows": 0,
+    "reviewer_by_ref": 0,
+    "other_product_rows": 10
+  }
+}

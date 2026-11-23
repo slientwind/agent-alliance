@@ -1,0 +1,41 @@
+{
+  "before": {
+    "review": "redo",
+    "attempts": [
+      "unknown",
+      "input_rejected"
+    ],
+    "knownRejectionClosable": true,
+    "unresolvedEarlierCallClosable": false
+  },
+  "after": {
+    "review": "redo",
+    "attempts": [
+      "unknown",
+      "input_rejected"
+    ],
+    "knownRejectionClosable": true,
+    "unresolvedEarlierCallClosable": false
+  },
+  "legacyMappingsInvented": false,
+  "batchUpgrade": {
+    "legacyMappingPreserved": true,
+    "legacyReceiptPreserved": true
+  },
+  "adviceUpgrade": {
+    "noGeneratedAdvice": true,
+    "previousCostsPreserved": true
+  },
+  "serviceUpgrade": {
+    "reviewerMayConfirmColumns": true,
+    "applicationMayConfirmColumns": false,
+    "reviewerMayRetryUnknownCalls": false,
+    "reviewerRevocationEffective": true
+  },
+  "reconfirmationUpgrade": {
+    "noReplacementInvented": true,
+    "previousCostsPreserved": true,
+    "activeLegacyMappingPreserved": true,
+    "removedReceiptNoLongerNeedsReconfirmation": true
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "beforeCompare": {
+    "all": 3,
+    "more": false,
+    "name": "制度原件.txt",
+    "page": 1,
+    "pin": 1,
+    "rows": [
+      {
+        "text": "仓库编号为 QK-94。",
+        "start": 1,
+        "end": 12,
+        "matches": [],
+        "suggested": 1
+      },
+      {
+        "text": "仓库 QK-94 的设备经部门负责人确认后领取。",
+        "start": 13,
+        "end": 36,
+        "matches": [
+          1
+        ]
+      },
+      {
+        "text": "归还时由保管员核对设备编号并登记。",
+        "start": 37,
+        "end": 53,
+        "matches": [],
+        "suggested": 2
+      }
+    ],
+    "total": 3,
+    "unmatched": 2,
+    "version": 1
+  },
+  "afterCompare": {
+    "all": 3,
+    "more": false,
+    "name": "制度原件.txt",
+    "page": 1,
+    "pin": 1,
+    "rows": [
+      {
+        "text": "仓库编号为 QK-94。",
+        "start": 1,
+        "end": 12,
+        "matches": [],
+        "suggested": 1
+      },
+      {
+        "text": "仓库 QK-94 的设备经部门负责人确认后领取。",
+        "start": 13,
+        "end": 36,
+        "matches": [
+          1
+        ]
+      },
+      {
+        "text": "归还时由保管员核对设备编号并登记。",
+        "start": 37,
+        "end": 53,
+        "matches": [
+          2
+        ]
+      }
+    ],
+    "total": 3,
+    "unmatched": 1,
+    "version": 2
+  },
+  "filtered": {
+    "all": 3,
+    "more": false,
+    "name": "制度原件.txt",
+    "page": 1,
+    "pin": 1,
+    "rows": [
+      {
+        "text": "仓库编号为 QK-94。",
+        "start": 1,
+        "end": 12,
+        "matches": [],
+        "suggested": 1
+      }
+    ],
+    "total": 1,
+    "unmatched": 1,
+    "version": 2
+  },
+  "originalText": {
+    "all": 3,
+    "more": false,
+    "name": "制度原件.txt",
+    "page": 1,
+    "pin": 1,
+    "rows": [
+      {
+        "text": "仓库编号为 QK-94。",
+        "start": 1,
+        "end": 12,
+        "matches": []
+      },
+      {
+        "text": "仓库 QK-94 的设备经部门负责人确认后领取。",
+        "start": 13,
+        "end": 36,
+        "matches": [
+          1
+        ]
+      },
+      {
+        "text": "归还时由保管员核对设备编号并登记。",
+        "start": 37,
+        "end": 53,
+        "matches": []
+      }
+    ],
+    "total": 3,
+    "unmatched": 2,
+    "version": 1
+  }
+}

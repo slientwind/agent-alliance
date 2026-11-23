@@ -1,0 +1,32 @@
+{
+  "slideXmlSHA256": [
+    [
+      "8312a10aec111e228f14bddfb1476709fc8150412e88bd0e8465931ca18397e4",
+      "3673696b6876fbab2d54d3162535bb99be7fc629f2c68e349b5f245b04c6b6a8",
+      "5a954fc54229d679736aeb3349c17ec19e389923f51fc1c685e8ee1b1cee37fa"
+    ],
+    [
+      "8312a10aec111e228f14bddfb1476709fc8150412e88bd0e8465931ca18397e4",
+      "61793ad234b71851ba715224567a61432ffe2c8e998d56ae186c9330146664ed",
+      "5a954fc54229d679736aeb3349c17ec19e389923f51fc1c685e8ee1b1cee37fa"
+    ]
+  ],
+  "renderedPageSHA256": [
+    [
+      "123e912d9e04c50eac46469680b227143e68284ce41ad7ff9a5deed61fce078b",
+      "4c0fb88f2f87064e0bbd62aa2d1cf2e4e63174ac5ea5fbc88ea6b907dd3dde41",
+      "77699476d9dee1e61c32bf3cad962fff76dc5d9f761da6423476d00f2b79d92b"
+    ],
+    [
+      "123e912d9e04c50eac46469680b227143e68284ce41ad7ff9a5deed61fce078b",
+      "60ad1772dfce30d0a27944cf8e689959349fb3534adee5690a61cf10c5d3ab6d",
+      "77699476d9dee1e61c32bf3cad962fff76dc5d9f761da6423476d00f2b79d92b"
+    ]
+  ],
+  "changedPages": [
+    2
+  ],
+  "pageCount": 3,
+  "packageFileSHA256": "6d2a5afef3be83ebe98b385c81599b8f69904fc210fbc7d73f307a109b1b3d0b",
+  "approvedVersion": 2
+}

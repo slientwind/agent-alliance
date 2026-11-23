@@ -1,0 +1,46 @@
+{
+  "model": "local CPU BGE and local Qwen",
+  "agent": "0e13dbd9-5d8c-4f09-b9b0-c40a88a63d7f",
+  "address": {
+    "project": "646714e6-39c5-4ab4-98cc-c6d0822ff914",
+    "run": "df15ce7f-db60-42c2-80dd-595479bd73f2",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_searched",
+      "completed",
+      "submitted",
+      "lookup_answer",
+      "completed",
+      "completed"
+    ],
+    "calls": 2,
+    "answer": "客户变更收货地址需在发货前提交工单，客服在工单中记录新地址",
+    "archive": "semantic-answer-646714e6-39c5-4ab4-98cc-c6d0822ff914.zip",
+    "response": "请联系客服提交工单更改收货地址。\n\n原文依据\n[1] 内部规程.txt v1 【S1v1:1-29】客户变更收货地址需在发货前提交工单，客服在工单中记录新地址",
+    "position": 1,
+    "question": "我不小心把快递买错了，想换地方收，该找谁？"
+  },
+  "return": {
+    "project": "a77af790-7c81-4870-babb-9f761547be33",
+    "run": "972d68eb-94fc-4023-a6c1-6ffa73196544",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_searched",
+      "completed",
+      "submitted",
+      "lookup_answer",
+      "completed",
+      "completed"
+    ],
+    "calls": 2,
+    "answer": "活动结束后由场务清点借出的展架，并在次日上午归还",
+    "archive": "semantic-answer-a77af790-7c81-4870-babb-9f761547be33.zip",
+    "response": "次日上午归还\n\n原文依据\n[1] 内部规程.txt v1 【S1v1:1-24】活动结束后由场务清点借出的展架，并在次日上午归还",
+    "position": 1,
+    "question": "我负责的摊位上的陈列架什么时候送回去？"
+  }
+}

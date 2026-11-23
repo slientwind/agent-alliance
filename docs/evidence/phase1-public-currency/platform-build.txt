@@ -1,0 +1,2 @@
+e45e2f46cc978b98ae27620c45c9ea28c55a6f8867f4ba8fb521f03bb5a88a10  backend/alliance
+5f9a5b9c4d9d333dbbab18149080d2462b5bec7d62f7de78e7ea9025954bf35f platform-current（本轮原样构建）

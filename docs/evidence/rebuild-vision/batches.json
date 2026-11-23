@@ -1,0 +1,62 @@
+[
+  {
+    "run": "smoke_450ed8334d",
+    "status": "failed",
+    "ended": "2026-11-23T12:28:35.748938+00:00",
+    "observation": "The creation form could stall if model options arrived after the output type was chosen. Model suggestion now resolves when the catalog loads."
+  },
+  {
+    "run": "smoke_91c0078eb4",
+    "status": "failed",
+    "ended": "2026-11-23T12:30:50.039483+00:00",
+    "observation": "The test attempted to preview the private original without opening its evidence panel. The next run exercised the visible browser path."
+  },
+  {
+    "run": "smoke_7d52bc404b",
+    "status": "failed",
+    "ended": "2026-11-23T12:32:56.715870+00:00",
+    "observation": "The browser correctly required a source impact decision before approving the artifact pinned to the old picture. The next run records that decision."
+  },
+  {
+    "run": "smoke_660effbe47",
+    "status": "failed",
+    "ended": "2026-11-23T12:34:56.602090+00:00",
+    "observation": "The changed picture reached the model and generated revision 2. The test expected 204 for a feedback decision that returns an ID with 200."
+  },
+  {
+    "run": "smoke_ceaf1891b2",
+    "status": "passed",
+    "ended": "2026-11-23T12:36:34.706314+00:00",
+    "observation": "Project, scoped revision, signature, MIME and exact provider bytes passed. Visual inspection found the trial form overflow on mobile."
+  },
+  {
+    "run": "smoke_03e6c18644",
+    "status": "passed",
+    "ended": "2026-11-23T12:39:08.849761+00:00",
+    "observation": "Final focused browser flow passed, including no horizontal overflow at 320, 390 and 1440 pixels."
+  },
+  {
+    "run": "smoke_3aa764a235",
+    "status": "failed",
+    "ended": "2026-11-23T12:42:32.670335+00:00",
+    "observation": "Vision, Feishu handoff, and migration checks passed. The temporary focused harness then included an unrelated test without its output directory."
+  },
+  {
+    "run": "smoke_34a1d55be4",
+    "status": "passed",
+    "ended": "2026-11-23T12:43:57.007015+00:00",
+    "observation": "Focused run passed across the vision browser, Feishu and 110 upgrade checks."
+  },
+  {
+    "run": "smoke_8ac66f30a6",
+    "status": "failed",
+    "ended": "2026-11-23T12:45:07.733354+00:00",
+    "observation": "Full regression reached the existing preview fixture after 44 checks. The embedded sample.png had damaged PNG image data. The fixture now generates a valid 1x1 PNG, and the new vision scenario separately checks invalid bytes are rejected."
+  },
+  {
+    "run": "smoke_0b3ec9d04a",
+    "status": "passed",
+    "ended": "2026-11-23T12:45:41.140047+00:00",
+    "observation": "Focused run also verified that the next Agent creates an editable Word from the image analysis text."
+  }
+]

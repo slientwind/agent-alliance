@@ -1,0 +1,76 @@
+{
+  "provider": "HTTPS fixture",
+  "records": [
+    {
+      "project": "81d2c933-3763-4662-bf45-8677089eba83",
+      "run": "f9e0e276-2a9a-4de4-9b8f-9cd5fc070d0f",
+      "file": "tool-choice-fixture-conversation.zip",
+      "choice": 2,
+      "fromConversation": true,
+      "runtimeChoice": 2,
+      "pinnedAlternative": "dd1e6bb5-cd9e-4ed4-a5b6-8eff5c0c50a9",
+      "calls": 3,
+      "boundaries": {
+        "directUsesOneTool": true,
+        "unknownActionRejected": true,
+        "scopeChangeRejected": true,
+        "newerCandidateRequiresReplan": true,
+        "unavailableBeforeProposalReturned": true
+      }
+    }
+  ],
+  "service": {
+    "id": "290f9b48-b707-4fb6-ac91-962cb15cd77d",
+    "stage": "review",
+    "steps": [
+      {
+        "name": "决定汇总方式 fixture",
+        "step": 1,
+        "status": "completed",
+        "version": 1,
+        "approved": false,
+        "artifact": "a7db7fba-ba38-44a5-b3ac-58ba1a5b121b",
+        "revision": 1,
+        "canSupplement": false,
+        "needsSourceReview": false,
+        "needsTakeoverReview": false
+      },
+      {
+        "name": "按地区汇总 fixture",
+        "step": 2,
+        "status": "completed",
+        "version": 1,
+        "approved": false,
+        "artifact": "d77467d5-f988-42cd-8205-d8bb2b832bb6",
+        "revision": 1,
+        "toolChoice": 1,
+        "canSupplement": false,
+        "needsSourceReview": false,
+        "needsTakeoverReview": false
+      }
+    ],
+    "status": "completed",
+    "blocker": null,
+    "project": "3d402669-080a-4dd6-aacf-da31f2f3500a",
+    "service": "0c0e6ccd-521b-4cbf-8fb6-7f684180cac7",
+    "version": 1,
+    "eventsUrl": "/api/v1/runs/290f9b48-b707-4fb6-ac91-962cb15cd77d/events",
+    "actionsUrl": "/api/v1/runs/290f9b48-b707-4fb6-ac91-962cb15cd77d/actions",
+    "deliveries": [],
+    "nextAction": "review_artifacts",
+    "packageUrl": "/api/v1/runs/290f9b48-b707-4fb6-ac91-962cb15cd77d/delivery/package",
+    "deliveryUrl": "/api/v1/runs/290f9b48-b707-4fb6-ac91-962cb15cd77d/delivery",
+    "externalTasks": [],
+    "finalReviewer": "Reviewer",
+    "humanActionUrl": "/#3d402669-080a-4dd6-aacf-da31f2f3500a",
+    "receiptRequest": null,
+    "controlRevision": 1,
+    "canConcludeFailure": false
+  },
+  "serviceRecovery": {
+    "run": "140b72c2-b711-41c3-9cf6-0bc8db2ff504",
+    "stage": "review",
+    "selectedRevision": 1,
+    "replayMatched": true
+  }
+}

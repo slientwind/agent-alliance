@@ -1,0 +1,17 @@
+{
+  "first": "82f6be9f-5c68-4b2d-9296-bb67227e7e8d",
+  "second": "5638c307-1644-4de0-9ad2-90ca121838cc",
+  "changes": [
+    {
+      "to": 2,
+      "from": 1,
+      "name": "Writer",
+      "step": 1,
+      "artifact": "6a246682-2759-46c9-826f-5d9fa53f500f",
+      "bodyChanged": true,
+      "fileChanged": false,
+      "dependenciesChanged": false
+    }
+  ],
+  "unchangedOriginal": true
+}

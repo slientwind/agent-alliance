@@ -1,0 +1,68 @@
+[
+  {
+    "case": "training",
+    "workflowStage": "review",
+    "checks": {
+      "editableFileMatches": true,
+      "headings": true,
+      "requestedFactsPerPage": true,
+      "sourceRuleOnlyOnItsOwnPage": true
+    },
+    "allPassed": true,
+    "nativePages": [
+      [
+        "领取设备",
+        [
+          "员工先填写设备用途和预计归还日，经部门负责人确认后领取。"
+        ]
+      ],
+      [
+        "归还设备",
+        [
+          "归还时由保管员核对设备编号并登记。"
+        ]
+      ],
+      [
+        "遗失处理",
+        [
+          "遗失时立即报告保管员。"
+        ]
+      ]
+    ],
+    "sourceReviewActionPreserved": null
+  },
+  {
+    "case": "product",
+    "workflowStage": "review",
+    "checks": {
+      "editableFileMatches": true,
+      "headings": true,
+      "requestedFactsPerPage": true,
+      "priceExplicitlyUnknown": true,
+      "thermalDurationExplicitlyUnknown": true,
+      "noInventedPriceOrHours": true,
+      "reviewerBeforeDelivery": false
+    },
+    "allPassed": false,
+    "nativePages": [
+      [
+        "已知规格",
+        [
+          "编号: CW-01",
+          "容量: 480 mL",
+          "颜色: 杯身海蓝色",
+          "包装: 含杯和说明卡"
+        ]
+      ],
+      [
+        "待补资料",
+        [
+          "零售价: 暂未给出",
+          "保温时长: 尚无测量资料",
+          "审核人: 产品审核人"
+        ]
+      ]
+    ],
+    "sourceReviewActionPreserved": false
+  }
+]

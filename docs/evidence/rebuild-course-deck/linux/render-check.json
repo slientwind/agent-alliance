@@ -1,0 +1,11 @@
+{
+  "connectorImage": "sha256:6f190bd25d8c62394205dffe219f48866dec2fa566660d361d935af8d89d8290",
+  "previewImage": "sha256:850dbff0bc98687cf0fd2394b16f06cf03eaaddb699f1387bb92e3bad20589e4",
+  "pagePoints": [
+    959.981102,
+    540.0
+  ],
+  "headingAndSevenRowsExact": true,
+  "allTextBoxesFit": true,
+  "testCount": 16
+}

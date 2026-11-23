@@ -1,0 +1,76 @@
+{
+  "projectGap": {
+    "planner": "HTTPS fixture",
+    "trialResults": [
+      {
+        "status": "failed",
+        "output": "待分类"
+      },
+      {
+        "status": "passed",
+        "output": "SRV-184"
+      }
+    ],
+    "originalVersion": 1,
+    "adoptedVersion": 2,
+    "stableAgent": true,
+    "sample": "维修工单 SRV-184",
+    "expected": "SRV-184",
+    "calls": 4,
+    "answer": "SRV-951"
+  },
+  "imageRevision": {
+    "provider": "synthetic PNG fixture",
+    "reviewedRevisions": [
+      1,
+      2
+    ],
+    "pixels": [
+      [
+        36,
+        232
+      ],
+      [
+        232,
+        36
+      ]
+    ],
+    "unreviewedPublication": 409
+  },
+  "boundaries": {
+    "independentCredentialVerifiedOn": [
+      1,
+      2
+    ],
+    "pinnedModelRevision": 1,
+    "concurrentSaves": [
+      201,
+      409
+    ],
+    "requiredCheckInherited": true,
+    "oldProjectRevision": 1,
+    "projectAndRequiredSampleAccess": 404,
+    "revokedSampleAccess": 404
+  },
+  "data": "synthetic",
+  "provider": "HTTPS fixture",
+  "sample": "维修单：饮水机漏水，工单编号 SRV-184，已通知物业。",
+  "expected": "SRV-184",
+  "trials": [
+    {
+      "revision": 2,
+      "status": "passed",
+      "output": "SRV-184"
+    },
+    {
+      "revision": 1,
+      "status": "failed",
+      "output": "待分类"
+    }
+  ],
+  "staleSave": 409,
+  "publishedRevision": 2,
+  "delivery": "SRV-627",
+  "projectCalls": 1,
+  "stage": "delivered"
+}

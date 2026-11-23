@@ -1,0 +1,139 @@
+{
+  "postgres": "16.10 (Debian 16.10-1.pgdg12+1)",
+  "pgvector": "0.8.0",
+  "image": "sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
+  "vector_dimensions": 216,
+  "dump_sha256": "1464924617db943ffb96c459e3dcbfd1b601b68a6f64d1eb54997561323c58b8",
+  "results": [
+    {
+      "case_id": "K01",
+      "query": "设备归还时由谁核对设备编号并登记？",
+      "expected_first": "training-v2.4",
+      "rationale": "须引用保管员条款",
+      "actual": "training-v2.4",
+      "passed": true,
+      "hits": [
+        [
+          "training-v2.4",
+          "归还时由保管员核对设备编号并登记",
+          0.7515
+        ],
+        [
+          "training-v2.2",
+          "员工先填写设备用途和预计归还日，经部门负责人确认后领取",
+          0.1455
+        ]
+      ]
+    },
+    {
+      "case_id": "K02",
+      "query": "跨部门借用还需要谁确认？",
+      "expected_first": "training-v2.3",
+      "rationale": "仅新版规定接收部门负责人",
+      "actual": "training-v2.3",
+      "passed": true,
+      "hits": [
+        [
+          "training-v2.3",
+          "跨部门借用还需接收部门负责人确认",
+          0.6136
+        ],
+        [
+          "training-v2.2",
+          "员工先填写设备用途和预计归还日，经部门负责人确认后领取",
+          0.1265
+        ]
+      ]
+    },
+    {
+      "case_id": "K03",
+      "query": "遗失时报告谁？",
+      "expected_first": "training-v2.5",
+      "rationale": "须引用遗失条款",
+      "actual": "training-v2.5",
+      "passed": true,
+      "hits": [
+        [
+          "training-v2.5",
+          "遗失时立即报告保管员",
+          0.4472
+        ]
+      ]
+    },
+    {
+      "case_id": "K04",
+      "query": "CW-01 的容量是多少 mL？",
+      "expected_first": "product-v2.2",
+      "rationale": "新版为420 mL",
+      "actual": "product-v2.2",
+      "passed": true,
+      "hits": [
+        [
+          "product-v2.2",
+          "编号 CW-01，容量 420 mL，杯身海蓝色，零售价 79 元，包装内含杯和说明卡",
+          0.2665
+        ]
+      ]
+    },
+    {
+      "case_id": "K05",
+      "query": "设备弄丢了找谁？",
+      "expected_first": "training-v2.5",
+      "rationale": "同义词不能靠原词照抄",
+      "actual": "training-v2.4",
+      "passed": false,
+      "hits": [
+        [
+          "training-v2.4",
+          "归还时由保管员核对设备编号并登记",
+          0.1054
+        ]
+      ]
+    },
+    {
+      "case_id": "K06",
+      "query": "借设备之前要说明拿来干什么吗？",
+      "expected_first": "training-v2.2",
+      "rationale": "口语改写",
+      "actual": "EMPTY",
+      "passed": false,
+      "hits": []
+    },
+    {
+      "case_id": "K07",
+      "query": "谁负责报销差旅费？",
+      "expected_first": "EMPTY",
+      "rationale": "授权资料无此答案",
+      "actual": "EMPTY",
+      "passed": true,
+      "hits": []
+    },
+    {
+      "case_id": "K08",
+      "query": "保温时长是多少？",
+      "expected_first": "product-v2.3",
+      "rationale": "只能答尚无测量资料",
+      "actual": "product-v2.3",
+      "passed": true,
+      "hits": [
+        [
+          "product-v2.3",
+          "保温时长尚无测量资料",
+          0.4082
+        ]
+      ]
+    }
+  ],
+  "permissions": {
+    "cross_enterprise_rows": 0,
+    "before_share": 0,
+    "during_share": 1,
+    "after_share_revoked": 0,
+    "old_citation_after_revoke": 0,
+    "search_after_revoke": [],
+    "stale_rows_in_isolated_restore": 11,
+    "after_reconcile_rows": 0,
+    "after_reconcile_other_shared": 0,
+    "restore_authorized_product_rows": 10
+  }
+}

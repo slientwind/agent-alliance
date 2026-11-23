@@ -1,0 +1,62 @@
+{
+  "project": "1d8d3983-1290-4dc8-b38c-ecbda875c9b8",
+  "source": "eb4c944c-32be-40bc-8da2-6b0ffbfd2aad",
+  "delivery": "bccd102a-b19a-489d-a5f0-89d0258d36e0",
+  "original": 1,
+  "observedAtDelivery": 3,
+  "latest": 4,
+  "delivered": [
+    1,
+    2
+  ],
+  "assessments": [
+    {
+      "id": "5ec8d8ac-5d11-466e-be9a-b7027258584f",
+      "time": "2026-11-20T18:29:36.685316+00:00",
+      "version": 2,
+      "artifact": "62c88fd6-9b7e-460b-9db9-75d25e898440",
+      "decision": "retain",
+      "reviewer": "4951be23-4a1c-4b01-8ab2-53c79cf5928d"
+    },
+    {
+      "id": "11c5620a-5f3c-4546-b75c-31ab93abe5b1",
+      "time": "2026-11-20T18:29:33.971796+00:00",
+      "version": 1,
+      "artifact": "cc27ed57-79dc-4d12-a631-6a268ab89444",
+      "decision": "retain",
+      "reviewer": "4951be23-4a1c-4b01-8ab2-53c79cf5928d"
+    }
+  ],
+  "revisionInputs": [
+    {
+      "run": "04e394e5-26ee-4a14-97d3-4f051c1f5f89",
+      "name": "revised.txt",
+      "source": "eb4c944c-32be-40bc-8da2-6b0ffbfd2aad",
+      "planPin": 1,
+      "version": 2,
+      "artifact": "62c88fd6-9b7e-460b-9db9-75d25e898440",
+      "feedback": "1153a4a3-37f6-484d-8b07-f181254b7abf",
+      "selected": 3,
+      "assessment": "a03c818e-b00c-4ae8-b725-31a7e6660283",
+      "authorizedBy": "4951be23-4a1c-4b01-8ab2-53c79cf5928d"
+    }
+  ],
+  "checks": [
+    "renamed identical bytes",
+    "old original readable by version",
+    "authorized text comparison and revocation",
+    "member and reviewer permissions",
+    "stale input rejected",
+    "previous approval held",
+    "retained standalone artifact",
+    "model received only the selected revision",
+    "idempotent authorization and scoped version receipt",
+    "updated or revoked input blocked on resume without a charge",
+    "change requires new version and reassessment",
+    "snapshot remains fixed after later update and revocation",
+    "prior raw content denied after revocation",
+    "no additional model calls on assessment",
+    "browser upload and revoke show scope before mutation",
+    "sealing blocked after in-review revocation until independent assessment"
+  ]
+}

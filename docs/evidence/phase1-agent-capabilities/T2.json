@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "动作｜相关能力或对象｜原因  \n创建试用｜外部课件 Agent｜可以继续的工作和还不能承诺的结果  \n先做验证｜需要它交付可打开的PPTX",
+  "usage": {
+    "completion_tokens": 41,
+    "prompt_tokens": 149,
+    "total_tokens": 190,
+    "prompt_tokens_details": {
+      "cached_tokens": 87
+    }
+  }
+}

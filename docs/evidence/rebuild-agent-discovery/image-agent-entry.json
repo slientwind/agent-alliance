@@ -1,0 +1,19 @@
+{
+  "inputs": "synthetic, local image provider",
+  "agent": "6dee6b34-38d3-451d-91c0-c1ee58d8aadf",
+  "project": "c37a4068-064f-493f-966b-c7d34008c287",
+  "version": 1,
+  "image": [
+    320,
+    192
+  ],
+  "packageSHA256": "0aed8d8c3e5a011e39e610598b17370674b02e7bc78fa25f2ce03bbd8b541d75",
+  "sameTeamPeerHasPersonalShortcut": false,
+  "reusedPublishedAgentDuringCreation": true,
+  "separateReviewer": true,
+  "revokedReviewerFileStatus": 404,
+  "businessVerdict": true,
+  "memberPublishStatus": 403,
+  "stage": "delivered",
+  "originalGoalRetained": true
+}

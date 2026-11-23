@@ -1,0 +1,14 @@
+{
+  "previousImage": "sha256:f57f4ada2d375ca7bbe92199de7adf2a4d5f5786dd0bdfb768d4c47b1dc4636a",
+  "currentImage": "sha256:bf114dfa93e95cbf6bacb4d8d5dbf00a7e7abe8c64f68fa022c8776033a4e077",
+  "beforeSchema": "schema/099_lookup_evidence_receipts.sql",
+  "afterSchema": "schema/100_lookup_index_waits.sql",
+  "run": "75e79f1c-a9b6-4319-abcb-4a34a363ec2b",
+  "chargeCalls": [
+    1,
+    2
+  ],
+  "answer": "启用离线纸质名册登记。\n\n原文依据\n[1] 现场制度.txt v1 【S1v1:212-236】签到设备发生故障时，现场负责人启用离线纸质名册登记",
+  "sameSearchArtifact": true,
+  "migratedActiveWait": true
+}

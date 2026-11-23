@@ -1,0 +1,100 @@
+[
+  {
+    "batch": "smoke_ecb783e357",
+    "status": "failed",
+    "checkGroups": 1,
+    "scope": "历史专项启动器中的文本二次建项等待超时，随后使用当前启动器和重新构建的工作进程验证",
+    "report": "artifacts/rebuild-smoke/smoke_ecb783e357/result.json"
+  },
+  {
+    "batch": "smoke_a618a6e9f6",
+    "status": "failed",
+    "checkGroups": 1,
+    "scope": "测试定位器错误地在弹框内部再次寻找同一弹框",
+    "report": "artifacts/rebuild-smoke/smoke_a618a6e9f6/result.json"
+  },
+  {
+    "batch": "smoke_b2a8d4e511",
+    "status": "failed",
+    "checkGroups": 1,
+    "scope": "合成模型端点拒绝错误凭据，未取得通过样图",
+    "report": "artifacts/rebuild-smoke/smoke_b2a8d4e511/result.json"
+  },
+  {
+    "batch": "smoke_be4e5327a7",
+    "status": "passed",
+    "checkGroups": 3,
+    "scope": "手机创建、技术检查、指定成员验收、发布与交付",
+    "report": "artifacts/rebuild-smoke/smoke_be4e5327a7/result.json"
+  },
+  {
+    "batch": "smoke_ad9b207902",
+    "status": "failed",
+    "checkGroups": 1,
+    "scope": "下载检查选中了 JSON 清单而非 ZIP 按钮",
+    "report": "artifacts/rebuild-smoke/smoke_ad9b207902/result.json"
+  },
+  {
+    "batch": "smoke_7535e362c5",
+    "status": "passed",
+    "checkGroups": 3,
+    "scope": "ZIP 原件逐字节核对以及同团队其他成员视图",
+    "report": "artifacts/rebuild-smoke/smoke_7535e362c5/result.json"
+  },
+  {
+    "batch": "smoke_f88a6cf344",
+    "status": "failed",
+    "checkGroups": 1,
+    "scope": "撤权后的图像断言误将关闭按钮图标计入样图，后按文件名匹配",
+    "report": "artifacts/rebuild-smoke/smoke_f88a6cf344/result.json"
+  },
+  {
+    "batch": "smoke_be0d6bd5d1",
+    "status": "passed",
+    "checkGroups": 3,
+    "scope": "已打开样图时撤权、原件及审核拒绝、恢复授权并重新验收",
+    "report": "artifacts/rebuild-smoke/smoke_be0d6bd5d1/result.json"
+  },
+  {
+    "batch": "smoke_ca75710f42",
+    "status": "passed",
+    "checkGroups": 3,
+    "scope": "技术检查状态与人工验收分别呈现",
+    "report": "artifacts/rebuild-smoke/smoke_ca75710f42/result.json"
+  },
+  {
+    "batch": "smoke_50a222735b",
+    "status": "passed",
+    "checkGroups": 3,
+    "scope": "实际复用既有发布修订，草稿与试运行次数不增加",
+    "report": "artifacts/rebuild-smoke/smoke_50a222735b/result.json"
+  },
+  {
+    "batch": "smoke_385cb38fb3",
+    "status": "passed",
+    "checkGroups": 3,
+    "scope": "复用及既有文本、组合入口专项复验",
+    "report": "artifacts/rebuild-smoke/smoke_385cb38fb3/result.json"
+  },
+  {
+    "batch": "smoke_e51048a3eb",
+    "status": "passed",
+    "checkGroups": 3,
+    "scope": "手机复用截图和下载包复核",
+    "report": "artifacts/rebuild-smoke/smoke_e51048a3eb/result.json"
+  },
+  {
+    "batch": "smoke_7ef57d690a",
+    "status": "passed",
+    "checkGroups": 3,
+    "scope": "最终界面与权限、复用、交付及文本组合复验",
+    "report": "artifacts/rebuild-smoke/smoke_7ef57d690a/result.json"
+  },
+  {
+    "batch": "smoke_8f23f48c87",
+    "status": "passed",
+    "checkGroups": 73,
+    "scope": "全量构建快照，包含生图快捷创建与交付。随后增加的草稿撤权与相似能力复用由最终专项及三种视口的 Mock 覆盖。",
+    "report": "artifacts/rebuild-smoke/smoke_8f23f48c87/result.json"
+  }
+]

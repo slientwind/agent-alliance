@@ -1,0 +1,47 @@
+{
+  "stage": "review",
+  "nativePages": [
+    {
+      "title": "接收",
+      "body": "接收前由档案员与送交人共同核对箱号。"
+    },
+    {
+      "title": "扫描",
+      "body": "扫描分辨率为 300 dpi。含个人信息的页只在馆内工作站处理。"
+    },
+    {
+      "title": "归档",
+      "body": "归档时由复核员核对页数。缺页须挂起，不得标为完成。"
+    }
+  ],
+  "checks": [
+    {
+      "title": "接收",
+      "titleMatches": true,
+      "missing": []
+    },
+    {
+      "title": "扫描",
+      "titleMatches": true,
+      "missing": []
+    },
+    {
+      "title": "归档",
+      "titleMatches": true,
+      "missing": []
+    }
+  ],
+  "passed": true,
+  "attempts": [
+    {
+      "step": 1,
+      "status": "completed",
+      "tokens": 421
+    },
+    {
+      "step": 2,
+      "status": "completed",
+      "tokens": null
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "provider": "local Qwen",
+  "records": [
+    {
+      "project": "10916f21-1e6e-46c4-8d43-d89e7f045767",
+      "run": "e6c9b85f-1070-46c2-8a7e-0a88408f2398",
+      "choice": 2,
+      "manual": false,
+      "stopAfterChoice": false,
+      "calls": 2,
+      "agent": "43129270-6720-4603-8960-83eeb8a616ba",
+      "file": "tool-choice-local-2.zip"
+    },
+    {
+      "project": "1e6dc0a6-a898-4e06-8b81-bd235437e764",
+      "run": "ecb586c1-74f7-42a3-8e9d-26c57f519a51",
+      "choice": 1,
+      "manual": false,
+      "stopAfterChoice": false,
+      "calls": 2,
+      "agent": "7ee8afbe-250f-4604-aa62-9a45d3840c81",
+      "file": "tool-choice-local-1.zip"
+    }
+  ],
+  "service": {
+    "id": "ab18e91d-f9d7-4f31-bb61-d465ffea9aaa",
+    "stage": "review",
+    "steps": [
+      {
+        "name": "决定汇总方式 local",
+        "step": 1,
+        "status": "completed",
+        "version": 1,
+        "approved": false,
+        "artifact": "b0618125-00a6-4f69-9cb7-280cd3f8071c",
+        "revision": 1,
+        "canSupplement": false,
+        "needsSourceReview": false,
+        "needsTakeoverReview": false
+      },
+      {
+        "name": "按地区汇总 local",
+        "step": 2,
+        "status": "completed",
+        "version": 1,
+        "approved": false,
+        "artifact": "2a7b0f0b-3d93-4e69-8cff-53e16fa3cba4",
+        "revision": 1,
+        "toolChoice": 1,
+        "canSupplement": false,
+        "needsSourceReview": false,
+        "needsTakeoverReview": false
+      }
+    ],
+    "status": "completed",
+    "blocker": null,
+    "project": "d83fb1e5-c06a-4d40-bee5-bd23f90836c3",
+    "service": "7b740ec8-7302-4412-b445-c1db85bba879",
+    "version": 1,
+    "eventsUrl": "/api/v1/runs/ab18e91d-f9d7-4f31-bb61-d465ffea9aaa/events",
+    "actionsUrl": "/api/v1/runs/ab18e91d-f9d7-4f31-bb61-d465ffea9aaa/actions",
+    "deliveries": [],
+    "nextAction": "review_artifacts",
+    "packageUrl": "/api/v1/runs/ab18e91d-f9d7-4f31-bb61-d465ffea9aaa/delivery/package",
+    "deliveryUrl": "/api/v1/runs/ab18e91d-f9d7-4f31-bb61-d465ffea9aaa/delivery",
+    "externalTasks": [],
+    "finalReviewer": "Reviewer",
+    "humanActionUrl": "/#d83fb1e5-c06a-4d40-bee5-bd23f90836c3",
+    "receiptRequest": null,
+    "controlRevision": 1,
+    "canConcludeFailure": false
+  }
+}

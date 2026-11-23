@@ -1,0 +1,38 @@
+{
+  "16": {
+    "path": "projects/66828507-a7c0-4450-bcc3-1bdabcaaf0af",
+    "indexedBefore": 0,
+    "passages": 16,
+    "run": "c9579585-f5e8-4dbf-a6d9-685670e666bc",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_fresh",
+      "completed",
+      "submitted",
+      "lookup_answer",
+      "completed",
+      "completed"
+    ],
+    "calls": 2,
+    "stage": "review"
+  },
+  "17": {
+    "path": "projects/88eb82fa-86e0-45ba-8183-3d288c0dff70",
+    "indexedBefore": 0,
+    "passages": 17,
+    "run": "5c37d3e6-8441-4bf3-949a-46b6c0847988",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_index_pending",
+      "completed",
+      "lookup_receipt_requested",
+      "blocked"
+    ],
+    "calls": 1,
+    "stage": "blocked"
+  }
+}

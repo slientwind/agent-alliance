@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "现在应该做什么？申请授权。",
+  "usage": {
+    "completion_tokens": 8,
+    "prompt_tokens": 210,
+    "total_tokens": 218,
+    "prompt_tokens_details": {
+      "cached_tokens": 162
+    }
+  }
+}

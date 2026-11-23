@@ -1,0 +1,41 @@
+{
+  "web": {
+    "project": "5d4ab23a-bc1e-41bd-bdec-94056fa5917b",
+    "run": "5f0a4c12-6b04-4092-a859-41bf6bab039e",
+    "sources": [
+      {
+        "name": "访谈记录.docx",
+        "location": "段落 2"
+      }
+    ]
+  },
+  "api": {
+    "id": "e5c55529-3818-4673-8434-3bdb8179b4d8",
+    "project": "dcd4a6b6-d2ce-4098-99dd-2b3120e7bd55",
+    "statusUrl": "/api/v1/runs/e5c55529-3818-4673-8434-3bdb8179b4d8",
+    "sources": [
+      {
+        "name": "完整访谈记录.docx",
+        "location": "段落 2"
+      },
+      {
+        "name": "sales.xlsx",
+        "location": "销售!D2"
+      },
+      {
+        "name": "访谈摘要.pptx",
+        "location": "幻灯片 2"
+      },
+      {
+        "name": "training-doc.pdf",
+        "location": "PDF 第 1 页"
+      }
+    ]
+  },
+  "originalBytes": 2223596,
+  "authorizationCalls": 1,
+  "byteIdentical": true,
+  "idempotent": true,
+  "originalVersion": 1,
+  "manifestVerified": true
+}

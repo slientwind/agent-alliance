@@ -1,0 +1,12 @@
+{
+  "phases": [
+    "search",
+    "answer_calc"
+  ],
+  "resumed": "d2431db0-3903-4598-b277-19f48121e3bb",
+  "resumedAnswer": "合计为 26.05 元。\n16.85 元 [1] + 9.20 元 [2] = 26.05 元\n\n原文依据\n[1] items.txt v1 【S1v1:1-14】去程运费为 16.85 元。\n[2] items.txt v1 【S1v1:16-28】返程运费为 9.20 元。",
+  "resumedCalls": 2,
+  "withdrawnCalls": 1,
+  "withdrawnStage": "blocked",
+  "serviceAnswer": "合计为 11.00 元。\n3.45 元 [1] + 7.55 元 [2] = 11.00 元\n\n原文依据\n[1] 本期收据.txt v1 【S1v1:1-16】第一张运费收据为 3.45 元。\n[2] 本期收据.txt v1 【S1v1:18-33】第二张运费收据为 7.55 元。"
+}

@@ -1,0 +1,20 @@
+{
+  "input": "synthetic",
+  "runtime": [
+    "Chromium",
+    "Go API",
+    "PostgreSQL",
+    "Temporal"
+  ],
+  "project": "709bb6b3-499a-4f25-a708-202e8450d665",
+  "run": "b8fc330f-8513-4ff6-846a-0288c6a50718",
+  "receipt": "35ae4c61-9b61-478d-adc2-4514026aa037",
+  "submissions": 2,
+  "savedRequests": 1,
+  "originalRunRestored": true,
+  "staleRevisionRequiredConfirmation": true,
+  "sameKeyAfterLostResponse": true,
+  "decision": "approved",
+  "appliedLimit": "5.000001",
+  "resumeRequested": true
+}

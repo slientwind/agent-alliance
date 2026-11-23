@@ -1,0 +1,20 @@
+{
+  "buildFile": "Dockerfile",
+  "image": "sha256:3097ef2be0972e07e0ab9edf022fa02c2695394faa1984bc63930e4c787a69c8",
+  "attempts": [
+    {
+      "result": "failed",
+      "stage": "frontend npm ci",
+      "reason": "ECONNRESET while downloading dependencies"
+    },
+    {
+      "result": "passed",
+      "stage": "multistage release build",
+      "cache": "29 public npm packages checked against the lockfile and 61 Go modules primed using the module checksums"
+    }
+  ],
+  "checks": [
+    "container.json",
+    "linux-workflow.json"
+  ]
+}

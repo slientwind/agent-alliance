@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "题1：符合  \n依据：原句“经部门负责人确认后领取”，候选稿“员工自行确认后领取”与原句一致，符合制度要求。\n\n题2：不符合  \n依据：原句“归还时由保管员核对设备编号并登记”，候选稿“归还由财务登记”与原句不符，应修改为“归还时由保管员核对设备编号并登记”。  \n\n应由项目审核人完成。",
+  "usage": {
+    "completion_tokens": 98,
+    "prompt_tokens": 198,
+    "total_tokens": 296,
+    "prompt_tokens_details": {
+      "cached_tokens": 152
+    }
+  }
+}

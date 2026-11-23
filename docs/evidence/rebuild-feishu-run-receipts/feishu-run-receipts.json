@@ -1,0 +1,35 @@
+{
+  "input": "synthetic",
+  "provider": "signed loopback Feishu",
+  "lookup": {
+    "project": "15a8a87f-1670-49b1-ae64-d199f84d2ad0",
+    "run": "b28c56b9-1029-4136-a377-1caac2dd37c7",
+    "chargedCalls": 2,
+    "delivery": "feishu-run-receipt-delivery.zip"
+  },
+  "calculation": {
+    "project": "660969ec-8f2b-499c-9477-0b7b1613485c",
+    "run": "9f7ed9ea-bd9e-4301-b9e9-87c781e51284",
+    "chargedCalls": 2,
+    "difference": "78.50"
+  },
+  "cancelled": {
+    "project": "e888275d-c2b9-4a2f-b041-4efcc01e6d32",
+    "run": "f3e13fed-4c40-4dfb-8453-4ba453d38f1e",
+    "chargedCalls": 1
+  },
+  "expired": {
+    "project": "4bd4e6d8-6013-4667-b5fc-11559dab86dd",
+    "run": "1cc1df1c-8ccf-4e7b-8ec1-674c7ada6eda",
+    "chargedCalls": 1
+  },
+  "checks": [
+    "no file read before consent",
+    "incomplete excerpt rejected",
+    "private chat and selected task scoped",
+    "confirmation and signed event deduplicated",
+    "original run and authorization reused",
+    "exact excerpts and delivery hashes checked",
+    "download finishing after cancellation or consent expiry cannot resume"
+  ]
+}

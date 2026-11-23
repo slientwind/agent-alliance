@@ -1,0 +1,29 @@
+{
+  "reviewNoteAccess": {
+    "runsWithDifferentInputs": 3,
+    "jointSubmissionTargets": 3,
+    "administratorWithoutReviewScope": "restricted",
+    "creatorOfAllWithdrawnInputs": "allowed",
+    "creatorOfOneOfTwoWithdrawnInputs": "restricted",
+    "authorizedSeparateSubmission": "readable",
+    "restrictedConflictFileAndPreview": 404,
+    "sharedAssignmentRevisionReasonWithheld": true,
+    "restrictedRevisionTraceContent": 403,
+    "restrictedRevisionTraceExportWithContent": 403,
+    "mixedAssignmentOnReadableArtifact": "restricted",
+    "independentlyAssignedItemInSameSubmission": "readable",
+    "reviewGrantedThenWithdrawn": true,
+    "revokedOriginalDuringAuthorizedReview": 404,
+    "projectMembershipEnded": 404
+  },
+  "fromSchema": 74,
+  "toSchema": 76,
+  "priorRevocationPreserved": true,
+  "legacyFilenameNullable": true,
+  "fixedPlanPin": 1,
+  "versionsRecovered": 2,
+  "missingOrCorruptOriginalRejected": true,
+  "concurrentRestores": 2,
+  "newSources": 1,
+  "oldLinkStatus": 404
+}

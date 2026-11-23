@@ -1,0 +1,19 @@
+{
+  "input": "synthetic records with real Go API, PostgreSQL, Temporal and Chromium",
+  "matchesAllEnterpriseOutcomes": true,
+  "includesApplicationRuns": true,
+  "matchesExactEnterpriseMoney": true,
+  "enterpriseRuns": 6,
+  "enterpriseCalls": 13,
+  "enterpriseName": "Synthetic",
+  "explicitSelfGrantForAdminExport": true,
+  "concurrentSelfGrantStatuses": [
+    201,
+    409
+  ],
+  "dashboardPeriodPinned": true,
+  "expiredGrantRemainedClosedAfterReissue": true,
+  "memberFilterHidesEnterpriseExport": true,
+  "scopedAndThirdPartyLinkStatus": 404,
+  "detailCrossTeamChargeEntries": 1
+}

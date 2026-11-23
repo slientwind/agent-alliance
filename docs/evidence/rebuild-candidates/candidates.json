@@ -1,0 +1,15 @@
+{
+  "publishedName": "培训摘要助手",
+  "publishedRevision": 1,
+  "draftRevision": 2,
+  "matchedChecks": [
+    "培训要点覆盖"
+  ],
+  "estimate": "0.015001",
+  "formatMismatch": "unsuitable",
+  "projectBudget": "conditional",
+  "projectOnlyVisibleCount": 0,
+  "planningPinsPublishedVersion": true,
+  "planningExcludesBudgetBlocked": true,
+  "changedDuringPlanning": "stale"
+}

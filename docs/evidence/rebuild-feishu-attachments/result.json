@@ -1,0 +1,22 @@
+{
+  "started": "2026-11-23T04:26:58.411822+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "Lookup, caller attachments and recovery before channel changes",
+    "Confirmed Feishu attachment, recovery and reviewed package"
+  ],
+  "feishuAttachments": "feishu-attachments.json",
+  "ended": "2026-11-23T04:28:18.731996+00:00"
+}

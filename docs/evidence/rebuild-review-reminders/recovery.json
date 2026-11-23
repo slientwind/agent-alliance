@@ -1,0 +1,44 @@
+{
+  "status": "passed",
+  "checks": [
+    "T0 encrypted business, Temporal history, visibility and object snapshots verified",
+    "Earlier visibility omitted two real workflow executions; incorrect vault key detected without provider access",
+    "T2 staged old preference and workflow histories stayed quarantined; API and Worker refused startup",
+    "Authorized original repaired exactly once; revoked package and application stayed blocked, purged preference absent, unresolved call untouched",
+    "Quarantined enterprise export remained in the archive; repairing approved files did not restore its withdrawn permission or download",
+    "Quarantined snapshot retained former review-note access; repairing another authorized package kept working notes hidden from the live observer",
+    "Corrupted original refused recovery; source purge survived approved ZIP repair: earlier source remained confined to quarantine and the independently referenced artifact stayed usable",
+    "Unlink after backup survived delivery repair: the old private reminder and binding remained only in quarantine",
+    "Financial snapshots retained only in quarantine; separate billing export withdrawal survived file recovery",
+    "File repair preserved the live account downgrade, suspension, acknowledgement and revoked delegation despite older administrator rights in quarantine",
+    "Chromium downloaded the repaired ZIP byte-for-byte and withheld the withdrawn edition",
+    "Expiry removed only the authenticated short-retention archive, regardless of file modification time",
+    "Tampered ciphertext rejected before staging; existing archive never overwritten"
+  ],
+  "fixture": "isolated synthetic enterprise",
+  "stageSeconds": 1.34,
+  "workflows": {
+    "Dispatched": 3,
+    "AwaitingDispatch": 0,
+    "Matched": 3,
+    "MissingHistory": 0,
+    "MissingVisibility": 0,
+    "DifferentStatus": 0
+  },
+  "earlierVisibility": {
+    "Dispatched": 3,
+    "AwaitingDispatch": 0,
+    "Matched": 1,
+    "MissingHistory": 0,
+    "MissingVisibility": 2,
+    "DifferentStatus": 0
+  },
+  "reviewReminderRecovery": {
+    "archive": "pending, original binding",
+    "live": "obsolete, unlinked",
+    "attemptsAfterRepair": 1
+  },
+  "objects": 6,
+  "unresolvedCalls": 1,
+  "deliverySHA256": "c17b5c927f169acd20c703d0cc95acdb2194b4f7372d4497298f2199416ac318"
+}

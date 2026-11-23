@@ -1,0 +1,21 @@
+{
+  "input": "synthetic",
+  "directAttemptsBeforeRepair": 3,
+  "originalClockRetained": true,
+  "mixedDigestSize": 2,
+  "mixedDigestSuperseded": 1,
+  "remoteTokenPendingDuringReview": true,
+  "longOutageRetryRequiredExplicitConsent": true,
+  "adminHealth": {
+    "pending": 0,
+    "failed": 0,
+    "accepted": 3,
+    "obsolete": 3
+  },
+  "manualRetryOf": "1bdf3603-2f90-4488-a743-d86c16e86529",
+  "obsoleteRetry": "cf06bc3e-5d1f-4f9c-b046-e6c451206313",
+  "acceptedCurrentFinalDigest": "a9b8abb8-93cd-4ef1-bdc2-b48ee8f2c370",
+  "runs": 1,
+  "invocations": 1,
+  "delivered": true
+}

@@ -1,0 +1,184 @@
+[
+  {
+    "question": "请查证冷链交接规程：谁核对铅封，温度超过多少时暂停接收？请引用原文。",
+    "input": [
+      "private-regulation.txt",
+      "unselected-internal-contract_revision_contract_revision_contract_revision_contract_revision_contract_revision_contract_revision_2026.txt"
+    ],
+    "selected": [
+      "private-regulation.txt"
+    ],
+    "status": "ready",
+    "result": {
+      "executionBrief": "请查证冷链交接规程：谁核对铅封，温度超过多少时暂停接收？请引用原文。\n\n执行方案：核对冷链交接规程中核对铅封的人员和暂停接收的温度。",
+      "lookupSteps": [
+        1
+      ],
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "核对冷链交接规程中核对铅封的人员和暂停接收的温度。",
+      "agents": [
+        "9d8eafdb-3899-48ec-aaca-7140bfd8aba8"
+      ],
+      "missing": []
+    },
+    "plan": [
+      [
+        "text",
+        "search"
+      ],
+      [
+        "text",
+        "answer"
+      ]
+    ],
+    "run": "95a80689-3852-48ba-b0ed-d7c60eefd928",
+    "output": [
+      {
+        "step": 1,
+        "text": "检索词：冷链、铅封\n\nprivate-regulation.txt v1 · 第 1–32 字\n【S1v1:1-32】冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。"
+      },
+      {
+        "step": 2,
+        "text": "值班主管核对编号，超过 8°C 暂停接收。\n\n原文依据\n[1] private-regulation.txt v1 【S1v1:1-32】冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。"
+      }
+    ],
+    "answer": "值班主管核对编号，超过 8°C 暂停接收。\n\n原文依据\n[1] private-regulation.txt v1 【S1v1:1-32】冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。"
+  },
+  {
+    "question": "按 region 汇总两份 CSV 中的 amount 金额，交付一个 Excel。",
+    "input": [
+      "private-east.csv",
+      "private-west.csv"
+    ],
+    "selected": [
+      "private-east.csv",
+      "private-west.csv"
+    ],
+    "status": "ready",
+    "result": {
+      "executionBrief": "按 region 汇总两份 CSV 中的 amount 金额，交付一个 Excel。\n\n执行方案：汇总所有区域流水",
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "汇总所有区域流水",
+      "agents": [
+        "32754de0-e95f-4195-aaaf-47aa6458b873"
+      ],
+      "missing": []
+    },
+    "plan": [
+      [
+        "aggregate",
+        ""
+      ]
+    ],
+    "run": "bd1b383d-dec6-44da-bbd2-ef2036387774",
+    "output": [
+      {
+        "step": 1,
+        "text": "region · amount\nEast · 30.10\nWest · 60.20\n合计 · 90.30\n已核对 2 份输入，共 2 行，纳入 2 行。\n金额单位：未提供单位列，需核对同一口径"
+      }
+    ],
+    "answer": "region · amount\nEast · 30.10\nWest · 60.20\n合计 · 90.30\n已核对 2 份输入，共 2 行，纳入 2 行。\n金额单位：未提供单位列，需核对同一口径"
+  },
+  {
+    "question": "我有附件需要处理。请先询问交付目标。",
+    "input": [
+      "private-regulation.txt",
+      "unselected-internal-contract_revision_contract_revision_contract_revision_contract_revision_contract_revision_contract_revision_2026.txt"
+    ],
+    "selected": [
+      "private-regulation.txt"
+    ],
+    "status": "ready",
+    "result": {
+      "kind": "question",
+      "text": "需要查证哪项要求，还是需要汇总数据？",
+      "agents": [],
+      "missing": []
+    },
+    "supplement": "只核对冷链交接时谁查铅封、温度超过多少时暂停接收，引用原文。",
+    "replanned": {
+      "executionBrief": "我有附件需要处理。请先询问交付目标。\n只核对冷链交接时谁查铅封、温度超过多少时暂停接收，引用原文。\n\n执行方案：核对冷链交接规程中核对铅封的人员和暂停接收的温度。",
+      "lookupSteps": [
+        1
+      ],
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "核对冷链交接规程中核对铅封的人员和暂停接收的温度。",
+      "agents": [
+        "9d8eafdb-3899-48ec-aaca-7140bfd8aba8"
+      ],
+      "missing": []
+    },
+    "persistedSources": [
+      {
+        "id": "ee3d5aae-2a7a-45ef-bc2f-f2775a442ea4",
+        "version": 1
+      }
+    ],
+    "planningCalls": 2
+  },
+  {
+    "question": "直接回答探针",
+    "input": [
+      "private-regulation.txt"
+    ],
+    "selected": [
+      "private-regulation.txt"
+    ],
+    "status": "invalid"
+  },
+  {
+    "question": "错误步骤探针",
+    "input": [
+      "private-regulation.txt"
+    ],
+    "selected": [
+      "private-regulation.txt"
+    ],
+    "status": "invalid"
+  },
+  {
+    "question": "错误格式探针",
+    "input": [
+      "private-regulation.txt"
+    ],
+    "selected": [
+      "private-regulation.txt"
+    ],
+    "status": "invalid"
+  },
+  {
+    "question": "请查证冷链交接规程：谁核对铅封，温度超过多少时暂停接收？请引用原文。",
+    "input": [
+      "private-regulation.txt"
+    ],
+    "selected": [
+      "private-regulation.txt"
+    ],
+    "status": "ready",
+    "result": {
+      "executionBrief": "请查证冷链交接规程：谁核对铅封，温度超过多少时暂停接收？请引用原文。\n\n执行方案：核对冷链交接规程中核对铅封的人员和暂停接收的温度。",
+      "lookupSteps": [
+        1
+      ],
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "核对冷链交接规程中核对铅封的人员和暂停接收的温度。",
+      "agents": [
+        "9d8eafdb-3899-48ec-aaca-7140bfd8aba8"
+      ],
+      "missing": []
+    },
+    "postWithdrawal": "stale"
+  }
+]

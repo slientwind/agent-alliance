@@ -1,0 +1,87 @@
+{
+  "batches": [
+    {
+      "batch": "smoke_02affd4ebb",
+      "scope": "首轮手机端合并、上传回执重放、审核下载与拒绝错误输入。",
+      "started": "2026-11-22T13:41:52.223936+00:00",
+      "ended": "2026-11-22T13:42:01.928737+00:00",
+      "integrationResult": "passed",
+      "groups": 2
+    },
+    {
+      "batch": "smoke_465bbe7ad0",
+      "scope": "加测金额单位。",
+      "started": "2026-11-22T13:43:37.761965+00:00",
+      "ended": "2026-11-22T13:43:46.575102+00:00",
+      "integrationResult": "passed",
+      "groups": 2
+    },
+    {
+      "batch": "smoke_2baf27b89c",
+      "scope": "增加 20 种输入、每种三次的真实连接器调用。",
+      "started": "2026-11-22T13:44:14.384316+00:00",
+      "ended": "2026-11-22T13:44:23.648457+00:00",
+      "integrationResult": "passed",
+      "groups": 2
+    },
+    {
+      "batch": "smoke_edeabd560e",
+      "scope": "方案确认前核对输入文件和版本。",
+      "started": "2026-11-22T13:46:16.154341+00:00",
+      "ended": "2026-11-22T13:46:42.014425+00:00",
+      "integrationResult": "passed",
+      "groups": 2
+    },
+    {
+      "batch": "smoke_da794f1651",
+      "scope": "同一上传标识并发提交、内容冲突和撤权重放。",
+      "started": "2026-11-22T13:48:15.082263+00:00",
+      "ended": "2026-11-22T13:48:39.823055+00:00",
+      "integrationResult": "passed",
+      "groups": 2
+    },
+    {
+      "batch": "smoke_b7d76eb0fc",
+      "scope": "最终工作簿列宽和分页，含手机浏览器实际下载。",
+      "started": "2026-11-22T13:49:59.085150+00:00",
+      "ended": "2026-11-22T13:50:25.751025+00:00",
+      "integrationResult": "passed",
+      "groups": 2
+    },
+    {
+      "batch": "smoke_ddfee91841",
+      "scope": "首次集成走查。",
+      "started": "2026-11-22T13:43:23.189126+00:00",
+      "ended": "2026-11-22T13:52:18.439360+00:00",
+      "integrationResult": "passed",
+      "groups": 70,
+      "runnerNote": "集成程序归档通过后，较早启动的外层脚本另报第 26 行 shell 解析错误。最终验收使用后续冻结批次。"
+    },
+    {
+      "batch": "smoke_360b315ab6",
+      "scope": "中间版本集成走查。",
+      "started": "2026-11-22T13:45:54.497573+00:00",
+      "ended": "2026-11-22T13:54:55.796569+00:00",
+      "integrationResult": "passed",
+      "groups": 70,
+      "runnerNote": "集成程序归档通过后，较早启动的外层脚本另报第 26 行 shell 解析错误。最终验收使用后续冻结批次。"
+    },
+    {
+      "batch": "smoke_ead651a876",
+      "scope": "固定后端、前端和连接器快照的集成走查。",
+      "started": "2026-11-22T13:50:27.686798+00:00",
+      "ended": "2026-11-22T13:59:36.164364+00:00",
+      "integrationResult": "passed",
+      "groups": 70
+    }
+  ],
+  "finalWorkbookBatch": "smoke_b7d76eb0fc",
+  "fullRegressionBatch": "smoke_ead651a876",
+  "workbookPreview": {
+    "tool": "LibreOffice PDF and pdftotext",
+    "amount": "90.30",
+    "completeSourceIds": 3,
+    "worksheets": 3
+  },
+  "coverage": "最终工作簿列宽和打印版式在专项浏览器批次、PDF 转换及断网镜像复验。全量集成快照取自版式调整前。"
+}

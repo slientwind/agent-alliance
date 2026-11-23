@@ -1,0 +1,10 @@
+{
+  "previousImage": "sha256:997e03628bef4283545e7fc991ec09c93855a9d0333db14680aec9aacd423905",
+  "currentImage": "sha256:a924ec589679bb740b3e500dc6cfb3da3ba0885dde3bad2ab03bc8b751407acf",
+  "schemaBefore": "schema/096_planning_output_set.sql",
+  "schemaAfter": "schema/097_agent_release_requests.sql",
+  "historicalTrialCount": 2,
+  "publishedAfterRestart": 2,
+  "requestState": "published",
+  "auditEvents": 3
+}

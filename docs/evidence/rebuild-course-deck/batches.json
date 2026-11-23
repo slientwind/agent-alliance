@@ -1,0 +1,74 @@
+[
+  {
+    "batch": "smoke_1ba3c6aa05",
+    "scope": "First editable-file browser route and local page edit",
+    "status": "passed",
+    "checks": 2
+  },
+  {
+    "batch": "smoke_ecd42d2175",
+    "scope": "Expanded model-fixture composition and external edit negative paths",
+    "status": "passed",
+    "checks": 2
+  },
+  {
+    "batch": "smoke_49e6cb67d9",
+    "scope": "Full frozen regression snapshot before final picker, setup and validation refinements",
+    "status": "passed",
+    "checks": 74
+  },
+  {
+    "batch": "smoke_41f7fe0ff5",
+    "scope": "Actual local model, initial instructions",
+    "status": "passed",
+    "checks": 2,
+    "modelQuality": {
+      "training": false,
+      "product": true
+    }
+  },
+  {
+    "batch": "smoke_2f4bd7b9b4",
+    "scope": "Actual local model, extractive instructions revision 1",
+    "status": "passed",
+    "checks": 2,
+    "modelQuality": {
+      "training": true,
+      "product": false
+    }
+  },
+  {
+    "batch": "smoke_c7365696b6",
+    "scope": "Member browser flow after writer picker",
+    "status": "passed",
+    "checks": 2
+  },
+  {
+    "batch": "smoke_20ad75bd47",
+    "scope": "Actual local model, extractive instructions revision 2",
+    "status": "passed",
+    "checks": 2,
+    "modelQuality": {
+      "training": true,
+      "product": true
+    }
+  },
+  {
+    "batch": "smoke_d0bc3b6b2b",
+    "scope": "Revised first administrator setup, browser workflow and charge counts",
+    "status": "passed",
+    "checks": 3
+  },
+  {
+    "batch": "smoke_841a1579bf",
+    "scope": "Final browser validation incl. control characters, stale edits and ledger",
+    "status": "passed",
+    "checks": 2
+  },
+  {
+    "batch": "smoke_8ef26d07ce",
+    "scope": "Final mobile writer selection copy, editable originals and PostgreSQL ledger",
+    "status": "passed",
+    "checks": 2
+  }
+]

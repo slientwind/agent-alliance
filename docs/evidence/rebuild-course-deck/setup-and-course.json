@@ -1,0 +1,22 @@
+{
+  "started": "2026-11-22T15:08:50.806413+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "course-deck",
+    "Single-team first administrator setup and joined team billing scope"
+  ],
+  "ended": "2026-11-22T15:09:32.988372+00:00"
+}

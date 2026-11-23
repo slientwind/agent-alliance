@@ -1,0 +1,1473 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Agent Alliance 服务运行 API",
+    "version": "1.0.0",
+    "description": "服务绑定应用凭证。带成员委托时，后续读取和操作须使用受理时的同一委托。"
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "Application": []
+    },
+    {
+      "Application": [],
+      "MemberDelegation": []
+    }
+  ],
+  "paths": {
+    "/services/{id}": {
+      "get": {
+        "operationId": "describeService",
+        "summary": "读取当前应用获授权的服务及默认版本",
+        "description": "管理端发布或回退后，此处展示当前默认版本。调用方核对该版本的资料、步骤和审核约定后选择发起版本。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Service"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "401 凭证失效，403 委托无效，404 对象不可见，409 状态或幂等冲突，422 输入无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/{id}/runs": {
+      "post": {
+        "operationId": "startRun",
+        "summary": "确认版本和调用次数后受理任务",
+        "description": "在请求中明确指定已发布版本。默认版本调整之后，继续采用调用方明确选定且当前授权、审核人及固定依赖仍可用的版本。服务声明 allowDocumentAttachments 时，发起时可附含可读取文字的 DOCX、XLSX、PPTX 或 PDF。资料在受理前读取，失败时用原资料重试。已受理的幂等重放直接返回原回执。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "401 凭证失效，403 委托无效，404 对象不可见，409 状态或幂等冲突，413 请求体超限，422 输入或文档无法读取，503 文档读取暂不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{id}": {
+      "get": {
+        "operationId": "getProgress",
+        "summary": "查询步骤、阻塞、审核与下一步操作",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Progress"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "401 凭证失效，403 委托无效，404 对象不可见，409 状态或幂等冲突，422 输入无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{id}/actions": {
+      "post": {
+        "operationId": "actOnRun",
+        "summary": "控制运行、补充待提交步骤或提出成果修改建议",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionReceipt"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "401 凭证失效，403 委托无效，404 对象不可见，409 状态或幂等冲突，422 输入无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Action"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{id}/calls/{step}/column-suggestion": {
+      "post": {
+        "operationId": "suggestRunColumns",
+        "summary": "由原委托成员授权一次字段建议",
+        "description": "模型输入限于本次字段名、用途及候选表头。结果使用 columnCorrections 中的资料、字段、候选列顺序，序号从 1 开始。同一次拒绝回执的重复请求返回原结果。",
+        "security": [
+          {
+            "Application": [],
+            "MemberDelegation": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "attempt": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "expected": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "authorizeOneCall": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "attempt",
+                  "expected",
+                  "authorizeOneCall"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "字段建议回执",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ColumnSuggestion"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "401 凭证失效，403 委托无效，404 对象不可见，409 原回执、模型或预算变化，422 输入无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{id}/events": {
+      "get": {
+        "operationId": "followEvents",
+        "summary": "按游标查询，或以 SSE 接收关键事件",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Event"
+                      }
+                    }
+                  },
+                  "required": [
+                    "events"
+                  ]
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "event: update，id 为运行内单调递增游标，data 为 Event。连接最长 25 秒，可携带游标重连。"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "401 凭证失效，403 委托无效，404 对象不可见，409 状态或幂等冲突，422 输入无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{id}/delivery": {
+      "get": {
+        "operationId": "getDelivery",
+        "summary": "获取已确认的版本清单",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "edition",
+            "in": "query",
+            "description": "已确认的交付批次。省略时固定读取第一批，进度接口提供各批次地址。",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Delivery"
+                }
+              }
+            },
+            "headers": {
+              "X-Delivery-Distribution": {
+                "description": "本次发送时的分发状态。reference 表示原资料已撤权，项目已核对该批成果可独立分发。",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "clear",
+                    "reference"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "401 凭证失效，403 委托无效，404 对象不可见，409 状态或幂等冲突，422 输入无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{id}/delivery/package": {
+      "get": {
+        "operationId": "downloadPackage",
+        "summary": "下载已确认的 ZIP 成果包",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "edition",
+            "in": "query",
+            "description": "已确认的交付批次。省略时固定读取第一批，进度接口提供各批次地址。",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "X-Delivery-Distribution": {
+                "description": "本次发送时的分发状态。reference 表示原资料已撤权，项目已核对该批成果可独立分发。",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "clear",
+                    "reference"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "401 凭证失效，403 委托无效，404 对象不可见，409 状态或幂等冲突，422 输入无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "Application": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "MemberDelegation": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Alliance-Delegation"
+      }
+    },
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error",
+          "requestId"
+        ]
+      },
+      "Service": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "example": {
+            "type": "string"
+          },
+          "team": {
+            "type": "string"
+          },
+          "reviewer": {
+            "type": "string"
+          },
+          "authorizeCalls": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "allowDocumentAttachments": {
+            "type": "boolean",
+            "description": "当前服务版本可在发起时读取 DOCX、XLSX、PPTX 与含可读取文字的 PDF。"
+          },
+          "requiresPictures": {
+            "type": "boolean",
+            "description": "发起时须提交至少一张 PNG 或 JPEG 原件，由服务固定的视觉模型读取。"
+          },
+          "editsImage": {
+            "type": "boolean",
+            "description": "当前服务版本包含参考图编辑，发起时须提交恰好一张 PNG 或 JPEG 原件。"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "step": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "name": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "lookupPhase": {
+                  "type": "string",
+                  "enum": [
+                    "",
+                    "search",
+                    "answer",
+                    "answer_calc"
+                  ],
+                  "description": "search 与 answer 表示同一文本 Agent 先检索再回答。answer_calc 可依据引文核算同币种金额。发起此类服务须提供 attachment。"
+                },
+                "toolChoice": {
+                  "type": ["object", "null"],
+                  "description": "汇总步骤的另一项固定候选。selector 指定负责选择的步骤。发起服务时须提供 CSV attachment，两项候选只执行一项。",
+                  "properties": {
+                    "selector": { "type": "integer", "minimum": 1 },
+                    "name": { "type": "string" },
+                    "revision": { "type": "integer", "minimum": 1 }
+                  }
+                },
+                "operation": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "ready",
+          "authorizeCalls",
+          "allowDocumentAttachments",
+          "requiresPictures",
+          "steps"
+        ]
+      },
+      "Attachment": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "UTF-8 TXT、MD、CSV 或 JSON 文件名"
+          },
+          "data": {
+            "type": "string",
+            "contentEncoding": "base64",
+            "description": "原始非空字节最多 96 KiB"
+          }
+        },
+        "required": [
+          "name",
+          "data"
+        ]
+      },
+      "ServiceRunAttachment": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "TXT、MD、CSV、JSON，或服务声明支持的 DOCX、XLSX、PPTX、PDF 文件名。requiresPictures 为 true 时支持 PNG、JPG、JPEG。"
+          },
+          "data": {
+            "type": "string",
+            "contentEncoding": "base64",
+            "description": "原始非空文件字节。文本文件合计不超过 96 KiB，全部原件合计不超过 8 MiB。含文档时，可读取文字与资料标题合计不超过 96 KiB。图片每张最多 3 MiB、4,194,304 像素，每边最多 8192 像素。一次提交最多 4 张、图片合计不超过 6 MiB。"
+          }
+        },
+        "required": ["name", "data"]
+      },
+      "RunRequest": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "input": {
+            "type": "string",
+            "minLength": 1,
+            "description": "最多 64000 UTF-8 字节"
+          },
+          "authorizeCalls": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "attachment": {
+            "$ref": "#/components/schemas/ServiceRunAttachment"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceRunAttachment"
+            },
+            "minItems": 1,
+            "maxItems": 20,
+            "description": "按提交顺序绑定本次请求。禁止同时提供 attachment。含汇总工具选择或已固定的 CSV 汇总步骤时，所有资料均须为 CSV。含原文问答步骤时，须另附可读取的文字资料。"
+          },
+          "awaitLookupReceipt": {
+            "type": "boolean",
+            "description": "为 true 且原文问答的首轮有效检索无命中时，在原任务等待原句。回答前需以 submit_lookup_receipt 补交资料。"
+          },
+          "awaitCalculationReceipt": {
+            "type": "boolean",
+            "default": false,
+            "description": "仅适用于含 answer_calc 的服务版本。金额不足时保留本次运行，等待调用方补交原件；省略时沿用已有处理方式。"
+          }
+        },
+        "not": { "required": ["attachment", "attachments"] },
+        "required": [
+          "version",
+          "input",
+          "authorizeCalls"
+        ]
+      },
+      "Accepted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "project": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "statusUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project",
+          "statusUrl"
+        ]
+      },
+      "Progress": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "project": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "service": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "controlRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "finalReviewer": {
+            "type": "string"
+          },
+          "canConcludeFailure": {
+            "type": "boolean",
+            "description": "远端已明确失败或拒绝，且所有已发操作的结果已核对。允许控制此运行的调用方可填写原因并提交 confirm_failure。"
+          },
+          "nextAction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "select_tool 时，由有权成员从原方案选择汇总工具。submit_lookup_receipt 时，调用方按待办步骤补充用于引用的原件。wait_source_index 时原运行等待索引并自动复查。indexWait.automatic 为 false 时，可提交 resume 重新核对。correct_columns 时原委托成员可确认待补正的字段，review_columns 时应用将待办交给 humanActionUrl 对应项目的审核人。"
+          },
+          "blocker": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "columnCorrections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "step": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "reconfirmationRequired": {
+                  "type": "boolean",
+                  "description": "之前的字段批准者已无法继续承担职责，且本次重算尚未派发，由当前有权人员核对后重新确认。"
+                },
+                "attempt": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "version": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "missing": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "choices": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "roles": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "version",
+                      "name",
+                      "missing",
+                      "choices"
+                    ]
+                  }
+                },
+                "suggestionUrl": {
+                  "type": "string"
+                },
+                "suggestion": {
+                  "$ref": "#/components/schemas/ColumnSuggestion"
+                }
+              },
+              "required": [
+                "step",
+                "attempt",
+                "files"
+              ]
+            },
+            "description": "原委托成员在当前待核对步骤可见的固定资料版本及字段。每个步骤须整批提交。"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "step": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "name": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "toolChoice": {
+                  "type": "integer",
+                  "enum": [0, 1, 2],
+                  "description": "仅自动汇总步骤在产生选择回执后返回。0 等待人工选择，1 或 2 为实际选定的候选。"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "canSupplement": {
+                  "type": "boolean"
+                },
+                "artifact": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "needsSourceReview": {
+                  "type": "boolean",
+                  "description": "当前成果所依据的资料发生变化，需核对适用性。历史审核决定保留。"
+                },
+                "needsTakeoverReview": {
+                  "type": "boolean",
+                  "description": "当前版本需要异常接管人亲自审核。"
+                },
+                "approved": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "externalTasks": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "eventsUrl": {
+            "type": "string"
+          },
+          "actionsUrl": {
+            "type": "string"
+          },
+          "deliveryUrl": {
+            "type": "string"
+          },
+          "packageUrl": {
+            "type": "string"
+          },
+          "humanActionUrl": {
+            "type": "string"
+          },
+          "deliveries": {
+            "type": "array",
+            "description": "按最新确认排序，修订期间仍可下载已确认的各批次。",
+            "items": {
+              "type": "object",
+              "properties": {
+                "edition": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "deliveryUrl": {
+                  "type": "string"
+                },
+                "packageUrl": {
+                  "type": "string"
+                },
+                "distribution": {
+                  "enum": [
+                    "clear",
+                    "pending",
+                    "invalid",
+                    "restricted",
+                    "reference"
+                  ],
+                  "description": "clear 和 reference 可下载。其他状态暂停本批次 JSON 与 ZIP 的分发。"
+                }
+              },
+              "required": [
+                "edition",
+                "id",
+                "deliveryUrl",
+                "packageUrl",
+                "distribution"
+              ]
+            }
+          },
+          "indexWait": {
+            "type": ["object", "null"],
+            "properties": {
+              "step": { "type": "integer" },
+              "until": { "type": "string", "format": "date-time" },
+              "automatic": { "type": "boolean" }
+            },
+            "required": ["step", "until", "automatic"],
+            "description": "原任务保留已完成的选词。自动等待到期后，由有权调用方使用相同运行的控制接口复查。等待期间如有 receiptRequest，也可先补件。"
+          },
+          "receiptRequest": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["calculation", "lookup"]
+              },
+              "step": {
+                "type": "integer"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "step",
+              "reason"
+            ],
+            "description": "按指定步骤补交原件。calculation 需要金额和币种，lookup 需要可引用的原句。"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "stage",
+          "steps",
+          "controlRevision",
+          "humanActionUrl",
+          "deliveries"
+        ]
+      },
+      "ColumnSuggestion": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "submitted",
+              "ready",
+              "ambiguous",
+              "invalid",
+              "unknown",
+              "stale"
+            ]
+          },
+          "entries": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "file": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "field": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "column": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "file",
+                "field",
+                "column"
+              ]
+            }
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "Action": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "pause",
+                  "resume",
+                  "confirm_failure",
+                  "cancel"
+                ]
+              },
+              "expected": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "action",
+              "expected",
+              "reason"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "action": {
+                "const": "supplement"
+              },
+              "expected": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "step": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "body": {
+                "type": "string",
+                "maxLength": 4000
+              }
+            },
+            "required": [
+              "action",
+              "expected",
+              "step",
+              "body"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "action": {
+                "const": "propose_revision"
+              },
+              "artifact": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "position": {
+                "type": "string",
+                "maxLength": 1000
+              },
+              "body": {
+                "type": "string",
+                "maxLength": 4000
+              }
+            },
+            "required": [
+              "action",
+              "artifact",
+              "version",
+              "body"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "action": {
+                "enum": ["submit_receipt", "submit_lookup_receipt"]
+              },
+              "expected": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "step": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "attachment": {
+                "$ref": "#/components/schemas/Attachment"
+              },
+              "excerpt": {
+                "type": "string",
+                "maxLength": 320,
+                "description": "补件中的连续原句。核算补件须含完整金额和币种。重复原句须提供 excerptStart。单句原件可省略。"
+              },
+              "excerptStart": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "原句首字符在附件正文中的位置，从 1 开始，按 Unicode 字符计数。提供位置时须同时提供 excerpt。"
+              }
+            },
+            "dependentRequired": { "excerptStart": ["excerpt"] },
+            "required": [
+              "action",
+              "expected",
+              "step",
+              "attachment"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "action": {
+                "const": "correct_columns"
+              },
+              "expected": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "step": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "attempt": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "authorizeOneCall": {
+                "const": true
+              },
+              "inputMappings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "columns": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "version",
+                    "columns"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 20
+              }
+            },
+            "required": [
+              "action",
+              "expected",
+              "step",
+              "attempt",
+              "reason",
+              "authorizeOneCall",
+              "inputMappings"
+            ],
+            "description": "由原委托成员确认一个步骤的全部待核对字段并授权一次重算。"
+          }
+        ]
+      },
+      "ActionReceipt": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "controlRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "state": {
+            "type": "string"
+          },
+          "step": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "feedback": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "kind": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "artifact": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "step": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "seq",
+          "kind",
+          "state",
+          "at"
+        ]
+      },
+      "Delivery": {
+        "type": "object",
+        "properties": {
+          "delivery": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "body": {
+                  "type": "string"
+                },
+                "artifact": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "step": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "dependencies": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "artifact": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "step": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    },
+                    "required": [
+                      "artifact",
+                      "step",
+                      "name",
+                      "version"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "version",
+                "body",
+                "artifact",
+                "step",
+                "dependencies"
+              ]
+            }
+          },
+          "handoff": {
+            "type": "object",
+            "description": "Optional recipient-facing notes fixed by the final reviewer.",
+            "properties": {
+              "purpose": {
+                "type": "string",
+                "maxLength": 2000
+              },
+              "instructions": {
+                "type": "string",
+                "maxLength": 2000
+              },
+              "limitations": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            }
+          },
+          "edition": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "previous": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "step": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "name": {
+                  "type": "string"
+                },
+                "artifact": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "from": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "to": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "bodyChanged": {
+                  "type": "boolean"
+                },
+                "fileChanged": {
+                  "type": "boolean"
+                },
+                "dependenciesChanged": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "step",
+                "name",
+                "artifact",
+                "from",
+                "to",
+                "bodyChanged",
+                "fileChanged",
+                "dependenciesChanged"
+              ]
+            }
+          },
+          "changedNotes": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "purpose",
+                "instructions",
+                "limitations"
+              ]
+            }
+          }
+        },
+        "required": [
+          "delivery",
+          "items",
+          "handoff",
+          "edition",
+          "previous",
+          "changes",
+          "changedNotes"
+        ]
+      }
+    }
+  }
+}

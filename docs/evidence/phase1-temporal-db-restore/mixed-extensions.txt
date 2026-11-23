@@ -1,0 +1,7 @@
+                          List of installed extensions
+   Name    | Version |   Schema   |                 Description                  
+-----------+---------+------------+----------------------------------------------
+ btree_gin | 1.3     | public     | support for indexing common datatypes in GIN
+ plpgsql   | 1.0     | pg_catalog | PL/pgSQL procedural language
+(2 rows)
+

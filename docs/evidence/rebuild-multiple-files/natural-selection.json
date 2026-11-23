@@ -1,0 +1,18 @@
+{
+  "outputFormats": [
+    "docx",
+    "xlsx"
+  ],
+  "executionBrief": "使用已确认的领用清单，分别交付两份独立文件：第一份为保留原文的 Word，第二份为每行一个物品的 Excel。",
+  "revisions": [
+    1,
+    1
+  ],
+  "kind": "plan",
+  "text": "使用已确认的领用清单，分别交付两份独立文件：第一份为保留原文的 Word，第二份为每行一个物品的 Excel。",
+  "agents": [
+    "ad60bc40-6233-44f1-94c1-9a2ac709820a",
+    "cc77f549-70da-455b-9a52-f419fe454fa9"
+  ],
+  "missing": []
+}

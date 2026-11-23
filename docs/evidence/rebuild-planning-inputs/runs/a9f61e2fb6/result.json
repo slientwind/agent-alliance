@@ -1,0 +1,22 @@
+{
+  "started": "2026-11-22T16:42:42.107837+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "failed",
+  "checks": [
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK"
+  ],
+  "failureType": "CalledProcessError",
+  "failureLine": 528,
+  "ended": "2026-11-22T16:42:53.291263+00:00"
+}

@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "题1：制度写的责任人：部门负责人  \n候选答案写的责任人：员工  \n题2：制度写的责任人：保管员  \n候选答案写的责任人：保管员",
+  "usage": {
+    "completion_tokens": 39,
+    "prompt_tokens": 203,
+    "total_tokens": 242,
+    "prompt_tokens_details": {
+      "cached_tokens": 166
+    }
+  }
+}

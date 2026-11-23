@@ -1,0 +1,70 @@
+{
+  "clock": "isolated database submission time advanced; actual worker killed and restarted",
+  "cases": {
+    "ORIGINAL_RETURN_867": {
+      "run": "b3dcd64e-4cc0-4bbc-ab0f-34544dedd88a",
+      "delivery": "3eb187a6-f7b3-4885-bd18-13ceba1f4a4a",
+      "calls": 1,
+      "body": "ORIGINAL_RETURN_867 原回执",
+      "attempts": [
+        {
+          "end": "2026-11-20T18:57:35.182578+00:00",
+          "start": "2026-11-20T18:56:02.017881+00:00",
+          "number": 1,
+          "spanId": "0d7d56bd9e375679",
+          "status": "completed"
+        }
+      ]
+    },
+    "LATE_RETURN_867": {
+      "run": "f26c057d-6d06-48d6-b518-04c6b360a9d4",
+      "delivery": "be9f9585-4807-4ae8-a356-db8cf6d790a4",
+      "calls": 2,
+      "body": "LATE_RETURN_867 新调用",
+      "attempts": [
+        {
+          "end": "2026-11-20T18:57:38.946712+00:00",
+          "start": "2026-11-20T18:41:06.215846+00:00",
+          "number": 1,
+          "spanId": "61b6bee2793669f9",
+          "status": "unknown"
+        },
+        {
+          "end": "2026-11-20T18:57:39.923909+00:00",
+          "start": "2026-11-20T18:57:39.907634+00:00",
+          "number": 2,
+          "spanId": "e3fea135a834e217",
+          "status": "completed"
+        }
+      ]
+    },
+    "LOST_WORKER_867": {
+      "run": "daa7911f-cd47-4ba1-8970-573ab71d8a07",
+      "delivery": "23b3131d-c35e-453f-96da-591e95882ff6",
+      "calls": 2,
+      "body": "LOST_WORKER_867 新调用",
+      "attempts": [
+        {
+          "end": "2026-11-20T18:57:41.14468+00:00",
+          "start": "2026-11-20T18:41:09.112293+00:00",
+          "number": 1,
+          "spanId": "68eecf30e0d13f91",
+          "status": "unknown"
+        },
+        {
+          "end": "2026-11-20T18:59:41.987311+00:00",
+          "start": "2026-11-20T18:59:41.944124+00:00",
+          "number": 2,
+          "spanId": "485ae37404540c15",
+          "status": "completed"
+        }
+      ]
+    },
+    "mixed": {
+      "run": "f3f04cfa-bffd-4129-ba1b-0014a08b5508",
+      "delivery": "8b3b89cf-cfc7-4daa-8744-7366656c712c",
+      "calls": 3,
+      "remoteSends": 1
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "cancel": {
+    "run": "447f21d5-8887-4ea2-b94c-6c792249337e",
+    "oldChoicePreserved": true,
+    "heldRealBGEQuery": true,
+    "ledger": {
+      "state": "cancelled",
+      "claims": 1,
+      "answerAttempts": 0,
+      "savedCitations": false
+    }
+  },
+  "revoke": {
+    "run": "013ac63f-6553-40f5-b191-0d42401b7781",
+    "oldChoicePreserved": true,
+    "heldRealBGEQuery": true,
+    "ledger": {
+      "state": "blocked",
+      "claims": 1,
+      "answerAttempts": 0,
+      "savedCitations": false
+    }
+  }
+}

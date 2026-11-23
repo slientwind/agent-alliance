@@ -1,0 +1,5 @@
+case_id	query	expected_first	rationale
+K13	CW-01 包装内含什么？	product-v2.2	编号与包装清单在同一句
+K14	领取设备时需要谁确认用途？	training-v2.2	普通领取
+K15	资料里有随行杯的耐摔高度吗？	EMPTY	缺少该指标
+K16	遗失设备时能不能等到明天再报告？	training-v2.5	立即报告要求

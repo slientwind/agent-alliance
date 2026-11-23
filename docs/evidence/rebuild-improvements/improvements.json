@@ -1,0 +1,22 @@
+{
+  "source": "synthetic business request; real API, PostgreSQL and Chromium",
+  "base": 1,
+  "resolution": 2,
+  "states": [
+    "accepted",
+    "resolved"
+  ],
+  "replayRows": 1,
+  "adminWithoutMaintenance": 403,
+  "unrelatedTeamMember": 404,
+  "staleWithdrawal": 409,
+  "unpublishedRevision": 409,
+  "concurrentDecisions": [
+    204,
+    409
+  ],
+  "handover": "explicit acceptance",
+  "revokedOffer": "cancelled",
+  "rejoinedOwner": "vacant",
+  "recoveredOwner": "Participant"
+}

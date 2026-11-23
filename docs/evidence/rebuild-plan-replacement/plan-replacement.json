@@ -1,0 +1,38 @@
+{
+  "evidence": "Chromium with an ordinary member and isolated PostgreSQL, Temporal, real tools and TLS fixtures",
+  "project": "4290b086-2665-447c-9c6e-43f39d88f2b0",
+  "previousPlan": 1,
+  "replacementPlan": 3,
+  "dependencies": [
+    [],
+    [],
+    [
+      2
+    ],
+    [
+      3
+    ]
+  ],
+  "linkedSource": 1,
+  "preferenceRevision": 1,
+  "incompatibleFormat": 422,
+  "stalePlan": 409,
+  "concurrentEdit": 409,
+  "hiddenLookupNodeExcludedFromBusinessSteps": true,
+  "externalTextExcludedFromLookupChoices": true,
+  "otherTeamExcludedFromToolChoice": true,
+  "billedCalls": 4,
+  "approvedArtifacts": 4,
+  "audit": {
+    "role": "member",
+    "steps": [
+      {
+        "from": 2,
+        "step": 2
+      }
+    ],
+    "toVersion": 3,
+    "fromVersion": 2
+  },
+  "nativeWordAndPackageHashesVerified": true
+}

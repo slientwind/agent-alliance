@@ -1,0 +1,54 @@
+{
+  "case": "R1-A2A-exploration",
+  "model": "Mock",
+  "version": "141.0.7390.37",
+  "image": "sha256:539c313e0c17f7b8ed10bdf84ba17fee41bf305659c623f7c178e59419e9d582",
+  "navigation": [
+    "工作台",
+    "Agent 注册中心\n0",
+    "编排与服务",
+    "运行与 Trace",
+    "A2A 会话",
+    "模型配置",
+    "开发者 API",
+    "工作区与权限"
+  ],
+  "dashboardActions": [
+    "工作台",
+    "Agent 注册中心\n0",
+    "编排与服务",
+    "运行与 Trace",
+    "A2A 会话",
+    "模型配置",
+    "开发者 API",
+    "工作区与权限",
+    "",
+    "API 文档",
+    "注册 Agent",
+    "探索协作编排",
+    "全部运行",
+    "接入已有 Agent\n\n通过 Agent Card 注册外部能力",
+    "描述你的 Agent\n\n用自然语言定义工作职责",
+    "组合为服务\n\n编排多个 Agent，发布独立 API",
+    "管理 Agent"
+  ],
+  "initial": {
+    "task": "01a1f854-b585-7d3b-8985-2bd0cfaa958c",
+    "context": "01a1f854-b585-7d77-8a82-8dc3204a594b",
+    "artifact": "【区域分析助手 · Mock】\n已完成：整理已核准的区域销售记录，给出明细表和分析摘要。\nrecord_id,region,approved_units,unit_price_yuan,status\n001,东区,3,12.50,已核准\n002,东区,2,9.90,已核准\n003,西区,4,8.25,已核准\n004,西区,1,999.00,待核准\n\n处理结果：依据职责「你是区域分析助手。\n职责：按来源核算已核准的区域销售金额，给出明细表和摘要。\n请依据用户输入完成任务；清晰区分事实与推断。信息不足时说明缺口，不编造结果。」完成信息整理，建议继续核验关键事实。",
+    "downloadLinks": 0,
+    "decisionButtons": []
+  },
+  "feedback": {
+    "task": "01a1f854-b707-744b-9112-e42d7d24a1c6",
+    "context": "01a1f854-b585-7d77-8a82-8dc3204a594b",
+    "artifact": "【区域分析助手 · Mock】\n已完成：user: 整理已核准的区域销售记录，给出明细表和分析摘要。\nrecord_id,region,approved_units,unit_price_yuan,status\n001,东区,3,12.50,已核准\n002,东区,2,9.90,已核准\n003,西区,4,8.25,已核准\n004,西区,1,999.00,待核准\n\n\nagent: 【区域分析助手 · Mock】\n已完成：整理已核准的区域销售记录，给出明细表和分析摘要。\nrecord_id,region,approved_units,unit_price_yuan,status\n001,东区,3,12.50,已核准\n002,东区,2,9.…\n处理结果：依据职责「你是区域分析助手。\n职责：按来源核算已核准的区域销售金额，给出明细表和摘要。\n请依据用户输入完成任务；清晰区分事实与推断。信息不足时说明缺口，不编造结果。」完成信息整理，建议继续核验关键事实。",
+    "downloadLinks": 0,
+    "decisionButtons": []
+  },
+  "listCount": 2,
+  "sameContext": true,
+  "separateTask": true,
+  "downloads": [],
+  "pageErrors": []
+}

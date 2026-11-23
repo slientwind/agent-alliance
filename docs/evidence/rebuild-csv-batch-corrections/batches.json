@@ -1,0 +1,214 @@
+[
+  {
+    "batch": "smoke_62e95aff43",
+    "observation": "连接器未通过 Python 语法检查",
+    "result": {
+      "started": "2026-11-23T05:49:57.481812+00:00",
+      "input": "synthetic",
+      "externalProviders": "local HTTPS model and A2A fixtures",
+      "runtime": [
+        "PostgreSQL",
+        "Temporal",
+        "Eino",
+        "DuckDB",
+        "LibreOffice",
+        "PDF.js",
+        "Chromium",
+        "OpenTelemetry Collector"
+      ],
+      "status": "failed",
+      "checks": [],
+      "failureType": "RuntimeError",
+      "failureLine": 512,
+      "ended": "2026-11-23T05:51:00.845356+00:00"
+    }
+  },
+  {
+    "batch": "smoke_60946f881c",
+    "observation": "浏览器脚本存在重复变量声明",
+    "result": {
+      "started": "2026-11-23T05:51:25.034585+00:00",
+      "input": "synthetic",
+      "externalProviders": "local HTTPS model and A2A fixtures",
+      "runtime": [
+        "PostgreSQL",
+        "Temporal",
+        "Eino",
+        "DuckDB",
+        "LibreOffice",
+        "PDF.js",
+        "Chromium",
+        "OpenTelemetry Collector"
+      ],
+      "status": "failed",
+      "checks": [
+        "real storage + TLS fixture + model and external A2A register/verify/publish OK"
+      ],
+      "failureType": "CalledProcessError",
+      "failureLine": 528,
+      "ended": "2026-11-23T05:51:28.126270+00:00"
+    }
+  },
+  {
+    "batch": "smoke_e3f26da01b",
+    "observation": "恢复单表错误提示后复验旧契约",
+    "result": {
+      "started": "2026-11-23T05:52:08.293805+00:00",
+      "input": "synthetic",
+      "externalProviders": "local HTTPS model and A2A fixtures",
+      "runtime": [
+        "PostgreSQL",
+        "Temporal",
+        "Eino",
+        "DuckDB",
+        "LibreOffice",
+        "PDF.js",
+        "Chromium",
+        "OpenTelemetry Collector"
+      ],
+      "status": "failed",
+      "checks": [
+        "real storage + TLS fixture + model and external A2A register/verify/publish OK"
+      ],
+      "failureType": "CalledProcessError",
+      "failureLine": 528,
+      "ended": "2026-11-23T05:52:48.006206+00:00"
+    }
+  },
+  {
+    "batch": "smoke_9995a60e90",
+    "observation": "字段组定位命中多个容器",
+    "result": {
+      "started": "2026-11-23T05:53:20.079790+00:00",
+      "input": "synthetic",
+      "externalProviders": "local HTTPS model and A2A fixtures",
+      "runtime": [
+        "PostgreSQL",
+        "Temporal",
+        "Eino",
+        "DuckDB",
+        "LibreOffice",
+        "PDF.js",
+        "Chromium",
+        "OpenTelemetry Collector"
+      ],
+      "status": "failed",
+      "checks": [
+        "real storage + TLS fixture + model and external A2A register/verify/publish OK"
+      ],
+      "failureType": "CalledProcessError",
+      "failureLine": 528,
+      "ended": "2026-11-23T05:53:35.502723+00:00"
+    }
+  },
+  {
+    "batch": "smoke_71d0b06082",
+    "observation": "PDF 用例仍匹配旧字段名",
+    "result": {
+      "started": "2026-11-23T05:53:51.043182+00:00",
+      "input": "synthetic",
+      "externalProviders": "local HTTPS model and A2A fixtures",
+      "runtime": [
+        "PostgreSQL",
+        "Temporal",
+        "Eino",
+        "DuckDB",
+        "LibreOffice",
+        "PDF.js",
+        "Chromium",
+        "OpenTelemetry Collector"
+      ],
+      "status": "failed",
+      "checks": [
+        "real storage + TLS fixture + model and external A2A register/verify/publish OK"
+      ],
+      "failureType": "CalledProcessError",
+      "failureLine": 528,
+      "ended": "2026-11-23T05:55:01.169653+00:00"
+    }
+  },
+  {
+    "batch": "smoke_3057254739",
+    "observation": "更换旧字段名断言期间中止首轮全量",
+    "result": {
+      "started": "2026-11-23T05:55:21.618017+00:00",
+      "input": "synthetic",
+      "externalProviders": "local HTTPS model and A2A fixtures",
+      "runtime": [
+        "PostgreSQL",
+        "Temporal",
+        "Eino",
+        "DuckDB",
+        "LibreOffice",
+        "PDF.js",
+        "Chromium",
+        "OpenTelemetry Collector"
+      ],
+      "status": "failed",
+      "checks": [],
+      "failureType": "KeyboardInterrupt",
+      "failureLine": 1875,
+      "ended": "2026-11-23T05:55:34.958547+00:00"
+    }
+  },
+  {
+    "batch": "smoke_77606516a9",
+    "observation": "浏览器已交付，离线核对未找到 pdftotext",
+    "result": {
+      "started": "2026-11-23T05:55:38.691269+00:00",
+      "input": "synthetic",
+      "externalProviders": "local HTTPS model and A2A fixtures",
+      "runtime": [
+        "PostgreSQL",
+        "Temporal",
+        "Eino",
+        "DuckDB",
+        "LibreOffice",
+        "PDF.js",
+        "Chromium",
+        "OpenTelemetry Collector"
+      ],
+      "status": "failed",
+      "checks": [
+        "real storage + TLS fixture + model and external A2A register/verify/publish OK"
+      ],
+      "failureType": "CalledProcessError",
+      "failureLine": 528,
+      "ended": "2026-11-23T05:56:19.198005+00:00"
+    }
+  },
+  {
+    "batch": "smoke_e4f6a74082",
+    "observation": "专项通过",
+    "result": {
+      "started": "2026-11-23T05:56:34.739713+00:00",
+      "input": "synthetic",
+      "externalProviders": "local HTTPS model and A2A fixtures",
+      "runtime": [
+        "PostgreSQL",
+        "Temporal",
+        "Eino",
+        "DuckDB",
+        "LibreOffice",
+        "PDF.js",
+        "Chromium",
+        "OpenTelemetry Collector"
+      ],
+      "status": "passed",
+      "checks": [
+        "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+        "Multi-CSV: replay-safe mobile attachments, all pinned versions counted, reviewed Excel reconciled per source; explicit per-source corrections on the same run, budget recovery, withdrawal and erasure",
+        "Worker killed before corrected dispatch: two-step run resumes with one extra call; withdrawn input blocks the other run before spending"
+      ],
+      "ended": "2026-11-23T05:57:23.516165+00:00"
+    }
+  },
+  {
+    "batch": "smoke_42aab8dee7",
+    "observation": "全量回归通过",
+    "result": {
+      "status": "passed",
+      "checks": 100
+    }
+  }
+]

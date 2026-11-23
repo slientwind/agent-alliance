@@ -1,0 +1,21 @@
+services:
+  recovery:
+    image: alliance-recovery:local
+    build:
+      context: ..
+      dockerfile: deploy/recovery.Dockerfile
+    environment:
+      PGHOST: database
+      PGUSER: alliance
+      PGPASSWORD: ${DB_PASSWORD:?Run make configure}
+      TMPDIR: /work
+    volumes:
+      - objects:/data/objects
+      - ${RECOVERY_ARCHIVES:?Set enterprise backup directory}:/archives
+      - ${RECOVERY_WORK:?Set private encrypted temporary directory}:/work
+      - ${RECOVERY_KEY_FILE:?Set independent backup key path}:/run/secrets/backup-key:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+volumes:
+  objects:

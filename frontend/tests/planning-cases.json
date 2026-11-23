@@ -1,0 +1,20 @@
+{
+  "handoff": {
+    "question":"请查证冷链交接规程：谁核对铅封，温度超过多少时暂停接收？请引用原文。",
+    "procedure":["private-regulation.txt","冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。"],
+    "answerTerms":["值班主管","8","暂停接收"],
+    "supplement":"只核对冷链交接时谁查铅封、温度超过多少时暂停接收，引用原文。",
+    "group":"region","amount":"amount","sumRequest":"按 region 汇总两份 CSV 中的 amount 金额，交付一个 Excel。",
+    "sheets":[["private-east.csv","region,amount\nEast,30.10"],["private-west.csv","region,amount\nWest,60.20"]],
+    "rows":[["East","30.10"],["West","60.20"],["合计","90.30"]]
+  },
+  "travel": {
+    "question":"根据培训差旅规程，出发前由谁预审？单晚住宿报销上限是多少？请标出原文。",
+    "procedure":["培训差旅规程.txt","参加异地培训前，须由部门主管预审。每人每晚住宿费的报销上限是 450 元。"],
+    "answerTerms":["部门主管","450"],
+    "supplement":"只核对异地培训的预审人和单晚住宿报销上限，给我原文。",
+    "group":"部门","amount":"报销额","sumRequest":"把两张差旅流水按部门汇总报销额，交付一份 Excel。",
+    "sheets":[["本周差旅.csv","部门,报销额\n研发,410.75"],["补登差旅.csv","报销额,部门\n89.25,财务"]],
+    "rows":[["研发","410.75"],["财务","89.25"],["合计","500.00"]]
+  }
+}

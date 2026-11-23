@@ -1,0 +1,121 @@
+[
+  {
+    "batch": "smoke_808eda3a0a",
+    "scope": "页面仍在切换到新回执，随后按当前回执等待",
+    "status": "failed",
+    "reportedChecks": 1,
+    "report": "artifacts/rebuild-smoke/smoke_808eda3a0a/result.json"
+  },
+  {
+    "batch": "smoke_0b1ae9f241",
+    "scope": "原任务补正与交付",
+    "status": "passed",
+    "reportedChecks": 2,
+    "report": "artifacts/rebuild-smoke/smoke_0b1ae9f241/result.json"
+  },
+  {
+    "batch": "smoke_50bdd6e162",
+    "scope": "预算案例缺少负责人配置",
+    "status": "failed",
+    "reportedChecks": 1,
+    "report": "artifacts/rebuild-smoke/smoke_50bdd6e162/result.json"
+  },
+  {
+    "batch": "smoke_442a757835",
+    "scope": "预算及权限保护",
+    "status": "passed",
+    "reportedChecks": 2,
+    "report": "artifacts/rebuild-smoke/smoke_442a757835/result.json"
+  },
+  {
+    "batch": "smoke_ad835ce851",
+    "scope": "清除后的账本记录",
+    "status": "passed",
+    "reportedChecks": 2,
+    "report": "artifacts/rebuild-smoke/smoke_ad835ce851/result.json"
+  },
+  {
+    "batch": "smoke_c219475edb",
+    "scope": "Worker 强制停止后的恢复",
+    "status": "passed",
+    "reportedChecks": 3,
+    "report": "artifacts/rebuild-smoke/smoke_c219475edb/result.json"
+  },
+  {
+    "batch": "smoke_5298812e29",
+    "scope": "手机工作簿预览",
+    "status": "passed",
+    "reportedChecks": 3,
+    "report": "artifacts/rebuild-smoke/smoke_5298812e29/result.json"
+  },
+  {
+    "batch": "smoke_c8d18ce7af",
+    "scope": "浏览器取证保存了空响应体，后续校验真实转换文件",
+    "status": "failed",
+    "reportedChecks": 1,
+    "report": "artifacts/rebuild-smoke/smoke_c8d18ce7af/result.json"
+  },
+  {
+    "batch": "smoke_166494bd09",
+    "scope": "渲染字形与恢复",
+    "status": "passed",
+    "reportedChecks": 3,
+    "report": "artifacts/rebuild-smoke/smoke_166494bd09/result.json"
+  },
+  {
+    "batch": "smoke_785587826a",
+    "scope": "Office 导入时本机缺少可发现的 Poppler",
+    "status": "failed",
+    "reportedChecks": 65,
+    "report": "artifacts/rebuild-smoke/smoke_785587826a/result.json"
+  },
+  {
+    "batch": "smoke_440b20347a",
+    "scope": "Office 导入时本机缺少可发现的 Poppler",
+    "status": "failed",
+    "reportedChecks": 65,
+    "report": "artifacts/rebuild-smoke/smoke_440b20347a/result.json"
+  },
+  {
+    "batch": "smoke_233af86a49",
+    "scope": "安装路径修正前启动的全量批次",
+    "status": "failed",
+    "reportedChecks": 66,
+    "report": "artifacts/rebuild-smoke/smoke_233af86a49/result.json"
+  },
+  {
+    "batch": "smoke_647b048c82",
+    "scope": "含 085 升级和 Worker 中断的全量集成",
+    "status": "passed",
+    "reportedChecks": 72,
+    "report": "artifacts/rebuild-smoke/smoke_647b048c82/result.json"
+  },
+  {
+    "batch": "smoke_bf430f6f40",
+    "scope": "最终字体及自动行高的手机浏览器复测",
+    "status": "passed",
+    "reportedChecks": 3,
+    "report": "artifacts/rebuild-smoke/smoke_bf430f6f40/result.json"
+  },
+  {
+    "batch": "96c49ed40a",
+    "scope": "明确拒绝被旧演练视为未知结果",
+    "status": "failed",
+    "reportedChecks": 0,
+    "report": "artifacts/recovery-drill/96c49ed40a/result.json"
+  },
+  {
+    "batch": "131463a95a",
+    "scope": "中间版本误用回执变量",
+    "status": "failed",
+    "reportedChecks": 3,
+    "report": "artifacts/recovery-drill/131463a95a/result.json"
+  },
+  {
+    "batch": "21241dff50",
+    "scope": "真实计算后丢弃回执，隔离恢复",
+    "status": "passed",
+    "reportedChecks": 13,
+    "report": "artifacts/recovery-drill/21241dff50/result.json"
+  }
+]

@@ -1,0 +1,63 @@
+{
+  "provider": "local Qwen",
+  "records": [
+    {
+      "project": "d76f2b00-8700-4bc3-8e8f-5cc83baee726",
+      "run": "73d614c5-a7ba-458e-9afe-da6bcee82b4d",
+      "file": "tool-choice-local-conversation.zip",
+      "choice": 2,
+      "fromConversation": true,
+      "runtimeChoice": 2,
+      "pinnedAlternative": "fea6d639-fdb8-4833-9d80-4f2331cdf1fd",
+      "calls": 3
+    }
+  ],
+  "service": {
+    "id": "85c27c66-e318-4467-a2d6-39832ea38695",
+    "stage": "review",
+    "steps": [
+      {
+        "name": "决定汇总方式 local",
+        "step": 1,
+        "status": "completed",
+        "version": 1,
+        "approved": false,
+        "artifact": "ac316eb7-fe1c-4cec-9650-48aa347365f4",
+        "revision": 1,
+        "canSupplement": false,
+        "needsSourceReview": false,
+        "needsTakeoverReview": false
+      },
+      {
+        "name": "按地区汇总 local",
+        "step": 2,
+        "status": "completed",
+        "version": 1,
+        "approved": false,
+        "artifact": "f887d700-25e1-4a56-9dac-751e1ab9467d",
+        "revision": 1,
+        "toolChoice": 1,
+        "canSupplement": false,
+        "needsSourceReview": false,
+        "needsTakeoverReview": false
+      }
+    ],
+    "status": "completed",
+    "blocker": null,
+    "project": "82174295-892c-455e-a657-102ab297ad94",
+    "service": "4c1a1b45-1e82-495e-bed8-3c5b8c2e0439",
+    "version": 1,
+    "eventsUrl": "/api/v1/runs/85c27c66-e318-4467-a2d6-39832ea38695/events",
+    "actionsUrl": "/api/v1/runs/85c27c66-e318-4467-a2d6-39832ea38695/actions",
+    "deliveries": [],
+    "nextAction": "review_artifacts",
+    "packageUrl": "/api/v1/runs/85c27c66-e318-4467-a2d6-39832ea38695/delivery/package",
+    "deliveryUrl": "/api/v1/runs/85c27c66-e318-4467-a2d6-39832ea38695/delivery",
+    "externalTasks": [],
+    "finalReviewer": "Reviewer",
+    "humanActionUrl": "/#82174295-892c-455e-a657-102ab297ad94",
+    "receiptRequest": null,
+    "controlRevision": 1,
+    "canConcludeFailure": false
+  }
+}

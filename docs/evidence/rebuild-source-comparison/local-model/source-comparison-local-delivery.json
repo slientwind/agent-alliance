@@ -1,0 +1,19 @@
+{
+  "actor": "synthetic enterprise reviewer in isolated instance",
+  "project": "4253367e-f510-4202-95ec-31dea6108810",
+  "stage": "delivered",
+  "approved": [
+    {
+      "step": 1,
+      "version": 2,
+      "approved": true
+    },
+    {
+      "step": 2,
+      "version": 3,
+      "approved": true
+    }
+  ],
+  "blockedBeforeReview": 409,
+  "confirmedOriginal": "交付前由产品审核人核对规格。"
+}

@@ -1,0 +1,37 @@
+[
+  {
+    "batch": "smoke_9eae346d14",
+    "scope": "专项首跑",
+    "status": "failed",
+    "passedChecks": 1,
+    "diagnosis": "未关联附件的用例复用了尚有预览的单聊"
+  },
+  {
+    "batch": "smoke_7f33e8c3cd",
+    "scope": "移到独立会话后重跑",
+    "status": "passed",
+    "passedChecks": 2,
+    "diagnosis": ""
+  },
+  {
+    "batch": "smoke_cdb35f90ac",
+    "scope": "补充过期和服务换版对照",
+    "status": "passed",
+    "passedChecks": 2,
+    "diagnosis": ""
+  },
+  {
+    "batch": "smoke_1b7c791e9e",
+    "scope": "补充普通单 Agent 的可选 JSON",
+    "status": "passed",
+    "passedChecks": 2,
+    "diagnosis": ""
+  },
+  {
+    "batch": "smoke_5e3bc9d6d3",
+    "scope": "全量回归，实际本地 Qwen 与 BGE",
+    "status": "passed",
+    "passedChecks": 97,
+    "diagnosis": ""
+  }
+]

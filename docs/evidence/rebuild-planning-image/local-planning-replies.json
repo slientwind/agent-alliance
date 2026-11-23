@@ -1,0 +1,6 @@
+[
+  {
+    "input": "候选能力：[{\"id\":\"A1\",\"name\":\"会议议程成稿助手\",\"operation\":\"docx\",\"action\":\"将准备好的正文排成可编辑 Word 文档\",\"outputFormat\":\"docx\",\"ability\":\"把已确认的议程排版成 Word 文件，保留事项顺序。\",\"revision\":1,\"unitEstimateCny\":\"0\"}]\n业务对话：user: 制作两个独立成果：把附件中的培训安排原样排成 Word，再生成一张几何图案 PNG 封面，圆形放在中央。\n用户已交给执行步骤的资料（无需再次上传）。本次资料概况：{\"files\":1,\"csvFiles\":0}\n用户明确要求交付的文件格式：Word 文档（DOCX）、PNG 图片",
+    "reply": "{\n  \"kind\": \"plan\",\n  \"text\": \"制作两个独立成果：把附件中的培训安排原样排成 Word，再生成一张几何图案 PNG 封面，圆形放在中央。\",\n  \"outputFormat\": [\"docx\", \"png\"],\n  \"agents\": [\"A1\"],\n  \"missing\": []\n}"
+  }
+]

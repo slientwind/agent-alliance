@@ -1,0 +1,7 @@
+{
+"A":{"version":"R1","read":"granted","compute":"granted","owner":"资料负责人","fields":{"record_id":"编号","region":"区域","approved_units":"数量","unit_price_yuan":"单价","status":"审批状态"},"choices":{"status":["已核准","待核准"]}},
+"B":{"version":"R3","read":"granted","compute":"granted","owner":"资料负责人","fields":{"record_id":"编号","region":"区域","approved_units":"数量","unit_price_yuan":"单价","status":"审批状态"},"choices":{"status":["已核准","撤回","待核准"]}},
+"C":{"version":"R1","read":"denied","compute":"denied","owner":"资源负责人","fields":{"record_id":"编号","region":"区域","approved_units":"数量","unit_price_yuan":"单价","status":"审批状态"},"choices":{"status":["已核准","待核准"]}},
+"D":{"version":"R2","read":"granted","compute":"granted","owner":"供表人","fields":{"record_id":"编号","region":"区域","approved_units":"数量","unit_price_yuan":"单价"},"choices":{}},
+"E":{"version":"V1","read":"granted","compute":"granted","owner":"资料负责人","fields":{"site":"站点","people":"人次","minutes_each":"每人时长","review":"签到状态"},"choices":{"review":["已签到","已报名"]}}
+}

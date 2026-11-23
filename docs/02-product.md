@@ -1,6 +1,6 @@
 # Agent Alliance 产品方案
 
-> 历史版本说明：本文件记录第一阶段设计/验收。当前多租户、独立 Agent 凭据、分布式执行、A2A 与 Langfuse 方案以 [生产化产品与技术增补](07-production-architecture.md) 为准；登录流程已不要求输入模型或平台 API key。
+> 历史版本说明：本文件记录早期设计与验收。当前产品讨论以 [通用业务协作平台产品方案](10-product-blueprint.md) 为主线；已有实现的生产化技术记录见 [生产化产品与技术增补](07-production-architecture.md)。新产品方案不代表已有代码已经实现。
 
 ## 1. 定位与用户
 

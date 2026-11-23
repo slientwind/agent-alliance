@@ -1,0 +1,18 @@
+{
+  "broadBatch": "smoke_d6e2ade58d",
+  "focusedBatch": "smoke_e29eec49ae",
+  "reports": {
+    "fixture": {
+      "deliverables": "planning-deliverables-fixture.json",
+      "sourceReview": "planning-files-fixture.json",
+      "deliverablesSha256": "81077f1cb6f8550c88d5693eeb8ed890cc01d6c107360b7aa98e8bffc718dc79",
+      "preservedAfterBothChecks": true
+    },
+    "local": {
+      "deliverables": "planning-deliverables-local.json",
+      "sourceReview": "planning-files-local.json",
+      "deliverablesSha256": "d340acd1f08a9cadcacb2d853a83a1ee5fe428ebb743c672f1d38164ebd9a5b5",
+      "preservedAfterBothChecks": true
+    }
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "provider": "HTTPS fixture",
+  "records": [
+    {
+      "project": "e774fcfb-c4e1-47df-8064-b452783985b7",
+      "run": "6144dc0f-1473-4667-8ed5-8ee76c55d663",
+      "choice": 2,
+      "manual": false,
+      "stopAfterChoice": false,
+      "calls": 2,
+      "agent": "580ac01a-be6f-44ed-a78c-bcc46cd83192",
+      "file": "tool-choice-fixture-2.zip"
+    },
+    {
+      "project": "60f87c60-7798-4c28-90bc-005dec1a1b6c",
+      "run": "807c9bc2-8138-4a98-b885-30c93b18941e",
+      "choice": 1,
+      "manual": false,
+      "stopAfterChoice": false,
+      "calls": 2,
+      "agent": "fb67f5d0-4bf4-4475-943d-b88b4b7d6e5c",
+      "file": "tool-choice-fixture-1.zip"
+    },
+    {
+      "project": "74bfc7ae-dc5a-4325-a99d-c03a278410d8",
+      "run": "9e5dc195-6754-40f4-9580-f316cb26df5f",
+      "choice": 2,
+      "manual": true,
+      "stopAfterChoice": false,
+      "calls": 2,
+      "agent": "580ac01a-be6f-44ed-a78c-bcc46cd83192",
+      "file": "tool-choice-fixture-manual.zip"
+    },
+    {
+      "project": "ef473740-53ed-4c3c-93d2-dd0573e95ea0",
+      "run": "e8e4fdb5-ac08-4aa7-b566-884e6d3abc48",
+      "choice": 2,
+      "manual": false,
+      "stopAfterChoice": true,
+      "calls": 2,
+      "agent": "580ac01a-be6f-44ed-a78c-bcc46cd83192",
+      "file": "tool-choice-fixture-restored.zip"
+    }
+  ],
+  "service": {
+    "id": "a53681f0-af06-487d-8cf9-4d263b8283c0",
+    "stage": "review",
+    "steps": [
+      {
+        "name": "决定汇总方式 fixture",
+        "step": 1,
+        "status": "completed",
+        "version": 1,
+        "approved": false,
+        "artifact": "7e25e46c-e8d2-4536-82e8-3f4789b96b08",
+        "revision": 1,
+        "canSupplement": false,
+        "needsSourceReview": false,
+        "needsTakeoverReview": false
+      },
+      {
+        "name": "按地区汇总 fixture",
+        "step": 2,
+        "status": "completed",
+        "version": 1,
+        "approved": false,
+        "artifact": "a417df3b-c784-4922-8d42-b7f515ad9a6e",
+        "revision": 1,
+        "toolChoice": 1,
+        "canSupplement": false,
+        "needsSourceReview": false,
+        "needsTakeoverReview": false
+      }
+    ],
+    "status": "completed",
+    "blocker": null,
+    "project": "84e3ef0c-0217-4bfe-b09a-355a710ef82d",
+    "service": "57fa9cdb-f84f-4a55-a429-8fa646fff05e",
+    "version": 1,
+    "eventsUrl": "/api/v1/runs/a53681f0-af06-487d-8cf9-4d263b8283c0/events",
+    "actionsUrl": "/api/v1/runs/a53681f0-af06-487d-8cf9-4d263b8283c0/actions",
+    "deliveries": [],
+    "nextAction": "review_artifacts",
+    "packageUrl": "/api/v1/runs/a53681f0-af06-487d-8cf9-4d263b8283c0/delivery/package",
+    "deliveryUrl": "/api/v1/runs/a53681f0-af06-487d-8cf9-4d263b8283c0/delivery",
+    "externalTasks": [],
+    "finalReviewer": "Reviewer",
+    "humanActionUrl": "/#84e3ef0c-0217-4bfe-b09a-355a710ef82d",
+    "receiptRequest": null,
+    "controlRevision": 1,
+    "canConcludeFailure": false
+  },
+  "serviceRecovery": {
+    "run": "079ee463-3151-43aa-8a26-4fd7c5204bb4",
+    "stage": "review",
+    "selectedRevision": 1,
+    "replayMatched": true
+  }
+}

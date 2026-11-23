@@ -1,0 +1,347 @@
+{
+  "mode": "hybrid",
+  "indexed": 14,
+  "passages": 14,
+  "firstOrEmptyCorrect": 12,
+  "total": 16,
+  "cases": [
+    {
+      "id": "K01",
+      "query": "设备归还时由谁核对设备编号并登记？",
+      "expected": "training-v2.4",
+      "actual": "training-v2.4",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "96404756-dd07-473a-ad32-79d625dbbdda",
+          "end": 89,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 74,
+          "excerpt": "归还时由保管员核对设备编号并登记",
+          "lexical": true,
+          "version": 2,
+          "semantic": true
+        },
+        {
+          "id": "96404756-dd07-473a-ad32-79d625dbbdda",
+          "end": 55,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 29,
+          "excerpt": "员工先填写设备用途和预计归还日，经部门负责人确认后领取",
+          "lexical": false,
+          "version": 2,
+          "semantic": true
+        }
+      ]
+    },
+    {
+      "id": "K02",
+      "query": "跨部门借用还需要谁确认？",
+      "expected": "training-v2.3",
+      "actual": "training-v2.3",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "96404756-dd07-473a-ad32-79d625dbbdda",
+          "end": 72,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 57,
+          "excerpt": "跨部门借用还需接收部门负责人确认",
+          "lexical": true,
+          "version": 2,
+          "semantic": true
+        },
+        {
+          "id": "96404756-dd07-473a-ad32-79d625dbbdda",
+          "end": 55,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 29,
+          "excerpt": "员工先填写设备用途和预计归还日，经部门负责人确认后领取",
+          "lexical": false,
+          "version": 2,
+          "semantic": true
+        }
+      ]
+    },
+    {
+      "id": "K03",
+      "query": "遗失时报告谁？",
+      "expected": "training-v2.5",
+      "actual": "training-v2.5",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "96404756-dd07-473a-ad32-79d625dbbdda",
+          "end": 100,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 91,
+          "excerpt": "遗失时立即报告保管员",
+          "lexical": true,
+          "version": 2,
+          "semantic": true
+        }
+      ]
+    },
+    {
+      "id": "K04",
+      "query": "CW-01 的容量是多少 mL？",
+      "expected": "product-v2.2",
+      "actual": "product-v2.2",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "35558618-2c39-46a4-93d2-1081810dcd0f",
+          "end": 72,
+          "name": "P3-v2.md",
+          "exact": false,
+          "start": 30,
+          "excerpt": "编号 CW-01，容量 420 mL，杯身海蓝色，零售价 79 元，包装内含杯和说明卡",
+          "lexical": true,
+          "version": 2,
+          "semantic": false
+        }
+      ]
+    },
+    {
+      "id": "K05",
+      "query": "设备弄丢了找谁？",
+      "expected": "training-v2.5",
+      "actual": "EMPTY",
+      "correct": false,
+      "candidates": []
+    },
+    {
+      "id": "K06",
+      "query": "借设备之前要说明拿来干什么吗？",
+      "expected": "training-v2.2",
+      "actual": "training-v2.0",
+      "correct": false,
+      "candidates": [
+        {
+          "id": "96404756-dd07-473a-ad32-79d625dbbdda",
+          "end": 13,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 1,
+          "excerpt": "# 借用设备培训规则 v2",
+          "lexical": false,
+          "version": 2,
+          "semantic": true
+        },
+        {
+          "id": "96404756-dd07-473a-ad32-79d625dbbdda",
+          "end": 55,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 29,
+          "excerpt": "员工先填写设备用途和预计归还日，经部门负责人确认后领取",
+          "lexical": false,
+          "version": 2,
+          "semantic": true
+        },
+        {
+          "id": "96404756-dd07-473a-ad32-79d625dbbdda",
+          "end": 72,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 57,
+          "excerpt": "跨部门借用还需接收部门负责人确认",
+          "lexical": false,
+          "version": 2,
+          "semantic": true
+        }
+      ]
+    },
+    {
+      "id": "K07",
+      "query": "谁负责报销差旅费？",
+      "expected": "EMPTY",
+      "actual": "EMPTY",
+      "correct": true,
+      "candidates": []
+    },
+    {
+      "id": "K08",
+      "query": "保温时长是多少？",
+      "expected": "product-v2.3",
+      "actual": "product-v2.3",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "35558618-2c39-46a4-93d2-1081810dcd0f",
+          "end": 83,
+          "name": "P3-v2.md",
+          "exact": false,
+          "start": 74,
+          "excerpt": "保温时长尚无测量资料",
+          "lexical": true,
+          "version": 2,
+          "semantic": true
+        }
+      ]
+    },
+    {
+      "id": "K09",
+      "query": "不慎把借来的器材弄没了，第一时间联系谁？",
+      "expected": "training-v2.5",
+      "actual": "EMPTY",
+      "correct": false,
+      "candidates": []
+    },
+    {
+      "id": "K10",
+      "query": "CW-01 卖多少钱？",
+      "expected": "product-v2.2",
+      "actual": "product-v2.2",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "35558618-2c39-46a4-93d2-1081810dcd0f",
+          "end": 72,
+          "name": "P3-v2.md",
+          "exact": false,
+          "start": 30,
+          "excerpt": "编号 CW-01，容量 420 mL，杯身海蓝色，零售价 79 元，包装内含杯和说明卡",
+          "lexical": true,
+          "version": 2,
+          "semantic": false
+        }
+      ]
+    },
+    {
+      "id": "K11",
+      "query": "这个杯子的标准质保期是几年？",
+      "expected": "EMPTY",
+      "actual": "EMPTY",
+      "correct": true,
+      "candidates": []
+    },
+    {
+      "id": "K12",
+      "query": "课件里应当写谁在归还时登记？",
+      "expected": "training-v2.4",
+      "actual": "training-v2.4",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "96404756-dd07-473a-ad32-79d625dbbdda",
+          "end": 89,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 74,
+          "excerpt": "归还时由保管员核对设备编号并登记",
+          "lexical": false,
+          "version": 2,
+          "semantic": true
+        },
+        {
+          "id": "96404756-dd07-473a-ad32-79d625dbbdda",
+          "end": 55,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 29,
+          "excerpt": "员工先填写设备用途和预计归还日，经部门负责人确认后领取",
+          "lexical": false,
+          "version": 2,
+          "semantic": true
+        }
+      ]
+    },
+    {
+      "id": "K13",
+      "query": "CW-01 包装内含什么？",
+      "expected": "product-v2.2",
+      "actual": "product-v2.2",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "35558618-2c39-46a4-93d2-1081810dcd0f",
+          "end": 72,
+          "name": "P3-v2.md",
+          "exact": false,
+          "start": 30,
+          "excerpt": "编号 CW-01，容量 420 mL，杯身海蓝色，零售价 79 元，包装内含杯和说明卡",
+          "lexical": true,
+          "version": 2,
+          "semantic": false
+        }
+      ]
+    },
+    {
+      "id": "K14",
+      "query": "领取设备时需要谁确认用途？",
+      "expected": "training-v2.2",
+      "actual": "training-v2.2",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "96404756-dd07-473a-ad32-79d625dbbdda",
+          "end": 55,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 29,
+          "excerpt": "员工先填写设备用途和预计归还日，经部门负责人确认后领取",
+          "lexical": false,
+          "version": 2,
+          "semantic": true
+        }
+      ]
+    },
+    {
+      "id": "K15",
+      "query": "资料里有随行杯的耐摔高度吗？",
+      "expected": "EMPTY",
+      "actual": "product-v2.0",
+      "correct": false,
+      "candidates": [
+        {
+          "id": "35558618-2c39-46a4-93d2-1081810dcd0f",
+          "end": 13,
+          "name": "P3-v2.md",
+          "exact": false,
+          "start": 1,
+          "excerpt": "# 澄湾随行杯资料卡 v2",
+          "lexical": false,
+          "version": 2,
+          "semantic": true
+        }
+      ]
+    },
+    {
+      "id": "K16",
+      "query": "遗失设备时能不能等到明天再报告？",
+      "expected": "training-v2.5",
+      "actual": "training-v2.5",
+      "correct": true,
+      "candidates": [
+        {
+          "id": "96404756-dd07-473a-ad32-79d625dbbdda",
+          "end": 100,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 91,
+          "excerpt": "遗失时立即报告保管员",
+          "lexical": false,
+          "version": 2,
+          "semantic": true
+        },
+        {
+          "id": "96404756-dd07-473a-ad32-79d625dbbdda",
+          "end": 55,
+          "name": "T3-v2.md",
+          "exact": false,
+          "start": 29,
+          "excerpt": "员工先填写设备用途和预计归还日，经部门负责人确认后领取",
+          "lexical": false,
+          "version": 2,
+          "semantic": true
+        }
+      ]
+    }
+  ]
+}

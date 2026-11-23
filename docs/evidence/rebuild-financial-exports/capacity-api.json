@@ -1,0 +1,8 @@
+{
+  "source": "Go API, isolated PostgreSQL, synthetic model probes",
+  "overLimitStatus": 422,
+  "filesAfterRejection": 0,
+  "includedUniqueCalls": 10000,
+  "unknownFees": 10000,
+  "enterpriseFinancialAccessWithoutSummaryExport": true
+}

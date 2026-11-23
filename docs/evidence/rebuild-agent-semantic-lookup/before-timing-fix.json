@@ -1,0 +1,8 @@
+{
+  "runBatch": "smoke_bb7ead26f0",
+  "status": "failed",
+  "question": "我负责的摊位上的陈列架什么时候送回去？",
+  "answer": "陈列架应在活动结束后由场务清点并归还。\n\n原文依据\n[1] 内部规程.txt v1 【S1v1:1-24】活动结束后由场务清点借出的展架，并在次日上午归还",
+  "expectedTime": "次日上午",
+  "verifiedMiss": true
+}

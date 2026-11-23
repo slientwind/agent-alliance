@@ -1,0 +1,28 @@
+{
+  "first": {
+    "all": 1,
+    "more": false,
+    "name": "handover.txt",
+    "page": 1,
+    "pin": 1,
+    "rows": [
+      {
+        "text": "换班前，值班人员应记录设备状态。",
+        "start": 1,
+        "end": 16,
+        "hash": "31bdc4bba48fde214e4cafe6e8baf50e5f98cdae97e3516dd45e541b48316bc8",
+        "matches": [
+          1
+        ]
+      }
+    ],
+    "total": 1,
+    "unmatched": 0,
+    "version": 1
+  },
+  "externalWordWithSameSummary": {
+    "version": 2,
+    "http": 404,
+    "verifiedWord": false
+  }
+}

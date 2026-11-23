@@ -1,0 +1,36 @@
+{
+  "browser": "Chromium",
+  "data": "synthetic member and empty project catalogue",
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 900,
+      "textareaHeightFraction": 0.61135,
+      "composerViewportAreaFraction": 0.6935
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "textareaHeightFraction": 0.61347,
+      "composerViewportAreaFraction": 0.69495
+    }
+  ],
+  "desktopAndMobile": {
+    "canvas": "#F3F4F5",
+    "headingWeight": 700,
+    "visibleColorChannelsMaxDifference": 2,
+    "sendEnabledWithText": true,
+    "horizontalOverflow": false
+  },
+  "historyDrawer": {
+    "testedViewportWidths": [
+      320,
+      390,
+      1440
+    ],
+    "activeTabWeight": 700,
+    "activeTabUnderline": "#101112",
+    "escapeRestoresTriggerFocus": true,
+    "horizontalOverflow": false
+  }
+}

@@ -1,0 +1,85 @@
+[
+  {
+    "batch": "smoke_7bc942f5d7",
+    "started": "2026-11-23T09:43:06.226899+00:00",
+    "input": "synthetic",
+    "externalProviders": "local HTTPS model and A2A fixtures",
+    "runtime": [
+      "PostgreSQL",
+      "Temporal",
+      "Eino",
+      "DuckDB",
+      "LibreOffice",
+      "PDF.js",
+      "Chromium",
+      "OpenTelemetry Collector"
+    ],
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Existing composer footprint and team handling through 320, 390 and 1440 pixels",
+      "Published workflow reuse with fresh files, verified replacement, version isolation and approved deliveries"
+    ],
+    "workflowTemplate": "workflow-template.json",
+    "ended": "2026-11-23T09:43:34.806862+00:00",
+    "observation": "首轮通过新版方案采用、资料保留、重新授权及逐项审核交付。"
+  },
+  {
+    "batch": "smoke_cff3a75ae3",
+    "started": "2026-11-23T09:51:01.830799+00:00",
+    "input": "synthetic",
+    "externalProviders": "local HTTPS model and A2A fixtures",
+    "runtime": [
+      "PostgreSQL",
+      "Temporal",
+      "Eino",
+      "DuckDB",
+      "LibreOffice",
+      "PDF.js",
+      "Chromium",
+      "OpenTelemetry Collector"
+    ],
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Existing composer footprint and team handling through 320, 390 and 1440 pixels",
+      "Published workflow reuse with fresh files, verified replacement, version isolation and approved deliveries"
+    ],
+    "workflowTemplate": "workflow-template.json",
+    "ended": "2026-11-23T09:51:29.803147+00:00",
+    "observation": "精简手机对比版式后复验流程，320、390 及 1440 像素对话回归通过。"
+  },
+  {
+    "batch": "smoke_969fff553d",
+    "started": "2026-11-23T09:52:07.061737+00:00",
+    "input": "synthetic",
+    "externalProviders": "local HTTPS model and A2A fixtures",
+    "runtime": [
+      "PostgreSQL",
+      "Temporal",
+      "Eino",
+      "DuckDB",
+      "LibreOffice",
+      "PDF.js",
+      "Chromium",
+      "OpenTelemetry Collector"
+    ],
+    "status": "passed",
+    "checks": [
+      "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+      "Existing composer footprint and team handling through 320, 390 and 1440 pixels",
+      "Published workflow reuse with fresh files, verified replacement, version isolation and approved deliveries"
+    ],
+    "workflowTemplate": "workflow-template.json",
+    "ended": "2026-11-23T09:52:34.144316+00:00",
+    "observation": "并发采用新版和启动旧方案时，仅采用成立，旧启动返回 409。"
+  },
+  {
+    "batch": "smoke_f626ebdc7b",
+    "status": "passed",
+    "checksPassed": 108,
+    "started": "2026-11-23T09:51:27.549447+00:00",
+    "ended": "2026-11-23T10:13:09.336309+00:00",
+    "report": "regression.json"
+  }
+]

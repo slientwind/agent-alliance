@@ -1,0 +1,54 @@
+{
+  "trial": {
+    "privateOriginal": true,
+    "wrongBytesDenied": true,
+    "replay": true
+  },
+  "revocation": {
+    "blockedBeforeAdmission": true,
+    "chargedCalls": 0
+  },
+  "direct": {
+    "sourceIDs": [
+      "a729ffd8-8da0-4182-964b-a2d558790bf0"
+    ],
+    "pin": 1,
+    "currentSource": 2,
+    "reviewedText": "蓝色标签"
+  },
+  "planning": {
+    "reversibleScope": true,
+    "selectedPublishedAgent": true,
+    "imageAvailableOnlyToRunner": true
+  },
+  "revision": {
+    "originalPin": 1,
+    "revisedInput": 2,
+    "reviewedRevision": 2
+  },
+  "composition": {
+    "recognitionThenWord": true,
+    "separatelyReviewed": 2,
+    "calls": 2
+  },
+  "service": {
+    "id": "e7085bd8-4091-4414-a58b-33625827090e",
+    "requiresPictures": true,
+    "deniedMissingOrCorrupt": true,
+    "signedReplay": true,
+    "humanApproval": true,
+    "webAndAPI": true
+  },
+  "web": {
+    "sourceIDs": [
+      "30d1a389-857c-4fd5-9e04-d8ca7c719353"
+    ]
+  },
+  "api": {
+    "sourceIDs": [
+      "96dd0975-b5f5-4769-a238-e34d873524ab",
+      "c129b823-25f3-4380-bcf8-7fe740e6bef6"
+    ],
+    "orderedPictures": true
+  }
+}

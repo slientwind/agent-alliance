@@ -1,0 +1,8 @@
+{
+  "reviewKeepsExpiry": true,
+  "staleChangeRejected": true,
+  "stalePlanRejected": true,
+  "departureBodyMasked": true,
+  "returnNeedsAuthentication": true,
+  "expiredBodyPurged": true
+}

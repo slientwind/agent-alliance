@@ -1,0 +1,67 @@
+{
+  "service": "c105a685-5f98-49b3-8f3d-b6bfa3d51872",
+  "first": {
+    "id": "c105a685-5f98-49b3-8f3d-b6bfa3d51872",
+    "version": 1,
+    "routingRevision": 1
+  },
+  "second": {
+    "id": "c105a685-5f98-49b3-8f3d-b6bfa3d51872",
+    "version": 2,
+    "routingRevision": 2
+  },
+  "receipt": {
+    "id": "c105a685-5f98-49b3-8f3d-b6bfa3d51872",
+    "version": 1,
+    "routingRevision": 3
+  },
+  "third": {
+    "id": "c105a685-5f98-49b3-8f3d-b6bfa3d51872",
+    "version": 3,
+    "routingRevision": 6
+  },
+  "acceptedV2": "2a71726c-465f-4134-b2ac-d40cf8c76a80",
+  "webNewVersion": 1,
+  "activeV2DuringRollback": "running",
+  "oldReplay": true,
+  "explicitV2AfterRollback": "0c8212b0-d80d-41e2-95fd-a4252af4e557",
+  "reviewerUnavailableBlocked": true,
+  "inactiveDependencyBlocked": true,
+  "staleAdminGenerationBlocked": true,
+  "staleWebConsentCleared": true,
+  "externalPackageCalls": 2,
+  "narrowedAudienceBlocked": true,
+  "priorDeliveryBytesPreserved": true,
+  "verifiedOriginalV2WordAndHashes": true,
+  "feishu": {
+    "staleProposalRejected": true,
+    "newProposalVersion": 1,
+    "acceptedVersion": 1
+  },
+  "rollbackAuditEvents": [
+    {
+      "to": 1,
+      "from": 2,
+      "reason": "临时恢复已核对的文本回执流程",
+      "routingRevision": 3
+    },
+    {
+      "to": 2,
+      "from": 1,
+      "reason": "复核后恢复 Word 交付",
+      "routingRevision": 4
+    },
+    {
+      "to": 1,
+      "from": 2,
+      "reason": "临时恢复已核对的文本回执流程",
+      "routingRevision": 5
+    },
+    {
+      "to": 1,
+      "from": 3,
+      "reason": "飞书预览核对",
+      "routingRevision": 7
+    }
+  ]
+}

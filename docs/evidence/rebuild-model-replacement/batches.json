@@ -1,0 +1,74 @@
+[
+  {
+    "batch": "smoke_1f78599edc",
+    "status": "passed",
+    "passedChecks": 1,
+    "note": "批次初始化和固定修订执行"
+  },
+  {
+    "batch": "smoke_011cdb929c",
+    "status": "failed",
+    "passedChecks": 50,
+    "note": "全量回归在偏好启用与删除确认并发时失败"
+  },
+  {
+    "batch": "smoke_21b9569137",
+    "status": "passed",
+    "passedChecks": 1,
+    "note": "同一批次中的网页复验及发布"
+  },
+  {
+    "batch": "smoke_916b4c5749",
+    "status": "passed",
+    "passedChecks": 1,
+    "note": "回退前检查原资源，回退后验证新任务"
+  },
+  {
+    "batch": "smoke_77c23e4750",
+    "status": "passed",
+    "passedChecks": 1,
+    "note": "回退后从原版验收样例再次生成草稿"
+  },
+  {
+    "batch": "smoke_fb62ffae4a",
+    "status": "passed",
+    "passedChecks": 1,
+    "note": "并发请求去重、保留原版样例及移动布局"
+  },
+  {
+    "batch": "smoke_e21c5566e5",
+    "status": "passed",
+    "passedChecks": 1,
+    "note": "费用预占与实收金额分别核对"
+  },
+  {
+    "batch": "smoke_aa87bd5cdb",
+    "status": "passed",
+    "passedChecks": 1,
+    "note": "维护中停用与重新选择"
+  },
+  {
+    "batch": "smoke_6b9571c8b0",
+    "status": "passed",
+    "passedChecks": 1,
+    "note": "切换后才开始的下游步骤仍使用原凭据"
+  },
+  {
+    "batch": "smoke_337b9f7d89",
+    "status": "failed",
+    "passedChecks": 50,
+    "note": "全量走查的延迟响应测试拦截了前一个停用请求，已将拦截限定为启用并等待其响应完成。"
+  },
+  {
+    "batch": "smoke_13bccd806a",
+    "status": "passed",
+    "passedChecks": 1,
+    "note": "真实账号的偏好修正、停启、回收、清除与离职恢复通过。"
+  },
+  {
+    "batch": "smoke_d1eb089517",
+    "status": "passed",
+    "passedChecks": 60,
+    "note": "最终功能集成、受控供应商与浏览器 Mock、已有数据升级分别通过。"
+  }
+]

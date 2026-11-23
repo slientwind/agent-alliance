@@ -1,0 +1,89 @@
+{
+  "model": "fixture",
+  "documentParagraphs": [
+    "工作成果",
+    "南仓 1,200.00 元，北仓 3500 元。",
+    "原文依据",
+    "[1] 南仓采购规程.txt v1 【S1v1:1-23】南仓加急采购达到 1200 元，须由主管审批。",
+    "[2] 北仓采购规程.txt v1 【S2v1:1-23】北仓加急采购达到 3500 元，须由主管审批。"
+  ],
+  "manifest": {
+    "delivery": "907f20f9-d418-414b-bf1a-6c522fdda0a0",
+    "edition": 1,
+    "changes": [],
+    "changedNotes": [],
+    "handoff": {},
+    "confirmedBy": "1e671152-5dfd-4c18-8240-d31e34f552cb",
+    "confirmedAt": "2026-11-23T00:20:17.419095+08:00",
+    "sources": [
+      {
+        "id": "2480e391-e41f-4253-8b76-304e158fd1f3",
+        "pinned": 1,
+        "revoked": false,
+        "observed": 1,
+        "assessments": [],
+        "revisionInputs": []
+      },
+      {
+        "id": "2c0adae3-ff01-431b-ba46-afc834d3f31f",
+        "pinned": 1,
+        "revoked": false,
+        "observed": 1,
+        "assessments": [],
+        "revisionInputs": []
+      }
+    ],
+    "items": [
+      {
+        "step": 1,
+        "dependencies": [],
+        "artifact": "629391aa-1f31-468a-a438-673acf07e5e3",
+        "name": "原文核对助手 · 检索依据",
+        "version": 1,
+        "reviewer": "1e671152-5dfd-4c18-8240-d31e34f552cb",
+        "reviewedAt": "2026-11-23T00:20:17.099923+08:00",
+        "path": "artifacts/01-v1-原文核对助手 · 检索依据.txt",
+        "mediaType": "text/plain; charset=utf-8",
+        "sha256": "6be4be322aa05e99a0539ac1a7b88ef2061faadebb825979dd3da8a06b41071e"
+      },
+      {
+        "step": 2,
+        "dependencies": [
+          {
+            "name": "原文核对助手 · 检索依据",
+            "step": 1,
+            "version": 1,
+            "artifact": "629391aa-1f31-468a-a438-673acf07e5e3"
+          }
+        ],
+        "artifact": "9cbf2b7a-194d-4e78-a27b-389ee2bb6ea4",
+        "name": "原文核对助手 · 据原文回答",
+        "version": 1,
+        "reviewer": "1e671152-5dfd-4c18-8240-d31e34f552cb",
+        "reviewedAt": "2026-11-23T00:20:17.200152+08:00",
+        "path": "artifacts/02-v1-原文核对助手 · 据原文回答.txt",
+        "mediaType": "text/plain; charset=utf-8",
+        "sha256": "5b98aa0866097f4979cd78f6a3b8df92fffb5ccc13680c90708d5408a414bda1"
+      },
+      {
+        "step": 3,
+        "dependencies": [
+          {
+            "name": "原文核对助手 · 据原文回答",
+            "step": 2,
+            "version": 1,
+            "artifact": "9cbf2b7a-194d-4e78-a27b-389ee2bb6ea4"
+          }
+        ],
+        "artifact": "3f3092ea-06d7-4bb8-b26c-26d1939b6d8d",
+        "name": "检索交付成稿 fixture",
+        "version": 1,
+        "reviewer": "1e671152-5dfd-4c18-8240-d31e34f552cb",
+        "reviewedAt": "2026-11-23T00:20:17.303916+08:00",
+        "path": "artifacts/03-v1-deliverable.docx",
+        "mediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "sha256": "cd4d9ac1249fa1f320742aa408aa72f77c171b65b6e6127962a986839464eaef"
+      }
+    ]
+  }
+}

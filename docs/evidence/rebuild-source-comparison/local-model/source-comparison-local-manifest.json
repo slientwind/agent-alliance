@@ -1,0 +1,52 @@
+{
+  "delivery": "393211d4-23d4-431b-980a-f933f93ec000",
+  "edition": 1,
+  "changes": [],
+  "changedNotes": [],
+  "handoff": {},
+  "confirmedBy": "da3e05a0-1baa-402a-9670-90d980ae47a8",
+  "confirmedAt": "2026-11-22T23:30:13.840208+08:00",
+  "sources": [
+    {
+      "id": "0a392230-178b-4c4c-8790-ba84b5512785",
+      "pinned": 1,
+      "revoked": false,
+      "observed": 1,
+      "assessments": [],
+      "revisionInputs": []
+    }
+  ],
+  "items": [
+    {
+      "step": 1,
+      "dependencies": [],
+      "artifact": "6660e74b-287a-4ec5-8961-c6caddac01d7",
+      "name": "课件编稿人",
+      "version": 2,
+      "reviewer": "da3e05a0-1baa-402a-9670-90d980ae47a8",
+      "reviewedAt": "2026-11-22T23:30:13.385329+08:00",
+      "path": "artifacts/01-v2-课件编稿人.txt",
+      "mediaType": "text/plain; charset=utf-8",
+      "sha256": "42e95d9b17b2998971c7de282c15c2e72d59deea020c70bd5931fb987c60e7e3"
+    },
+    {
+      "step": 2,
+      "dependencies": [
+        {
+          "name": "课件编稿人",
+          "step": 1,
+          "version": 2,
+          "artifact": "6660e74b-287a-4ec5-8961-c6caddac01d7"
+        }
+      ],
+      "artifact": "f7c28fdc-a094-4423-9498-d327d8a346e3",
+      "name": "分页课件制作人",
+      "version": 3,
+      "reviewer": "da3e05a0-1baa-402a-9670-90d980ae47a8",
+      "reviewedAt": "2026-11-22T23:30:13.632865+08:00",
+      "path": "artifacts/02-v3-deliverable.pptx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "sha256": "039ed4105fe189162af2f22787d77e06d3989f3b42707c10ca582983be36670b"
+    }
+  ]
+}

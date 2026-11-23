@@ -1,0 +1,23 @@
+{
+  "kind": "local-synthetic-feishu-protocol",
+  "realTenant": false,
+  "serviceVersions": [
+    1,
+    2
+  ],
+  "runsAccepted": 1,
+  "delivered": true,
+  "checks": [
+    "signed encrypted events",
+    "member binding and unlink",
+    "private catalog and explicit bounded consent",
+    "stable reply UUID after 503",
+    "stale service version and revoked team membership rejected",
+    "artifact version and feedback deduplication with browser review decision",
+    "chat and binding isolation, queued reply suppressed after rebind",
+    "group mention and audience",
+    "event and message deduplication",
+    "mobile browser checks bound identity, reviews pinned version and downloads package",
+    "chat reports approved delivery"
+  ]
+}

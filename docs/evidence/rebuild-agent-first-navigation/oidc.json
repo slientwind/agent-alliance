@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "provider": "quay.io/keycloak/keycloak@sha256:7e66a96e4739239070aeaf72e4c5decf0f7f682cfc725b9f7ea2b336eaba38b3",
+  "data": "synthetic enterprise accounts",
+  "phases": [
+    "optional",
+    "required",
+    "outage"
+  ],
+  "auditEvents": {
+    "identity.oidc.bind": 3,
+    "identity.oidc.login": 5,
+    "identity.oidc.policy": 2,
+    "identity.oidc.unlink": 1,
+    "identity.oidc.emergency": 1
+  },
+  "missingStrictConfiguration": "startup refused"
+}

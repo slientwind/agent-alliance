@@ -1,0 +1,20 @@
+{
+  "project": "08ef645f-0508-4298-bd55-c6bd30ff1bc2",
+  "run": "2473e3f2-3b63-4a5b-a8af-88aab3243f7d",
+  "question": "我负责的摊位上的陈列架什么时候送回去？",
+  "indexedBefore": 0,
+  "calls": 2,
+  "answer": "在活动结束后，由场务清点借出的展架，并在次日上午归还。\n\n原文依据\n[1] event.txt v1 【S1v1:3-26】活动结束后由场务清点借出的展架，并在次日上午归还",
+  "events": [
+    "queued",
+    "submitted",
+    "running",
+    "lookup_semantic_fresh",
+    "completed",
+    "submitted",
+    "lookup_answer",
+    "completed",
+    "completed"
+  ],
+  "archiveSha256": "09da725abb47235d0c9f00b6e00143974e04ce423b1ee2c2a03444eb04eeb3f1"
+}

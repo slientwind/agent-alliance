@@ -1,0 +1,36 @@
+{
+  "web": {
+    "run": "56d0f036-09c0-44eb-bb98-0de48cb72fe9",
+    "answer": "差额为 78.50 元。\n528.50 元 [1] − 450 元 [2] = 78.50 元\n\n原文依据\n[1] 结算说明.txt v1 【S2v1:1-16】住宿结算实付 528.50 元。\n[2] 差旅标准.txt v1 【S1v1:1-16】单晚住宿报销标准为 450 元。",
+    "finalCalls": 2,
+    "planVersion": 2,
+    "reviewer": "c263214b-af38-4250-88cc-51d3da48209c",
+    "requester": "99450e59-33e6-4c29-8720-91bf765ff565"
+  },
+  "app": {
+    "run": "8ba7aa96-a561-40f7-988d-ee0837c18386",
+    "answer": "差额为 78.50 元。\n528.50 元 [1] − 450 元 [2] = 78.50 元\n\n原文依据\n[1] 结算说明.txt v1 【S2v1:30-45】住宿结算实付 528.50 元。\n[2] 标准.txt v1 【S1v1:1-16】单晚住宿报销标准为 450 元。",
+    "finalCalls": 2,
+    "planVersion": 2,
+    "reviewer": "c263214b-af38-4250-88cc-51d3da48209c",
+    "requester": "e72c6de4-e626-464e-8cee-620c39dfffbc"
+  },
+  "api": {
+    "run": "9b301a67-4731-49d9-95a8-10140b6b7c56",
+    "answer": "差额为 78.50 元。\n528.50 元 [1] − 450 元 [2] = 78.50 元\n\n原文依据\n[1] 结算说明.txt v1 【S2v1:30-45】住宿结算实付 528.50 元。\n[2] 标准.txt v1 【S1v1:1-16】单晚住宿报销标准为 450 元。",
+    "finalCalls": 2,
+    "planVersion": 2,
+    "reviewer": "c263214b-af38-4250-88cc-51d3da48209c",
+    "requester": "99450e59-33e6-4c29-8720-91bf765ff565"
+  },
+  "apiRange": {
+    "from": 30,
+    "to": 45
+  },
+  "initialCalls": 1,
+  "replayed": true,
+  "wrongPrincipal": 404,
+  "changedScope": 409,
+  "revokedDelegation": 403,
+  "receiptEvents": 1
+}

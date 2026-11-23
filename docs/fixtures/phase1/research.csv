@@ -1,0 +1,5 @@
+record_id,region,approved_units,unit_price_yuan,status
+001,东区,3,12.50,已核准
+002,东区,2,9.90,已核准
+003,西区,4,8.25,已核准
+004,西区,1,999.00,待核准

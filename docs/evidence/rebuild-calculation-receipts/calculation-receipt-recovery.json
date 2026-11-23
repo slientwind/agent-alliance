@@ -1,0 +1,30 @@
+[
+  {
+    "branch": "budget",
+    "run": "daf94ec7-7b87-4f0e-9953-ddc48503ce2d",
+    "stage": "review",
+    "calls": 2,
+    "plan": 2
+  },
+  {
+    "branch": "withdraw",
+    "run": "5465ac97-8009-4511-9c2a-966d3bc9ebb6",
+    "stage": "blocked",
+    "calls": 1,
+    "plan": 2
+  },
+  {
+    "branch": "cancel",
+    "run": "8f83d1fb-910e-4ee8-b84f-d47e98eba7cb",
+    "stage": "cancelled",
+    "calls": 1,
+    "plan": 1
+  },
+  {
+    "branch": "withdraw_after_answer",
+    "run": "75399110-fdc0-4164-8e6a-ed6fd9d9e0c2",
+    "stage": "blocked",
+    "calls": 2,
+    "plan": 2
+  }
+]

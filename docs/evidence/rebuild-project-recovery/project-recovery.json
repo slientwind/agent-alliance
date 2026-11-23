@@ -1,0 +1,19 @@
+{
+  "project": "b216522c-5010-4514-89a2-6a0e897d9f5d",
+  "delivered": "cb3e6688-dc41-4f82-b595-1d9a9eb00551",
+  "originalReviewer": "de846b10-9586-4397-8ca3-395637dafe49",
+  "successor": "e01cb02a-8b26-4969-87f4-9970f6d236d9",
+  "reviewedVersion": 1,
+  "checks": [
+    "private metadata exclusion",
+    "team boundary",
+    "nomination without access",
+    "explicit acceptance",
+    "revoke and reassign",
+    "team removal and rejoin",
+    "database deadline independent of worker",
+    "pinned review",
+    "ZIP delivered before temporary access ends",
+    "post-delivery read denied"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "现在应该做什么？先做无价格的布局。",
+  "usage": {
+    "completion_tokens": 12,
+    "prompt_tokens": 216,
+    "total_tokens": 228,
+    "prompt_tokens_details": {
+      "cached_tokens": 162
+    }
+  }
+}

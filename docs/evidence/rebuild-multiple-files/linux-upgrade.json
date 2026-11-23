@@ -1,0 +1,83 @@
+{
+  "previous": "sha256:36e4bf21ce72063a2bf6b4d551524d96b915e10582089a0dc4205572b9e31491",
+  "app": "sha256:997e03628bef4283545e7fc991ec09c93855a9d0333db14680aec9aacd423905",
+  "schemaFrom": "schema/095_planning_output.sql",
+  "schemaTo": "schema/096_planning_output_set.sql",
+  "existingRun": "d3f4f4f9-c010-4edb-aaf9-eee524c95528",
+  "existingRunCalls": 1,
+  "historicalSuggestion": "b7b80173-622c-4461-a288-34afb8bd816a",
+  "replayedID": "b7b80173-622c-4461-a288-34afb8bd816a",
+  "oldPlanningCalls": 1,
+  "replayWithChangedFormat": 409,
+  "newSuggestion": {
+    "id": "9cdb3c67-de30-44dc-a208-ec74f4eeb862",
+    "result": {
+      "outputFormats": [
+        "xlsx"
+      ],
+      "outputGaps": {
+        "生成 Excel 工作簿（XLSX）": "xlsx"
+      },
+      "outputFormat": "xlsx",
+      "outputGap": "生成 Excel 工作簿（XLSX）",
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "查资料并说明移交要求",
+      "agents": [
+        "885171c3-72f9-4eb1-972c-7a214d6d2a45"
+      ],
+      "missing": [
+        "生成 Excel 工作簿（XLSX）"
+      ]
+    },
+    "status": "ready"
+  },
+  "legacySingle": {
+    "id": "fe7c4ae5-0e11-4480-97b7-541c2a0efa72",
+    "result": {
+      "outputFormat": "xlsx",
+      "outputGap": "生成 Excel 工作簿（XLSX）",
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "查资料并说明移交要求",
+      "agents": [
+        "885171c3-72f9-4eb1-972c-7a214d6d2a45"
+      ],
+      "missing": [
+        "生成 Excel 工作簿（XLSX）"
+      ]
+    },
+    "status": "ready"
+  },
+  "replayedAsArray": "fe7c4ae5-0e11-4480-97b7-541c2a0efa72",
+  "multi": {
+    "id": "22bcd049-5eb2-40e1-b96c-2d7fc998a6c4",
+    "result": {
+      "outputFormats": [
+        "docx",
+        "xlsx"
+      ],
+      "outputGaps": {
+        "生成 Excel 工作簿（XLSX）": "xlsx",
+        "生成 Word 文档（DOCX）": "docx"
+      },
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "查资料并说明移交要求",
+      "agents": [
+        "885171c3-72f9-4eb1-972c-7a214d6d2a45"
+      ],
+      "missing": [
+        "生成 Word 文档（DOCX）",
+        "生成 Excel 工作簿（XLSX）"
+      ]
+    },
+    "status": "ready"
+  }
+}

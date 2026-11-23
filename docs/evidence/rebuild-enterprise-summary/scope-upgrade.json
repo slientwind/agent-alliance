@@ -1,0 +1,17 @@
+{
+  "oldAndNewRuns": 2,
+  "runsWithHistoricalDepartment": 1,
+  "callsWithHistoricalDepartment": 1,
+  "oldCallDepartmentUnknown": true,
+  "expiryCheckedAgainstDatabaseClock": true,
+  "schemaFrom": 64,
+  "schemaTo": 69,
+  "legacyEnterpriseScopeGranted": false,
+  "teamRunsAfterAnotherTeamStarted": 2,
+  "explicitEnterpriseRuns": 3,
+  "mixedAndEmptyScopesRejected": true,
+  "legacyDetailsAllowed": false,
+  "legacyExportAllowed": false,
+  "endedDepartmentReason": "已调离授权部门",
+  "remainingTeamGrants": 1
+}

@@ -1,0 +1,10 @@
+{
+  "run": "bc1b0d28-e4d3-4f6c-b50d-46025a58e2c5",
+  "billedModelCalls": 1,
+  "totalProjectCalls": 3,
+  "expectedTotal": "90.30",
+  "tokens": 255,
+  "preservedManualChoice": true,
+  "explicitRecalculation": true,
+  "checkedWorkbook": true
+}

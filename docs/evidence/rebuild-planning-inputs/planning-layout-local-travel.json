@@ -1,0 +1,23 @@
+[
+  {
+    "width": 320,
+    "formWidth": 268,
+    "formScroll": 268,
+    "threadWidth": 296,
+    "threadScroll": 296
+  },
+  {
+    "width": 390,
+    "formWidth": 338,
+    "formScroll": 338,
+    "threadWidth": 366,
+    "threadScroll": 366
+  },
+  {
+    "width": 1440,
+    "formWidth": 813,
+    "formScroll": 813,
+    "threadWidth": 1368,
+    "threadScroll": 1368
+  }
+]

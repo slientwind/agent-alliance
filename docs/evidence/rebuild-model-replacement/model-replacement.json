@@ -1,0 +1,53 @@
+{
+  "provider": "two isolated HTTPS paths with distinct credentials on a controlled server",
+  "sameSample": "采购合同需双方审批",
+  "batch": "92e3bbc3-7a68-4582-ad47-800c3d1dc229",
+  "adopted": {
+    "业务摘要助手": "published",
+    "发布材料助手": "superseded"
+  },
+  "outcomes": {
+    "业务摘要助手": "restored",
+    "发布材料助手": "superseded"
+  },
+  "nextDraft": 3,
+  "afterRollback": "双人审核 · old · private",
+  "originalTask": "双人审核 · old · private",
+  "dependentStepAfterPublication": "双人审核 · old · private",
+  "newTask": "双人审核 · new · team",
+  "fixedService": "双人审核 · old · private",
+  "costLedger": [
+    {
+      "kind": "execution",
+      "model": "replacement-new",
+      "calls": 1,
+      "reserved": "0.003000",
+      "posted": "0.000000",
+      "unsettled": 1
+    },
+    {
+      "kind": "execution",
+      "model": "replacement-old",
+      "calls": 4,
+      "reserved": "0.008000",
+      "posted": "0.000000",
+      "unsettled": 4
+    },
+    {
+      "kind": "validation",
+      "model": "replacement-new",
+      "calls": 2,
+      "reserved": "0.006000",
+      "posted": "0.000000",
+      "unsettled": 2
+    },
+    {
+      "kind": "validation",
+      "model": "replacement-old",
+      "calls": 3,
+      "reserved": "0.006000",
+      "posted": "0.000000",
+      "unsettled": 3
+    }
+  ]
+}

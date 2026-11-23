@@ -1,0 +1,75 @@
+[
+  {
+    "case": "training",
+    "project": "2997013a-8175-4872-9167-2c1dcbebc517",
+    "sourceId": "6b873e61-ebf1-44e6-a2da-ec9e47745366",
+    "sourceVersion": 1,
+    "stage": "reconcile",
+    "actualText": "## 领取设备  \n员工先填写设备用途和预计归还日，经部门负责人确认后领取。归还时由保管员核对设备编号并登记。遗失时立即报告保管员。  \n\n## 归还设备  \n归还时由保管员核对设备编号并登记。遗失时立即报告保管员。员工应确保设备完好无损，如有损坏需及时说明。归还流程需在规定时间内完成，避免影响后续使用。  \n\n## 遗失处理  \n遗失时立即报告保管员。员工需说明遗失原因及具体时间，配合调查处理。遗失设备需按制度进行补办或赔偿，相关责任由责任人承担。遗失报告需及时提交，防止影响工作安排。",
+    "artifact": null,
+    "attempts": [
+      {
+        "step": 1,
+        "status": "completed",
+        "tokens": 396
+      },
+      {
+        "step": 2,
+        "status": "input_rejected",
+        "tokens": null
+      }
+    ],
+    "pages": 3,
+    "facts": [
+      {
+        "title": "领取设备",
+        "titleMatches": true,
+        "missing": []
+      },
+      {
+        "title": "归还设备",
+        "titleMatches": true,
+        "missing": []
+      },
+      {
+        "title": "遗失处理",
+        "titleMatches": true,
+        "missing": []
+      }
+    ]
+  },
+  {
+    "case": "product",
+    "project": "f1b2decd-ad70-473b-8a4b-0fb66299e24e",
+    "sourceId": "d881a78c-eaad-4260-9d9d-653428984672",
+    "sourceVersion": 1,
+    "stage": "review",
+    "actualText": "## 已知规格  \n编号 CW-01，容量 480 mL，颜色 海蓝色，包装含杯和说明卡。  \n\n## 待补资料  \n零售价暂未给出，保温时长尚无测量资料，交付前由产品审核人核对规格。",
+    "artifact": "deliverable.pptx",
+    "attempts": [
+      {
+        "step": 1,
+        "status": "completed",
+        "tokens": 315
+      },
+      {
+        "step": 2,
+        "status": "completed",
+        "tokens": null
+      }
+    ],
+    "pages": 2,
+    "facts": [
+      {
+        "title": "已知规格",
+        "titleMatches": true,
+        "missing": []
+      },
+      {
+        "title": "待补资料",
+        "titleMatches": true,
+        "missing": []
+      }
+    ]
+  }
+]

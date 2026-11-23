@@ -1,0 +1,29 @@
+{
+  "input": "synthetic",
+  "memberSelectedTeam": false,
+  "soleAlternateScopeSelected": true,
+  "ambiguousScopeRequiresChoice": true,
+  "revokedExplicitScopeStatus": 403,
+  "wordLocation": "段落 2",
+  "formats": [
+    {
+      "file": "sales.xlsx",
+      "label": "销售!D2"
+    },
+    {
+      "file": "访谈摘要.pptx",
+      "label": "幻灯片 2"
+    },
+    {
+      "file": "training-doc.pdf",
+      "label": "PDF 第 1 页"
+    }
+  ],
+  "pinnedVersion": 1,
+  "modelResult": "RECEIPT source72",
+  "approvedDelivery": true,
+  "invalidRetained": true,
+  "scannedPdf": "empty",
+  "oversizedBody": "limited",
+  "unauthorizedRetry": 404
+}

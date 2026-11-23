@@ -1,0 +1,23 @@
+{
+  "channel": "signed encrypted callback fixture",
+  "nativeAdoption": {
+    "project": "f64e4001-837a-451f-9eed-4ea45a3ca886",
+    "matchedAuditRows": 1,
+    "result": "adopted"
+  },
+  "replays": 3,
+  "checks": [
+    "private review deep link and mobile focus",
+    "stale link reflected after review",
+    "group card contains only project link",
+    "stable reply UUID across retry",
+    "changed operator, chat, message, tenant and invalid signature rejected",
+    "expired card and replaced binding rejected",
+    "changed answer restricted",
+    "source-backed planning requires a proposal; long text opens in web workspace"
+  ],
+  "ordinaryMember": {
+    "project": "0ffc00f0-c666-47d0-96ba-145d3d661129",
+    "stage": "adopted"
+  }
+}

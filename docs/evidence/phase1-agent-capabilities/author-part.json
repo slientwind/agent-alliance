@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "设备领取前由谁确认？",
+  "usage": {
+    "completion_tokens": 8,
+    "prompt_tokens": 298,
+    "total_tokens": 306,
+    "prompt_tokens_details": {
+      "cached_tokens": 248
+    }
+  }
+}

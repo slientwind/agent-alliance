@@ -1,0 +1,82 @@
+{
+  "body": {
+    "elements": [
+      {
+        "tag": "div",
+        "text": {
+          "content": "简短回答走查 · 待完善需求",
+          "tag": "plain_text"
+        }
+      },
+      {
+        "tag": "div",
+        "text": {
+          "content": "simple receipt",
+          "tag": "plain_text"
+        }
+      },
+      {
+        "behaviors": [
+          {
+            "type": "callback",
+            "value": {
+              "adopt": "8022e2eb-ec0c-4f3f-9ef0-97d5f3c854c0"
+            }
+          }
+        ],
+        "confirm": {
+          "text": {
+            "content": "采纳卡片中显示的完整答复，并结束本次对话的确认。",
+            "tag": "plain_text"
+          },
+          "title": {
+            "content": "确认采纳",
+            "tag": "plain_text"
+          }
+        },
+        "tag": "button",
+        "text": {
+          "content": "采纳这条回答",
+          "tag": "plain_text"
+        },
+        "type": "primary"
+      },
+      {
+        "behaviors": [
+          {
+            "default_url": "https://workspace.invalid/#f64e4001-837a-451f-9eed-4ea45a3ca886",
+            "type": "open_url"
+          }
+        ],
+        "tag": "button",
+        "text": {
+          "content": "打开项目",
+          "tag": "plain_text"
+        }
+      },
+      {
+        "behaviors": [
+          {
+            "default_url": "https://workspace.invalid/?inbox=review",
+            "type": "open_url"
+          }
+        ],
+        "tag": "button",
+        "text": {
+          "content": "打开我的待办",
+          "tag": "plain_text"
+        }
+      }
+    ]
+  },
+  "config": {
+    "enable_forward": false
+  },
+  "header": {
+    "title": {
+      "content": "任务卡",
+      "tag": "plain_text"
+    }
+  },
+  "schema": "2.0"
+}

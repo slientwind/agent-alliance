@@ -1,0 +1,30 @@
+{
+  "run": "5092e69e-c8b2-423e-beab-f54347344b03",
+  "project": "1e8fbd9c-edd9-4358-8fa5-cb2d698830e4",
+  "old": "601e6363-2743-4770-9a2b-f78200ad1bb3",
+  "replacement": "caa31752-4e63-403a-a2f3-115823754603",
+  "unchangedBeforeReconfirmation": true,
+  "extraCalls": 1,
+  "expectedTotal": "90.30",
+  "verifiedWorkbook": true,
+  "ledger": {
+    "attempts": [
+      "input_rejected",
+      "completed"
+    ],
+    "decisions": [
+      {
+        "actor": "601e6363-2743-4770-9a2b-f78200ad1bb3",
+        "attempt": 1,
+        "replaced": true,
+        "linksToReplacement": true
+      },
+      {
+        "actor": "caa31752-4e63-403a-a2f3-115823754603",
+        "attempt": 1,
+        "replaced": false,
+        "linksToReplacement": false
+      }
+    ]
+  }
+}

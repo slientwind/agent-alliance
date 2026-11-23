@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "现在应该制作一张展会海报。图像助手已提供同类海报生成和尺寸验证，团队授权有效。文字助手已确认撰写说明，文案、尺寸和预算均已确认。",
+  "usage": {
+    "completion_tokens": 38,
+    "prompt_tokens": 212,
+    "total_tokens": 250,
+    "prompt_tokens_details": {
+      "cached_tokens": 3
+    }
+  }
+}

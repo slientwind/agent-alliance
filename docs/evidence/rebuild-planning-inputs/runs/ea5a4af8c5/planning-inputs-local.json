@@ -1,0 +1,20 @@
+[
+  {
+    "question": "请查证冷链交接规程：谁核对铅封，温度超过多少时暂停接收？请引用原文。",
+    "input": [
+      "private-regulation.txt"
+    ],
+    "status": "ready",
+    "result": {
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "请查证冷链交接规程中关于铅封核对和温度暂停接收的规定，并引用原文。",
+      "agents": [
+        "0af61aa7-862a-4236-918e-2bada6a062b3"
+      ],
+      "missing": []
+    }
+  }
+]

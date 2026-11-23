@@ -1,0 +1,62 @@
+{
+  "raised": {
+    "path": "projects/f881311f-dcd2-4a30-8114-be429bcb8eab",
+    "source": "0aedcae9-6499-450b-82ac-69e09030ffe6",
+    "run": "5d6d184a-c28a-4327-b788-bcc367d105ee",
+    "initialControl": 1,
+    "state": "review",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_index_pending",
+      "completed",
+      "lookup_index_waiting",
+      "blocked",
+      "running",
+      "lookup_index_rechecked",
+      "budget_denied",
+      "blocked",
+      "running",
+      "submitted",
+      "lookup_answer",
+      "completed",
+      "completed"
+    ],
+    "ledger": {
+      "charges": 2,
+      "rechecks": 1
+    },
+    "budgetBefore": "0.20",
+    "budgetAfter": "0.40"
+  },
+  "revoked": {
+    "path": "projects/448b1a3e-6166-4f44-bee3-e84759e57e40",
+    "source": "e8f4066a-1dad-4166-adb9-26bd849014fa",
+    "run": "64c44363-693f-4701-9e73-03e21c117725",
+    "initialControl": 1,
+    "state": "blocked",
+    "events": [
+      "queued",
+      "submitted",
+      "running",
+      "lookup_semantic_index_pending",
+      "completed",
+      "lookup_index_waiting",
+      "blocked",
+      "running",
+      "lookup_index_rechecked",
+      "budget_denied",
+      "blocked",
+      "running",
+      "input_changed",
+      "blocked"
+    ],
+    "ledger": {
+      "charges": 1,
+      "rechecks": 1
+    },
+    "budgetBefore": "0.20",
+    "budgetAfter": "0.40"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "webLink": true,
+  "confirmationOfferedInChat": false,
+  "newRuns": 0,
+  "fixture": "signed synthetic Feishu event",
+  "reply": "设备照片核对 · v1\n任务：核对视觉标签\n服务说明：核对照片标签\n最多授权 1 次调用，金额未封顶，实际费用由默认团队承担。最终确认人：Reviewer。\n查看完整服务：https://workspace.invalid/?service=e7085bd8-4091-4414-a58b-33625827090e\n此服务需要图片。请打开企业网页附上 PNG 或 JPEG 后确认。"
+}

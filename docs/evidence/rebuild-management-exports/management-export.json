@@ -1,0 +1,35 @@
+{
+  "source": "synthetic enterprise, actual HTTP, PostgreSQL and Chromium",
+  "jsonFields": [
+    "to",
+    "from",
+    "costs",
+    "scope",
+    "version",
+    "outcomes",
+    "generatedAt"
+  ],
+  "costs": {
+    "calls": 1,
+    "tokens": 12,
+    "pending": 1,
+    "unknown": 1,
+    "recordedCny": "0.000000",
+    "remainingEstimateCny": "0"
+  },
+  "sha256": "c43b360974daedffbbbb7aa6f9677b30a44c869c6c6fa28e6defe85bf920f3e4",
+  "receiptOwnedByRequester": true,
+  "identicalDownloads": true,
+  "expiredStatus": 410,
+  "priorFileKeptOriginalRunCount": true,
+  "viewingSurvivedExportWithdrawal": true,
+  "restoredPermissionDidNotRestoreOldFile": true,
+  "simultaneousCreation": [
+    200,
+    201
+  ],
+  "audit": {
+    "created": 1,
+    "downloaded": 2
+  }
+}

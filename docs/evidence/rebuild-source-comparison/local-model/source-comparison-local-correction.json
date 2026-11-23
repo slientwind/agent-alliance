@@ -1,0 +1,94 @@
+{
+  "action": "reviewer requested single-page revision",
+  "project": "projects/4253367e-f510-4202-95ec-31dea6108810",
+  "first": {
+    "all": 4,
+    "more": false,
+    "name": "新品资料.txt",
+    "page": 1,
+    "pin": 1,
+    "rows": [
+      {
+        "text": "编号 CW-01，容量 480 mL，杯身海蓝色，包装含杯和说明卡。",
+        "start": 1,
+        "end": 34,
+        "hash": "5c0221fd12c43de6f30f3fd9b29d6bf1a096c13ac63af9c726e446a4a7873879",
+        "matches": [],
+        "suggested": 1
+      },
+      {
+        "text": "保温时长尚无测量资料。",
+        "start": 35,
+        "end": 45,
+        "hash": "9e93009e58ff0e6ae2673be7fceed3a6483dd8a1238e5aa7bbd89fa79932c348",
+        "matches": [],
+        "suggested": 2
+      },
+      {
+        "text": "零售价暂未给出。",
+        "start": 46,
+        "end": 53,
+        "hash": "954c3a63908919cb9eb497d7f7e5a9ea9193c4a4f06b910baf427d293c878d8a",
+        "matches": [],
+        "suggested": 2
+      },
+      {
+        "text": "交付前由产品审核人核对规格。",
+        "start": 54,
+        "end": 67,
+        "hash": "7f4b79a12bfae0ffcc8739740f43b18cac480d9f53222a8b408e2f5e614d0405",
+        "matches": [],
+        "suggested": 2
+      }
+    ],
+    "total": 4,
+    "unmatched": 4,
+    "version": 1
+  },
+  "final": {
+    "all": 4,
+    "more": false,
+    "name": "新品资料.txt",
+    "page": 1,
+    "pin": 1,
+    "rows": [
+      {
+        "text": "编号 CW-01，容量 480 mL，杯身海蓝色，包装含杯和说明卡。",
+        "start": 1,
+        "end": 34,
+        "hash": "5c0221fd12c43de6f30f3fd9b29d6bf1a096c13ac63af9c726e446a4a7873879",
+        "matches": [],
+        "suggested": 1
+      },
+      {
+        "text": "保温时长尚无测量资料。",
+        "start": 35,
+        "end": 45,
+        "hash": "9e93009e58ff0e6ae2673be7fceed3a6483dd8a1238e5aa7bbd89fa79932c348",
+        "matches": [],
+        "suggested": 2
+      },
+      {
+        "text": "零售价暂未给出。",
+        "start": 46,
+        "end": 53,
+        "hash": "954c3a63908919cb9eb497d7f7e5a9ea9193c4a4f06b910baf427d293c878d8a",
+        "matches": [],
+        "suggested": 2
+      },
+      {
+        "text": "交付前由产品审核人核对规格。",
+        "start": 54,
+        "end": 67,
+        "hash": "7f4b79a12bfae0ffcc8739740f43b18cac480d9f53222a8b408e2f5e614d0405",
+        "matches": [
+          2
+        ]
+      }
+    ],
+    "total": 4,
+    "unmatched": 3,
+    "version": 2
+  },
+  "pendingReview": true
+}

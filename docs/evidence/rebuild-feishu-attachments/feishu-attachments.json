@@ -1,0 +1,30 @@
+{
+  "protocol": "signed synthetic Feishu, local Go and browser",
+  "sourceSha256": "9d02ee9fe6dbf9d6746e83ad3cc9be0ea941900bf3b2b2c755672ae0b68ea402",
+  "project": "46a3052b-46ca-4256-af1f-cd5f193d10ce",
+  "resumedProject": "72bd30f8-cd84-443f-a73b-bc503eff8de7",
+  "run": "5fba960a-8607-4fd9-a98d-c418e5b7af98",
+  "resumedRun": "a48bb941-3d40-4381-8f23-696426b22d1b",
+  "chargedInvocations": [
+    2,
+    2
+  ],
+  "optionalJson": {
+    "project": "001a1f33-5153-4e49-8f7b-26d5a308e7a5",
+    "chargedInvocations": 1,
+    "usedOriginal": true
+  },
+  "checks": [
+    "preview and explicit file consent",
+    "one downloaded file after replacement",
+    "temporary read failure recovered",
+    "event and confirm replay were idempotent",
+    "invalid file, authorization envelope and group ignored or rejected",
+    "binding revoked during download",
+    "API crash and queue lease recovery",
+    "newer project context preserved",
+    "browser reviewed exact original and two ZIP items",
+    "expired consent and superseded service revision never downloaded",
+    "optional JSON used by a normal single-Agent service"
+  ]
+}

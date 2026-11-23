@@ -1,0 +1,12 @@
+{
+  "previousImage": "sha256:d1eb86273965865171bd901f000e9a575e331afe0c9a7ce2d559690454dec316",
+  "currentImage": "sha256:b133d9eabf5b16e085b9321d6bcd3ac4b059810d263ce6ea04aee3a39fc367ba",
+  "schemaBefore": "schema/098_tool_choices.sql",
+  "schemaAfter": "schema/099_lookup_evidence_receipts.sql",
+  "originalCalculation": "d55bcf2f-a32d-42e0-8b90-b1d8d6c1ba4d",
+  "calculationCalls": 2,
+  "calculationAnswer": "差额为 78.50 元。\n528.50 元 [1] − 450.00 元 [2] = 78.50 元\n\n原文依据\n[1] 补充原件.txt v1 【S2v1:1-18】本次实际住宿费为 528.50 元。\n[2] 原资料.txt v1 【S1v1:1-17】住宿标准为每次 450.00 元。",
+  "lookupRun": "074477ef-3b97-428f-97d0-22c369ea297e",
+  "lookupCalls": 2,
+  "lookupAnswer": "由库房主管核对出库单并签字。\n\n原文依据\n[1] 补充原件.txt v1 【S2v1:1-20】设备借出前，由库房主管核对出库单并签字。"
+}

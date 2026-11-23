@@ -1,0 +1,11 @@
+{
+  "provider": "llama-server on loopback, HTTPS bridge",
+  "file": "4b.gguf",
+  "modelSHA256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+  "modelAlias": "local-course-qwen",
+  "context": 8192,
+  "temperature": 0,
+  "seed": 41,
+  "reasoning": "off",
+  "serverVersion": "version: 1.0.0-dev (build 12560, commit 2d8d00393)\nbuilt with AppleClang 21.0.0.21000101 for Darwin arm64\n"
+}

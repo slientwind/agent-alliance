@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "动作｜相关能力或对象｜原因  \n创建试用｜海报｜可以继续的工作和还不能承诺的结果  \n先做验证｜文字助手｜文字助手已验证过撰写说明",
+  "usage": {
+    "completion_tokens": 39,
+    "prompt_tokens": 137,
+    "total_tokens": 176,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schemaFrom": 69,
+  "schemaTo": 71,
+  "oldRegistration": null,
+  "preUpgradeNotifications": 0,
+  "oldPages": [
+    20,
+    6
+  ],
+  "newEventWhilePaging": true,
+  "unrelatedFieldsReturned": false,
+  "staleAdminDirectoryVisible": false,
+  "changedAccountRevision": "2",
+  "unchangedAccountRevision": "2"
+}

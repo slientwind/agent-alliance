@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "动作｜创建试用｜相关能力或对象｜可以继续的工作和还不能承诺的结果  \n创建试用｜可以继续的工作：请求人工确认字幕内容；还不能承诺的结果：需要专业人员进行编辑。",
+  "usage": {
+    "completion_tokens": 47,
+    "prompt_tokens": 152,
+    "total_tokens": 199,
+    "prompt_tokens_details": {
+      "cached_tokens": 87
+    }
+  }
+}

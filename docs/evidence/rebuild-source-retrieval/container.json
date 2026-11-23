@@ -1,0 +1,9 @@
+{
+  "encoder": "bge-small-zh-v1.5-int8/1",
+  "dimensions": 512,
+  "exampleCosine": 0.8230775895395335,
+  "unauthenticatedStatus": 403,
+  "network": "none",
+  "readOnly": true,
+  "image": "sha256:e86ea1d36e03d7e55f12be4c2a4f00a200513f4177225ef20b2a384816deacfa arm64"
+}

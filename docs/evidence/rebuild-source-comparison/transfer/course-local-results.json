@@ -1,0 +1,75 @@
+[
+  {
+    "case": "training",
+    "project": "7dd20c49-453e-4e03-8518-64ad6e7ef8e5",
+    "sourceId": "c9f458c8-8aee-4de4-a3c3-5c24a14e4359",
+    "sourceVersion": 1,
+    "stage": "review",
+    "actualText": "## 领取设备  \n员工先填写设备用途和预计归还日，经部门负责人确认后领取。  \n\n## 归还设备  \n归还时由保管员核对设备编号并登记。  \n\n## 遗失处理  \n遗失时立即报告保管员。",
+    "artifact": "deliverable.pptx",
+    "attempts": [
+      {
+        "step": 1,
+        "status": "completed",
+        "tokens": 401
+      },
+      {
+        "step": 2,
+        "status": "completed",
+        "tokens": null
+      }
+    ],
+    "pages": 3,
+    "facts": [
+      {
+        "title": "领取设备",
+        "titleMatches": true,
+        "missing": []
+      },
+      {
+        "title": "归还设备",
+        "titleMatches": true,
+        "missing": []
+      },
+      {
+        "title": "遗失处理",
+        "titleMatches": true,
+        "missing": []
+      }
+    ]
+  },
+  {
+    "case": "product",
+    "project": "d6d5bef9-5a82-4606-8911-21add6e833ae",
+    "sourceId": "cfb161b3-5787-4aea-9700-7b1cc6344032",
+    "sourceVersion": 1,
+    "stage": "review",
+    "actualText": "## 已知规格  \n编号 CW-01  \n容量 480 mL  \n颜色 杯身海蓝色  \n包装 包含杯和说明卡  \n\n## 待补资料  \n零售价 暂未给出  \n保温时长 尚无测量资料  \n交付前 审核人 产品审核人",
+    "artifact": "deliverable.pptx",
+    "attempts": [
+      {
+        "step": 1,
+        "status": "completed",
+        "tokens": 427
+      },
+      {
+        "step": 2,
+        "status": "completed",
+        "tokens": null
+      }
+    ],
+    "pages": 2,
+    "facts": [
+      {
+        "title": "已知规格",
+        "titleMatches": true,
+        "missing": []
+      },
+      {
+        "title": "待补资料",
+        "titleMatches": true,
+        "missing": []
+      }
+    ]
+  }
+]

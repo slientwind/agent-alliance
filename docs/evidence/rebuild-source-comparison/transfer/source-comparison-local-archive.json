@@ -1,0 +1,57 @@
+{
+  "all": 5,
+  "more": false,
+  "name": "数字化交接流程.txt",
+  "page": 1,
+  "pin": 1,
+  "rows": [
+    {
+      "text": "接收前由档案员与送交人共同核对箱号。",
+      "start": 1,
+      "end": 18,
+      "hash": "acb414b9a5ec6fe54aa9def4aaeec7581a9bb2de9ea2a542320859e880b6a065",
+      "matches": [
+        1
+      ]
+    },
+    {
+      "text": "扫描分辨率为 300 dpi。",
+      "start": 19,
+      "end": 33,
+      "hash": "9eaf1472d47a1c1cf1a1aa88dd65016e198e1d43c86bc99efbeaa09fdf4402b4",
+      "matches": [
+        2
+      ]
+    },
+    {
+      "text": "含个人信息的页只在馆内工作站处理。",
+      "start": 34,
+      "end": 50,
+      "hash": "dc85ac10f6eef15f5fa7a334b1ab1afa39a9baa05c4effd013cede0c53c29cf4",
+      "matches": [
+        2
+      ]
+    },
+    {
+      "text": "归档时由复核员核对页数。",
+      "start": 51,
+      "end": 62,
+      "hash": "509aa5bfa08a215c8079e242a87cbf0e069c0c24f57ae93620aa3531783536e5",
+      "matches": [
+        3
+      ]
+    },
+    {
+      "text": "缺页须挂起，不得标为完成。",
+      "start": 63,
+      "end": 75,
+      "hash": "95a7e643a820cd4e2adab4b7766789176d47157dd1c8fbbe8ffe777ace3cc281",
+      "matches": [
+        3
+      ]
+    }
+  ],
+  "total": 5,
+  "unmatched": 0,
+  "version": 1
+}

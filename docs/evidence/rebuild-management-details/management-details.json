@@ -1,0 +1,31 @@
+{
+  "source": "isolated enterprise, synthetic work, real Go API, PostgreSQL and Chromium",
+  "originalDepartmentRuns": 1,
+  "newDepartmentRuns": 0,
+  "originalPayerEntries": 1,
+  "otherTeamEntries": 0,
+  "redactedTaskFields": [
+    "id",
+    "kind",
+    "actor",
+    "block",
+    "status",
+    "reviewer",
+    "createdAt",
+    "finishedAt",
+    "elapsedSeconds"
+  ],
+  "unknownFees": 1,
+  "detailRevokedSummaryAvailable": true,
+  "pages": [
+    25,
+    2
+  ],
+  "tiedRuns": 27,
+  "memberPages": [
+    25,
+    2
+  ],
+  "staleWriteStatus": 409,
+  "ordinaryProjectReadStatus": 404
+}

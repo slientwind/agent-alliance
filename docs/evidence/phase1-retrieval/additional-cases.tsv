@@ -1,0 +1,5 @@
+case_id	query	expected_first	rationale
+K09	不慎把借来的器材弄没了，第一时间联系谁？	training-v2.5	遗失的独立口语改写
+K10	CW-01 卖多少钱？	product-v2.2	同句内同时含容量和售价
+K11	这个杯子的标准质保期是几年？	EMPTY	资料未给出保修期限
+K12	课件里应当写谁在归还时登记？	training-v2.4	须引用归还登记条款

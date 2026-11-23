@@ -1,0 +1,47 @@
+[
+  {
+    "batch": "smoke_21c3250787",
+    "status": "failed",
+    "checks": 41,
+    "started": "2026-11-22T11:33:35.789935+00:00",
+    "ended": "2026-11-22T11:41:14.115581+00:00",
+    "result": "artifacts/rebuild-smoke/smoke_21c3250787/result.json",
+    "note": "全量；读取远端任务回执期间请求超时"
+  },
+  {
+    "batch": "smoke_fd8139009e",
+    "status": "failed",
+    "checks": 33,
+    "started": "2026-11-22T11:38:28.070830+00:00",
+    "ended": "2026-11-22T11:46:46.183349+00:00",
+    "result": "artifacts/rebuild-smoke/smoke_fd8139009e/result.json",
+    "note": "全量；保存项目审核节奏与后台时钟扫描发生数据库死锁"
+  },
+  {
+    "batch": "smoke_f8e4b883b7",
+    "status": "failed",
+    "checks": 1,
+    "started": "2026-11-22T11:49:38.914355+00:00",
+    "ended": "2026-11-22T11:49:40.903185+00:00",
+    "result": "artifacts/rebuild-smoke/smoke_f8e4b883b7/result.json",
+    "note": "定向；准备数据时未先委任预算负责人，服务拒绝配置"
+  },
+  {
+    "batch": "smoke_8cf3c0e04b",
+    "status": "passed",
+    "checks": 2,
+    "started": "2026-11-22T11:50:05.189280+00:00",
+    "ended": "2026-11-22T11:50:09.912703+00:00",
+    "result": "artifacts/rebuild-smoke/smoke_8cf3c0e04b/result.json",
+    "note": "定向；由在任预算负责人调整阈值，两次提交沿用同一回执"
+  },
+  {
+    "batch": "smoke_5a71969428",
+    "status": "passed",
+    "checks": 65,
+    "started": "2026-11-22T11:49:30.436419+00:00",
+    "ended": "2026-11-22T12:01:46.860116+00:00",
+    "result": "artifacts/rebuild-smoke/smoke_5a71969428/result.json",
+    "note": "全量；包含数据库迁移 081、预算与审核并发回归。预算浏览器用例执行前同步了负责人身份修正和截图范围；业务代码使用构建时快照。"
+  }
+]

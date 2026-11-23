@@ -1,0 +1,10 @@
+{
+  "batch": "smoke_a989a39a04",
+  "stage": "blocked",
+  "nextAction": "submit_lookup_receipt",
+  "steps": [
+    "completed",
+    "pending"
+  ],
+  "reason": "首轮检索没有找到可引用的原文。请选择一段能回答本次问题的原句。"
+}

@@ -1,0 +1,21 @@
+{
+  "started": "2026-11-22T16:51:12.614918+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "Mobile source picker layout measured"
+  ],
+  "ended": "2026-11-22T16:51:14.786757+00:00"
+}

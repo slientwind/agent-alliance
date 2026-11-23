@@ -1,0 +1,44 @@
+[
+  {
+    "batch": "smoke_42e9b5ecd1",
+    "status": "failed",
+    "checksPassed": 5,
+    "finding": "修正专项提权样例缺少启用状态",
+    "report": "focused-smoke_42e9b5ecd1.json"
+  },
+  {
+    "batch": "smoke_9f6ebd4e8a",
+    "status": "failed",
+    "checksPassed": 5,
+    "finding": "修正浏览器刷新后等待新预检结果的时序",
+    "report": "focused-smoke_9f6ebd4e8a.json"
+  },
+  {
+    "batch": "smoke_5889b84168",
+    "status": "failed",
+    "checksPassed": 5,
+    "finding": "网页与签名调用通过，修正飞书专项重复拼接确认命令",
+    "report": "focused-smoke_5889b84168.json"
+  },
+  {
+    "batch": "smoke_1f9e4f356a",
+    "status": "passed",
+    "checksPassed": 7,
+    "finding": "网页、签名调用、飞书、审计、原件与迁移通过",
+    "report": "focused-smoke_1f9e4f356a.json"
+  },
+  {
+    "batch": "smoke_23bdea230e",
+    "status": "passed",
+    "checksPassed": 7,
+    "finding": "补验再次回退和发布后同一已审核 ZIP 的字节保持一致",
+    "report": "focused-smoke_23bdea230e.json"
+  },
+  {
+    "batch": "smoke_c90ca98524",
+    "status": "passed",
+    "checksPassed": 111,
+    "finding": "原位换 Agent、服务回退、旧库升级和既有运行的全量回归通过",
+    "report": "regression.json"
+  }
+]

@@ -1,0 +1,120 @@
+{
+  "description": "本地 Qwen3-4B；每次使用独立的合成企业、资料和固定的模型文件。汇总金额取自实际交付 ZIP 内的 XLSX，回答只评价引文之前的正文。重复执行同一组样例不代表独立企业的成功率。",
+  "regressionBatch": "6f7fb1f0db",
+  "regressionChecks": 79,
+  "businessSamples": 2,
+  "runs": [
+    {
+      "batch": "8c87476832",
+      "sample": "handoff",
+      "sourceRun": "e45cee96-e300-4fab-90a8-97b4b797f603",
+      "spreadsheetRun": "e20f0b83-8337-4bf0-949e-adae27b2f719",
+      "answer": "冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。",
+      "total": "90.3",
+      "selectedAfterReload": [
+        {
+          "id": "8d31dcec-a3ca-42df-bedb-a4b49fdbe10d",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "batch": "52409015b9",
+      "sample": "handoff",
+      "sourceRun": "bfa0fa58-b03f-4652-9055-4a3eece55cfe",
+      "spreadsheetRun": "e8457845-e306-4b54-a052-771d3182ed8d",
+      "answer": "冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。",
+      "total": "90.3",
+      "selectedAfterReload": [
+        {
+          "id": "980f2c05-99d2-480b-b907-00677b66adeb",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "batch": "7ec9a23bcc",
+      "sample": "handoff",
+      "sourceRun": "0e09faf0-ab5c-48b6-adbc-e487355738c3",
+      "spreadsheetRun": "3442bbff-7866-48cd-8851-f28090efd269",
+      "answer": "冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。",
+      "total": "90.3",
+      "selectedAfterReload": [
+        {
+          "id": "42d0e816-4767-416f-a69c-51b97bc433df",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "batch": "6f7fb1f0db",
+      "sample": "handoff",
+      "sourceRun": "d4338f8e-be04-4f19-a0bf-23fbce56774a",
+      "spreadsheetRun": "7a779090-8016-4aa6-8cf1-dd356f340466",
+      "answer": "冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。",
+      "total": "90.3",
+      "selectedAfterReload": [
+        {
+          "id": "dc946aaa-d90b-4ffb-ad2d-f39548c720ca",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "batch": "8c87476832",
+      "sample": "travel",
+      "sourceRun": "da976d4f-6f09-4edb-97a7-af95feb7260c",
+      "spreadsheetRun": "753d89c3-c375-42d8-b266-1811331a342f",
+      "answer": "出发前由部门主管预审，单晚住宿报销上限是450元。",
+      "total": "500",
+      "selectedAfterReload": [
+        {
+          "id": "b89486ef-2950-4bf3-82c8-5851c8f7f5fb",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "batch": "52409015b9",
+      "sample": "travel",
+      "sourceRun": "18e9a1b0-ba92-440d-9b98-909a37da98d1",
+      "spreadsheetRun": "fcd09f7b-7356-43c2-b054-77ac218d034c",
+      "answer": "出发前由部门主管预审，单晚住宿报销上限是450元。",
+      "total": "500",
+      "selectedAfterReload": [
+        {
+          "id": "da5f1c24-4f8e-4d93-a961-bf0a04965f97",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "batch": "7ec9a23bcc",
+      "sample": "travel",
+      "sourceRun": "d99143d2-ac59-4ccb-b2b9-b1f90c3ba163",
+      "spreadsheetRun": "e0c76f66-0059-4af7-98ad-65b70e0a1de1",
+      "answer": "出发前由部门主管预审，单晚住宿报销上限是450元。",
+      "total": "500",
+      "selectedAfterReload": [
+        {
+          "id": "37944085-768d-49a1-87b7-5f02f592a29d",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "batch": "6f7fb1f0db",
+      "sample": "travel",
+      "sourceRun": "8b66cedb-c1c7-45bd-90e6-7a26706cfa18",
+      "spreadsheetRun": "35773fda-13fc-4116-ac22-19a8590d435a",
+      "answer": "出发前由部门主管预审，单晚住宿报销上限是450元。",
+      "total": "500",
+      "selectedAfterReload": [
+        {
+          "id": "7fdc05a0-91ea-423d-923f-9fc50399d00b",
+          "version": 1
+        }
+      ]
+    }
+  ]
+}

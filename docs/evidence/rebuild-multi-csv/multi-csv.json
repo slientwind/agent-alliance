@@ -1,0 +1,27 @@
+{
+  "sources": [
+    {
+      "id": "2fd85c66-79b7-470e-9930-ed0156b1f9b6",
+      "name": "archive.csv",
+      "version": 1
+    },
+    {
+      "id": "12d0b6ec-bf59-4ed4-90ef-638bfc7948a0",
+      "name": "east.csv",
+      "version": 1
+    },
+    {
+      "id": "863a60da-d3b3-4626-be69-3dfadcc779a8",
+      "name": "west.csv",
+      "version": 1
+    }
+  ],
+  "artifact": "region · amount\nEast · 30.10\nWest · 60.20\n合计 · 90.30\n已核对 3 份输入，共 5 行，纳入 3 行。\n金额单位：未提供单位列，需核对同一口径\n筛选条件：status = ok",
+  "reviewedAndDelivered": true,
+  "replayedUpload": true,
+  "concurrentUploadsStored": 1,
+  "conflictingReplay": 409,
+  "revokedReplay": 409,
+  "invalidInput": "declared failure",
+  "invalidArtifacts": 0
+}

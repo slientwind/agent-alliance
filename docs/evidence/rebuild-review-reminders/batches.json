@@ -1,0 +1,97 @@
+{
+  "runs": {
+    "smoke_3557a49688": {
+      "status": "passed",
+      "started": "2026-11-22T10:55:18.666140+00:00",
+      "ended": "2026-11-22T10:56:08.367030+00:00",
+      "passedChecks": 2
+    },
+    "smoke_6da4e1fd45": {
+      "status": "passed",
+      "started": "2026-11-22T10:59:05.114622+00:00",
+      "ended": "2026-11-22T11:00:04.064848+00:00",
+      "passedChecks": 2
+    },
+    "smoke_41af59cfa0": {
+      "status": "failed",
+      "started": "2026-11-22T11:04:07.290005+00:00",
+      "ended": "2026-11-22T11:04:10.457803+00:00",
+      "failureType": "ValueError",
+      "failureLine": 167,
+      "passedChecks": 1,
+      "issue": "Python 3.9 rejected a valid timestamp with five fractional digits. The case now uses the existing PostgreSQL receipt-time parser."
+    },
+    "smoke_e4b2633f18": {
+      "status": "passed",
+      "started": "2026-11-22T11:04:51.606820+00:00",
+      "ended": "2026-11-22T11:05:49.534205+00:00",
+      "passedChecks": 2
+    },
+    "smoke_7d538530ef": {
+      "status": "passed",
+      "started": "2026-11-22T11:07:35.083611+00:00",
+      "ended": "2026-11-22T11:08:39.877157+00:00",
+      "passedChecks": 2
+    },
+    "smoke_0c4cd90252": {
+      "status": "passed",
+      "started": "2026-11-22T10:57:41.764094+00:00",
+      "ended": "2026-11-22T11:05:13.678405+00:00",
+      "passedChecks": 61
+    },
+    "smoke_0961fa1d0e": {
+      "status": "passed",
+      "started": "2026-11-22T11:05:24.255454+00:00",
+      "ended": "2026-11-22T11:13:23.034464+00:00",
+      "passedChecks": 63
+    },
+    "smoke_38614a0411": {
+      "status": "failed",
+      "started": "2026-11-22T11:08:54.091075+00:00",
+      "ended": "2026-11-22T11:16:49.835388+00:00",
+      "failureType": "CalledProcessError",
+      "failureLine": 528,
+      "passedChecks": 56,
+      "issue": "The borrowed tool draft did not show the withdrawn team after the focus check. The cause of that single timeout was not isolated in 55 repetitions. The field now preserves an explicit choice during asynchronous default initialization and refreshes visible team membership. The test waits for a response showing the actual loss of membership."
+    },
+    "smoke_4fa43011ab": {
+      "status": "passed",
+      "started": "2026-11-22T11:19:15.495700+00:00",
+      "ended": "2026-11-22T11:19:39.472869+00:00",
+      "passedChecks": 0,
+      "repetitions": 55
+    },
+    "smoke_aaca975e88": {
+      "status": "passed",
+      "started": "2026-11-22T11:20:48.936702+00:00",
+      "ended": "2026-11-22T11:21:02.667203+00:00",
+      "passedChecks": 1
+    },
+    "smoke_9b6380fd72": {
+      "status": "passed",
+      "started": "2026-11-22T11:21:00.707286+00:00",
+      "ended": "2026-11-22T11:28:58.716035+00:00",
+      "passedChecks": 64
+    }
+  },
+  "browserMock": [
+    {
+      "status": "failed",
+      "issue": "The draft form locator incorrectly searched for a second dialog inside its own form."
+    },
+    {
+      "status": "passed",
+      "result": "concurrent-extension-mock.json"
+    }
+  ],
+  "recovery": {
+    "369a40336c": {
+      "status": "passed",
+      "passedChecks": 12
+    },
+    "fa10cfce4f": {
+      "status": "passed",
+      "passedChecks": 13
+    }
+  }
+}

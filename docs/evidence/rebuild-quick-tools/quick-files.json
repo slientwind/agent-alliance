@@ -1,0 +1,22 @@
+[
+  {
+    "operation": "aggregate",
+    "packageItem": "artifacts/01-v1-deliverable.xlsx",
+    "sha256": "4b66fcb7a3109c9bf8d288f364499847217dfc61d18f0417c6aec316096369bf"
+  },
+  {
+    "operation": "docx",
+    "packageItem": "artifacts/01-v1-deliverable.docx",
+    "sha256": "fd06d52f1ffa48252915f36e3733741daf76d900ba2e7770fc1bd6f051aa3da1"
+  },
+  {
+    "operation": "xlsx",
+    "packageItem": "artifacts/01-v1-deliverable.xlsx",
+    "sha256": "7d594f152d7e6cb0b315cfc02b6a8d35998bb5edf657a746a4662ca6171eacf6"
+  },
+  {
+    "operation": "extract",
+    "packageItem": "artifacts/01-v1-从档案提取原文.txt",
+    "sha256": "c0f0769224f039925a493db9ee5e0d7bddecbfea90cde9733a57ab0da4ece4a9"
+  }
+]

@@ -1,0 +1,38 @@
+{
+  "previous": "sha256:4c78267d65a2a33d92722c6eba3d5fcc51b00865d583bef3e08e5ba8aa76f795",
+  "app": "sha256:36e4bf21ce72063a2bf6b4d551524d96b915e10582089a0dc4205572b9e31491",
+  "schemaFrom": "schema/094_calculation_receipts.sql",
+  "schemaTo": "schema/095_planning_output.sql",
+  "existingRun": "b0c0f8a5-cb61-4a33-80b0-8d660e29f3fc",
+  "existingRunCalls": 1,
+  "historicalSuggestion": "a44f6440-b536-4b4a-b254-968500a79821",
+  "replayedID": "a44f6440-b536-4b4a-b254-968500a79821",
+  "oldPlanningCalls": 1,
+  "replayWithChangedFormat": 409,
+  "newSuggestion": {
+    "id": "04c2c786-3ba5-4c30-a773-1a8adce7ab73",
+    "result": {
+      "outputFormat": "xlsx",
+      "outputGap": "生成 Excel 工作簿（XLSX）",
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "查资料并说明移交要求",
+      "agents": [
+        "7fd19efe-4c7e-42e2-ac22-829beca0b488"
+      ],
+      "missing": [
+        "生成 Excel 工作簿（XLSX）"
+      ]
+    },
+    "status": "ready"
+  },
+  "assets": {
+    "index-kpRXS1aq.css": "ddbe087fd36fc8f52cc690bb1f70fe2e265c3d377c06c63283bc5e873a7ceadc",
+    "pdf.worker.min-wgc6bjNh.mjs": "f499515a0dc93d97787d693a75218a439675719283f56812067c036dcae1f8d5",
+    "index-DIgRd5Lv.js": "d3a20540a167b187c16933441c91739c320adf4e2e5ca598c1718c2d8fe77c3c",
+    "pdf-CE_K4jFx.js": "cc2e67417cd9342a7d899b09f00c9dd2e4700ae503a71524ef6ecfc95cc7265b",
+    "work-Cs9-BG-M.js": "eb21e7acc670f3563c007e6ea23835f8d4c70d3c562ca8ceb86bd312c8778ca8"
+  }
+}

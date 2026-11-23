@@ -1,0 +1,21 @@
+{
+  "before": {
+    "review": "redo",
+    "attempts": [
+      "unknown",
+      "input_rejected"
+    ],
+    "knownRejectionClosable": true,
+    "unresolvedEarlierCallClosable": false
+  },
+  "after": {
+    "review": "redo",
+    "attempts": [
+      "unknown",
+      "input_rejected"
+    ],
+    "knownRejectionClosable": true,
+    "unresolvedEarlierCallClosable": false
+  },
+  "legacyMappingsInvented": false
+}

@@ -1,0 +1,97 @@
+{
+  "mode": "hybrid",
+  "firstOrEmptyCorrect": 6,
+  "total": 6,
+  "cases": [
+    {
+      "query": "活动现场没法用机器签到，要怎么登记？",
+      "expected": "签到设备发生故障时，现场负责人启用离线纸质名册登记",
+      "actual": "签到设备发生故障时，现场负责人启用离线纸质名册登记",
+      "correct": true,
+      "hits": [
+        {
+          "id": "7fb5b202-bee7-44cf-b6da-09fc4f294d0c",
+          "end": 27,
+          "name": "event.txt",
+          "exact": false,
+          "start": 3,
+          "excerpt": "签到设备发生故障时，现场负责人启用离线纸质名册登记",
+          "lexical": false,
+          "version": 1,
+          "semantic": true
+        }
+      ]
+    },
+    {
+      "query": "展架最晚什么时候还？",
+      "expected": "活动结束后由场务清点借出的展架，并在次日上午归还",
+      "actual": "活动结束后由场务清点借出的展架，并在次日上午归还",
+      "correct": true,
+      "hits": [
+        {
+          "id": "7fb5b202-bee7-44cf-b6da-09fc4f294d0c",
+          "end": 53,
+          "name": "event.txt",
+          "exact": false,
+          "start": 30,
+          "excerpt": "活动结束后由场务清点借出的展架，并在次日上午归还",
+          "lexical": false,
+          "version": 1,
+          "semantic": true
+        }
+      ]
+    },
+    {
+      "query": "重复扣款",
+      "expected": "对于重复扣款，客服先索取交易流水号，再交结算专员核实",
+      "actual": "对于重复扣款，客服先索取交易流水号，再交结算专员核实",
+      "correct": true,
+      "hits": [
+        {
+          "id": "c5b2b994-c396-44aa-8db4-438a742b73f9",
+          "end": 28,
+          "name": "support.txt",
+          "exact": true,
+          "start": 3,
+          "excerpt": "对于重复扣款，客服先索取交易流水号，再交结算专员核实",
+          "lexical": true,
+          "version": 1,
+          "semantic": true
+        }
+      ]
+    },
+    {
+      "query": "货还没发，换个收件地点该怎么办？",
+      "expected": "客户变更收货地址需在发货前提交工单，客服在工单中记录新地址",
+      "actual": "客户变更收货地址需在发货前提交工单，客服在工单中记录新地址",
+      "correct": true,
+      "hits": [
+        {
+          "id": "c5b2b994-c396-44aa-8db4-438a742b73f9",
+          "end": 59,
+          "name": "support.txt",
+          "exact": false,
+          "start": 31,
+          "excerpt": "客户变更收货地址需在发货前提交工单，客服在工单中记录新地址",
+          "lexical": false,
+          "version": 1,
+          "semantic": true
+        }
+      ]
+    },
+    {
+      "query": "地铁公交费报销需要哪种票据？",
+      "expected": null,
+      "actual": null,
+      "correct": true,
+      "hits": []
+    },
+    {
+      "query": "场地最多可以入场几人？",
+      "expected": null,
+      "actual": null,
+      "correct": true,
+      "hits": []
+    }
+  ]
+}

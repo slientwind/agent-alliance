@@ -1,0 +1,32 @@
+{
+  "started": "2026-11-23T11:48:09.761804+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "Image contract: PNG validation, human qualification, planner isolation, project preview, approved immutable original",
+    "Member service page from shared link or recommendation: version consent, pinned attachment, replay, separate reviewer and approved Word delivery",
+    "Credential rotation via Chromium: provider rejection, explicit verification, independent Agent key and pinned revision preserved",
+    "Fresh enterprise setup in Chromium: concrete team model, three validated Agents, explicit approval and fixed Word delivery",
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "Service rollback: actor and dependency preflight, explicit consent, in-flight pinned run, verified Word delivery and monotonic publication",
+    "Upgrade of existing services keeps previous contracts, routing and an accepted run"
+  ],
+  "imageGeneration": "image-generation.json",
+  "teamSetup": "team-setup.json",
+  "serviceEntry": "service-entry.json",
+  "modelMaintenance": "model-maintenance.json",
+  "serviceRollback": "service-rollback.json",
+  "serviceRollbackUpgrade": "service-rollback-upgrade.json",
+  "ended": "2026-11-23T11:48:45.030533+00:00"
+}

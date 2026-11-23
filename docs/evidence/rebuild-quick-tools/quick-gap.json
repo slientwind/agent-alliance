@@ -1,0 +1,11 @@
+{
+  "resource": "53555fe2-22a0-4c8c-962f-1d6d180ac551",
+  "suggestedGap": "待补能力 · 会议时程",
+  "planner": "fixture",
+  "team": "d1f49c63-27f9-4133-a5ef-d6cbccd25eef",
+  "agent": "c915abfb-4f5e-4602-a047-e9e5827a105d",
+  "run": "6d15e3bb-3da8-4573-894d-597400e392bc",
+  "operation": "docx",
+  "answer": "09:00 复核文案\n10:00 核对物料清单",
+  "replacedBindingStatus": 409
+}

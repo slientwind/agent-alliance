@@ -1,0 +1,34 @@
+{
+  "started": "2026-11-23T12:15:16.548283+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "Image contract: PNG validation, human qualification, planner isolation, project preview, approved immutable original",
+    "Member service page from shared link or recommendation: version consent, pinned attachment, replay, separate reviewer and approved Word delivery",
+    "Credential rotation via Chromium: provider rejection, explicit verification, independent Agent key and pinned revision preserved",
+    "Fresh enterprise setup in Chromium: concrete team model, three validated Agents, explicit approval and fixed Word delivery",
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "Default and explicit project scopes, draft retention, Agent trials, approval and confirmed delivery",
+    "One non-default team proceeds directly; two non-default teams require scope at send and keep the next task in the chosen scope",
+    "Explicit cross-team grants, revoked project scope preserves the draft, separate billing and confirmed deliverables"
+  ],
+  "imageGeneration": "image-generation.json",
+  "teamSetup": "team-setup.json",
+  "serviceEntry": "service-entry.json",
+  "modelMaintenance": "model-maintenance.json",
+  "agentEntry": "agent-entry.json",
+  "officeIntake": "office-intake.json",
+  "borrowedConnectors": "borrowed-connectors.json",
+  "ended": "2026-11-23T12:16:11.521509+00:00"
+}

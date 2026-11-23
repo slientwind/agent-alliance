@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "现在应该将已验证生成带正确时码的SRT并导出的课程字幕上传至外部编辑平台进行修改。",
+  "usage": {
+    "completion_tokens": 29,
+    "prompt_tokens": 227,
+    "total_tokens": 256,
+    "prompt_tokens_details": {
+      "cached_tokens": 162
+    }
+  }
+}

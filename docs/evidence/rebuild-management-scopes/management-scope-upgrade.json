@@ -1,0 +1,11 @@
+{
+  "oldAndNewRuns": 2,
+  "runsWithHistoricalDepartment": 1,
+  "callsWithHistoricalDepartment": 1,
+  "oldCallDepartmentUnknown": true,
+  "expiryCheckedAgainstDatabaseClock": true,
+  "schemaFrom": 64,
+  "schemaTo": 65,
+  "endedDepartmentReason": "已调离授权部门",
+  "remainingTeamGrants": 1
+}

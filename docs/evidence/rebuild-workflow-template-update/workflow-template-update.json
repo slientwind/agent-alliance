@@ -1,0 +1,23 @@
+{
+  "project": "19464051-0d82-469f-b873-77f303abfbd5",
+  "oldPlan": 1,
+  "newPlan": 2,
+  "fromVersion": 1,
+  "toVersion": 2,
+  "changedSteps": [
+    1,
+    2,
+    3
+  ],
+  "sourceRetained": "d85b9a43-8760-40a1-ac9b-c004b011267a",
+  "preferredRevisionRetained": true,
+  "changedFromCalls": 3,
+  "finalCalls": 2,
+  "freshExecutionConsent": true,
+  "transactionRollbackOnInvalidSource": true,
+  "staleProjectRejected": true,
+  "replaySameReceipt": true,
+  "pinnedDelivery": "a3bfde50-1278-4a80-b6c5-bb00c8106c3b",
+  "newerFollowup": "f597a28c-1e5e-4d53-8afb-ccc56eef107a",
+  "verifiedTotal": "41.15"
+}

@@ -1,0 +1,30 @@
+{
+  "unreadAfterReturn": 3,
+  "handoffProjectCountChange": 1,
+  "previousDelegationAfterReturn": "revoked",
+  "projectTotals": {
+    "runs": 1,
+    "attempts": 0,
+    "deliveredEditions": 1
+  },
+  "payerTotals": {
+    "runs": 0,
+    "attempts": 1,
+    "deliveredEditions": 0
+  },
+  "registration": "invitation",
+  "department": "售后业务部",
+  "staleUpdate": 409,
+  "nonAdmin": 403,
+  "anonymous": 401,
+  "applicationProfile": 404,
+  "latest": {
+    "oldRole": "admin",
+    "role": "member"
+  },
+  "historyActions": [
+    "department.assign",
+    "team.membership",
+    "member.enroll"
+  ]
+}

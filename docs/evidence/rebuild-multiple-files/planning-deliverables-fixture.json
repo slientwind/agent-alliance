@@ -1,0 +1,33 @@
+{
+  "mode": "fixture",
+  "goal": "按已确认的领用清单分别制作 Word 和 Excel。两份都保留完整原文，Excel 每行一个物品，保留前导零。",
+  "formats": [
+    "docx",
+    "xlsx"
+  ],
+  "gaps": {
+    "生成 Excel 工作簿（XLSX）": "xlsx",
+    "生成 Word 文档（DOCX）": "docx"
+  },
+  "proposal": "96ad2b97-fda7-4988-a814-2f9fcee3f7b9",
+  "plan": [
+    {
+      "name": "会议议程成稿助手",
+      "agent": "379ef20a-3752-4f74-bd22-1be638655d67",
+      "revision": 1,
+      "dependsOn": [],
+      "operation": "docx",
+      "lookupPhase": ""
+    },
+    {
+      "name": "盘点逐行交付",
+      "agent": "7f1a64d0-688b-4ed4-9ae9-6e391173596a",
+      "revision": 1,
+      "dependsOn": [],
+      "operation": "xlsx",
+      "lookupPhase": ""
+    }
+  ],
+  "run": "89ebe993-6b21-43c0-a6f1-5d2be09885ae",
+  "calls": 3
+}

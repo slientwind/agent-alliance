@@ -1,0 +1,18 @@
+{
+  "run": "34fcea99-1dcb-4658-8965-d87b29eab1f1",
+  "billedModelCalls": 1,
+  "totalProjectCalls": 3,
+  "expectedTotal": "90.30",
+  "tokens": 31,
+  "preservedManualChoice": true,
+  "explicitRecalculation": true,
+  "withdrawnSuggestion": "stale",
+  "modelCallsByOutcome": {
+    "valid": 1,
+    "invalid": 1,
+    "ambiguous": 1,
+    "unknown": 1,
+    "withdrawal": 1
+  },
+  "checkedWorkbook": true
+}

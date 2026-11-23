@@ -1,0 +1,106 @@
+[
+  {
+    "batch": "smoke_1474313dcd",
+    "started": "2026-11-22T18:11:10.039656+00:00",
+    "ended": "2026-11-22T18:11:12.593400+00:00",
+    "status": "failed",
+    "groups": 1,
+    "failure": "CalledProcessError"
+  },
+  {
+    "batch": "smoke_564d187715",
+    "started": "2026-11-22T18:11:40.349987+00:00",
+    "ended": "2026-11-22T18:11:56.090741+00:00",
+    "status": "passed",
+    "groups": 2,
+    "failure": null
+  },
+  {
+    "batch": "smoke_15d9d73aa5",
+    "started": "2026-11-22T18:12:51.603917+00:00",
+    "ended": "2026-11-22T18:13:07.779394+00:00",
+    "status": "passed",
+    "groups": 2,
+    "failure": null
+  },
+  {
+    "batch": "smoke_1e29893fce",
+    "started": "2026-11-22T18:13:20.339193+00:00",
+    "ended": "2026-11-22T18:26:47.808831+00:00",
+    "status": "passed",
+    "groups": 82,
+    "failure": null
+  },
+  {
+    "batch": "smoke_eaf696c526",
+    "started": "2026-11-22T18:14:45.621569+00:00",
+    "ended": "2026-11-22T18:15:31.961522+00:00",
+    "status": "failed",
+    "groups": 1,
+    "failure": "CalledProcessError"
+  },
+  {
+    "batch": "smoke_44c76bff0a",
+    "started": "2026-11-22T18:15:54.705882+00:00",
+    "ended": "2026-11-22T18:16:14.448406+00:00",
+    "status": "passed",
+    "groups": 2,
+    "failure": null
+  },
+  {
+    "batch": "smoke_8fae73d1c5",
+    "started": "2026-11-22T18:16:51.920393+00:00",
+    "ended": "2026-11-22T18:17:27.459863+00:00",
+    "status": "failed",
+    "groups": 1,
+    "failure": "CalledProcessError"
+  },
+  {
+    "batch": "smoke_1f71ad11b5",
+    "started": "2026-11-22T18:17:22.531457+00:00",
+    "ended": "2026-11-22T18:17:57.863254+00:00",
+    "status": "failed",
+    "groups": 1,
+    "failure": "CalledProcessError"
+  },
+  {
+    "batch": "smoke_4bfad53eac",
+    "started": "2026-11-22T18:18:26.900902+00:00",
+    "ended": "2026-11-22T18:18:37.157585+00:00",
+    "status": "passed",
+    "groups": 2,
+    "failure": null
+  },
+  {
+    "batch": "smoke_7fb62a5584",
+    "started": "2026-11-22T18:19:34.550011+00:00",
+    "ended": "2026-11-22T18:19:44.643871+00:00",
+    "status": "passed",
+    "groups": 2,
+    "failure": null
+  },
+  {
+    "batch": "smoke_bcc86ad46a",
+    "started": "2026-11-22T18:20:46.789597+00:00",
+    "ended": "2026-11-22T18:34:10.970347+00:00",
+    "status": "passed",
+    "groups": 83,
+    "failure": null
+  },
+  {
+    "batch": "smoke_1ec4b91776",
+    "started": "2026-11-22T18:22:52.687808+00:00",
+    "ended": "2026-11-22T18:23:02.702934+00:00",
+    "status": "passed",
+    "groups": 2,
+    "failure": null
+  },
+  {
+    "batch": "smoke_4063898eb4",
+    "started": "2026-11-22T18:25:04.150705+00:00",
+    "ended": "2026-11-22T18:25:24.267025+00:00",
+    "status": "passed",
+    "groups": 2,
+    "failure": null
+  }
+]

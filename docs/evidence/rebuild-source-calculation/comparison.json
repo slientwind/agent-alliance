@@ -1,0 +1,269 @@
+{
+  "scenario": "同一模型、Agent 修订、问题与输入原文；每个实验以新项目固定版本，独立计次。时间为上传规划到返回待审的浏览器耗时。",
+  "rows": [
+    {
+      "batch": "39d03655dd",
+      "kind": "baseline",
+      "request": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "fullOutputPresent": false,
+      "phase": "answer",
+      "answer": "模型未给出有效的检索指令，请核对检索步骤后重新执行。 本次已跳过第二次模型调用。",
+      "run": "3b5d76a9-cf4f-405c-ab11-385449edaf14",
+      "calls": 1,
+      "elapsedToReviewMs": 2575
+    },
+    {
+      "batch": "39d03655dd",
+      "kind": "calculation",
+      "request": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "fullOutputPresent": true,
+      "question": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "answer": "差额为 78.50 元。\n528.50 元 [2] − 450 元 [1] = 78.50 元\n\n原文依据\n[2] 住宿结算.txt v1 【S2v1:1-18】本次住宿结算实付 528.50 元。\n[1] 差旅标准.txt v1 【S1v1:1-16】单晚住宿报销标准为 450 元。",
+      "run": "6664e5d9-5eb9-4de1-8fdc-a6c8d48e183c",
+      "calls": 2,
+      "elapsedToReviewMs": 2631
+    },
+    {
+      "batch": "39d03655dd",
+      "kind": "baseline",
+      "request": "两张运费收据合计多少元？列出算式和两处原文。",
+      "fullOutputPresent": false,
+      "phase": "answer",
+      "answer": "回答里的金额、温度或百分数与所引原文无法对应，请核对。\n[1] 去程收据.txt v1 【S1v1:1-14】去程运费为 16.85 元。\n[2] 返程收据.txt v1 【S2v1:1-13】返程运费为 9.20 元。",
+      "run": "4e705a8b-00ed-423a-a3e7-2c1ae48e761f",
+      "calls": 2,
+      "elapsedToReviewMs": 4610
+    },
+    {
+      "batch": "39d03655dd",
+      "kind": "calculation",
+      "request": "两张运费收据合计多少元？列出算式和两处原文。",
+      "fullOutputPresent": true,
+      "question": "两张运费收据合计多少元？列出算式和两处原文。",
+      "answer": "合计为 26.05 元。\n16.85 元 [1] + 9.20 元 [2] = 26.05 元\n\n原文依据\n[1] 去程收据.txt v1 【S1v1:1-14】去程运费为 16.85 元。\n[2] 返程收据.txt v1 【S2v1:1-13】返程运费为 9.20 元。",
+      "run": "cbc0619b-8f2e-4ad8-9346-c05fb80f98ee",
+      "calls": 2,
+      "elapsedToReviewMs": 2612
+    },
+    {
+      "batch": "4f1c2131cb",
+      "kind": "baseline",
+      "request": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "fullOutputPresent": false,
+      "phase": "answer",
+      "answer": "回答里的金额、温度或百分数与所引原文无法对应，请核对。\n[1] 差旅标准.txt v1 【S1v1:1-16】单晚住宿报销标准为 450 元。\n[2] 住宿结算.txt v1 【S2v1:1-18】本次住宿结算实付 528.50 元。",
+      "run": "16b33b36-471f-4a7e-8ab1-71533910b508",
+      "calls": 2,
+      "elapsedToReviewMs": 4722
+    },
+    {
+      "batch": "4f1c2131cb",
+      "kind": "calculation",
+      "request": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "fullOutputPresent": true,
+      "question": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "answer": "差额为 78.50 元。\n528.50 元 [2] − 450 元 [1] = 78.50 元\n\n原文依据\n[2] 住宿结算.txt v1 【S2v1:1-18】本次住宿结算实付 528.50 元。\n[1] 差旅标准.txt v1 【S1v1:1-16】单晚住宿报销标准为 450 元。",
+      "run": "0722f808-d5e7-4237-b3b5-34d9a8a309a7",
+      "calls": 2,
+      "elapsedToReviewMs": 4788
+    },
+    {
+      "batch": "4f1c2131cb",
+      "kind": "baseline",
+      "request": "两张运费收据合计多少元？列出算式和两处原文。",
+      "fullOutputPresent": false,
+      "phase": "answer",
+      "answer": "回答里的金额、温度或百分数与所引原文无法对应，请核对。\n[1] 返程收据.txt v1 【S1v1:1-13】返程运费为 9.20 元。\n[2] 去程收据.txt v1 【S2v1:1-14】去程运费为 16.85 元。",
+      "run": "4f7c276a-f736-4802-b4ad-ab98a7218b23",
+      "calls": 2,
+      "elapsedToReviewMs": 2568
+    },
+    {
+      "batch": "4f1c2131cb",
+      "kind": "calculation",
+      "request": "两张运费收据合计多少元？列出算式和两处原文。",
+      "fullOutputPresent": true,
+      "question": "两张运费收据合计多少元？列出算式和两处原文。",
+      "answer": "合计为 26.05 元。\n16.85 元 [1] + 9.20 元 [2] = 26.05 元\n\n原文依据\n[1] 去程收据.txt v1 【S1v1:1-14】去程运费为 16.85 元。\n[2] 返程收据.txt v1 【S2v1:1-13】返程运费为 9.20 元。",
+      "run": "b7401fac-765e-4d4e-907d-5c8158e998a9",
+      "calls": 2,
+      "elapsedToReviewMs": 4650
+    },
+    {
+      "batch": "6a770031f4",
+      "kind": "baseline",
+      "request": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "fullOutputPresent": false,
+      "phase": "answer",
+      "answer": "回答里的金额、温度或百分数与所引原文无法对应，请核对。\n[1] 差旅标准.txt v1 【S1v1:1-16】单晚住宿报销标准为 450 元。\n[2] 住宿结算.txt v1 【S2v1:1-18】本次住宿结算实付 528.50 元。",
+      "run": "6b17f3fd-0e15-448c-b356-d075f8b371b2",
+      "calls": 2,
+      "elapsedToReviewMs": 2646
+    },
+    {
+      "batch": "6a770031f4",
+      "kind": "calculation",
+      "request": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "fullOutputPresent": true,
+      "question": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "answer": "差额为 78.50 元。\n528.50 元 [2] − 450 元 [1] = 78.50 元\n\n原文依据\n[2] 住宿结算.txt v1 【S2v1:1-18】本次住宿结算实付 528.50 元。\n[1] 差旅标准.txt v1 【S1v1:1-16】单晚住宿报销标准为 450 元。",
+      "run": "a7feee2e-fe7f-439a-8fae-4e16fa459102",
+      "calls": 2,
+      "elapsedToReviewMs": 4766
+    },
+    {
+      "batch": "6a770031f4",
+      "kind": "baseline",
+      "request": "两张运费收据合计多少元？列出算式和两处原文。",
+      "fullOutputPresent": false,
+      "phase": "answer",
+      "answer": "回答里的金额、温度或百分数与所引原文无法对应，请核对。\n[1] 去程收据.txt v1 【S1v1:1-14】去程运费为 16.85 元。\n[2] 返程收据.txt v1 【S2v1:1-13】返程运费为 9.20 元。",
+      "run": "4a9d4967-5b14-4dfe-98dd-c7509a06de12",
+      "calls": 2,
+      "elapsedToReviewMs": 4732
+    },
+    {
+      "batch": "6a770031f4",
+      "kind": "calculation",
+      "request": "两张运费收据合计多少元？列出算式和两处原文。",
+      "fullOutputPresent": true,
+      "question": "两张运费收据合计多少元？列出算式和两处原文。",
+      "answer": "合计为 26.05 元。\n9.20 元 [1] + 16.85 元 [2] = 26.05 元\n\n原文依据\n[1] 返程收据.txt v1 【S1v1:1-13】返程运费为 9.20 元。\n[2] 去程收据.txt v1 【S2v1:1-14】去程运费为 16.85 元。",
+      "run": "a3f37560-66b3-4da0-a1e7-67f55b286b14",
+      "calls": 2,
+      "elapsedToReviewMs": 4908
+    },
+    {
+      "batch": "8ab2ff97ce",
+      "kind": "baseline",
+      "request": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "fullOutputPresent": false,
+      "phase": "answer",
+      "answer": "回答里的金额、温度或百分数与所引原文无法对应，请核对。\n[1] 差旅标准.txt v1 【S1v1:1-16】单晚住宿报销标准为 450 元。\n[2] 住宿结算.txt v1 【S2v1:1-18】本次住宿结算实付 528.50 元。",
+      "run": "37deba50-e991-4fb0-82a4-db9c42b85ebd",
+      "calls": 2,
+      "elapsedToReviewMs": 4592
+    },
+    {
+      "batch": "8ab2ff97ce",
+      "kind": "calculation",
+      "request": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "fullOutputPresent": true,
+      "question": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "answer": "差额为 78.50 元。\n528.50 元 [2] − 450 元 [1] = 78.50 元\n\n原文依据\n[2] 住宿结算.txt v1 【S1v1:1-18】本次住宿结算实付 528.50 元。\n[1] 差旅标准.txt v1 【S2v1:1-16】单晚住宿报销标准为 450 元。",
+      "run": "065ede4c-6f05-48b9-bb3a-405f86a48a59",
+      "calls": 2,
+      "elapsedToReviewMs": 4856
+    },
+    {
+      "batch": "8ab2ff97ce",
+      "kind": "baseline",
+      "request": "两张运费收据合计多少元？列出算式和两处原文。",
+      "fullOutputPresent": false,
+      "phase": "answer",
+      "answer": "回答里的金额、温度或百分数与所引原文无法对应，请核对。\n[1] 返程收据.txt v1 【S1v1:1-13】返程运费为 9.20 元。\n[2] 去程收据.txt v1 【S2v1:1-14】去程运费为 16.85 元。",
+      "run": "d606c381-051c-47c9-a775-1158cf27273a",
+      "calls": 2,
+      "elapsedToReviewMs": 2582
+    },
+    {
+      "batch": "8ab2ff97ce",
+      "kind": "calculation",
+      "request": "两张运费收据合计多少元？列出算式和两处原文。",
+      "fullOutputPresent": true,
+      "question": "两张运费收据合计多少元？列出算式和两处原文。",
+      "answer": "合计为 26.05 元。\n16.85 元 [1] + 9.20 元 [2] = 26.05 元\n\n原文依据\n[1] 去程收据.txt v1 【S1v1:1-14】去程运费为 16.85 元。\n[2] 返程收据.txt v1 【S2v1:1-13】返程运费为 9.20 元。",
+      "run": "891a7cce-9c2d-4360-af95-93b76333dd9e",
+      "calls": 2,
+      "elapsedToReviewMs": 2608
+    },
+    {
+      "batch": "f7afe45a23",
+      "kind": "baseline",
+      "request": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "fullOutputPresent": false,
+      "phase": "answer",
+      "answer": "模型未给出有效的检索指令，请核对检索步骤后重新执行。 本次已跳过第二次模型调用。",
+      "run": "285e7540-ce10-4117-8aa5-e2ec89b06474",
+      "calls": 1,
+      "elapsedToReviewMs": 2602
+    },
+    {
+      "batch": "f7afe45a23",
+      "kind": "calculation",
+      "request": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "fullOutputPresent": true,
+      "question": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "answer": "差额为 78.50 元。\n528.50 元 [2] − 450 元 [1] = 78.50 元\n\n原文依据\n[2] 住宿结算.txt v1 【S1v1:1-18】本次住宿结算实付 528.50 元。\n[1] 差旅标准.txt v1 【S2v1:1-16】单晚住宿报销标准为 450 元。",
+      "run": "3c339e15-fa78-4844-b8b0-b0f9431bd11d",
+      "calls": 2,
+      "elapsedToReviewMs": 5289
+    },
+    {
+      "batch": "f7afe45a23",
+      "kind": "baseline",
+      "request": "两张运费收据合计多少元？列出算式和两处原文。",
+      "fullOutputPresent": false,
+      "phase": "answer",
+      "answer": "回答里的金额、温度或百分数与所引原文无法对应，请核对。\n[1] 返程收据.txt v1 【S1v1:1-13】返程运费为 9.20 元。\n[2] 去程收据.txt v1 【S2v1:1-14】去程运费为 16.85 元。",
+      "run": "2e0469a8-eb99-4077-a374-a461d96d1e68",
+      "calls": 2,
+      "elapsedToReviewMs": 4610
+    },
+    {
+      "batch": "f7afe45a23",
+      "kind": "calculation",
+      "request": "两张运费收据合计多少元？列出算式和两处原文。",
+      "fullOutputPresent": true,
+      "question": "两张运费收据合计多少元？列出算式和两处原文。",
+      "answer": "合计为 26.05 元。\n9.20 元 [1] + 16.85 元 [2] = 26.05 元\n\n原文依据\n[1] 返程收据.txt v1 【S1v1:1-13】返程运费为 9.20 元。\n[2] 去程收据.txt v1 【S2v1:1-14】去程运费为 16.85 元。",
+      "run": "6c744194-4861-4ab6-a7a4-7df5c17f9fd9",
+      "calls": 2,
+      "elapsedToReviewMs": 2643
+    },
+    {
+      "batch": "f7e4ac08d8",
+      "kind": "baseline",
+      "request": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "fullOutputPresent": false,
+      "phase": "answer",
+      "answer": "回答里的金额、温度或百分数与所引原文无法对应，请核对。\n[1] 差旅标准.txt v1 【S1v1:1-16】单晚住宿报销标准为 450 元。\n[2] 住宿结算.txt v1 【S2v1:1-18】本次住宿结算实付 528.50 元。",
+      "run": "0aa13b43-2763-43d0-ab35-b8562da3ce38",
+      "calls": 2,
+      "elapsedToReviewMs": 4693
+    },
+    {
+      "batch": "f7e4ac08d8",
+      "kind": "calculation",
+      "request": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "fullOutputPresent": true,
+      "question": "住宿结算实付比单晚住宿报销标准超出多少元？列出差额和原文依据。",
+      "answer": "差额为 78.50 元。\n528.50 元 [2] − 450 元 [1] = 78.50 元\n\n原文依据\n[2] 住宿结算.txt v1 【S1v1:1-18】本次住宿结算实付 528.50 元。\n[1] 差旅标准.txt v1 【S2v1:1-16】单晚住宿报销标准为 450 元。",
+      "run": "912638b5-d479-499d-a220-f1b341970a54",
+      "calls": 2,
+      "elapsedToReviewMs": 4918
+    },
+    {
+      "batch": "f7e4ac08d8",
+      "kind": "baseline",
+      "request": "两张运费收据合计多少元？列出算式和两处原文。",
+      "fullOutputPresent": false,
+      "phase": "answer",
+      "answer": "回答里的金额、温度或百分数与所引原文无法对应，请核对。\n[1] 返程收据.txt v1 【S1v1:1-13】返程运费为 9.20 元。\n[2] 去程收据.txt v1 【S2v1:1-14】去程运费为 16.85 元。",
+      "run": "f6ad138c-7f7d-444e-af3d-6d6ed23c96ce",
+      "calls": 2,
+      "elapsedToReviewMs": 4695
+    },
+    {
+      "batch": "f7e4ac08d8",
+      "kind": "calculation",
+      "request": "两张运费收据合计多少元？列出算式和两处原文。",
+      "fullOutputPresent": true,
+      "question": "两张运费收据合计多少元？列出算式和两处原文。",
+      "answer": "合计为 26.05 元。\n16.85 元 [1] + 9.20 元 [2] = 26.05 元\n\n原文依据\n[1] 去程收据.txt v1 【S1v1:1-14】去程运费为 16.85 元。\n[2] 返程收据.txt v1 【S2v1:1-13】返程运费为 9.20 元。",
+      "run": "a7cf6324-1209-44ba-a48b-8fa7bc343c33",
+      "calls": 2,
+      "elapsedToReviewMs": 2740
+    }
+  ]
+}

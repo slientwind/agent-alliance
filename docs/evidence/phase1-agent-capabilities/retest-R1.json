@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "现在应该将报表助手的XLSX文件进行最终审核并生成核准明细表。报表助手已验证从CSV做定点金额汇总并导出保留编号的XLSX，已授权。摘要助手只会生成可阅读的Markdown表，因此无需进一步验证。",
+  "usage": {
+    "completion_tokens": 58,
+    "prompt_tokens": 228,
+    "total_tokens": 286,
+    "prompt_tokens_details": {
+      "cached_tokens": 162
+    }
+  }
+}

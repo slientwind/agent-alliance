@@ -1,0 +1,90 @@
+[
+  {
+    "purpose": "VISION_TRIAL",
+    "payloads": [
+      {
+        "label": "图片 board.png v1",
+        "sha256": "80856b07c20edf8f19cb504f6ddb7b1fe851a60c1873635663056d8c4ff62462",
+        "media": "image/png",
+        "result": "蓝色标签"
+      }
+    ]
+  },
+  {
+    "purpose": "VISION_DIRECT",
+    "payloads": [
+      {
+        "label": "图片 board.png v1",
+        "sha256": "80856b07c20edf8f19cb504f6ddb7b1fe851a60c1873635663056d8c4ff62462",
+        "media": "image/png",
+        "result": "蓝色标签"
+      }
+    ]
+  },
+  {
+    "purpose": "planning",
+    "pictureCount": 1,
+    "payloads": []
+  },
+  {
+    "purpose": "VISION_PLANNING",
+    "payloads": [
+      {
+        "label": "图片 board.png v1",
+        "sha256": "80856b07c20edf8f19cb504f6ddb7b1fe851a60c1873635663056d8c4ff62462",
+        "media": "image/png",
+        "result": "蓝色标签"
+      }
+    ]
+  },
+  {
+    "purpose": "VISION_REVISION",
+    "payloads": [
+      {
+        "label": "图片 replacement.png v2",
+        "sha256": "7201886aa75fb589b6c74dcd6891da37fad12b1f5f4db04ac5dd0e3af4b9f7c4",
+        "media": "image/png",
+        "result": "红色标签"
+      }
+    ]
+  },
+  {
+    "purpose": "VISION_COMPOSE",
+    "payloads": [
+      {
+        "label": "图片 board.jpg v1",
+        "sha256": "9cbf36bd9fe440f92dd65bac05da757e58f8005846a40725482de1e50a1ab582",
+        "media": "image/jpeg",
+        "result": "绿色标签"
+      }
+    ]
+  },
+  {
+    "purpose": "VISION_API",
+    "payloads": [
+      {
+        "label": "图片 board.jpg v1",
+        "sha256": "9cbf36bd9fe440f92dd65bac05da757e58f8005846a40725482de1e50a1ab582",
+        "media": "image/jpeg",
+        "result": "绿色标签"
+      },
+      {
+        "label": "图片 replacement.png v1",
+        "sha256": "7201886aa75fb589b6c74dcd6891da37fad12b1f5f4db04ac5dd0e3af4b9f7c4",
+        "media": "image/png",
+        "result": "红色标签"
+      }
+    ]
+  },
+  {
+    "purpose": "VISION_WEB",
+    "payloads": [
+      {
+        "label": "图片 board.jpg v1",
+        "sha256": "9cbf36bd9fe440f92dd65bac05da757e58f8005846a40725482de1e50a1ab582",
+        "media": "image/jpeg",
+        "result": "绿色标签"
+      }
+    ]
+  }
+]

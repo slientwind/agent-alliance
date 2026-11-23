@@ -1,0 +1,53 @@
+{
+  "expired": {
+    "run": "9d396978-4705-4b32-8548-9a16c0459f55",
+    "indexed": 24,
+    "before": "wait_source_index",
+    "after": "resume",
+    "sameRun": true,
+    "replayedControl": true,
+    "ledger": {
+      "phase": "completed",
+      "charges": 2,
+      "rechecks": 1
+    }
+  },
+  "manualBrowser": {
+    "run": "56fcb56c-62df-4a66-8c5f-74fa55b15416",
+    "sameRun": true,
+    "paymentCount": 2,
+    "ledger": {
+      "phase": "completed",
+      "charges": 2,
+      "rechecks": 1
+    }
+  },
+  "revoked": {
+    "run": "1dc53028-83fc-4231-a1f1-ace47cf99684",
+    "paymentCount": 1,
+    "ledger": {
+      "phase": "blocked",
+      "charges": 1,
+      "rechecks": 0
+    }
+  },
+  "supplemented": {
+    "run": "541dc0ed-fa69-4996-8c27-3b79d089645a",
+    "paymentCount": 2,
+    "sourcePlan": 2,
+    "ledger": {
+      "phase": "completed",
+      "charges": 2,
+      "rechecks": 0
+    }
+  },
+  "cancelled": {
+    "run": "9e1a1beb-d304-4115-968e-90e899026f63",
+    "paymentCount": 1,
+    "ledger": {
+      "phase": "cancelled",
+      "charges": 1,
+      "rechecks": 0
+    }
+  }
+}

@@ -1,0 +1,170 @@
+[
+  {
+    "batch": "39c8dad573",
+    "note": "早期真实模型未返回可用检索指令，未执行第二次模型调用。",
+    "started": "2026-11-22T17:11:33.410391+00:00",
+    "status": "failed",
+    "checks": 2,
+    "report": "runs/39c8dad573/result.json"
+  },
+  {
+    "batch": "e1b07f19c5",
+    "note": "专项目录从空对话开始；测试曾尝试点击只在已有项目中出现的新对话按钮。",
+    "started": "2026-11-22T17:13:07.453628+00:00",
+    "status": "failed",
+    "checks": 1,
+    "report": "runs/e1b07f19c5/result.json"
+  },
+  {
+    "batch": "34747f96f4",
+    "note": "",
+    "started": "2026-11-22T17:13:16.746652+00:00",
+    "status": "passed",
+    "checks": 3,
+    "report": "runs/34747f96f4/result.json"
+  },
+  {
+    "batch": "94820f81f7",
+    "note": "",
+    "started": "2026-11-22T17:13:46.106093+00:00",
+    "status": "passed",
+    "checks": 3,
+    "report": "runs/94820f81f7/result.json"
+  },
+  {
+    "batch": "f1ec956943",
+    "note": "模型选词只找到标准，遗漏实付。平台拒绝无依据的第二个金额。",
+    "started": "2026-11-22T17:15:22.771711+00:00",
+    "status": "failed",
+    "checks": 2,
+    "report": "runs/f1ec956943/result.json"
+  },
+  {
+    "batch": "f8c2ff51ca",
+    "note": "早期全量快照重现遗漏实付原文。后续版本为缺少金额证据的已选文件增加受限检索。",
+    "started": "2026-11-22T17:15:50.082721+00:00",
+    "status": "failed",
+    "checks": 71,
+    "report": "runs/f8c2ff51ca/result.json"
+  },
+  {
+    "batch": "79c69abea3",
+    "note": "",
+    "started": "2026-11-22T17:17:07.390717+00:00",
+    "status": "passed",
+    "checks": 3,
+    "report": "runs/79c69abea3/result.json"
+  },
+  {
+    "batch": "dc393470bd",
+    "note": "",
+    "started": "2026-11-22T17:18:36.779369+00:00",
+    "status": "passed",
+    "checks": 3,
+    "report": "runs/dc393470bd/result.json"
+  },
+  {
+    "batch": "630284e053",
+    "note": "",
+    "started": "2026-11-22T17:19:50.238989+00:00",
+    "status": "passed",
+    "checks": 2,
+    "report": "runs/630284e053/result.json"
+  },
+  {
+    "batch": "2805c90b90",
+    "note": "",
+    "started": "2026-11-22T17:19:58.010798+00:00",
+    "status": "passed",
+    "checks": 80,
+    "report": "runs/2805c90b90/result.json"
+  },
+  {
+    "batch": "27b14a9fb0",
+    "note": "",
+    "started": "2026-11-22T17:20:56.868420+00:00",
+    "status": "passed",
+    "checks": 3,
+    "report": "runs/27b14a9fb0/result.json"
+  },
+  {
+    "batch": "1791b98bf8",
+    "note": "",
+    "started": "2026-11-22T17:21:37.140077+00:00",
+    "status": "passed",
+    "checks": 2,
+    "report": "runs/1791b98bf8/result.json"
+  },
+  {
+    "batch": "2ec079126a",
+    "note": "",
+    "started": "2026-11-22T17:21:54.284342+00:00",
+    "status": "passed",
+    "checks": 80,
+    "report": "runs/2ec079126a/result.json"
+  },
+  {
+    "batch": "346ae84687",
+    "note": "",
+    "started": "2026-11-22T17:22:07.185535+00:00",
+    "status": "passed",
+    "checks": 3,
+    "report": "runs/346ae84687/result.json"
+  },
+  {
+    "batch": "4f98aac6e8",
+    "note": "",
+    "started": "2026-11-22T17:22:49.764690+00:00",
+    "status": "passed",
+    "checks": 3,
+    "report": "runs/4f98aac6e8/result.json"
+  },
+  {
+    "batch": "f7afe45a23",
+    "note": "",
+    "started": "2026-11-22T17:23:22.111954+00:00",
+    "status": "passed",
+    "checks": 3,
+    "report": "runs/f7afe45a23/result.json"
+  },
+  {
+    "batch": "4f1c2131cb",
+    "note": "",
+    "started": "2026-11-22T17:23:30.578368+00:00",
+    "status": "passed",
+    "checks": 3,
+    "report": "runs/4f1c2131cb/result.json"
+  },
+  {
+    "batch": "6a770031f4",
+    "note": "",
+    "started": "2026-11-22T17:24:11.474215+00:00",
+    "status": "passed",
+    "checks": 3,
+    "report": "runs/6a770031f4/result.json"
+  },
+  {
+    "batch": "f7e4ac08d8",
+    "note": "",
+    "started": "2026-11-22T17:24:39.433329+00:00",
+    "status": "passed",
+    "checks": 3,
+    "report": "runs/f7e4ac08d8/result.json"
+  },
+  {
+    "batch": "8ab2ff97ce",
+    "note": "",
+    "started": "2026-11-22T17:25:02.839679+00:00",
+    "status": "passed",
+    "checks": 3,
+    "report": "runs/8ab2ff97ce/result.json"
+  },
+  {
+    "batch": "39d03655dd",
+    "note": "",
+    "started": "2026-11-22T17:25:11.032575+00:00",
+    "status": "passed",
+    "checks": 80,
+    "report": "runs/39d03655dd/result.json"
+  }
+]

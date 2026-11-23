@@ -1,0 +1,72 @@
+{
+  "previous": "sha256:6527fb98ff2364cc6586458664383e33caebfd22645a70db321e182869d371e9",
+  "legacyServicePhases": [
+    "search",
+    "answer"
+  ],
+  "queuedOldRun": "57a321cf-640b-4cdf-a857-5820a42912a5",
+  "queuedCalls": 2,
+  "app": "sha256:ec493eedff175d1949aa363a57b98e72b0ffbbd47e2300c266fa64d0a7ba5816",
+  "runtime": "Linux containers: API, Worker, local HTTPS protocol fixture and document connector",
+  "workflow": "delivered",
+  "phases": [
+    "search",
+    "answer_calc",
+    ""
+  ],
+  "costs": 4,
+  "quote": "合计为 12.65 元。\n8.55 元 [1] + 4.10 元 [2] = 12.65 元\n\n原文依据\n[1] invoice-a.txt v1 【S1v1:1-13】去程运费为 8.55 元。\n[2] invoice-b.txt v1 【S2v1:1-13】返程运费为 4.10 元。",
+  "packageSHA256": "241e5dbe14007dc88c1343bd3ee4265a47672db53fed4ec4c8dad90df5d56594",
+  "files": [
+    {
+      "step": 1,
+      "dependencies": [],
+      "artifact": "5fc99afb-34ac-4bed-9c96-4885445a756e",
+      "name": "移交核对 · 检索依据",
+      "version": 1,
+      "reviewer": "6ec8afe3-d444-42cd-aaee-d21cff194168",
+      "reviewedAt": "2026-11-22T17:25:01.725743Z",
+      "path": "artifacts/01-v1-移交核对 · 检索依据.txt",
+      "mediaType": "text/plain; charset=utf-8",
+      "sha256": "6f0dd054834b29c30312be784c05dcaed9cba9fa3f9333001d07def6ef460f0d"
+    },
+    {
+      "step": 2,
+      "dependencies": [
+        {
+          "name": "移交核对 · 检索依据",
+          "step": 1,
+          "version": 1,
+          "artifact": "5fc99afb-34ac-4bed-9c96-4885445a756e"
+        }
+      ],
+      "artifact": "c4f9646b-d689-4cd4-8045-7f548746d444",
+      "name": "移交核对 · 原文与金额核算",
+      "version": 1,
+      "reviewer": "6ec8afe3-d444-42cd-aaee-d21cff194168",
+      "reviewedAt": "2026-11-22T17:25:01.732446Z",
+      "path": "artifacts/02-v1-移交核对 · 原文与金额核算.txt",
+      "mediaType": "text/plain; charset=utf-8",
+      "sha256": "fe4340ea0b6f4c09ba23c370296cd6d1c8fbce8f95139c2ab13ee0cc47742688"
+    },
+    {
+      "step": 3,
+      "dependencies": [
+        {
+          "name": "移交核对 · 原文与金额核算",
+          "step": 2,
+          "version": 1,
+          "artifact": "c4f9646b-d689-4cd4-8045-7f548746d444"
+        }
+      ],
+      "artifact": "3fabb65c-7a06-4421-a3ce-75512cac0d13",
+      "name": "核对成稿",
+      "version": 1,
+      "reviewer": "6ec8afe3-d444-42cd-aaee-d21cff194168",
+      "reviewedAt": "2026-11-22T17:25:01.738402Z",
+      "path": "artifacts/03-v1-deliverable.docx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "sha256": "339ff09fb75f6e28e47fdd8e6482f51f440283fca8c0777ffcbf23b93413d616"
+    }
+  ]
+}

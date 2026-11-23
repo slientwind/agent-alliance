@@ -1,0 +1,34 @@
+{
+  "batch": "smoke_50242dc32e",
+  "started": "2026-11-20T13:47:13.099953+00:00",
+  "ended": "2026-11-20T13:49:16.778401+00:00",
+  "kind": "real-open-source-integration",
+  "input": "Hello!",
+  "upstream": "https://github.com/a2aproject/a2a-samples/tree/209d47d5fc4012c7008b8d1ff3a040691ec11c5a/samples/python/agents/helloworld",
+  "commit": "209d47d5fc4012c7008b8d1ff3a040691ec11c5a",
+  "gitBlobs": {
+    "__main__.py": "c22a1684c3ba6f40813a36e2c803cecfb8005d48",
+    "agent_executor.py": "f895a7c5b2a49b11196a0106d7e1ec427516271c"
+  },
+  "sdkVersion": "0.3.0",
+  "deploymentChanges": [
+    "advertised HTTPS address",
+    "loopback TLS listener"
+  ],
+  "cloudModelCalls": 0,
+  "steps": [
+    "Discovered and registered original public card",
+    "Exact-match operation check with a recorded decision by its assigned test reviewer",
+    "Validated and published revision 1",
+    "Published service, application started one run, queried progress, and waited for human approval",
+    "Ran, reviewed, confirmed and verified delivery bytes and SHA-256"
+  ],
+  "status": "passed",
+  "trial": "df44d9c7-97ca-45b3-b5c9-d9631f091b2d",
+  "agent": "3b132413-8693-4489-ab46-825681648aa7",
+  "run": "6248f9bd-678d-4c7f-ba01-b9c2378cac52",
+  "service": "e860588d-fb32-4f54-8836-c9eeb920be3c",
+  "artifact": "abc07d35-be34-48c5-94c0-d428450a2f79",
+  "output": "Hello World",
+  "sha256": "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e"
+}

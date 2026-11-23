@@ -1,0 +1,44 @@
+[
+  {
+    "batch": "smoke_74571f225d",
+    "status": "failed",
+    "passedChecks": 0,
+    "note": "浏览器测试误将已展开的方案编辑区收起。已改为从实际可见的步骤选择器继续。"
+  },
+  {
+    "batch": "smoke_165882baaa",
+    "status": "passed",
+    "passedChecks": 1,
+    "note": "三种身份、撤权及原回执恢复的首次专项走查。"
+  },
+  {
+    "batch": "smoke_5388a52a91",
+    "status": "passed",
+    "passedChecks": 1,
+    "note": "提供方升级后重新申请原修订，另一个项目保留原修订并检查剩余次数。"
+  },
+  {
+    "batch": "smoke_97b0a0b239",
+    "status": "passed",
+    "passedChecks": 1,
+    "note": "增加服务发布隔离、实际承担方和到期移除检查。"
+  },
+  {
+    "batch": "smoke_ae88fa272d",
+    "status": "failed",
+    "passedChecks": 32,
+    "note": "新增的提供方回执屏障被纳入既有的三项故障场景，旧断言在额外场景失败。"
+  },
+  {
+    "batch": "smoke_7ea639c089",
+    "status": "failed",
+    "passedChecks": 32,
+    "note": "同一测试夹具问题在隔离副本中复现。修复后分别注册项目授权和工作进程故障场景。"
+  },
+  {
+    "batch": "smoke_0d5a8774df",
+    "status": "passed",
+    "passedChecks": 56,
+    "note": "分离提供方与进程故障场景后，完整回归通过。"
+  }
+]

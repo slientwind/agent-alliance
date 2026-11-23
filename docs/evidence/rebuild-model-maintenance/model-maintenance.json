@@ -1,0 +1,15 @@
+{
+  "provider": "controlled HTTPS",
+  "candidateRejected": true,
+  "sharedCredentialRepaired": true,
+  "independentCredentialPreserved": true,
+  "priorLifecycleRejected": true,
+  "revision": 1,
+  "generation": 2,
+  "ordinaryMemberExcluded": true,
+  "sealedVersions": [
+    1,
+    1,
+    2
+  ]
+}

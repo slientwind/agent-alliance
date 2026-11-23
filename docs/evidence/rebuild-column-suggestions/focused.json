@@ -1,0 +1,24 @@
+{
+  "started": "2026-11-23T06:26:18.918664+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "Column advice: one header-only model call, member-owned selections, exact reviewed workbook and withdrawn in-flight advice",
+    "Local Qwen and DuckDB produced a reviewed workbook from bilingual source headers"
+  ],
+  "columnSuggestions": "column-suggestions.json",
+  "localColumnSuggestions": "column-suggestions-local.json",
+  "ended": "2026-11-23T06:26:50.649654+00:00"
+}

@@ -1,0 +1,16 @@
+[
+  {
+    "revoked": "delegation",
+    "parsedBeforeRevocation": true,
+    "httpStatus": 403,
+    "runs": 0,
+    "objects": 0
+  },
+  {
+    "revoked": "application",
+    "parsedBeforeRevocation": true,
+    "httpStatus": 401,
+    "runs": 0,
+    "objects": 0
+  }
+]

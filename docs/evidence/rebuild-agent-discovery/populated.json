@@ -1,0 +1,23 @@
+{
+  "started": "2026-11-22T20:38:16.061545+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "Browser discovery in populated installation: quick-tools",
+    "Browser discovery in populated installation: image-agent-entry",
+    "Browser discovery in populated installation: agent-entry"
+  ],
+  "ended": "2026-11-22T20:39:00.856909+00:00"
+}

@@ -1,0 +1,18 @@
+{
+  "previous": "5cf71311-eb13-4053-9bc6-60d5dd0b93cd",
+  "delivery": "36438f84-f352-45c4-b2a6-6536333a305f",
+  "changes": [
+    {
+      "to": 3,
+      "from": 2,
+      "name": "\u533a\u57df\u6838\u7b97",
+      "step": 1,
+      "artifact": "e0eec216-45c0-424e-b4d6-795f5ed322a6",
+      "bodyChanged": false,
+      "fileChanged": true,
+      "dependenciesChanged": false
+    }
+  ],
+  "oldHash": "031da78dfff7848e06a8a39632b86bbbf4774c0b47c9fd071d305f7ef25fed68",
+  "newHash": "b8056f7c99d76d24ee16bbb32677f0e717c14a670d4bb067bfe7cc7023908d75"
+}

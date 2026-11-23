@@ -1,0 +1,12 @@
+{
+  "run": "477f7681-18bf-4306-a6d0-644477335ae9",
+  "progressDenied": true,
+  "ledger": {
+    "stage": "blocked",
+    "active": false,
+    "charges": 1,
+    "noAnswer": true,
+    "noCitation": true,
+    "revocationObserved": true
+  }
+}

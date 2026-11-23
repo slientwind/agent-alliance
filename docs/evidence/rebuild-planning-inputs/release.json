@@ -1,0 +1,12 @@
+{
+  "image": "sha256:6527fb98ff2364cc6586458664383e33caebfd22645a70db321e182869d371e9",
+  "webAssets": {
+    "index-CHwwnyro.js": "62ff33b0bb5abc2f01fda98c330f006af32725382f9af889d7025d020a352a81",
+    "index-kpRXS1aq.css": "ddbe087fd36fc8f52cc690bb1f70fe2e265c3d377c06c63283bc5e873a7ceadc",
+    "pdf.worker.min-wgc6bjNh.mjs": "f499515a0dc93d97787d693a75218a439675719283f56812067c036dcae1f8d5",
+    "pdf-CE_K4jFx.js": "cc2e67417cd9342a7d899b09f00c9dd2e4700ae503a71524ef6ecfc95cc7265b",
+    "work-9KsQLVzW.js": "9dc9ad76a412e81ba2b6998ad838c48f8f965d599bd9a9ab4a859b6cac29d24c"
+  },
+  "compatibleFrom": "sha256:f34af276a34d30a4297ddf11831277b322765e3c754db15f4df2cb1e3f3b4b7e",
+  "schema": "092_planning_request_history.sql"
+}

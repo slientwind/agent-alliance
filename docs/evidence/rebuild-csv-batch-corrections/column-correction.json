@@ -1,0 +1,28 @@
+{
+  "run": "1a2b8ca5-08ed-4ec4-8e6c-83b23c7373aa",
+  "attempts": 2,
+  "mappings": [
+    {
+      "source": "1c2c57b2-589d-4c88-8073-9bc8f6b61f37",
+      "version": 1,
+      "name": "west.csv",
+      "amount": "net_west"
+    },
+    {
+      "source": "80c26bff-1cea-4584-8527-c5be3d58fc21",
+      "version": 1,
+      "name": "east.csv",
+      "amount": "Amount"
+    }
+  ],
+  "body": "region · amount\nEast · 30.10\nWest · 60.20\n合计 · 90.30\n已核对 2 份输入，共 2 行，纳入 2 行。\n金额单位：未提供单位列，需核对同一口径\n筛选条件：status = ok",
+  "duplicateResponse": 202,
+  "unauthorized": 404,
+  "invalidColumn": 422,
+  "revoked": 409,
+  "purgedIssueRun": "c8c249e1-e868-4ee9-bc65-bbf7da5ee422",
+  "purgedMappingSource": "1c2c57b2-589d-4c88-8073-9bc8f6b61f37",
+  "budgetBlockedBeforeNewAttempt": true,
+  "extraCalls": 1,
+  "missingFiles": 2
+}

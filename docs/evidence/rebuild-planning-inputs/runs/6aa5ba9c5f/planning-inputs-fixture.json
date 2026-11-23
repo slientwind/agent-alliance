@@ -1,0 +1,105 @@
+[
+  {
+    "question": "请查证冷链交接规程：谁核对铅封，温度超过多少时暂停接收？请引用原文。",
+    "input": [
+      "private-regulation.txt"
+    ],
+    "status": "ready",
+    "result": {
+      "lookupSteps": [
+        1
+      ],
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "核对冷链交接规程中核对铅封的人员和暂停接收的温度。",
+      "agents": [
+        "96846966-1947-4f47-8037-69bcb3d1cf29"
+      ],
+      "missing": []
+    },
+    "plan": [
+      [
+        "text",
+        "search"
+      ],
+      [
+        "text",
+        "answer"
+      ]
+    ],
+    "answer": "值班主管核对编号，超过 8°C 暂停接收。\n\n原文依据\n[1] private-regulation.txt v1 【S1v1:1-32】冷链交接时由值班主管核对铅封编号，温度超过 8°C 时暂停接收。",
+    "run": "63ecb4ad-5b91-4b7f-818b-ce09d757a43c"
+  },
+  {
+    "question": "按 region 汇总两份 CSV 中的 amount 金额，交付一个 Excel。",
+    "input": [
+      "private-east.csv",
+      "private-west.csv"
+    ],
+    "status": "ready",
+    "result": {
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "汇总所有区域流水",
+      "agents": [
+        "0ae2628d-69bb-4f69-817e-e2ff1d4e1696"
+      ],
+      "missing": []
+    },
+    "plan": [
+      [
+        "aggregate",
+        ""
+      ]
+    ],
+    "answer": "region · amount\nEast · 30.10\nWest · 60.20\n合计 · 90.30\n已核对 2 份输入，共 2 行，纳入 2 行。\n金额单位：未提供单位列，需核对同一口径",
+    "run": "706f6136-58c5-497d-8304-eb42fb92e362"
+  },
+  {
+    "question": "直接回答探针",
+    "input": [
+      "private-regulation.txt"
+    ],
+    "status": "invalid"
+  },
+  {
+    "question": "错误步骤探针",
+    "input": [
+      "private-regulation.txt"
+    ],
+    "status": "invalid"
+  },
+  {
+    "question": "错误格式探针",
+    "input": [
+      "private-regulation.txt"
+    ],
+    "status": "invalid"
+  },
+  {
+    "question": "请查证冷链交接规程：谁核对铅封，温度超过多少时暂停接收？请引用原文。",
+    "input": [
+      "private-regulation.txt"
+    ],
+    "status": "ready",
+    "result": {
+      "lookupSteps": [
+        1
+      ],
+      "revisions": [
+        1
+      ],
+      "kind": "plan",
+      "text": "核对冷链交接规程中核对铅封的人员和暂停接收的温度。",
+      "agents": [
+        "96846966-1947-4f47-8037-69bcb3d1cf29"
+      ],
+      "missing": []
+    },
+    "postWithdrawal": "stale"
+  }
+]

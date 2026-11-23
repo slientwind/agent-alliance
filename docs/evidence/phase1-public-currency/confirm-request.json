@@ -1,0 +1,22 @@
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "method": "message/send",
+  "params": {
+    "message": {
+      "role": "user",
+      "messageId": "synth-confirm-gbp-02",
+      "contextId": "af86df32-612a-426a-970b-34c48b0a3b5b",
+      "taskId": "127fbf73-311c-4149-84df-10b962eb6f8d",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "GBP is confirmed. The lookup answers my question. Please provide your final result; no more information is needed."
+        }
+      ]
+    },
+    "configuration": {
+      "blocking": true
+    }
+  }
+}

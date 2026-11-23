@@ -1,0 +1,23 @@
+{
+  "workerExit": -9,
+  "permissionCheckedBeforeNewCall": true,
+  "completed": {
+    "run": "2c8a116e-944c-4246-a924-87eeb11eb884",
+    "calls": 3,
+    "attemptsPerStep": [
+      1,
+      2
+    ],
+    "amount": "42.17",
+    "delivery": "23d5f937-d76b-4291-b53d-2bc6cdf090cf"
+  },
+  "withdrawn": {
+    "run": "388fb1c3-d0e2-4c69-b23f-8c749b4575e5",
+    "calls": 2,
+    "attemptsPerStep": [
+      1,
+      1
+    ],
+    "status": "blocked"
+  }
+}

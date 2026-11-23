@@ -1,0 +1,40 @@
+{
+  "all": 4,
+  "more": false,
+  "name": "新品资料.txt",
+  "page": 1,
+  "pin": 1,
+  "rows": [
+    {
+      "text": "编号 CW-01，容量 480 mL，杯身海蓝色，包装含杯和说明卡。",
+      "start": 1,
+      "end": 34,
+      "matches": [],
+      "suggested": 1
+    },
+    {
+      "text": "保温时长尚无测量资料。",
+      "start": 35,
+      "end": 45,
+      "matches": [],
+      "suggested": 2
+    },
+    {
+      "text": "零售价暂未给出。",
+      "start": 46,
+      "end": 53,
+      "matches": [],
+      "suggested": 2
+    },
+    {
+      "text": "交付前由产品审核人核对规格。",
+      "start": 54,
+      "end": 67,
+      "matches": [],
+      "suggested": 2
+    }
+  ],
+  "total": 4,
+  "unmatched": 4,
+  "version": 1
+}

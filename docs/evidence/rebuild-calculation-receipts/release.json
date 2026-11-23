@@ -1,0 +1,11 @@
+{
+  "image": "sha256:bd3d088e226b59f19adc4a0806c5aee344595c51a2fef3f4f92a7d22d8047e66",
+  "webAssets": {
+    "index-DIHhFD-u.js": "e84511988ebb7ed8030a6e6ec75b791c40f26b45b6ad6b9732e50b93f85ce07f",
+    "index-kpRXS1aq.css": "ddbe087fd36fc8f52cc690bb1f70fe2e265c3d377c06c63283bc5e873a7ceadc",
+    "pdf-CE_K4jFx.js": "cc2e67417cd9342a7d899b09f00c9dd2e4700ae503a71524ef6ecfc95cc7265b",
+    "pdf.worker.min-wgc6bjNh.mjs": "f499515a0dc93d97787d693a75218a439675719283f56812067c036dcae1f8d5",
+    "work-CunylpOc.js": "e076e02021254efc2bff602d257fe0acf13dc37353d1e93f3ecc4a4b70ad11fc"
+  },
+  "schema": "094_calculation_receipts.sql"
+}

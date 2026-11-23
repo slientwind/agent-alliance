@@ -1,0 +1,13 @@
+{
+  "model": "capability-probe",
+  "finish": "stop",
+  "response": "动作｜相关能力或对象｜原因  \n先做无价格的布局｜图像助手｜可以继续的工作和还不能承诺的结果  \n可以继续的工作：继续进行无价格布局的制作  \n还不能承诺的结果：售价尚未确定，因此无法进行价格相关的布局。",
+  "usage": {
+    "completion_tokens": 57,
+    "prompt_tokens": 141,
+    "total_tokens": 198,
+    "prompt_tokens_details": {
+      "cached_tokens": 87
+    }
+  }
+}

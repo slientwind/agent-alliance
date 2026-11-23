@@ -1,0 +1,215 @@
+{
+  "database": "17.7",
+  "checks": {
+    "competing_known": {
+      "observed": [
+        "prepared",
+        "budget unavailable",
+        "blocking_pid_observed",
+        "0.00,7.00,3.00"
+      ],
+      "expected": [
+        "prepared",
+        "budget unavailable",
+        "blocking_pid_observed",
+        "0.00,7.00,3.00"
+      ],
+      "passed": true
+    },
+    "idempotent_prepare": {
+      "observed": [
+        "existing",
+        "conflict",
+        "0.00,7.00,3.00"
+      ],
+      "expected": [
+        "existing",
+        "conflict",
+        "0.00,7.00,3.00"
+      ],
+      "passed": true
+    },
+    "duplicate_bill": {
+      "observed": [
+        "recorded",
+        "existing",
+        "blocking_pid_observed",
+        "6.00,0.00,4.00"
+      ],
+      "expected": [
+        "recorded",
+        "existing",
+        "blocking_pid_observed",
+        "6.00,0.00,4.00"
+      ],
+      "passed": true
+    },
+    "new_estimate_after_settlement": {
+      "observed": "budget unavailable",
+      "expected": "budget unavailable",
+      "passed": true
+    },
+    "billing_scope_and_adjustments": {
+      "observed": [
+        "prepared",
+        "recorded",
+        "prepared",
+        "recorded",
+        "conflict",
+        "recorded",
+        "existing",
+        "6.50,0.00,3.50",
+        "1.00,0.00,9.00"
+      ],
+      "expected": [
+        "prepared",
+        "recorded",
+        "prepared",
+        "recorded",
+        "conflict",
+        "recorded",
+        "existing",
+        "6.50,0.00,3.50",
+        "1.00,0.00,9.00"
+      ],
+      "passed": true
+    },
+    "atomic_parent_and_child": {
+      "observed": [
+        "budget unavailable",
+        "0.00,0.00,10.00",
+        "0.00,0.00,5.00",
+        "0"
+      ],
+      "expected": [
+        "budget unavailable",
+        "0.00,0.00,10.00",
+        "0.00,0.00,5.00",
+        "0"
+      ],
+      "passed": true
+    },
+    "cancel_start": {
+      "observed": "prepared",
+      "expected": "prepared",
+      "passed": true
+    },
+    "cancelled_pending_and_late_bill": {
+      "observed": [
+        "0.00,7.00,3.00",
+        "recorded",
+        "8.00,0.00,2.00",
+        "cancelled"
+      ],
+      "expected": [
+        "0.00,7.00,3.00",
+        "recorded",
+        "8.00,0.00,2.00",
+        "cancelled"
+      ],
+      "passed": true
+    },
+    "unsubmitted_reservation": {
+      "observed": "prepared",
+      "expected": "prepared",
+      "passed": true
+    },
+    "release_unsent": {
+      "observed": "8.00,0.00,2.00",
+      "expected": "8.00,0.00,2.00",
+      "passed": true
+    },
+    "unknown_denials": {
+      "observed": [
+        "permit unavailable",
+        "permit unavailable",
+        "permit unavailable",
+        "permit unavailable"
+      ],
+      "expected": [
+        "permit unavailable",
+        "permit unavailable",
+        "permit unavailable",
+        "permit unavailable"
+      ],
+      "passed": true
+    },
+    "one_unknown_permit": {
+      "observed": [
+        "prepared",
+        "permit unavailable",
+        "blocking_pid_observed",
+        "t",
+        "0"
+      ],
+      "expected": [
+        "prepared",
+        "permit unavailable",
+        "blocking_pid_observed",
+        "t",
+        "0"
+      ],
+      "passed": true
+    },
+    "unknown_real_bill_exceeds": {
+      "observed": [
+        "recorded",
+        "14.00,0.00,-4.00",
+        "budget unavailable"
+      ],
+      "expected": [
+        "recorded",
+        "14.00,0.00,-4.00",
+        "budget unavailable"
+      ],
+      "passed": true
+    },
+    "candidate_thresholds": {
+      "observed": [
+        [
+          79,
+          "f",
+          "prepared"
+        ],
+        [
+          80,
+          "t",
+          "prepared"
+        ],
+        [
+          99,
+          "t",
+          "budget unavailable"
+        ],
+        [
+          100,
+          "t",
+          "budget unavailable"
+        ]
+      ],
+      "expected": [
+        [
+          79,
+          "f",
+          "prepared"
+        ],
+        [
+          80,
+          "t",
+          "prepared"
+        ],
+        [
+          99,
+          "t",
+          "budget unavailable"
+        ],
+        [
+          100,
+          "t",
+          "budget unavailable"
+        ]
+      ],
+      "passed": true
+    }
+  }
+}

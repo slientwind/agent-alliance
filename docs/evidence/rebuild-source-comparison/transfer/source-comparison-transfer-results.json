@@ -1,0 +1,41 @@
+[
+  {
+    "case": "archive",
+    "project": "c0a13bd3-254b-4f16-b7bf-21dcab4d392a",
+    "sourceId": "0f64d7b7-4310-4538-8fb2-ac5fc65ac468",
+    "sourceVersion": 1,
+    "stage": "review",
+    "actualText": "## 接收  \n接收前由档案员与送交人共同核对箱号。  \n\n## 扫描  \n扫描分辨率为 300 dpi。含个人信息的页只在馆内工作站处理。  \n\n## 归档  \n归档时由复核员核对页数。缺页须挂起，不得标为完成。",
+    "artifact": "deliverable.pptx",
+    "attempts": [
+      {
+        "step": 1,
+        "status": "completed",
+        "tokens": 421
+      },
+      {
+        "step": 2,
+        "status": "completed",
+        "tokens": null
+      }
+    ],
+    "pages": 3,
+    "facts": [
+      {
+        "title": "接收",
+        "titleMatches": true,
+        "missing": []
+      },
+      {
+        "title": "扫描",
+        "titleMatches": true,
+        "missing": []
+      },
+      {
+        "title": "归档",
+        "titleMatches": true,
+        "missing": []
+      }
+    ]
+  }
+]

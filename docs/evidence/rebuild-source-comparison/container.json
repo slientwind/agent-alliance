@@ -1,0 +1,10 @@
+{
+  "artifact": "root Dockerfile release image",
+  "image": "sha256:3097ef2be0972e07e0ab9edf022fa02c2695394faa1984bc63930e4c787a69c8",
+  "runtimeUser": "alliance",
+  "schema": "schema/089_verified_document_format.sql",
+  "servedWebBundle": "/assets/index-D9xq-CCW.js",
+  "initialAdministrator": true,
+  "oneJoinedTeam": true,
+  "readOnlyFilesystem": true
+}

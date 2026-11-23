@@ -1,0 +1,28 @@
+{
+  "provider": "controlled HTTPS, synthetic data",
+  "firstAdmin": "opened setup",
+  "independentConnectivityProbe": true,
+  "probeReplayRows": 1,
+  "failedTrialConnected": true,
+  "plannerAdopted": true,
+  "preservedSourceAfterPlanning": true,
+  "readyBeforePublication": false,
+  "reviewedBeforePass": true,
+  "feedbackRevisions": [
+    1,
+    1,
+    2
+  ],
+  "replayedProject": "125a6d27-8e2b-490e-914a-b0d10b242860",
+  "privateProjectHidden": true,
+  "memberTemplate": {
+    "selected": "da298d90-d424-491b-913b-cdb9a649ca66",
+    "revision": 1
+  },
+  "disabledModelReadyCount": 1,
+  "connectionLedgerRows": 1,
+  "package": {
+    "approvedItems": 3,
+    "checkedWordBody": true
+  }
+}

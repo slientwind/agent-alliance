@@ -1,0 +1,19 @@
+[
+  {
+    "run": "8ac32d36-f27a-426c-8c29-595902120d73",
+    "calls": 2,
+    "amount": "78.50",
+    "packageSHA256": "5fa6444908f9ab899a38b1bbdf04f9e5b144bbc521235a07692aad0825585bed"
+  },
+  {
+    "run": "4893983e-e092-499e-93ed-0b92c7250fbf",
+    "calls": 2,
+    "amount": "26.05",
+    "packageSHA256": "4f5a57df28b34e40efdbd6fa416eeaa208920d831c3c6654a98c9a6262fb0cc2"
+  },
+  {
+    "run": "0670bf09-c476-4fd1-94e7-51847e93f12f",
+    "calls": 1,
+    "result": "needs_review"
+  }
+]

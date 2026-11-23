@@ -1,0 +1,16 @@
+{
+  "priorGrantIncludesFinancialExport": false,
+  "historicalSummaryPreserved": true,
+  "exactBoundary": 10000,
+  "overLimitFileGenerated": false,
+  "unallocatedEnterpriseCalls": 9999,
+  "callsAssignedToPayer": 1,
+  "knownTotals": {
+    "calls": 1,
+    "tokens": 0,
+    "pending": 1,
+    "unknown": 0,
+    "recordedCny": "0.000001",
+    "remainingEstimateCny": "0.120001"
+  }
+}

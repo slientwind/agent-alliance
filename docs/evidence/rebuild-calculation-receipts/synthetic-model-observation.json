@@ -1,0 +1,10 @@
+{
+  "test": "smoke_c48704621c",
+  "input": "synthetic",
+  "captured": "final user message and reply of the local model",
+  "unselectedMarkerInRecordedInputs": false,
+  "calculation": {
+    "input": "上一步成果供参考：\n[1] 本次结算.txt v1 【S2v1:1-16】住宿结算实付 528.50 元。\n[2] 差旅标准.txt v1 【S1v1:1-16】单晚住宿报销标准为 450 元。\n\n可用金额编号（取自以上引文）：\n金额 1 = 528.50 元，出自引文 [1]\n金额 2 = 450 元，出自引文 [2]\n",
+    "reply": "{\"calculation\":{\"operation\":\"difference\",\"operands\":[1,2]}}"
+  }
+}

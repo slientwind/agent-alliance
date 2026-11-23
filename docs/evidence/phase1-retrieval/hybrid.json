@@ -1,0 +1,280 @@
+[
+  {
+    "case_id": "K01",
+    "query": "设备归还时由谁核对设备编号并登记？",
+    "expected_first": "training-v2.4",
+    "rationale": "须引用保管员条款",
+    "batch": "cases.tsv",
+    "lexical": [
+      "training-v2.4",
+      "training-v2.2"
+    ],
+    "semantic": [
+      "training-v2.4",
+      "training-v2.2"
+    ],
+    "hits": [
+      "training-v2.4",
+      "training-v2.2"
+    ],
+    "actual": "training-v2.4",
+    "passed": true
+  },
+  {
+    "case_id": "K02",
+    "query": "跨部门借用还需要谁确认？",
+    "expected_first": "training-v2.3",
+    "rationale": "仅新版规定接收部门负责人",
+    "batch": "cases.tsv",
+    "lexical": [
+      "training-v2.3",
+      "training-v2.2"
+    ],
+    "semantic": [
+      "training-v2.3",
+      "training-v2.2"
+    ],
+    "hits": [
+      "training-v2.3",
+      "training-v2.2"
+    ],
+    "actual": "training-v2.3",
+    "passed": true
+  },
+  {
+    "case_id": "K03",
+    "query": "遗失时报告谁？",
+    "expected_first": "training-v2.5",
+    "rationale": "须引用遗失条款",
+    "batch": "cases.tsv",
+    "lexical": [
+      "training-v2.5"
+    ],
+    "semantic": [
+      "training-v2.5"
+    ],
+    "hits": [
+      "training-v2.5"
+    ],
+    "actual": "training-v2.5",
+    "passed": true
+  },
+  {
+    "case_id": "K04",
+    "query": "CW-01 的容量是多少 mL？",
+    "expected_first": "product-v2.2",
+    "rationale": "新版为420 mL",
+    "batch": "cases.tsv",
+    "lexical": [
+      "product-v2.2"
+    ],
+    "semantic": [],
+    "hits": [
+      "product-v2.2"
+    ],
+    "actual": "product-v2.2",
+    "passed": true
+  },
+  {
+    "case_id": "K05",
+    "query": "设备弄丢了找谁？",
+    "expected_first": "training-v2.5",
+    "rationale": "同义词不能靠原词照抄",
+    "batch": "cases.tsv",
+    "lexical": [
+      "training-v2.4"
+    ],
+    "semantic": [],
+    "hits": [
+      "training-v2.4"
+    ],
+    "actual": "training-v2.4",
+    "passed": false
+  },
+  {
+    "case_id": "K06",
+    "query": "借设备之前要说明拿来干什么吗？",
+    "expected_first": "training-v2.2",
+    "rationale": "口语改写",
+    "batch": "cases.tsv",
+    "lexical": [],
+    "semantic": [
+      "training-v2.2",
+      "training-v2.3"
+    ],
+    "hits": [
+      "training-v2.2",
+      "training-v2.3"
+    ],
+    "actual": "training-v2.2",
+    "passed": true
+  },
+  {
+    "case_id": "K07",
+    "query": "谁负责报销差旅费？",
+    "expected_first": "EMPTY",
+    "rationale": "授权资料无此答案",
+    "batch": "cases.tsv",
+    "lexical": [],
+    "semantic": [],
+    "hits": [],
+    "actual": "EMPTY",
+    "passed": true
+  },
+  {
+    "case_id": "K08",
+    "query": "保温时长是多少？",
+    "expected_first": "product-v2.3",
+    "rationale": "只能答尚无测量资料",
+    "batch": "cases.tsv",
+    "lexical": [
+      "product-v2.3"
+    ],
+    "semantic": [
+      "product-v2.3"
+    ],
+    "hits": [
+      "product-v2.3"
+    ],
+    "actual": "product-v2.3",
+    "passed": true
+  },
+  {
+    "case_id": "K09",
+    "query": "不慎把借来的器材弄没了，第一时间联系谁？",
+    "expected_first": "training-v2.5",
+    "rationale": "遗失的独立口语改写",
+    "batch": "additional-cases.tsv",
+    "lexical": [],
+    "semantic": [],
+    "hits": [],
+    "actual": "EMPTY",
+    "passed": false
+  },
+  {
+    "case_id": "K10",
+    "query": "CW-01 卖多少钱？",
+    "expected_first": "product-v2.2",
+    "rationale": "同句内同时含容量和售价",
+    "batch": "additional-cases.tsv",
+    "lexical": [
+      "product-v2.2"
+    ],
+    "semantic": [],
+    "hits": [
+      "product-v2.2"
+    ],
+    "actual": "product-v2.2",
+    "passed": true
+  },
+  {
+    "case_id": "K11",
+    "query": "这个杯子的标准质保期是几年？",
+    "expected_first": "EMPTY",
+    "rationale": "资料未给出保修期限",
+    "batch": "additional-cases.tsv",
+    "lexical": [],
+    "semantic": [],
+    "hits": [],
+    "actual": "EMPTY",
+    "passed": true
+  },
+  {
+    "case_id": "K12",
+    "query": "课件里应当写谁在归还时登记？",
+    "expected_first": "training-v2.4",
+    "rationale": "须引用归还登记条款",
+    "batch": "additional-cases.tsv",
+    "lexical": [
+      "training-v2.4",
+      "training-v2.2"
+    ],
+    "semantic": [
+      "training-v2.4",
+      "training-v2.2"
+    ],
+    "hits": [
+      "training-v2.4",
+      "training-v2.2"
+    ],
+    "actual": "training-v2.4",
+    "passed": true
+  },
+  {
+    "case_id": "K13",
+    "query": "CW-01 包装内含什么？",
+    "expected_first": "product-v2.2",
+    "rationale": "编号与包装清单在同一句",
+    "batch": "hybrid-new-cases.tsv",
+    "lexical": [
+      "product-v2.2"
+    ],
+    "semantic": [],
+    "hits": [
+      "product-v2.2"
+    ],
+    "actual": "product-v2.2",
+    "passed": true
+  },
+  {
+    "case_id": "K14",
+    "query": "领取设备时需要谁确认用途？",
+    "expected_first": "training-v2.2",
+    "rationale": "普通领取",
+    "batch": "hybrid-new-cases.tsv",
+    "lexical": [
+      "training-v2.2"
+    ],
+    "semantic": [
+      "training-v2.2"
+    ],
+    "hits": [
+      "training-v2.2"
+    ],
+    "actual": "training-v2.2",
+    "passed": true
+  },
+  {
+    "case_id": "K15",
+    "query": "资料里有随行杯的耐摔高度吗？",
+    "expected_first": "EMPTY",
+    "rationale": "缺少该指标",
+    "batch": "hybrid-new-cases.tsv",
+    "lexical": [
+      "product-v2.3",
+      "training-v2.1",
+      "product-v2.4"
+    ],
+    "semantic": [],
+    "hits": [
+      "product-v2.3",
+      "training-v2.1",
+      "product-v2.4"
+    ],
+    "actual": "product-v2.3",
+    "passed": false
+  },
+  {
+    "case_id": "K16",
+    "query": "遗失设备时能不能等到明天再报告？",
+    "expected_first": "training-v2.5",
+    "rationale": "立即报告要求",
+    "batch": "hybrid-new-cases.tsv",
+    "lexical": [
+      "training-v2.5",
+      "training-v2.4",
+      "training-v2.2"
+    ],
+    "semantic": [
+      "training-v2.5",
+      "training-v2.2"
+    ],
+    "hits": [
+      "training-v2.5",
+      "training-v2.2",
+      "training-v2.4"
+    ],
+    "actual": "training-v2.5",
+    "passed": true
+  }
+]

@@ -1,0 +1,21 @@
+{
+  "run": "c778da28-2ff4-41ed-afcd-5deba4fd3753",
+  "searchArtifact": "eb07e20f-2ee4-47b3-b5ec-931a38dd57ce",
+  "initialCalls": 1,
+  "finalCalls": 3,
+  "original": 2,
+  "amendment": 3,
+  "pins": [
+    {
+      "id": "8bf005df-e5fc-45cb-8ca9-4695bb412998",
+      "version": 1
+    },
+    {
+      "id": "1af147a6-9c62-4cbc-a2f6-bf95fa49a017",
+      "version": 1,
+      "receiptStep": 2
+    }
+  ],
+  "answer": "差额为 78.50 元。\n528.50 元 [1] − 450 元 [2] = 78.50 元\n\n原文依据\n[1] 本次结算.txt v1 【S2v1:1-16】住宿结算实付 528.50 元。\n[2] 差旅标准.txt v1 【S1v1:1-16】单晚住宿报销标准为 450 元。",
+  "replay": 202
+}

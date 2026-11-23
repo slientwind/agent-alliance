@@ -1,0 +1,264 @@
+{
+  "beforeCompare": {
+    "all": 3,
+    "more": false,
+    "name": "制度原件.txt",
+    "page": 1,
+    "pin": 1,
+    "rows": [
+      {
+        "text": "仓库编号为 QK-94。",
+        "start": 1,
+        "end": 12,
+        "hash": "0ba3d72f9eeb844338f7c899697c1873ee3f090310462be5c566e8d379e0a52e",
+        "matches": [],
+        "suggested": 1
+      },
+      {
+        "text": "仓库 QK-94 的设备经部门负责人确认后领取。",
+        "start": 13,
+        "end": 36,
+        "hash": "4677737e2ab2c6ce7c6957554d48cb6cec255081ba256edf13a8f11059b6e350",
+        "matches": [
+          1
+        ]
+      },
+      {
+        "text": "归还时由保管员核对设备编号并登记。",
+        "start": 37,
+        "end": 53,
+        "hash": "50dccdddee267cd0b516d6d06815d7b9efe60723b6d319c35f3dab7b91f76e1a",
+        "matches": [],
+        "suggested": 2
+      }
+    ],
+    "total": 3,
+    "unmatched": 2,
+    "version": 1
+  },
+  "afterCompare": {
+    "all": 3,
+    "more": false,
+    "name": "制度原件.txt",
+    "page": 1,
+    "pin": 1,
+    "rows": [
+      {
+        "text": "仓库编号为 QK-94。",
+        "start": 1,
+        "end": 12,
+        "hash": "0ba3d72f9eeb844338f7c899697c1873ee3f090310462be5c566e8d379e0a52e",
+        "matches": [],
+        "suggested": 1
+      },
+      {
+        "text": "仓库 QK-94 的设备经部门负责人确认后领取。",
+        "start": 13,
+        "end": 36,
+        "hash": "4677737e2ab2c6ce7c6957554d48cb6cec255081ba256edf13a8f11059b6e350",
+        "matches": [
+          1
+        ]
+      },
+      {
+        "text": "归还时由保管员核对设备编号并登记。",
+        "start": 37,
+        "end": 53,
+        "hash": "50dccdddee267cd0b516d6d06815d7b9efe60723b6d319c35f3dab7b91f76e1a",
+        "matches": [
+          2
+        ]
+      }
+    ],
+    "total": 3,
+    "unmatched": 1,
+    "version": 2
+  },
+  "filtered": {
+    "all": 3,
+    "more": false,
+    "name": "制度原件.txt",
+    "page": 1,
+    "pin": 1,
+    "rows": [
+      {
+        "text": "仓库编号为 QK-94。",
+        "start": 1,
+        "end": 12,
+        "hash": "0ba3d72f9eeb844338f7c899697c1873ee3f090310462be5c566e8d379e0a52e",
+        "matches": [],
+        "suggested": 1
+      }
+    ],
+    "total": 1,
+    "unmatched": 1,
+    "version": 2
+  },
+  "originalText": {
+    "all": 3,
+    "more": false,
+    "name": "制度原件.txt",
+    "page": 1,
+    "pin": 1,
+    "rows": [
+      {
+        "text": "仓库编号为 QK-94。",
+        "start": 1,
+        "end": 12,
+        "hash": "0ba3d72f9eeb844338f7c899697c1873ee3f090310462be5c566e8d379e0a52e",
+        "matches": []
+      },
+      {
+        "text": "仓库 QK-94 的设备经部门负责人确认后领取。",
+        "start": 13,
+        "end": 36,
+        "hash": "4677737e2ab2c6ce7c6957554d48cb6cec255081ba256edf13a8f11059b6e350",
+        "matches": [
+          1
+        ]
+      },
+      {
+        "text": "归还时由保管员核对设备编号并登记。",
+        "start": 37,
+        "end": 53,
+        "hash": "50dccdddee267cd0b516d6d06815d7b9efe60723b6d319c35f3dab7b91f76e1a",
+        "matches": []
+      }
+    ],
+    "total": 3,
+    "unmatched": 2,
+    "version": 1
+  },
+  "appendixPage1": {
+    "all": 15,
+    "more": true,
+    "name": "附加说明.txt",
+    "page": 1,
+    "pin": 1,
+    "rows": [
+      {
+        "text": "归还时由保管员登记？",
+        "start": 1,
+        "end": 10,
+        "hash": "3cc69e277fc286df23c381d87e48cd2e1131368b66584c4e0572ca9122c9d90e",
+        "matches": [],
+        "suggested": 2
+      },
+      {
+        "text": "归还时由保管员登记。",
+        "start": 12,
+        "end": 21,
+        "hash": "b09f7c307962f012313bd3aedc36dabb02435f63f9bc3aaaa29f11ca7298c12b",
+        "matches": [
+          2
+        ]
+      },
+      {
+        "text": "📝 附加说明 1。",
+        "start": 23,
+        "end": 31,
+        "hash": "823a26b95a2e3e513e6f120e6646a7d4befc469ae20a13e1d8df40f2b9d3881c",
+        "matches": []
+      },
+      {
+        "text": "📝 附加说明 2。",
+        "start": 33,
+        "end": 41,
+        "hash": "580544f31216ef6da378b9f6dc76ab2a0456a0a82ff2d3a90ef69069dce3efdc",
+        "matches": []
+      },
+      {
+        "text": "📝 附加说明 3。",
+        "start": 43,
+        "end": 51,
+        "hash": "644823e5549818ba1c583291ef92c7bda7f2e4091e94235af383117885eaeeb3",
+        "matches": []
+      },
+      {
+        "text": "📝 附加说明 4。",
+        "start": 53,
+        "end": 61,
+        "hash": "7a927b670ab076d855be56f5e48df629b16d708feaa9aec914761c73d8b393e4",
+        "matches": []
+      },
+      {
+        "text": "📝 附加说明 5。",
+        "start": 63,
+        "end": 71,
+        "hash": "9bd77bb0cec63fa5112c26a52e883647345b9c2cc6085c8b4ad53361bc301287",
+        "matches": []
+      },
+      {
+        "text": "📝 附加说明 6。",
+        "start": 73,
+        "end": 81,
+        "hash": "1d201f51a17c91e42cff4718ba7dfb22be2d6a03a6abb5d1960db7d454194379",
+        "matches": []
+      },
+      {
+        "text": "📝 附加说明 7。",
+        "start": 83,
+        "end": 91,
+        "hash": "f6cb6765c7a9b667477ec5197f654b397be6d14aa45dfd418888fd814d86ac33",
+        "matches": []
+      },
+      {
+        "text": "📝 附加说明 8。",
+        "start": 93,
+        "end": 101,
+        "hash": "93a3da6545caddaaa8354f540a909d5516b534451c71e8ad6aedbc79cdca0446",
+        "matches": []
+      },
+      {
+        "text": "📝 附加说明 9。",
+        "start": 103,
+        "end": 111,
+        "hash": "12ce6468579f4c64a7e3c4bd9fdf7b1726b87b7c8e03a0cd592d38d7a977a1af",
+        "matches": []
+      },
+      {
+        "text": "📝 附加说明 10。",
+        "start": 113,
+        "end": 122,
+        "hash": "643797a87b2763326139ff7d7230dcfcd26a21eea8e59e9b1ffdbc311f198112",
+        "matches": []
+      }
+    ],
+    "total": 15,
+    "unmatched": 14,
+    "version": 1
+  },
+  "appendixPage2": {
+    "all": 15,
+    "more": false,
+    "name": "附加说明.txt",
+    "page": 2,
+    "pin": 1,
+    "rows": [
+      {
+        "text": "📝 附加说明 11。",
+        "start": 124,
+        "end": 133,
+        "hash": "ea958879e1d55a92d0302681a9c77098b4719ee6a34fcad0fe16ed59a6d11408",
+        "matches": []
+      },
+      {
+        "text": "📝 附加说明 12。",
+        "start": 135,
+        "end": 144,
+        "hash": "369f89ff1db5752c16413025c906963c86356195911007041c0916cf46aa763e",
+        "matches": []
+      },
+      {
+        "text": "📝 附加说明 13。",
+        "start": 146,
+        "end": 155,
+        "hash": "36fc6416a314de40e363aa2012d370f7c61e2de72d63c03f83cd7d18f3a46c22",
+        "matches": []
+      }
+    ],
+    "total": 15,
+    "unmatched": 14,
+    "version": 1
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "focused": [
+    {
+      "batch": "smoke_cb598b1496",
+      "status": "failed",
+      "checks": [
+        "real storage + TLS fixture + model and external A2A register/verify/publish OK"
+      ],
+      "error": "Chromium response body was released during page navigation"
+    },
+    {
+      "batch": "smoke_71c46227f0",
+      "status": "passed",
+      "checks": [
+        "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+        "Source-grounded money calculation, TLS protocol fixture",
+        "Real local Qwen browser tests"
+      ]
+    },
+    {
+      "batch": "smoke_ee6ba26aee",
+      "status": "passed",
+      "checks": [
+        "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+        "Source-grounded money calculation, TLS protocol fixture",
+        "Real local Qwen browser tests"
+      ]
+    },
+    {
+      "batch": "smoke_b9a838ff4f",
+      "status": "passed",
+      "checks": [
+        "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+        "Source-grounded money calculation, TLS protocol fixture",
+        "Real local Qwen browser tests"
+      ]
+    }
+  ],
+  "fullRegression": {
+    "batch": "smoke_56bede0b29",
+    "status": "passed",
+    "checks": 87
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "delegatedRun": "83166ced-6c66-4968-a659-716de1f644e6",
+  "ownedByApplication": "12486c57-b23d-400e-a1b7-a620c298bff6",
+  "webProject": "10b7375a-aa16-442b-b45f-d6c056c45787",
+  "withdrawnDelegation": "46702d25-42f4-4876-b884-44b578fc2a4f",
+  "expectedTotal": "90.30",
+  "callsPerCompletedRun": 3,
+  "confirmedEvents": 1,
+  "originalFiles": 2,
+  "staleDelegationResponse": "stale",
+  "providerCalls": {
+    "valid": 2,
+    "withdrawal": 1
+  },
+  "verifiedWorkbooks": [
+    "delegated",
+    "reviewer"
+  ]
+}

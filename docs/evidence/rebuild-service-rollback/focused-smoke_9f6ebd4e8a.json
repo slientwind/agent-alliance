@@ -1,0 +1,30 @@
+{
+  "started": "2026-11-23T11:32:27.167266+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "failed",
+  "checks": [
+    "Image contract: PNG validation, human qualification, planner isolation, project preview, approved immutable original",
+    "Member service page from shared link or recommendation: version consent, pinned attachment, replay, separate reviewer and approved Word delivery",
+    "Credential rotation via Chromium: provider rejection, explicit verification, independent Agent key and pinned revision preserved",
+    "Fresh enterprise setup in Chromium: concrete team model, three validated Agents, explicit approval and fixed Word delivery",
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK"
+  ],
+  "imageGeneration": "image-generation.json",
+  "teamSetup": "team-setup.json",
+  "serviceEntry": "service-entry.json",
+  "modelMaintenance": "model-maintenance.json",
+  "failureType": "CalledProcessError",
+  "failureLine": 528,
+  "ended": "2026-11-23T11:32:56.404045+00:00"
+}

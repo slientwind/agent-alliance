@@ -1,0 +1,209 @@
+[
+  {
+    "batch": "6284615ce2",
+    "status": "failed",
+    "checks": 1,
+    "note": "首次验收构造了模型 Agent 接口不接收的 team 参数；改用模型的归属团队。",
+    "report": "runs/6284615ce2/result.json"
+  },
+  {
+    "batch": "6aa5ba9c5f",
+    "status": "failed",
+    "checks": 2,
+    "note": "真实规划模型在已有附件时要求重复上传。受控协议通过。",
+    "report": "runs/6aa5ba9c5f/result.json"
+  },
+  {
+    "batch": "ea5a4af8c5",
+    "status": "failed",
+    "checks": 2,
+    "note": "真实规划模型选到了文本 Agent，遗漏了额外的检索步骤标记。",
+    "report": "runs/ea5a4af8c5/result.json"
+  },
+  {
+    "batch": "dc6857416f",
+    "status": "failed",
+    "checks": 2,
+    "note": "查证选项生效。真实模型为可独立生成 Excel 的工具追加了一次无须执行的核对。",
+    "report": "runs/dc6857416f/result.json"
+  },
+  {
+    "batch": "7b8d04dbd7",
+    "status": "passed",
+    "checks": 3,
+    "note": "本地模型与受控回执均分别完成规程及汇总交付。",
+    "report": "runs/7b8d04dbd7/result.json"
+  },
+  {
+    "batch": "3b15fd5f49",
+    "status": "passed",
+    "checks": 3,
+    "note": "执行要求保留用户原问题，保留取消勾选的资料，按工作簿原件复核金额。",
+    "report": "runs/3b15fd5f49/result.json"
+  },
+  {
+    "batch": "7d4732932b",
+    "status": "failed",
+    "checks": 2,
+    "note": "新加入的澄清案例中，受控模型通过，真实模型对不明确委托推荐不匹配的计算，平台拒绝。",
+    "report": "runs/7d4732932b/result.json"
+  },
+  {
+    "batch": "21b3db93d1",
+    "status": "failed",
+    "checks": 1,
+    "note": "单独记录真实模型原始回复，确认没有 CSV 时模型仍尝试汇总。未执行。",
+    "report": "runs/21b3db93d1/result.json"
+  },
+  {
+    "batch": "70007ad32f",
+    "status": "passed",
+    "checks": 2,
+    "note": "推荐前按资料类型过滤，并明确澄清结果的结构，真实模型追问及刷新后的范围通过。",
+    "report": "runs/70007ad32f/result.json"
+  },
+  {
+    "batch": "35106bedfe",
+    "status": "passed",
+    "checks": 3,
+    "note": "协议异常、撤权及真实冷链、区域流水、两次澄清规划通过。",
+    "report": "runs/35106bedfe/result.json"
+  },
+  {
+    "batch": "f3ed6189a5",
+    "status": "failed",
+    "checks": 51,
+    "note": "早期整套回归。旧版无附件规划失效后，网页重试键漏掉了原建议 ID，随后修复。",
+    "report": "runs/f3ed6189a5/result.json"
+  },
+  {
+    "batch": "ac34d9de31",
+    "status": "failed",
+    "checks": 51,
+    "note": "中间快照的整套回归，仍包含旧版空范围重试问题。",
+    "report": "runs/ac34d9de31/result.json"
+  },
+  {
+    "batch": "22817c6d15",
+    "status": "failed",
+    "checks": 51,
+    "note": "保留资料选择的中间整套快照，尚未修复旧版空范围重试键。",
+    "report": "runs/22817c6d15/result.json"
+  },
+  {
+    "batch": "fb7d3816c3",
+    "status": "failed",
+    "checks": 51,
+    "note": "澄清与候选过滤的中间整套快照，尚未修复旧版空范围重试键。",
+    "report": "runs/fb7d3816c3/result.json"
+  },
+  {
+    "batch": "c14b2cc303",
+    "status": "failed",
+    "checks": 1,
+    "note": "跨场景复验：冷链与区域流水通过。差旅复合词未命中原文，未生成带依据的回答。",
+    "report": "runs/c14b2cc303/result.json"
+  },
+  {
+    "batch": "a9f61e2fb6",
+    "status": "failed",
+    "checks": 1,
+    "note": "保存差旅案例的检索词和未命中回执，确认原文使用了不同的汉语短语。",
+    "report": "runs/a9f61e2fb6/result.json"
+  },
+  {
+    "batch": "beb28fa33e",
+    "status": "passed",
+    "checks": 2,
+    "note": "差旅专项：同一模型完成规程双引文、中文报销金额汇总和追问后的精确文件范围。",
+    "report": "runs/beb28fa33e/result.json"
+  },
+  {
+    "batch": "52409015b9",
+    "status": "passed",
+    "checks": 2,
+    "note": "在相同应用版本、独立数据库和固定模型上再次运行两个场景，分别核验实际答复、工作簿和原范围恢复。",
+    "report": "runs/52409015b9/result.json"
+  },
+  {
+    "allViewportWidthsFit": false,
+    "batch": "6f38088ab2",
+    "status": "passed",
+    "checks": 2,
+    "note": "记录初版界面测量，长文件名在 320 与 390 像素宽度下撑宽表单和对话。",
+    "report": "runs/6f38088ab2/result.json"
+  },
+  {
+    "allViewportWidthsFit": false,
+    "batch": "1814408027",
+    "status": "passed",
+    "checks": 2,
+    "note": "再次测量：资料选择表单适配成功，其他项目资料区域仍有横向溢出。",
+    "report": "runs/1814408027/result.json"
+  },
+  {
+    "allViewportWidthsFit": false,
+    "batch": "17af3dc07c",
+    "status": "passed",
+    "checks": 2,
+    "note": "逐个测量项目资料预览及编辑区域，定位第二处溢出。",
+    "report": "runs/17af3dc07c/result.json"
+  },
+  {
+    "allViewportWidthsFit": true,
+    "batch": "831f8e9e3c",
+    "status": "passed",
+    "checks": 2,
+    "note": "修复后，三个视口的表单与整个对话区域均无横向溢出。",
+    "report": "runs/831f8e9e3c/result.json"
+  },
+  {
+    "batch": "7ec9a23bcc",
+    "status": "passed",
+    "checks": 3,
+    "note": "最终界面专项：旧版资料改名后打开原件、拒绝静默切换和撤权，再验证长文件名与两个真实场景。",
+    "report": "runs/7ec9a23bcc/result.json"
+  },
+  {
+    "batch": "aa7774e7e7",
+    "status": "passed",
+    "checks": 3,
+    "note": "在长文件名、三种视口和最终本地模型两场景下专项复验。",
+    "report": "runs/aa7774e7e7/result.json"
+  },
+  {
+    "batch": "a193f704ee",
+    "status": "passed",
+    "checks": 79,
+    "note": "含修复后的旧建议重试、复合词检索与两套真实业务样例的全量回归，尚未加入长文件名专项。",
+    "report": "runs/a193f704ee/result.json"
+  },
+  {
+    "batch": "518a44c2ae",
+    "status": "failed",
+    "checks": 66,
+    "note": "加入长文件名专项的中间全量快照，资料选择表单已修复，其他资料区域尚未修复。",
+    "report": "runs/518a44c2ae/result.json"
+  },
+  {
+    "batch": "9d86e8d9f8",
+    "status": "passed",
+    "checks": 79,
+    "note": "所有资料区域换行后的整套回归，早于历史文件改名标识。",
+    "report": "runs/9d86e8d9f8/result.json"
+  },
+  {
+    "batch": "8c87476832",
+    "status": "passed",
+    "checks": 3,
+    "note": "整合检索与规划后，分别运行受控异常和真实模型两个场景，核验原生交付文件。",
+    "report": "runs/8c87476832/result.json"
+  },
+  {
+    "batch": "6f7fb1f0db",
+    "status": "passed",
+    "checks": 79,
+    "note": "最终应用与浏览器构建的全量回归，包含原有浏览器流程及两个真实模型业务案例。",
+    "report": "runs/6f7fb1f0db/result.json"
+  }
+]

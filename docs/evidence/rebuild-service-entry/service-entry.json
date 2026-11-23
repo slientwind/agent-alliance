@@ -1,0 +1,20 @@
+{
+  "input": "synthetic",
+  "sourceFormat": "Markdown",
+  "sourceRefIncluded": true,
+  "loginRedirect": true,
+  "memberRecommendation": true,
+  "reconfirmedUpgrade": [
+    1,
+    2
+  ],
+  "responseLossReplay": true,
+  "memberTasks": 1,
+  "reviewedVersions": [
+    1,
+    1,
+    1
+  ],
+  "project": "b523cf33-bb8f-43ac-8796-4634c32510b3",
+  "revokedReplayDenied": true
+}

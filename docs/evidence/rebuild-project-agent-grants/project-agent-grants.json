@@ -1,0 +1,19 @@
+{
+  "data": "synthetic",
+  "browserRoles": [
+    "requester",
+    "resource admin",
+    "payer"
+  ],
+  "provider": "local HTTPS fixture",
+  "runtime": "Temporal / Eino / PostgreSQL",
+  "heldResultRecovered": true,
+  "chargesForRecoveredRun": 1,
+  "deliveredVersion": 1,
+  "pinnedAfterUpgrade": 1,
+  "payer": "\u57f9\u8bad\u5185\u5bb9\u63d0\u4f9b\u65b9",
+  "republishDenied": true,
+  "expiryRemovedCandidate": true,
+  "parallelSteps": 2,
+  "parallelChargedCalls": 1
+}
