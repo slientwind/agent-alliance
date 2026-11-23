@@ -1,19 +1,20 @@
 package resources
 
 import (
-	"alliance/internal/knowledge"
 	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"image"
 	"image/color"
 	"image/png"
+	"io"
 	"net/http"
 	"strings"
+
+	"alliance/internal/knowledge"
 )
 
 const ImageOperation = "png"

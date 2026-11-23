@@ -1,0 +1,22 @@
+{
+  "started": "2026-11-23T13:52:52.582262+00:00",
+  "input": "synthetic",
+  "externalProviders": "local HTTPS model and A2A fixtures",
+  "runtime": [
+    "PostgreSQL",
+    "Temporal",
+    "Eino",
+    "DuckDB",
+    "LibreOffice",
+    "PDF.js",
+    "Chromium",
+    "OpenTelemetry Collector"
+  ],
+  "status": "passed",
+  "checks": [
+    "real storage + TLS fixture + model and external A2A register/verify/publish OK",
+    "Reference image edit: exact pinned bytes, pixel preservation and reconciled wrong-size response"
+  ],
+  "imageEdit": "image-edit.json",
+  "ended": "2026-11-23T13:53:00.639425+00:00"
+}

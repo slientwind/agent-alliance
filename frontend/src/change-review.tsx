@@ -2,6 +2,7 @@ import { SlideRevisionFields } from "./slide-outline";
 import { CallRecovery } from "./call-recovery";
 import { RemoteReceipt } from "./remote-receipt";
 import { FilePreview } from "./file-preview";
+import { ImageRegionField } from "./image-region";
 import {
   api,
   statusLabel,
@@ -208,7 +209,7 @@ export function ChangeReview({
                   仅本次改稿使用《{choice.name}》v{choice.observed}
                   。留空沿用方案资料 v{choice.pinned}。
                 </label>
-              ) : p.plan?.sources.length ? (
+              ) : p.plan?.sources.length && a.editMode !== "image_edit" ? (
                 <small>本次改稿沿用协作方案固定的资料版本。</small>
               ) : null}
               {a.editMode === "regenerate" && (
@@ -218,8 +219,11 @@ export function ChangeReview({
                 </p>
               )}
               {a.editMode === "image_edit" && (
-                <ImageRegionField key={a.version} version={a.version}
-                  url={`/api/${base}/artifacts/${a.id}/file?version=${a.version}&preview=1`} />
+                <>
+                  <small>编辑以当前成果 v{a.version} 为基准。可修改整张图，也可只保留选区内的修改。</small>
+                  <ImageRegionField key={a.version} version={a.version}
+                    url={`/api/${base}/artifacts/${a.id}/file?version=${a.version}&preview=1`} />
+                </>
               )}
               {p.plan?.nodes[a.ordinal-1]?.lookupPhase && <small>本次按反馈重新核对引文，生成整份修订稿。</small>}
               {a.editMode === "feedback" && !p.plan?.nodes[a.ordinal-1]?.lookupPhase && (
@@ -363,4 +367,3 @@ function Conflict({
     </details>
   );
 }
-import { ImageRegionField } from "./image-region";

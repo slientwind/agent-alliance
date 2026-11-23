@@ -1,0 +1,15 @@
+{
+  "project": "30a814f4-2995-42f3-819c-18bea94a4fbd",
+  "service": "4d2d5fc6-8574-499c-a881-78f379597e99",
+  "original": "ec4a8304f1efca892d7674aa4cbc73bf01e4ec4962e014e4c6ba0bd05d20ada9",
+  "base": "bf3469d60071842fb3f3b9efd1cf9beb298e6800487abd031b39e9c613fdb06a",
+  "modified": "8fb3a360799f96df5198f62f965c4c04bae3dd7a49040d2b94e998f5bb2c8116",
+  "compared": {
+    "inside": 7680,
+    "outside": 0,
+    "width": 640,
+    "height": 480
+  },
+  "deliveredVersion": 2,
+  "wrongSizeStatus": "reconcile"
+}

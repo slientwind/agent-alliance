@@ -1,0 +1,32 @@
+[
+  {
+    "purpose": "probe",
+    "inputSha256": "475aab4190633d90609a610a755d06a39842c81db7aea39c5fe1b45c647d5cfe",
+    "size": null
+  },
+  {
+    "purpose": "EDIT_TRIAL",
+    "inputSha256": "ec4a8304f1efca892d7674aa4cbc73bf01e4ec4962e014e4c6ba0bd05d20ada9",
+    "size": null
+  },
+  {
+    "purpose": "EDIT_DIRECT",
+    "inputSha256": "ec4a8304f1efca892d7674aa4cbc73bf01e4ec4962e014e4c6ba0bd05d20ada9",
+    "size": null
+  },
+  {
+    "purpose": "EDIT_LOCAL",
+    "inputSha256": "bf3469d60071842fb3f3b9efd1cf9beb298e6800487abd031b39e9c613fdb06a",
+    "size": "640x480"
+  },
+  {
+    "purpose": "EDIT_SERVICE",
+    "inputSha256": "ec4a8304f1efca892d7674aa4cbc73bf01e4ec4962e014e4c6ba0bd05d20ada9",
+    "size": null
+  },
+  {
+    "purpose": "EDIT_WRONG_SIZE",
+    "inputSha256": "bf3469d60071842fb3f3b9efd1cf9beb298e6800487abd031b39e9c613fdb06a",
+    "size": "640x480"
+  }
+]

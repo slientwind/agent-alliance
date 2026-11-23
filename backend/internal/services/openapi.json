@@ -567,7 +567,7 @@
           },
           "requiresPictures": {
             "type": "boolean",
-            "description": "发起时须提交至少一张 PNG 或 JPEG 原件，由服务固定的视觉模型读取。"
+            "description": "发起时需提交 PNG 或 JPEG 原件。识图支持 1 至 4 张，editsImage 为 true 时必须恰好一张。"
           },
           "editsImage": {
             "type": "boolean",
@@ -622,6 +622,7 @@
           "authorizeCalls",
           "allowDocumentAttachments",
           "requiresPictures",
+          "editsImage",
           "steps"
         ]
       },

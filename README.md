@@ -6,7 +6,7 @@
 
 面向企业自部署的开源 Agent 工作空间
 
-[![Version 0.1.1](https://img.shields.io/badge/version-0.1.1-20262e?style=flat-square)](https://github.com/slientwind/agent-alliance/releases/tag/v0.1.1)
+[![Version 0.1.2](https://img.shields.io/badge/version-0.1.2-20262e?style=flat-square)](https://github.com/slientwind/agent-alliance/releases/tag/v0.1.2)
 [![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-424b57?style=flat-square)](LICENSE)
 [![Deployment](https://img.shields.io/badge/deployment-self--hosted-586370?style=flat-square)](#快速开始)
 
@@ -49,7 +49,7 @@
 本地体验需要 Docker、Docker Compose、Make 和 OpenSSL。首次构建需拉取基础镜像和锁定的依赖。
 
 ```bash
-git clone --branch v0.1.1 https://github.com/slientwind/agent-alliance.git
+git clone --branch v0.1.2 https://github.com/slientwind/agent-alliance.git
 cd agent-alliance
 make configure
 docker compose --env-file .env.local \
@@ -72,9 +72,9 @@ docker compose --env-file .env.local \
 - [产品方案](docs/10-product-blueprint.md) · 对话、协作、审核与交付
 - [技术方案](docs/11-technical-blueprint.md) · 模块、数据、执行与恢复
 - [重建与验证记录](docs/15-rebuild.md) · 合成数据走查、已实现范围和待验证项
-- [版本记录](CHANGELOG.md) · 0.1.1 发布范围
+- [版本记录](CHANGELOG.md) · 各版本的变更与验证范围
 
-**0.1.1 是早期版本。** 浏览器、集成和交付样例使用合成资料。参考图编辑与选区修改为实验功能，真实供应商账号、模型质量及计费需在目标环境验证。
+**当前处于早期版本。** 浏览器、集成和交付样例使用合成资料。参考图编辑与选区修改已通过本地协议和浏览器验证，真实供应商账号、模型质量及计费需在目标环境验证。
 
 ## 开源许可
 

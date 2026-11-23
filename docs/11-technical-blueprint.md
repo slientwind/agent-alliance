@@ -908,3 +908,9 @@ Go 知识模块对项目成员开放 `GET /api/projects/{id}/retrieval?q=…`。
 模型资源按修订声明 `vision`，与 `text`、`png` 分别配置、接通和复验。Agent 的输出契约是文本，输入契约包含固定版本图片。Go 统一调用层使用 OpenAI 兼容的 `image_url` Base64 数据表示和图片的实际 MIME 类型。上传时先检查类型、尺寸和可解码性，私有对象保存原字节，派发前核对版本、当前授权、长度和 SHA‑256。规划模型只收到图片数量及候选能力信息。普通文本步骤读取自身有权使用的文字及前序成果，视觉原件由确认的视觉步骤使用。兼容协议见[百炼视觉输入示例](https://www.alibabacloud.com/help/en/model-studio/vision)。
 
 试运行幂等比较包含样例原件摘要和文件名。样例与验证记录关联，由试运行人及当前有权的指定审核人读取。服务描述的 `requiresPictures` 随服务版本固定。网页和 Open API 对同一组图片数量、大小和格式限制使用同一服务端校验。执行及改稿沿用调用账本和现有复核时序。资料新增修订需经过影响核对，只有显式授权的改稿使用该次选定的新版原图。撤权后新的输入读取被阻止，恢复按当时权限重新核对。
+
+### 参考图编辑与选区修订
+
+模型修订声明 `image-edit`，项目和服务只接受一张固定版本的 PNG 或 JPEG。适配器在同步 `images/generations` 请求中传入原件的带 MIME 类型 Base64 数据，核验 `b64_json` 中单张 PNG 的格式、大小和像素数。试运行包含样例摘要并保留输出原件，指定验收人查看样例和结果后才能发布。服务描述同时返回 `requiresPictures` 和 `editsImage`，客户端可据此校验所需图片数量。[百炼兼容协议](https://www.alibabacloud.com/help/en/model-studio/qwen-image-generation-and-editing-api-reference)
+
+审核后发起改稿，将反馈修订、基准成果版本和可选的矩形像素坐标写入修改批次。Worker 派发前核对职责、成果版本和基准原件摘要。用户可编辑整图，或让平台仅从同尺寸候选中复制选区像素，选区外沿用基准。矩形需要完全在图内且小于整图，基准面积为 262,144 至 4,194,304 像素，长短边比例不超过 8:1。选区修改的候选图尺寸不符时，保留调用供核对，停在原成果版本。候选采用、并发冲突和最终交付沿用按版审核。[修改批次迁移](../backend/internal/database/schema/112_reference_image_edits.sql) · [图片适配与合成](../backend/internal/resources/image.go)

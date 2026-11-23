@@ -19,6 +19,7 @@ type VersionContract = VersionSummary & {
   requiresCSV: boolean;
   requiresFile: boolean;
   requiresPictures?: boolean;
+  editsImage?: boolean;
   steps: {
     ordinal: number;
     name: string;
@@ -49,7 +50,9 @@ function VersionDetails({ value, label }: { value: VersionContract; label: strin
       <p className="preserve">{value.instructions}</p>
       {value.example && <p className="preserve">示例 · {value.example}</p>}
       <p>{value.requiresFile || value.requiresCSV ? "需附资料" : "可附资料"} · {allowed}</p>
-      {value.requiresPictures && <p>需附 PNG 或 JPEG 图片 · 视觉模型读取原件</p>}
+      {value.requiresPictures && <p>{value.editsImage
+        ? "需附一张 PNG 或 JPEG 参考图 · 编辑后输出 PNG"
+        : "需附 1 至 4 张 PNG 或 JPEG 图片 · 视觉模型读取原件"}</p>}
       <p>最终确认人 · {value.reviewer}</p>
       <p>最多 {value.steps.length} 次调用 · {value.team}承担费用</p>
       <ol>

@@ -253,7 +253,9 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
             </details>
             <form className="service-form" onSubmit={submit}>
               {needsDocument && <small>{needsCSV ? "请附 CSV 资料，Agent 将从约定的两个汇总工具中选择一个。" : "请附用于查找依据的文字资料。"}</small>}
-              {requiresPictures && <small>请附 {entry.editsImage ? "一张" : "1 至 4 张"} PNG 或 JPEG。单张最多 3 MiB，合计最多 6 MiB。确认后，原件将发送给该服务的视觉模型。</small>}
+              {requiresPictures && <small>{entry.editsImage
+                ? "请附一张 PNG 或 JPEG 参考图，最多 3 MiB。确认后，服务会把原件发送给图片编辑模型。"
+                : "请附 1 至 4 张 PNG 或 JPEG。单张最多 3 MiB，合计最多 6 MiB。确认后，原件将发送给视觉理解模型。"}</small>}
               <div className="composer">
                 <textarea
                   aria-label="向服务提出任务"

@@ -32,7 +32,7 @@ from smoke_service_rollback import verify_service_rollback, verify_service_rollb
 from smoke_feishu_run_receipts import verify_feishu_run_receipts
 from smoke_feishu_attachments import verify_feishu_attachments, verify_feishu_attachment_upgrade
 from smoke_service_api import verify_service_api
-from smoke_image import image_response
+from smoke_image import ImageEditFixture, image_response
 from smoke_model_replacement import verify_model_replacement
 from smoke_replacement_upgrade import verify_replacement_upgrade
 from smoke_course_ledger import verify_course_charges
@@ -197,6 +197,7 @@ try:
     column_suggestion_fixture = ColumnSuggestionFixture()
 
     vision = VisionFixture(connector_python, folder / "vision-inputs")
+    image_edit = ImageEditFixture()
 
     class Provider(http.server.BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -258,7 +259,7 @@ try:
                 if self.headers.get("Authorization") != "Bearer synthetic-image-key":
                     self.send_error(401)
                     return
-                out = image_response(d)
+                out = image_edit.response(d) if d.get("model") == "synthetic-image-edit" else image_response(d)
             elif self.path == "/remote":
                 out = dict(
                     jsonrpc="2.0",
@@ -1590,6 +1591,10 @@ try:
     verify_vision_upgrade(pg, report_dir)
     report["visionUpgrade"] = "vision-upgrade.json"
     passed("Schema 110 upgrade: existing text and PNG resources and accepted inputs retained; proven image classification applies to new uploads")
+    image_edit.verify(frontend, env, report_dir, f"https://localhost:{port}/v1")
+    report["imageEdit"] = "image-edit.json"
+    report["imageEditProvider"] = "image-edit-provider.json"
+    passed("Reference image edit: exact pinned bytes, pixel preservation outside selection, reviewed PNG, signed service and wrong-size response held for reconciliation")
     subprocess.run(["node",str(frontend/"tests/agent-source-lookup.mjs")],env={**env,"QUICK_ENDPOINT":f"https://localhost:{port}/v1"},check=True,timeout=180)
     verify_lookup_files(report_dir,"fixture")
     verify_calculation_files(report_dir,False)

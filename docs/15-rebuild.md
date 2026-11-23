@@ -799,3 +799,7 @@ Linux 容器从 098 数据库升级到 099 后，已经等待补件的金额核�
 合成任务在新版模型调用已经派发后回退至 v1。继续以 v2 完成两步调用，经审核后独立核对 Word 原件中的原回执与 ZIP 摘要。网页及飞书均拒绝上一个默认版本的旧确认，重新核对后受理 v1。签名 API 的发现返回 v1，明确采用 v2 的调用仍按其当前授权受理。测试也核对新版发布获 v3、旧管理请求拒绝、受众不会因回退失去权限，以及已有 v1 运行跨迁移保留。[专项记录](evidence/rebuild-service-rollback/service-rollback.json) · [手机界面](evidence/rebuild-service-rollback/service-rollback-mobile.png) · [已审核的新版交付](evidence/rebuild-service-rollback/service-rollback-held-delivery.zip) · [迁移记录](evidence/rebuild-service-rollback/service-rollback-upgrade.json) · [专项批次](evidence/rebuild-service-rollback/batches.json)
 
 全量批次 `smoke_c90ca98524` 通过 111 组检查。专项另核对再次回退并发布新版前后，同一份已审核 ZIP 按字节一致。飞书使用本地协议替身，真实企业租户继续单独验收。[全量回归](evidence/rebuild-service-rollback/regression.json) · [交付字节复验](evidence/rebuild-service-rollback/service-rollback.json)
+
+### 参考图编辑与选区修订
+
+通过 Chromium、真实 Go Worker 和本地 HTTPS 模型替身，核对模型连通、原件试运行、发布审核、固定参考图、浏览器选区、重复请求及签名服务的输入数量。640 × 480 测试图在选区内改变了 7,680 个像素，选区外变化为零。v1 仍可按原字节查询，ZIP 中的 PNG 与审核通过的 v2 摘要一致。候选图尺寸不符时留在 v1，改稿调用进入核对。首次测试打开折叠的评审入口前点击了内部按钮，修正走查路径后通过。真实云账号的修改效果及计费继续单独验收。[浏览器与调用结果](evidence/rebuild-image-edit/image-edit.json) · [供应商替身记录](evidence/rebuild-image-edit/image-edit-provider.json) · [审核交付](evidence/rebuild-image-edit/image-edit.zip) · [专项报告](evidence/rebuild-image-edit/result.json) · [首次运行](evidence/rebuild-image-edit/first-attempt.json)
