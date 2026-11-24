@@ -29,7 +29,7 @@ type UpstreamInput struct {
 
 // ReadUpstream returns only the current authorized observations. It bounds
 // individual reads before sending the head or tail sample to the Worker.
-func ReadUpstream(ctx context.Context, tx pgx.Tx, run string, step, budget int) ([]UpstreamInput, error) {
+func ReadUpstream(ctx context.Context, tx pgx.Tx, run string, step, controlStep, budget int) ([]UpstreamInput, error) {
 	rows, err := tx.Query(ctx, `with authorized as (
           select *,usable and (used_artifact is null or distribution_readable(used_artifact,used_version,actor)) as readable
           from (`+priorBodies+`) inputs
@@ -59,6 +59,9 @@ func ReadUpstream(ctx context.Context, tx pgx.Tx, run string, step, budget int) 
 		}
 		if size == nil || head == nil {
 			return nil, errors.New("prerequisite has no committed result")
+		}
+		if in.Slice.Step == controlStep {
+			continue
 		}
 		in.Slice.TotalBytes = *size
 		in.Head = *head

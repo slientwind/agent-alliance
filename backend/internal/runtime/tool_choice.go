@@ -18,12 +18,14 @@ type toolChoice struct {
 	profile string
 	options harness.ReportOptions
 	office  harness.OfficeOptions
+	agents  harness.AgentOptions
 }
 
 func (c *toolChoice) load(ctx context.Context, tx pgx.Tx, run string, selector int) error {
 	var raw []byte
-	err := tx.QueryRow(ctx, `select route.ordinal,coalesce(max(tool_choice_profile(ar.tool)) filter(where picked.position=1),'aggregate'),jsonb_agg(jsonb_build_object(
-   'name',ar.name,'revision',ar.revision,'group',ar.tool->'config'->>'group','amount',ar.tool->'config'->>'amount',
+	err := tx.QueryRow(ctx, `select route.ordinal,coalesce(max(agent_choice_profile(ar)) filter(where picked.position=1),'aggregate'),jsonb_agg(jsonb_build_object(
+   'name',ar.name,'revision',ar.revision,'backend',case when ar.card is not null then 'a2a' else 'model' end,
+   'group',ar.tool->'config'->>'group','amount',ar.tool->'config'->>'amount',
    'filterColumn',ar.tool->'config'->>'filterColumn','filterValue',ar.tool->'config'->>'filterValue','unitColumn',ar.tool->'config'->>'unitColumn',
    'title',case when tool_choice_profile(ar.tool) in ('docx','xlsx','pptx') then coalesce(nullif(ar.tool->'config'->>'title',''),'工作成果') end) order by picked.position)
  from runs r join plan_tool_choices route on (route.project_id,route.plan_version)=(r.project_id,r.plan_version)
@@ -37,13 +39,20 @@ func (c *toolChoice) load(ctx context.Context, tx pgx.Tx, run string, selector i
 	if err != nil {
 		return err
 	}
-	if c.profile == "aggregate" {
+	switch c.profile {
+	case "text":
+		return json.Unmarshal(raw, &c.agents)
+	case "aggregate":
 		return json.Unmarshal(raw, &c.options)
+	default:
+		return json.Unmarshal(raw, &c.office)
 	}
-	return json.Unmarshal(raw, &c.office)
 }
 
 func (c toolChoice) input(goal string, files []knowledge.InputSource) string {
+	if c.profile == "text" {
+		return c.agents.Input(goal)
+	}
 	if c.office != nil {
 		sources := make([]harness.OfficeSource, 0, len(files))
 		for _, file := range files {
@@ -63,6 +72,9 @@ func (c toolChoice) input(goal string, files []knowledge.InputSource) string {
 }
 
 func (c toolChoice) instructions() string {
+	if c.profile == "text" {
+		return harness.AgentChoiceInstructions
+	}
 	if c.office != nil {
 		return harness.OfficeChoiceInstructions
 	}
@@ -70,8 +82,12 @@ func (c toolChoice) instructions() string {
 }
 
 func (c toolChoice) accept(reply, finishReason string) (int, string) {
+	complete := finishReason == "" || finishReason == "stop"
+	if c.profile == "text" {
+		return c.agents.Accept(reply, complete)
+	}
 	if c.office != nil {
-		return c.office.Accept(reply, finishReason == "" || finishReason == "stop")
+		return c.office.Accept(reply, complete)
 	}
 	return c.options.Accept(reply)
 }
@@ -122,5 +138,5 @@ func parkToolChoice(ctx context.Context, tx pgx.Tx, step Step, d contextData, re
 			return err
 		}
 	}
-	return setState(ctx, tx, step, d.project, "blocked", "tool_choice_unavailable", "Agent 未选出已授权的工具。经办人可从原候选中选择一个，继续本次运行。")
+	return setState(ctx, tx, step, d.project, "blocked", "tool_choice_unavailable", "Agent 未选出适用的候选。经办人可从已授权候选中选择一个，继续本次运行。")
 }

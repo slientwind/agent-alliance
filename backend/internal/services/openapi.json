@@ -622,11 +622,13 @@
                 },
                 "toolChoice": {
                   "type": ["object", "null"],
-                  "description": "同一格式和输入约定的另一项固定工具候选。selector 指定负责选择的文本步骤，两项候选只执行一项。汇总仍要求 CSV 附件，文件制作沿用服务的资料约定。",
+                  "description": "另一项固定的能力候选。selector 指定负责选择的文本步骤，两项候选只执行一项。文本 Agent 收到已授权的任务、资料及相关前置成果；若选中第三方候选，相关内容会发送给它。汇总要求 CSV 附件，文件制作沿用服务的资料约定。",
                   "properties": {
                     "selector": { "type": "integer", "minimum": 1 },
                     "name": { "type": "string" },
-                    "revision": { "type": "integer", "minimum": 1 }
+                    "revision": { "type": "integer", "minimum": 1 },
+                    "primaryRemote": { "type": "boolean", "description": "主要候选为第三方 Agent" },
+                    "alternativeRemote": { "type": "boolean", "description": "备选为第三方 Agent" }
                   }
                 },
                 "operation": {
@@ -899,7 +901,7 @@
                 "toolChoice": {
                   "type": "integer",
                   "enum": [0, 1, 2],
-                  "description": "有选择回执的工具步骤返回此字段。0 表示模型弃权，1 或 2 为实际选定的候选。能否人工确认以 toolChoiceWaitScope 为准。"
+                  "description": "有选择回执的能力步骤返回此字段。0 表示模型弃权，1 或 2 为实际选定的候选。能否人工确认以 toolChoiceWaitScope 为准。"
                 },
                 "toolChoiceWaitScope": {
                   "enum": ["step", "run"],

@@ -34,14 +34,14 @@ func saveToolChoices(ctx context.Context, tx pgx.Tx, project string, version int
 	targets := map[int]bool{}
 	for _, pin := range pins {
 		if pin.Selector < 1 || pin.Step > len(businessSteps) || pin.Step <= pin.Selector || pin.Revision < 1 || pin.Alternative == "" || selectors[pin.Selector] || targets[pin.Step] {
-			return web.Fail(422, "请选择两个不同的已发布工具和前置的文本 Agent")
+			return web.Fail(422, "请选择两个不同的已发布候选和前置的文本 Agent")
 		}
 		selectors[pin.Selector] = true
 		targets[pin.Step] = true
 		step, selector := businessSteps[pin.Step-1], businessSteps[pin.Selector-1]
 		n := nodes[step-1]
 		if n.phase != "" || nodes[selector-1].phase != "" || !slices.Contains(n.dependencies, selector) || len(nodes[selector-1].dependencies) > 0 {
-			return web.Fail(422, "工具步骤需直接引用一个可独立开始的文本 Agent 作为选择步骤")
+			return web.Fail(422, "执行步骤需直接引用一个可独立开始的文本 Agent 作为选择步骤")
 		}
 		tag, err := tx.Exec(ctx, `insert into plan_tool_choices
  select p.id,$2,primary_node.ordinal,chooser.ordinal,alt.agent_id,alt.revision
@@ -56,10 +56,17 @@ func saveToolChoices(ctx context.Context, tx pgx.Tx, project string, version int
  and (two.published_revision=alt.revision or exists(select from plan_tool_choices previous
    where (previous.project_id,previous.plan_version,previous.alternative,previous.alternative_revision)=(p.id,p.plan_version,alt.agent_id,alt.revision)))
  join agents model_agent on model_agent.id=selector.agent_id and model_agent.team_id=p.team_id
- where p.id=$1 and tool_choice_profile(picked.tool)=tool_choice_profile(alt.tool)
+ where p.id=$1 and agent_choice_profile(picked)=agent_choice_profile(alt)
  and selector.resource_id is not null and agent_output_operation(selector)='text' and not agent_uses_picture(selector)
  and agent_admissible(alt.agent_id,alt.revision,$7)
- and (picked.tool->>'operation'<>'aggregate' or ($8=1
+ and (agent_choice_profile(picked)<>'text' or (
+   picked.agent_id<>selector.agent_id and alt.agent_id<>selector.agent_id
+   and (one.published_revision=picked.revision or exists(
+     select from plan_tool_choices previous join nodes old using(project_id,plan_version,ordinal)
+     where (previous.project_id,previous.plan_version,old.agent_id,old.agent_revision)=(p.id,p.plan_version,picked.agent_id,picked.revision)))
+   and text_agent_choice_ready(picked) and text_agent_choice_ready(alt)
+   and agent_admissible(picked.agent_id,picked.revision,$7)))
+ and (agent_choice_profile(picked)<>'aggregate' or ($8=1
  and exists(select from plan_sources ps join source_versions v on (v.source_id,v.version)=(ps.source_id,ps.source_version)
    where (ps.project_id,ps.plan_version)=(p.id,$2) and lower(v.filename) like '%.csv')
  and not exists(select from plan_sources ps join source_versions v on (v.source_id,v.version)=(ps.source_id,ps.source_version)
@@ -68,7 +75,7 @@ func saveToolChoices(ctx context.Context, tx pgx.Tx, project string, version int
 			return err
 		}
 		if tag.RowsAffected() != 1 {
-			return web.Fail(422, "自动选择需要本团队的文本 Agent 和两个已发布的同格式、同输入约定工具。汇总还须引用 CSV 资料，并且只依赖选择步骤")
+			return web.Fail(422, "自动选择需要本团队独立的选择步骤和两个已发布、输入输出约定一致的候选。外部文本 Agent 需通过操作验证，汇总需引用 CSV 资料并仅依赖选择步骤")
 		}
 	}
 	return nil
@@ -87,28 +94,31 @@ func (s Server) confirmToolChoice(w http.ResponseWriter, r *http.Request, u iden
 	var controlRevision int
 	err := database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {
 		var project, state, agent string
-		var aggregate, stepScoped bool
+		var profile string
+		var stepScoped bool
 		var current, revision, modelChoice int
 		var prior *int
 		err := tx.QueryRow(ctx, `select r.project_id,r.status,r.control_revision,routed.choice,routed.manual_choice,
       case when $4=2 then c.alternative else n.agent_id end,case when $4=2 then c.alternative_revision else n.agent_revision end,
-      ar.tool->>'operation'='aggregate',r.step_tool_choice
+      coalesce(agent_choice_profile(ar),''),r.step_tool_choice
    from runs r join projects p on p.id=r.project_id join project_members pm on (pm.project_id,pm.member_id)=(p.id,$2)
    join members m on m.id=pm.member_id and m.enabled
    join run_tool_choices routed on routed.run_id=r.id and routed.ordinal=$3
    join plan_tool_choices c on(c.project_id,c.plan_version,c.ordinal)=(r.project_id,r.plan_version,routed.ordinal)
    join nodes n on(n.project_id,n.plan_version,n.ordinal)=(c.project_id,c.plan_version,c.ordinal)
    join agent_revisions ar on (ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision)
-   where r.id=$1 and m.kind='person' and (p.owner=$2 or (r.app_id is not null and r.delegated_by is null and p.final_reviewer=$2 and pm.can_review)) for update of r,routed for share of pm,m`, run, u.ID, in.Step, in.Choice).Scan(&project, &state, &current, &modelChoice, &prior, &agent, &revision, &aggregate, &stepScoped)
+   where r.id=$1 and m.kind='person' and (p.owner=$2 or (r.app_id is not null and r.delegated_by is null and p.final_reviewer=$2 and pm.can_review)) for update of r,routed for share of pm,m`, run, u.ID, in.Step, in.Choice).Scan(&project, &state, &current, &modelChoice, &prior, &agent, &revision, &profile, &stepScoped)
 		if err != nil {
 			return err
 		}
 		if modelChoice != 0 {
-			return web.Fail(409, "Agent 已选定工具，请按当前运行处理")
+			return web.Fail(409, "Agent 已选定候选，请按当前运行处理")
 		}
 		operation := "工具"
-		if aggregate {
+		if profile == "aggregate" {
 			operation = "汇总"
+		} else if profile == "text" {
+			operation = "文本 Agent"
 		}
 		reason := fmt.Sprintf("手动选择%s步骤 %d 的候选 %d", operation, in.Step, in.Choice)
 		action, requiredState := "resume", "blocked"
@@ -118,11 +128,11 @@ func (s Server) confirmToolChoice(w http.ResponseWriter, r *http.Request, u iden
 		sign := web.Hash(fmt.Sprintf("%s/%s/%d/%s", run, action, in.Expected, reason))
 		if prior != nil {
 			if *prior != in.Choice {
-				return web.Fail(409, "工具已经选定")
+				return web.Fail(409, "候选已经选定")
 			}
 			if err := tx.QueryRow(ctx, `select revision from controls where run_id=$1 and actor=$2 and request_key=$3 and signature=$4`,
 				run, u.ID, key, sign).Scan(&controlRevision); err == pgx.ErrNoRows {
-				return web.Fail(409, "工具已经选定")
+				return web.Fail(409, "候选已经选定")
 			} else {
 				return err
 			}
@@ -135,7 +145,7 @@ func (s Server) confirmToolChoice(w http.ResponseWriter, r *http.Request, u iden
 			return err
 		}
 		if !waiting {
-			return web.Fail(409, "该步骤尚未进入工具选择待办，请核对当前阻塞原因")
+			return web.Fail(409, "该步骤尚未进入人工选择待办，请核对当前阻塞原因")
 		}
 		if stepScoped {
 			var allowed bool

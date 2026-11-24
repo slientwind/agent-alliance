@@ -3,20 +3,25 @@ package projects
 // Only expose expected project costs and whether the plan fits the current limits.
 // A participating member need not have access to the paying team's other spending.
 const planQuoteSQL = `(
- with costs as (
-  select n.agent_id,n.agent_revision,a.team_id,bind.budget_id, r.card is not null as remote,
+ with candidates as (
+  select n.ordinal,n.agent_id,n.agent_revision from nodes n
+  where (n.project_id,n.plan_version)=(p.id,p.plan_version)
+  union all
+  select route.ordinal,route.alternative,route.alternative_revision from plan_tool_choices route
+  where (route.project_id,route.plan_version)=(p.id,p.plan_version)
+ ), candidate_costs as (
+  select n.ordinal,n.agent_id,n.agent_revision,a.team_id,bind.budget_id, r.card is not null as remote,
    case when r.tool is not null then 0 else mr.estimate_cny end as amount
-  from nodes n join agents a on a.id=n.agent_id
+  from candidates n join agents a on a.id=n.agent_id
   join agent_revisions r on (r.agent_id,r.revision)=(n.agent_id,n.agent_revision)
   join agent_budget_bindings bind on(bind.agent_id,bind.revision)=(n.agent_id,n.agent_revision)
   left join model_revisions mr on (mr.resource_id,mr.revision)=(r.resource_id,r.resource_revision)
-  where n.project_id=p.id and n.plan_version=p.plan_version
+ ), costs as (
+  select ordinal,team_id,case when bool_or(amount is null) then null else max(amount) end amount,
+    bool_or(remote) remote from candidate_costs group by ordinal,team_id
  ), resource_costs as (
-   select budget_id, amount from costs
-   union all
-   select bind.budget_id,0 from plan_tool_choices route
-   join agent_budget_bindings bind on (bind.agent_id,bind.revision)=(route.alternative,route.alternative_revision)
-   where(route.project_id,route.plan_version)=(p.id,p.plan_version)
+   select ordinal,budget_id,case when bool_or(amount is null) then null else max(amount) end amount
+   from candidate_costs group by ordinal,budget_id
  ), payer_costs as (
   select team_id, coalesce(sum(amount),0) as known, count(*) filter(where amount is null) as unknown
   from costs group by team_id
@@ -26,7 +31,8 @@ const planQuoteSQL = `(
  )
  select jsonb_build_object('known',q.known::text,'priced',q.priced,'unknown',q.unknown,'remote',q.remote,
   'projectShort',budget_amount_short(b.used,q.known,q.unknown>0,b.limit_cny),
-  'grantShort',exists(select from (select agent_id,agent_revision,count(*) needed from costs group by agent_id,agent_revision) c
+  'grantShort',exists(select from (select agent_id,agent_revision,count(distinct ordinal) needed
+    from candidate_costs group by agent_id,agent_revision) c
    left join effective_project_agent_grants g on(g.project_id,g.agent_id,g.revision)=(p.id,c.agent_id,c.agent_revision)
    where not project_agent_access(null,c.agent_id,c.agent_revision,p.owner)
    and (g.id is null or c.needed+(select count(*) from project_agent_calls where grant_id=g.id)>g.call_limit)),

@@ -5,9 +5,10 @@ import type { Source, Preference } from "./knowledge";
 import { outputOperations } from "./output-operations";
 import { carryLegacyConditions, conditionItems, retainsConditions } from "./delivery-conditions";
 
-function choiceProfile(operation?: string, outline?: boolean) {
+function choiceProfile(operation?: string, outline?: boolean, textChoice?: PlanAgent["publishedTextChoice"]) {
   if (operation === "pptx") return outline ? "pptx-outline-v1" : "pptx";
   if (operation === "docx" || operation === "xlsx" || operation === "aggregate") return operation;
+  if (operation === "text" && textChoice) return "text";
 }
 
 type Step = {
@@ -76,7 +77,7 @@ export function currentPlan(project: Project): PlanDraft {
       original: template ? undefined : { step: steps.length + 1, agent: node.agent, revision: node.revision },
       lookup: node.lookupPhase === "search",
       toolChoice: node.toolChoice
-        ? {...node.toolChoice, name: node.toolChoice.name || "待选择备选工具", selector: keys[node.toolChoice.selector - 1]}
+        ? {...node.toolChoice, name: node.toolChoice.name || "待选择备选能力", selector: keys[node.toolChoice.selector - 1]}
         : undefined,
       inputs: node.dependsOn.map((n) => keys[n - 1]),
     });
@@ -202,6 +203,7 @@ function StepAgentReplacement({
     (step.operation !== "pptx" || !!agent.publishedOutline === !!step.outline) &&
     (!needsModel || agent.publishedLookup) &&
     (!scopedToProjectTeam || agent.team === projectTeam) &&
+    (!step.toolChoice || step.operation !== "text" || !!agent.publishedTextChoice) &&
     agent.id !== step.toolChoice?.agent &&
     (agent.id !== step.agent || agent.published !== step.revision),
   );
@@ -214,8 +216,8 @@ function StepAgentReplacement({
   return (
     <div className="step-replacement">
       {step.operation && <small>{outputOperations[step.operation]}</small>}
-      {needsModel && <small>此步骤需要可执行原文核对或工具选择的文本模型。</small>}
-      {scopedToProjectTeam && <small>工具选择使用项目所属团队的能力。</small>}
+      {needsModel && <small>此步骤需要可执行原文核对或候选选择的文本模型。</small>}
+      {scopedToProjectTeam && <small>选择步骤使用项目所属团队的能力。</small>}
       {step.outline && <small>需要接收分页提纲的课件 Agent。</small>}
       {options.length > 0 ? (
         <label>
@@ -307,13 +309,21 @@ export function PlanEditor({
     return steps.filter(selector =>
       step.inputs.includes(selector.key) && !selector.inputs.length && !selector.lookup &&
       !selector.toolChoice && !steps.some(other => other.key !== step.key && other.toolChoice?.selector === selector.key) &&
+      (step.operation !== "text" || (selector.agent !== step.agent && selector.agent !== step.toolChoice?.agent)) &&
       agents.some(a => a.id === selector.agent && a.published === selector.revision && a.publishedLookup && a.team === project.team),
     );
   }
-  const invalidToolChoice = steps.some(step => step.toolChoice &&
-    (step.toolChoice.buildMatches === false || !choiceProfile(step.operation, step.outline) ||
-      (step.operation === "aggregate" && !csvOnly) || !selectorsFor(step).some(item => item.key === step.toolChoice?.selector) ||
-      (step.requiredOperation && !agents.some(a => a.id === step.toolChoice?.agent && a.published === step.toolChoice.revision))));
+  const invalidToolChoice = steps.some(step => {
+    if (!step.toolChoice) return false;
+    const primary = agents.find(a => a.id === step.agent && a.published === step.revision);
+    const alternative = agents.find(a => a.id === step.toolChoice?.agent && a.published === step.toolChoice?.revision);
+    return step.lookup || step.toolChoice.buildMatches === false ||
+      !choiceProfile(step.operation, step.outline, primary?.publishedTextChoice) ||
+      (step.operation === "text" && !alternative?.publishedTextChoice) ||
+      (step.operation === "aggregate" && !csvOnly) ||
+      !selectorsFor(step).some(item => item.key === step.toolChoice?.selector) ||
+      (!!step.requiredOperation && !alternative);
+  });
   const unavailableTemplateStep = steps.some(step => step.templateBuildChanged || step.requiredOperation && !agents.some(agent =>
     agent.id === step.agent && agent.published === step.revision && agent.publishedOperation === step.requiredOperation &&
     !!agent.publishedVision === !!step.vision && !!agent.publishedImageEdit === !!step.editsImage && (!step.lookup || agent.publishedLookup),
@@ -530,7 +540,7 @@ export function PlanEditor({
         {tooManyReferences && <small role="status">参考图编辑只接受一张图片。</small>}
         {missingTemplateSources && !missingLookupSources && <small role="status">请引用本次任务的可读资料。</small>}
         {invalidToolChoice && (
-          <small role="status">核对备选工具、输入约定及独立文本步骤。汇总还需要 CSV 资料，并且只依赖选择步骤。</small>
+          <small role="status">核对备选能力、输入约定及独立文本步骤。汇总还需要 CSV 资料，并且只依赖选择步骤。</small>
         )}
         {unavailableTemplateStep && (
           <small role="status">原模板有待替换或复验的 Agent，请核对执行步骤。</small>
@@ -547,11 +557,14 @@ export function PlanEditor({
             const operation = s.operation || primary?.publishedOperation;
             const selectors = selectorsFor(s);
             const selector = selectors.find(item => item.key === s.toolChoice?.selector) ?? selectors[0];
-            const profile = choiceProfile(operation, s.outline ?? primary?.publishedOutline);
-            const alternatives = profile && selector && primary?.team === project.team
+            const profile = choiceProfile(operation, s.outline ?? primary?.publishedOutline, primary?.publishedTextChoice);
+            const alternatives = !s.lookup && profile && selector && primary?.team === project.team
               ? agents.filter(a => a.id !== s.agent && a.team === project.team &&
-                  choiceProfile(a.publishedOperation, a.publishedOutline) === profile)
+                  (profile !== "text" || a.id !== selector.agent) &&
+                  choiceProfile(a.publishedOperation, a.publishedOutline, a.publishedTextChoice) === profile)
               : [];
+            const choiceLabel = operation === "aggregate" ? "汇总工具" : operation === "text" ? "文本 Agent" : "文件工具";
+            const chosenAlternative = alternatives.find(a => a.id === s.toolChoice?.agent && a.published === s.toolChoice?.revision);
             const canReplace = !s.requiredOperation && !!operation;
             return (
             <li key={s.key}>
@@ -610,7 +623,7 @@ export function PlanEditor({
                   <input
                     type="checkbox"
                     checked={!!s.lookup}
-                    disabled={!s.lookup && calls >= 12}
+                    disabled={!s.lookup && (calls >= 12 || !!s.toolChoice)}
                     onChange={(e) =>
                       edit({
                         steps: steps.map((t) =>
@@ -648,9 +661,9 @@ export function PlanEditor({
               )}
               {(s.toolChoice || alternatives.length > 0) && (
                 <details open={s.toolChoice ? true : undefined}>
-                  <summary>{operation === "aggregate" ? "允许 Agent 在两个汇总工具中选择" : "允许 Agent 在两个文件工具中选择"}</summary>
+                  <summary>允许 Agent 在两个{choiceLabel}中选择</summary>
                   <label>
-                    自动选择的备选{operation === "aggregate" ? "汇总工具" : "文件工具"}（步骤 {i+1}）
+                    自动选择的备选{choiceLabel}（步骤 {i+1}）
                     <select
                       value={s.toolChoice ? s.toolChoice.agent + "/" + s.toolChoice.revision : ""}
                       onChange={(e) => {
@@ -669,7 +682,9 @@ export function PlanEditor({
                         <option value={s.toolChoice.agent + "/" + s.toolChoice.revision}>{s.toolChoice.name} v{s.toolChoice.revision}（原绑定）</option>
                       )}
                       {alternatives.map(a => (
-                        <option key={a.id} value={a.id + "/" + a.published}>{a.publishedName || a.name} v{a.published}</option>
+                        <option key={a.id} value={a.id + "/" + a.published}>
+                          {a.publishedName || a.name} v{a.published}{a.publishedTextChoice === "a2a" && " · 第三方"}
+                        </option>
                       ))}
                     </select>
                   </label>
@@ -690,7 +705,11 @@ export function PlanEditor({
                     <small>步骤 {steps.indexOf(selectors[0]) + 1} 负责选择 · {selectors[0].name}</small>}
                   <small>{operation === "aggregate"
                     ? "前一步的文本 Agent 只读取目标和 CSV 表头，从两个版本中选一个。汇总仍交付 XLSX。"
-                    : "两项候选采用相同的格式和输入约定，只执行一项。选择步骤读取目标和原件名称，制作步骤使用其余前置成果、所选资料或原执行要求。"}</small>
+                    : operation === "text"
+                      ? "选择步骤读取任务与候选名称。选定的文本 Agent 使用本方案授权的输入、资料和其他前置成果。"
+                      : "两项候选采用相同的格式和输入约定，只执行一项。选择步骤读取目标和原件名称，制作步骤使用其余前置成果、所选资料或原执行要求。"}</small>
+                  {s.toolChoice && (primary?.publishedTextChoice === "a2a" || chosenAlternative?.publishedTextChoice === "a2a") &&
+                    <small>选中第三方候选时，本次授权的输入会发送给该 Agent。</small>}
                 </details>
               )}
               <button

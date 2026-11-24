@@ -52,7 +52,8 @@ func (s Server) describe(w http.ResponseWriter, r *http.Request) error {
  'ready',m.enabled and exists(select from team_members where team_id=s.team_id and member_id=m.id) and not exists(select from service_nodes n where n.service_id=s.id and n.version=v.version and not agent_admissible(n.agent_id,n.agent_revision,$2))
  and not exists(select from service_tool_choices c where (c.service_id,c.version)=(s.id,v.version) and not agent_admissible(c.alternative,c.alternative_revision,$2)),
  'steps',array(select jsonb_build_object('step',n.ordinal,'name',ar.name,'revision',n.agent_revision,'lookupPhase',n.lookup_phase,'operation',agent_output_operation(ar),'toolChoice',
- (select jsonb_build_object('selector',c.selector,'name',other.name,'revision',other.revision,'primaryConfig',aggregate_scope(ar.tool),'config',aggregate_scope(other.tool)) from service_tool_choices c
+ (select jsonb_build_object('selector',c.selector,'name',other.name,'revision',other.revision,'primaryConfig',aggregate_scope(ar.tool),'config',aggregate_scope(other.tool),
+  'primaryRemote',ar.card is not null,'alternativeRemote',other.card is not null) from service_tool_choices c
  join agent_revisions other on(other.agent_id,other.revision)=(c.alternative,c.alternative_revision)
  where(c.service_id,c.version,c.ordinal)=(n.service_id,n.version,n.ordinal))) from service_nodes n join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision) where n.service_id=s.id and n.version=v.version order by n.ordinal))
  from services s join teams t on t.id=s.team_id join service_versions v on(v.service_id,v.version)=(s.id,s.current_version) join members m on m.id=v.reviewer

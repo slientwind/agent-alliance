@@ -403,23 +403,25 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		d.model = m
 		d.prompt = prompt
 		officeChoice := selector != nil && m.Tool != nil && m.Tool.Operation != "aggregate"
+		specialistChoice := selector != nil && m.Tool == nil && (m.External || m.OutputOperation == "text")
+		controlStep := 0
+		if officeChoice || specialistChoice {
+			controlStep = *selector
+		}
 		kind := "execution"
 		var upstream []memory.UpstreamSlice
 		if d.change {
 			kind = "revision"
 		} else {
-			if boundedUpstream && d.lookupPhase == "" && d.routing.target == 0 && !m.External && m.Tool == nil && m.OutputOperation == "text" {
+			if boundedUpstream && d.lookupPhase == "" && d.routing.target == 0 && m.Tool == nil &&
+				(m.OutputOperation == "text" || specialistChoice) {
 				budget := harness.ExecutionTextBytes - len(d.prompt) - len(d.brief) - len(upstreamResultsLabel)
 				var inputs []memory.UpstreamInput
-				inputs, err = memory.ReadUpstream(ctx, tx, step.Run, step.Ordinal, budget)
+				inputs, err = memory.ReadUpstream(ctx, tx, step.Run, step.Ordinal, controlStep, budget)
 				if err == nil {
 					d.prior, upstream, err = harness.BuildUpstream(inputs, budget)
 				}
 			} else {
-				controlStep := 0
-				if officeChoice {
-					controlStep = *selector
-				}
 				d.prior, err = memory.PriorWithControl(ctx, tx, step.Run, step.Ordinal, controlStep)
 			}
 			if errors.Is(err, harness.ErrUpstreamContextFull) {
@@ -559,7 +561,11 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		}
 		if d.routing.target > 0 {
 			d.prompt += "\n" + d.routing.instructions()
-			d.brief = d.routing.input(d.brief, files)
+			if d.routing.profile == "text" {
+				d.brief = d.routing.input(d.skillTask, nil)
+			} else {
+				d.brief = d.routing.input(d.brief, files)
+			}
 			d.prior = ""
 		}
 		if m.ProjectGrant != "" {
@@ -601,6 +607,11 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			}
 			if d.change {
 				d.model.ToolInput = d.replacement
+			}
+		}
+		if d.routing.profile == "text" || specialistChoice {
+			if _, err := tx.Exec(ctx, "select set_config('alliance.text_agent_choice_worker','true',true)"); err != nil {
+				return err
 			}
 		}
 		execution, window := m.SubmissionWindows()

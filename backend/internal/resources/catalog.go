@@ -178,6 +178,7 @@ type AgentInfo struct {
 	Release               json.RawMessage `json:"release,omitempty"`
 	QuickDraft            json.RawMessage `json:"quickDraft,omitempty"`
 	PublishedLookup       bool            `json:"publishedLookup,omitempty"`
+	PublishedTextChoice   string          `json:"publishedTextChoice,omitempty"`
 	PublishedVision       bool            `json:"publishedVision,omitempty"`
 	PublishedImageEdit    bool            `json:"publishedImageEdit,omitempty"`
 	VisionRevision        bool            `json:"visionRevision,omitempty"`
@@ -221,6 +222,7 @@ func (c Catalog) listAgents(w http.ResponseWriter, r *http.Request, u identity.M
       then jsonb_build_object('operation',case when model.operation='vision' then 'vision' else agent_output_operation(r) end,
            'estimate',case when r.tool is not null then '0' else model.estimate_cny::text end) end,
  coalesce(pub.resource_id is not null and agent_output_operation(pub)='text' and not agent_uses_picture(pub),false),
+ case when text_agent_choice_ready(pub) then case when pub.card is not null then 'a2a' else 'model' end else '' end,
  agent_uses_picture(pub) and not agent_edits_picture(pub),
  agent_edits_picture(pub),
  coalesce(model.operation='vision',false),

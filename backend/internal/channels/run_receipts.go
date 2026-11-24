@@ -123,8 +123,11 @@ func stepWaitProgress(ctx context.Context, tx pgx.Tx, actor, project string) (st
         join project_members pm on (pm.project_id,pm.member_id)=(p.id,$1)
         where p.id=$2 and r.status='running'
         union all
-        select w.ordinal,w.step_scoped,'tool' from active_tool_choice_waits w
+        select w.ordinal,w.step_scoped,case when agent_choice_profile(a)='text' then 'agent' else 'tool' end
+        from active_tool_choice_waits w
         join runs r on r.id=w.run_id join projects p on (p.id,p.plan_version)=(r.project_id,r.plan_version)
+        join nodes n on(n.project_id,n.plan_version,n.ordinal)=(r.project_id,r.plan_version,w.ordinal)
+        join agent_revisions a on(a.agent_id,a.revision)=(n.agent_id,n.agent_revision)
         join project_members pm on (pm.project_id,pm.member_id)=(p.id,$1)
         where p.id=$2 order by 1`, actor, project)
 	if err != nil {
@@ -139,10 +142,16 @@ func stepWaitProgress(ctx context.Context, tx pgx.Tx, actor, project string) (st
 			return "", err
 		}
 		switch {
-		case kind == "tool" && resumable:
-			notes = append(notes, fmt.Sprintf("步骤 %d 待人工选择工具，其他就绪步骤可继续。打开原项目查看候选。", step))
-		case kind == "tool":
-			notes = append(notes, fmt.Sprintf("步骤 %d 待人工选择工具。打开原项目查看候选。", step))
+		case kind == "tool" || kind == "agent":
+			label := "工具"
+			if kind == "agent" {
+				label = "文本 Agent"
+			}
+			note := fmt.Sprintf("步骤 %d 待人工选择%s。", step, label)
+			if resumable {
+				note += "其他就绪步骤可继续。"
+			}
+			notes = append(notes, note+"打开原项目查看候选。")
 		case kind == "rule" && resumable:
 			notes = append(notes, fmt.Sprintf("步骤 %d 的团队规则待核对。打开原项目查看可用版本。", step))
 		case kind == "rule":

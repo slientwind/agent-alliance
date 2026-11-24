@@ -23,7 +23,7 @@ type Entry = Omit<PublishedService, "calls"> & {
   requiresPictures?: boolean;
   editsImage?: boolean;
   example: string;
-  steps: { toolChoice?: {name:string; revision:number;selector:number;primaryConfig:AggregationConfig;config:AggregationConfig} | null; lookupPhase?: string; name: string; revision: number; operation: string }[];
+  steps: { toolChoice?: {name:string; revision:number;selector:number;primaryConfig:AggregationConfig;config:AggregationConfig;primaryRemote?: boolean; alternativeRemote?: boolean} | null; lookupPhase?: string; name: string; revision: number; operation: string }[];
   recent: { id: string; version: number; stage: string; input: string }[];
 };
 export function serviceURL(id: string) {
@@ -241,7 +241,7 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
                     {s.toolChoice && (
                       <>
                         {s.operation === "aggregate" && <small><AggregationScope config={s.toolChoice.primaryConfig} /></small>}
-                        <small>或由 Agent 选用 {s.toolChoice.name} v{s.toolChoice.revision}
+                        <small>或由 Agent 选用 {s.toolChoice.name} v{s.toolChoice.revision}{s.toolChoice.alternativeRemote && "（第三方）"}
                           {s.operation === "aggregate" && <> · <AggregationScope config={s.toolChoice.config} /></>}
                         </small>
                         {s.operation !== "aggregate" && <small>步骤 {s.toolChoice.selector} 负责选择</small>}
@@ -373,7 +373,9 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
                     onChange={(e) => setConsent(e.target.checked)}
                   />{" "}
                   授权本次最多 {entry.steps.length} 次调用，由{entry.team}
-                  承担实际费用
+                  承担实际费用。
+                  {entry.steps.some(step => step.toolChoice?.primaryRemote || step.toolChoice?.alternativeRemote) &&
+                    "若选中第三方候选，本次授权的输入及相关前置成果会发送给该 Agent。"}
                 </label>
               ) : (
                 <p role="status">

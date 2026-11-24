@@ -29,7 +29,7 @@ export type Model = {
 };
 export type PlanAgent = Pick<
   Agent,
-  "id" | "name" | "published" | "publishedName" | "publishedReady" | "publishedLookup" | "publishedOperation" | "publishedOutline" | "publishedVision" | "publishedImageEdit"
+  "id" | "name" | "published" | "publishedName" | "publishedReady" | "publishedLookup" | "publishedOperation" | "publishedOutline" | "publishedVision" | "publishedImageEdit" | "publishedTextChoice"
 > & Partial<Pick<Agent, "team">>;
 export type Agent = {
   draftPublished?: boolean;
@@ -41,6 +41,7 @@ export type Agent = {
     hasPublisher: boolean;
   };
   publishedLookup?: boolean;
+  publishedTextChoice?: "model" | "a2a";
   publishedVision?: boolean;
   publishedImageEdit?: boolean;
   visionRevision?: boolean;
@@ -514,6 +515,8 @@ export type Project = Summary & {
       toolChoice?: {
         selector: number;
         primaryConfig: AggregationConfig;
+        primaryRemote?: boolean;
+        alternativeRemote?: boolean;
         config: AggregationConfig;
         agent: string;
         name: string;

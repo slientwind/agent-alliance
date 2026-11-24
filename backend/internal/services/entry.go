@@ -22,7 +22,8 @@ func (s Server) entry(w http.ResponseWriter, r *http.Request, u identity.Member)
  'ready',reviewer.enabled and exists(select from team_members tm where tm.team_id=s.team_id and tm.member_id=v.reviewer) and not exists(select from service_nodes n where(n.service_id,n.version)=(s.id,v.version) and not agent_admissible(n.agent_id,n.agent_revision,$2))
  and not exists(select from service_tool_choices c where (c.service_id,c.version)=(s.id,v.version) and not agent_admissible(c.alternative,c.alternative_revision,$2)),
  'steps',array(select jsonb_build_object('name',a.name,'revision',n.agent_revision,'lookupPhase',n.lookup_phase,'operation',agent_output_operation(a),'toolChoice',
- (select jsonb_build_object('selector',c.selector,'name',other.name,'revision',other.revision,'primaryConfig',aggregate_scope(a.tool),'config',aggregate_scope(other.tool)) from service_tool_choices c
+ (select jsonb_build_object('selector',c.selector,'name',other.name,'revision',other.revision,'primaryConfig',aggregate_scope(a.tool),'config',aggregate_scope(other.tool),
+  'primaryRemote',a.card is not null,'alternativeRemote',other.card is not null) from service_tool_choices c
  join agent_revisions other on(other.agent_id,other.revision)=(c.alternative,c.alternative_revision)
  where(c.service_id,c.version,c.ordinal)=(n.service_id,n.version,n.ordinal))) from service_nodes n join agent_revisions a on(a.agent_id,a.revision)=(n.agent_id,n.agent_revision) where(n.service_id,n.version)=(s.id,v.version) order by n.ordinal),
  'recent',array(select jsonb_build_object('id',p.id,'version',r.service_version,'stage',p.stage,'input',left(msg.body,75)) from runs r join projects p on p.id=r.project_id join project_members pm on pm.project_id=p.id and pm.member_id=$2 left join lateral(select body from messages where project_id=p.id and kind='user' order by seq limit 1)msg on true

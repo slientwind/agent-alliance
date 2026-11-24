@@ -558,7 +558,7 @@ export function Work({
               const chosen = n.toolChoice?.selected === 2 ? n.toolChoice : n;
               return (
               <li key={i}>
-                {n.toolChoice ? <strong>{n.operation === "aggregate" ? "汇总报表" : "文件制作"}</strong> : (
+                {n.toolChoice ? <strong>{n.operation === "aggregate" ? "汇总报表" : n.operation === "text" ? "文本任务分派" : "文件制作"}</strong> : (
                   <>{n.name} · v{n.revision}{n.lookupPhase === "search" ? " · 检索依据" : n.lookupPhase === "answer_calc" ? " · 引文金额核算" : n.lookupPhase === "answer" ? " · 据原文回答" : n.lookupPhase === "review_evidence" ? " · 再次核对新依据" : n.lookupPhase === "synthesize" ? " · 有新增原文时续答" : ""}</>
                 )}
                 <small>
@@ -576,13 +576,14 @@ export function Work({
                 </small>
                 {n.toolChoice && (
                   <small>
-                    自动选择 · {n.name} v{n.revision} 或 {n.toolChoice.name} v{n.toolChoice.revision}
+                    自动选择 · {n.name} v{n.revision}{n.toolChoice.primaryRemote && "（第三方）"}
+                    {" 或 "}{n.toolChoice.name} v{n.toolChoice.revision}{n.toolChoice.alternativeRemote && "（第三方）"}
                   </small>
                 )}
                 {n.toolChoice && n.operation !== "aggregate" && <small>步骤 {n.toolChoice.selector} 负责选择</small>}
                 {n.toolChoice?.selected === 0 && <strong>
                   {n.toolChoice.waitScope === "step" ? "待人工选择 · 其他就绪步骤可继续"
-                    : n.toolChoice.canConfirm === false ? "Agent 未选出工具" : "待人工选择"}
+                    : n.toolChoice.canConfirm === false ? "Agent 未选出适用候选" : "待人工选择"}
                 </strong>}
                 {!!n.toolChoice?.selected && (
                   <strong>{n.toolChoice.manual ? "人工选定 " : "本次使用 "}{chosen.name} v{chosen.revision}</strong>
@@ -712,6 +713,8 @@ export function Work({
                 {pictureSteps && "引用的图片原件将发给所选的视觉模型。"}
                 {p.plan.quote.remote &&
                   "外部 Agent 返回任务编号时，平台会查询该任务，并在取消时向远端申请停止。"}
+                {p.plan.nodes.some(n => n.toolChoice?.primaryRemote || n.toolChoice?.alternativeRemote) &&
+                  "若选中第三方候选，本次已授权的任务、资料、适用记忆及相关前置成果会发送到该 Agent。"}
               </label>
               <button
                 className="primary"
