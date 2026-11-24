@@ -85,6 +85,7 @@ const labels: Record<string, string> = {
   lookup_unverified: "回答格式或引用有误，保留原文供审核",
   lookup_ask: "证据不足，需要补充资料",
   lookup_refined: "已按首轮引文追加检索",
+  lookup_no_progress: "追加检索没有找到新依据，已保留首轮引文",
   lookup_no_evidence: "没有可核对的原文，已跳过回答调用",
   receipt_pending: "已有调用记录，需核对回执",
   delegation_expired: "应用或委托已失效",
