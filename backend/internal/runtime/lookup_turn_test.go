@@ -84,6 +84,7 @@ func TestLookupTurnWorkflowKeepsOldHistoryActivity(t *testing.T) {
 	env.RegisterActivity(a.ExecuteStep)
 	env.OnGetVersion("read-only-lookup-turns", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
 	env.OnGetVersion("durable-local-actions", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	env.OnGetVersion("independent-dag-dispatch", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
 	env.OnActivity(a.Topology, mock.Anything, "run").Return([]Node{{Ordinal: 1, LookupAnswer: true}}, nil).Once()
 	env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", 1}).Return(func(context.Context, Step) (Result, error) {
 		return Result{}, nil

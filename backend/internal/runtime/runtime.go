@@ -978,6 +978,9 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 	}
 	lookupTurns := workflow.GetVersion(ctx, "read-only-lookup-turns", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	localActions := workflow.GetVersion(ctx, "durable-local-actions", workflow.DefaultVersion, 1) != workflow.DefaultVersion
+	if workflow.GetVersion(ctx, "independent-dag-dispatch", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+		return scheduleIndependentSteps(ctx, run, nodes, lookupTurns, localActions)
+	}
 	done := map[int]bool{}
 	control := workflow.GetSignalChannel(ctx, "control")
 	type pending struct {
@@ -998,18 +1001,7 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 				}
 			}
 			if ready {
-				stepCtx := ctx
-				// Recorded topologies from older histories decode Image as false.
-				if node.Image {
-					stepCtx = workflow.WithStartToCloseTimeout(ctx, resources.ImageTimeout+30*time.Second)
-				}
-				activity := "ExecuteStep"
-				if localActions && (node.LookupAnswer || node.Calculation) {
-					activity = "AdvanceExecutionTurn"
-				} else if lookupTurns && node.LookupAnswer {
-					activity = "AdvanceTurn"
-				}
-				active = append(active, pending{node.Ordinal, workflow.ExecuteActivity(stepCtx, activity, Step{run, node.Ordinal})})
+				active = append(active, pending{node.Ordinal, startDAGStep(ctx, run, node, lookupTurns, localActions)})
 			}
 		}
 		if len(active) == 0 {

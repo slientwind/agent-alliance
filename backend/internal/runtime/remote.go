@@ -372,7 +372,7 @@ func (a Activities) wakeRemote(ctx context.Context, c client.Client) error {
 		}
 		sub, cancel := context.WithTimeout(ctx, 4*time.Second)
 		defer cancel()
-		err = c.SignalWorkflow(sub, "run/"+j.Run, "", "control", "remote-receipt")
+		err = c.SignalWorkflow(sub, "run/"+j.Run, "", "control", remoteReceiptSignal(j.Ordinal))
 		var gone *serviceerror.NotFound
 		if err != nil && !(errors.As(err, &gone) && runEnded(state)) {
 			return err
