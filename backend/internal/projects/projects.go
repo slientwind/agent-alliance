@@ -23,6 +23,7 @@ type Project struct {
 	PlanVersion int    `json:"planVersion"`
 	Owner       string `json:"owner"`
 	Reviewer    string `json:"reviewer"`
+	IsPartial   bool   `json:"isPartial,omitempty"`
 }
 
 const callReviewSummarySQL = `case when i.run_id is not null and (i.status in ('unknown','submitted','input_rejected') or exists(select from call_reviews v where(v.run_id,v.ordinal)=(i.run_id,i.ordinal))) then (select jsonb_build_object(
@@ -103,6 +104,7 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 		"POST /api/projects/{id}/artifacts/{artifact}/revise":         s.revise, "POST /api/projects/{id}/deliver": s.deliver, "GET /api/projects/{id}/delivery": s.download,
 		"POST /api/projects/{id}/distribution-reviews": s.reviewDistribution,
 		"POST /api/projects/{id}/delivery/revisions":   s.reviseDelivery,
+		"POST /api/projects/{id}/delivery/assessments": s.assessDeliveryItem,
 		"GET /api/projects/{id}/delivery/receipt":      s.deliveryReceipt,
 	}
 	for path, h := range actions {
@@ -202,7 +204,9 @@ for share of t returning id`, actor, string(title), team).Scan(&id); err != nil 
 	return id, Note(ctx, tx, id, "user", goal, actor)
 }
 func (s Server) list(w http.ResponseWriter, r *http.Request, u identity.Member) error {
-	rows, err := s.DB.Query(r.Context(), "select "+fields+access+"order by p.updated_at desc", u.ID)
+	rows, err := s.DB.Query(r.Context(), "select "+fields+
+		",(p.stage='delivered' and coalesce((select d.partial from deliveries d where d.project_id=p.id order by d.edition desc limit 1),false))"+
+		access+"order by p.updated_at desc", u.ID)
 	if err != nil {
 		return err
 	}
@@ -226,7 +230,13 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
  'team',p.team_id,'workflowTemplate',`+projectWorkflowTemplateSQL+`,
  'sharedAgents',array(select jsonb_build_object('id',g.agent_id,'name',v.name,'publishedName',v.name,'publishedOperation',agent_output_operation(v),'publishedLookup',v.resource_id is not null and agent_output_operation(v)='text' and not agent_uses_picture(v),'publishedVision',agent_uses_picture(v) and not agent_edits_picture(v),'publishedImageEdit',agent_edits_picture(v),'publishedOutline',coalesce(v.tool @> '{"operation":"pptx","contract":"pptx-outline-v1"}'::jsonb,false),'published',g.revision,'publishedReady',project_agent_admissible(p.id,g.agent_id,g.revision,$1)) from effective_project_agent_grants g join agent_revisions v on(v.agent_id,v.revision)=(g.agent_id,g.revision) where g.project_id=p.id and not project_agent_access(null,g.agent_id,g.revision,$1) order by v.name,g.agent_id),
  'adoption',(select jsonb_build_object('actor',member.display_name,'at',a.at) from answer_adoptions a join members member on member.id=a.actor where a.project_id=p.id),
- 'distributionCases',`+distributionCasesSQL+`,'deliveries',array(select jsonb_build_object('id',d.id,'edition',d.edition,'time',d.created_at,'distribution',distribution_state(d.id),'handoff',case when distribution_state(d.id) in('clear','reference') then d.handoff else '{}'::jsonb end) from deliveries d where d.project_id=p.id order by d.edition desc),
+ 'distributionCases',`+distributionCasesSQL+`,'deliveries',array(select jsonb_build_object('id',d.id,'edition',d.edition,'time',d.created_at,'isPartial',d.partial,'distribution',distribution_state(d.id),'handoff',case when distribution_state(d.id) in('clear','reference') then d.handoff else '{}'::jsonb end) from deliveries d where d.project_id=p.id order by d.edition desc),
+ 'deliveryCoverage',project_delivery_coverage(p.id,p.plan_version,$1),
+ 'deliveryRevisionTargets',case when m.can_review and p.stage='delivered' then array(select artifact_id
+   from delivery_revision_targets((select id from deliveries where project_id=p.id order by edition desc limit 1))) end,
+ 'deliveryParticipants',case when m.can_review and p.stage='review' and exists(select from plan_delivery_contracts c where (c.project_id,c.plan_version)=(p.id,p.plan_version) and c.allow_partial)
+   then array(select jsonb_build_object('id',u.id,'name',u.display_name) from project_members t join members u on u.id=t.member_id and u.enabled and u.kind='person'
+              where t.project_id=p.id and t.recovery_assignment is null order by u.display_name,u.id) end,
  'planningModel',(select jsonb_build_object('id',v.resource_id,'revision',v.revision,'name',m.name,'enabled',m.enabled and not m.emergency and not v.key_blocked,
  'estimate',v.estimate_cny::text,'payer',t.name)
  from model_revisions v join model_resources m on m.id=v.resource_id join teams t on t.id=m.team_id join team_members tm on tm.team_id=m.team_id and tm.member_id=$1
@@ -410,6 +420,7 @@ type SourcePin struct {
 	Version int    `json:"version"`
 }
 type PlanInput struct {
+	DeliveryContract *DeliveryContract
 	ToolChoices      []ToolChoicePin
 	Replacements     []StepReplacement
 	ReplacementBase  int
@@ -522,6 +533,9 @@ func SavePlan(ctx context.Context, tx pgx.Tx, project, actor string, in PlanInpu
 		if tag.RowsAffected() == 0 {
 			return web.Fail(422, "所选能力尚未发布或未获授权")
 		}
+	}
+	if err := saveDeliveryContract(ctx, tx, p, ver, in.DeliveryContract, nodes); err != nil {
+		return err
 	}
 	if err := checkStepReplacements(ctx, tx, p.ID, p.PlanVersion, ver, in.Replacements); err != nil {
 		return err

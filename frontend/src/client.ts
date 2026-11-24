@@ -88,6 +88,7 @@ export type Summary = {
   owner: string;
   reviewer: string;
   planVersion: number;
+  isPartial?: boolean;
 };
 type ColumnIssue = {
   source: string;
@@ -296,7 +297,27 @@ export type DeliveryEdition = {
   id: string;
   edition: number;
   time: string;
+  isPartial?: boolean;
   handoff: Partial<Record<"purpose" | "instructions" | "limitations", string>>;
+};
+export type CoverageItem = {
+  item: number;
+  step: number;
+  label: string;
+  run?: string;
+  artifact?: string;
+  version?: number;
+  state: "covered" | "missing" | "unchecked";
+  reason?: string;
+  responsible?: string;
+  responsibleName?: string;
+  responsibleActive: boolean;
+  continueWhen?: string;
+};
+export type DeliveryCoverage = {
+  planVersion: number;
+  allowPartial: boolean;
+  items: CoverageItem[];
 };
 export type WorkflowTemplate = {
   id: string;
@@ -339,6 +360,9 @@ export type Project = Summary & {
   team: string;
   sharedAgents: PlanAgent[];
   deliveries: DeliveryEdition[];
+  deliveryCoverage?: DeliveryCoverage | null;
+  deliveryParticipants?: { id: string; name: string }[] | null;
+  deliveryRevisionTargets?: string[] | null;
   distributionCases: DistributionCase[];
   handoffs: ResponsibilityOffer[];
   canTakeover: boolean;

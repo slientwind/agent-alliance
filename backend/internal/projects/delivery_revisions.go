@@ -49,11 +49,11 @@ func (s Server) reviseDelivery(w http.ResponseWriter, r *http.Request, u identit
 			return web.Fail(409, "请从最近一次交付发起修订")
 		}
 		var matches bool
-		if err = tx.QueryRow(ctx, `select exists(select from delivery_items i join artifacts a on a.id=i.artifact_id where i.delivery_id=$1 and i.artifact_id=$2 and i.version=$3 and a.current_version=i.version)`, base, in.Artifact, in.Version).Scan(&matches); err != nil {
+		if err = tx.QueryRow(ctx, `select exists(select from delivery_revision_targets($1) i where(i.artifact_id,i.version)=($2,$3))`, base, in.Artifact, in.Version).Scan(&matches); err != nil {
 			return err
 		}
 		if !matches {
-			return web.Fail(409, "所选成果与已交付版本不一致")
+			return web.Fail(409, "所选成果与已交付版本或批次的待补项不一致")
 		}
 		feedback, err = createFeedback(ctx, tx, p, in.Artifact, u.ID, in.Version, allowed, "change", "交付后修订", in.Reason)
 		if err != nil {

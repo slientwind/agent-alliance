@@ -5,6 +5,7 @@ import (
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
 	"alliance/internal/web"
+	"bytes"
 	"context"
 	"encoding/json"
 	"github.com/jackc/pgx/v5"
@@ -119,6 +120,7 @@ func (s Server) artifactAction(w http.ResponseWriter, r *http.Request, u identit
 func (s Server) deliver(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	var in struct {
 		Expected int
+		Partial  bool
 		Handoff  *struct {
 			Purpose      string `json:"purpose,omitempty"`
 			Instructions string `json:"instructions,omitempty"`
@@ -155,8 +157,16 @@ func (s Server) deliver(w http.ResponseWriter, r *http.Request, u identity.Membe
 		if p.Stage != "review" || p.Revision != in.Expected {
 			return web.Fail(409, "项目状态或版本已更新")
 		}
+		coverage, sealedCoverage, err := readDeliveryCoverage(ctx, tx, p)
+		if err != nil {
+			return err
+		}
+		if err := coverage.authorize(in.Partial); err != nil {
+			return err
+		}
+		accepted := coverage.coveredArtifacts()
 		var pending bool
-		if err = tx.QueryRow(ctx, "select exists(select from feedback f join artifacts a on a.id=f.artifact_id where a.project_id=$1 and "+activeFeedback+")", p.ID).Scan(&pending); err != nil {
+		if err = tx.QueryRow(ctx, "select exists(select from feedback f join artifacts a on a.id=f.artifact_id where a.project_id=$1 and (not $2 or a.id=any($3::uuid[])) and "+activeFeedback+")", p.ID, in.Partial, accepted).Scan(&pending); err != nil {
 			return err
 		}
 		if pending {
@@ -177,23 +187,25 @@ func (s Server) deliver(w http.ResponseWriter, r *http.Request, u identity.Membe
 			return web.Fail(409, "当前成果版本仍有撤权后的分发事项待处理")
 		}
 		var total, approved int
-		if err := tx.QueryRow(ctx, `select count(*),count(r.reviewer) filter(where not takeover_review_needed(a.project_id,a.id,a.current_version)) from artifacts a left join reviews r on(r.artifact_id,r.version)=(a.id,a.current_version) where a.project_id=$1`, p.ID).Scan(&total, &approved); err != nil {
+		if err := tx.QueryRow(ctx, `select count(*),count(r.reviewer) filter(where not takeover_review_needed(a.project_id,a.id,a.current_version))
+            from artifacts a left join reviews r on(r.artifact_id,r.version)=(a.id,a.current_version)
+            where a.project_id=$1 and (not $2 or a.id=any($3::uuid[]))`, p.ID, in.Partial, accepted).Scan(&total, &approved); err != nil {
 			return err
 		}
 		if total == 0 || approved != total {
 			return web.Fail(409, "请先审核所有当前成果版本")
 		}
-		if err := tx.QueryRow(ctx, `insert into deliveries(project_id,confirmed_by,reviewer_assignment,handoff,edition)
- select p.id,$2,p.reviewer_assignment,coalesce(nullif($3::jsonb,'null'::jsonb),case when distribution_state(prev.id) in('clear','reference') then prev.handoff end,'{}'::jsonb),coalesce(prev.edition,0)+1
+		if err := tx.QueryRow(ctx, `insert into deliveries(project_id,confirmed_by,reviewer_assignment,handoff,edition,partial,coverage)
+ select p.id,$2,p.reviewer_assignment,coalesce(nullif($3::jsonb,'null'::jsonb),case when distribution_state(prev.id) in('clear','reference') then prev.handoff end,'{}'::jsonb),coalesce(prev.edition,0)+1,$4,$5
  from projects p left join lateral (select id,edition,handoff from deliveries where project_id=p.id order by edition desc limit 1) prev on true
  where p.id=$1 and (prev.id is null or exists(select from delivery_revision_requests q join feedback f on f.id=q.feedback_id
- where q.base_delivery=prev.id and f.state='closed' and f.candidate_version>f.base_version)) returning id`, p.ID, u.ID, in.Handoff).Scan(&delivery); err != nil {
+ where q.base_delivery=prev.id and f.state='closed' and f.candidate_version>f.base_version)) returning id`, p.ID, u.ID, in.Handoff, in.Partial, sealedCoverage).Scan(&delivery); err != nil {
 			if err == pgx.ErrNoRows {
 				return web.Fail(409, "关联修订尚待负责审核人复核")
 			}
 			return err
 		}
-		if _, err := tx.Exec(ctx, "insert into delivery_items select $1,id,current_version from artifacts where project_id=$2", delivery, p.ID); err != nil {
+		if _, err := tx.Exec(ctx, "insert into delivery_items select $1,id,current_version from artifacts where project_id=$2 and (not $3 or id=any($4::uuid[]))", delivery, p.ID, in.Partial, accepted); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `insert into delivery_source_evidence(delivery_id,source_id,pinned,observed,revoked,assessments,revision_inputs,calculation_receipt,lookup_receipt)
@@ -219,10 +231,17 @@ func (s Server) deliver(w http.ResponseWriter, r *http.Request, u identity.Membe
 		if !authorized {
 			return web.Fail(403, "当前项目审核授权已结束")
 		}
+		_, latestCoverage, err := readDeliveryCoverage(ctx, tx, p)
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(sealedCoverage, latestCoverage) {
+			return web.Fail(409, "必交项核对或接手权限已变化，请重新核对后确认")
+		}
 		if err := Touch(ctx, tx, p.ID, "delivered"); err != nil {
 			return err
 		}
-		return database.Audit(ctx, tx, u.ID, "delivery.confirm", delivery, map[string]int{"items": total})
+		return database.Audit(ctx, tx, u.ID, "delivery.confirm", delivery, map[string]any{"items": total, "partial": in.Partial})
 	})
 	if err != nil {
 		return err
@@ -239,7 +258,10 @@ func (s Server) deliveryReceipt(w http.ResponseWriter, r *http.Request, u identi
 		return err
 	}
 	var data json.RawMessage
-	err = s.DB.QueryRow(r.Context(), `select jsonb_build_object('edition',d.edition,'distribution',distribution_state(d.id),'previous',c.previous,'changes',case when distribution_state(d.id) in('clear','reference') and (c.previous is null or distribution_state(c.previous) in('clear','reference')) then to_jsonb(c.changes) else '[]'::jsonb end,'comparisonHeld',c.previous is not null and distribution_state(c.previous) not in('clear','reference'),'changedNotes',to_jsonb(c.changed_notes),'handoff',case when distribution_state(d.id) in('clear','reference') then d.handoff else '{}'::jsonb end,'items',jsonb_agg(
+	err = s.DB.QueryRow(r.Context(), `select jsonb_build_object('edition',d.edition,'distribution',distribution_state(d.id),'previous',c.previous,'isPartial',d.partial,'coverage',case when distribution_state(d.id) in('clear','reference') then d.coverage end,'changes',case when distribution_state(d.id) in('clear','reference') and (c.previous is null or distribution_state(c.previous) in('clear','reference')) then to_jsonb(c.changes) else '[]'::jsonb end,'comparisonHeld',c.previous is not null and distribution_state(c.previous) not in('clear','reference'),'changedNotes',to_jsonb(c.changed_notes),
+     'unchanged',case when distribution_state(d.id) in('clear','reference') and distribution_state(c.previous) in('clear','reference') then
+       (select count(*) from delivery_items cur join delivery_items old using(artifact_id,version) where cur.delivery_id=d.id and old.delivery_id=c.previous) end,
+     'handoff',case when distribution_state(d.id) in('clear','reference') then d.handoff else '{}'::jsonb end,'items',jsonb_agg(
      jsonb_build_object('step',i.ordinal,'name',i.name,'version',i.version,'dependencies',i.dependencies) order by i.ordinal))
      from deliveries d join delivery_comparisons c on c.id=d.id join project_members m on m.project_id=d.project_id join delivery_recipient_items i on i.delivery_id=d.id
      where m.member_id=$1 and d.project_id=$2 and d.edition=$3 group by d.id,c.previous,c.changes,c.changed_notes`, u.ID, r.PathValue("id"), edition).Scan(&data)
@@ -255,7 +277,7 @@ func (s Server) download(w http.ResponseWriter, r *http.Request, u identity.Memb
 	}
 	var data []byte
 	var status string
-	err = s.DB.QueryRow(r.Context(), `select distribution_state(d.id),case when distribution_state(d.id) in('clear','reference') then jsonb_build_object('id',d.id,'confirmedBy',d.confirmed_by,'confirmedAt',d.created_at,'edition',c.edition,'previous',c.previous,'changes',to_jsonb(c.changes),'changedNotes',to_jsonb(c.changed_notes),'handoff',d.handoff,'items',d.items) end
+	err = s.DB.QueryRow(r.Context(), `select distribution_state(d.id),case when distribution_state(d.id) in('clear','reference') then jsonb_build_object('id',d.id,'confirmedBy',d.confirmed_by,'confirmedAt',d.created_at,'edition',c.edition,'previous',c.previous,'changes',to_jsonb(c.changes),'changedNotes',to_jsonb(c.changed_notes),'handoff',d.handoff,'items',d.items,'isPartial',d.partial,'coverage',d.coverage) end
  from delivery_recipient_manifests d join delivery_comparisons c on c.id=d.id join project_members m on m.project_id=d.project_id where m.member_id=$1 and d.project_id=$2 and c.edition=$3`, u.ID, r.PathValue("id"), edition).Scan(&status, &data)
 	if err != nil {
 		return err

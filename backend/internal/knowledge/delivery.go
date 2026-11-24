@@ -171,13 +171,15 @@ func PrepareDeliveryPackage(ctx context.Context, db interface {
 		Changes      json.RawMessage   `json:"changes"`
 		ChangedNotes json.RawMessage   `json:"changedNotes"`
 		Handoff      json.RawMessage   `json:"handoff"`
+		IsPartial    bool              `json:"isPartial"`
+		Coverage     json.RawMessage   `json:"coverage,omitempty"`
 		ConfirmedBy  string            `json:"confirmedBy"`
 		Assignment   *string           `json:"reviewerAssignment,omitempty"`
 		ConfirmedAt  time.Time         `json:"confirmedAt"`
 		Sources      []json.RawMessage `json:"sources,omitempty"`
 		Items        []packageItem     `json:"items"`
 	}
-	err = db.QueryRow(ctx, `select d.id,d.confirmed_by,d.created_at,d.reviewer_assignment,d.handoff,c.edition,c.previous,to_jsonb(c.changes),to_jsonb(c.changed_notes) from deliveries d join delivery_comparisons c on c.id=d.id where d.id=$1`, delivery).Scan(&manifest.ID, &manifest.ConfirmedBy, &manifest.ConfirmedAt, &manifest.Assignment, &manifest.Handoff, &manifest.Edition, &manifest.Previous, &manifest.Changes, &manifest.ChangedNotes)
+	err = db.QueryRow(ctx, `select d.id,d.confirmed_by,d.created_at,d.reviewer_assignment,d.handoff,c.edition,c.previous,to_jsonb(c.changes),to_jsonb(c.changed_notes),d.partial,d.coverage from deliveries d join delivery_comparisons c on c.id=d.id where d.id=$1`, delivery).Scan(&manifest.ID, &manifest.ConfirmedBy, &manifest.ConfirmedAt, &manifest.Assignment, &manifest.Handoff, &manifest.Edition, &manifest.Previous, &manifest.Changes, &manifest.ChangedNotes, &manifest.IsPartial, &manifest.Coverage)
 	if err != nil {
 		return nil, err
 	}

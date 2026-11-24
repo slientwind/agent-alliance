@@ -11,6 +11,7 @@ export type ReviewTask = {
   kind:
     | "review"
     | "deliver"
+    | "coverage"
     | "distribution"
     | "suggested"
     | "required"
@@ -26,6 +27,7 @@ export type ReviewTask = {
 const actionLabels: Record<ReviewTask["kind"], string> = {
   review: "审核成果",
   deliver: "最终确认交付",
+  coverage: "核对必交项和缺项安排",
   distribution: "查看资料撤权影响",
   suggested: "处理建议",
   required: "跟进修改",
@@ -36,6 +38,7 @@ export function taskAnchor(t: ReviewTask) {
   if (t.kind === "distribution") return "delivery-distribution";
   if (t.kind === "review") return "review-" + t.subject + "-" + t.version;
   if (t.kind === "deliver") return "deliver-" + t.revision;
+  if (t.kind === "coverage") return "delivery-coverage";
   return "feedback-" + t.subject + "-" + t.version + "-" + t.revision;
 }
 export function ConversationHistory({
@@ -99,8 +102,9 @@ export function ConversationHistory({
     parts.join(" ").toLocaleLowerCase().includes(needle);
   const rank = (id: string) =>
     recent.includes(id) ? recent.indexOf(id) : recent.length;
+  const stage = (x: Summary) => x.isPartial ? "已部分交付" : statusLabel[x.stage] || x.stage;
   const conversations = rows
-    .filter((x) => matches(x.title, statusLabel[x.stage] || x.stage))
+    .filter((x) => matches(x.title, stage(x)))
     .sort((a, b) => rank(a.id) - rank(b.id));
   const pending = tasks.filter((x) =>
     matches(
@@ -201,7 +205,7 @@ export function ConversationHistory({
                 onClick={() => open(x.id)}
               >
                 {x.title}
-                <small>{statusLabel[x.stage] || x.stage}</small>
+                <small>{stage(x)}</small>
               </button>
             ))
           ) : (

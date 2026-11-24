@@ -1,6 +1,6 @@
 import { held, distributionLabel } from "./distribution";
 import { useState } from "react";
-import { api, type Project, type DeliveryEdition } from "./client";
+import { api, type Project, type DeliveryCoverage, type DeliveryEdition } from "./client";
 
 const fields = [
   ["purpose", "成果用途"],
@@ -37,14 +37,17 @@ export function DeliveryConfirmation({
   project,
   busy,
   hasDraft,
+  partial,
   confirm,
 }: {
   project: Project;
   busy: boolean;
   hasDraft: boolean;
+  partial: boolean;
   confirm: (handoff: Handoff) => void;
 }) {
-  const items = project.artifacts.map((a) => ({
+  const accepted = new Set(project.deliveryCoverage?.items.filter(item => item.state === "covered").map(item => item.artifact));
+  const items = project.artifacts.filter(a => !partial || accepted.has(a.id)).map((a) => ({
     step: a.ordinal,
     name: a.name,
     version: a.version,
@@ -69,6 +72,7 @@ export function DeliveryConfirmation({
     >
       <h2>最终交付清单</h2>
       <Contents items={contents} />
+      {partial && <DeliveryGaps coverage={project.deliveryCoverage} />}
       <details>
         <summary>给接收人的交付说明（选填）</summary>
         <p>以下内容随成果包交付，拥有下载权限的接收人可以查看。</p>
@@ -94,9 +98,28 @@ export function DeliveryConfirmation({
         className="primary"
         disabled={busy}
       >
-        {project.recoveryUntil ? "确认交付并下载成果包" : "确认并固定以上版本"}
+        {partial ? "确认部分交付" : project.recoveryUntil ? "确认交付并下载成果包" : "确认并固定以上版本"}
       </button>
     </form>
+  );
+}
+
+function DeliveryGaps({ coverage }: { coverage?: DeliveryCoverage | null }) {
+  if (!coverage) return null;
+  const missing = coverage.items.filter(item => item.state === "missing");
+  if (!missing.length) return null;
+  return (
+    <section>
+      <h3>仍待补齐的必交项</h3>
+      <ul>
+        {missing.map(item => (
+          <li key={item.item}>
+            <strong>{item.label}</strong> · {item.reason}
+            <p>接手人 {item.responsibleName} · {item.continueWhen}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -122,6 +145,7 @@ export function DeliveryHistory({
   if (!latest) return null;
   const selected =
     project.deliveries.find((d) => d.edition === choice) || latest;
+  const revisable = project.artifacts.filter(a => project.deliveryRevisionTargets?.includes(a.id));
   const suffix = "?edition=" + selected.edition;
   return (
     <>
@@ -134,12 +158,13 @@ export function DeliveryHistory({
           >
             {project.deliveries.map((d) => (
               <option key={d.id} value={d.edition}>
-                第 {d.edition} 次交付 · {new Date(d.time).toLocaleString()}
+                第 {d.edition} 次交付{d.isPartial ? " · 部分" : ""} · {new Date(d.time).toLocaleString()}
               </option>
             ))}
           </select>
         </label>
       )}
+      {selected.isPartial && <p role="status"><strong>已部分交付</strong></p>}
       {selected.distribution !== "clear" && (
         <p role="status">
           <strong>{distributionLabel[selected.distribution]}</strong> · 第{" "}
@@ -163,14 +188,15 @@ export function DeliveryHistory({
       )}
       {project.canReview &&
         project.stage === "delivered" &&
+        revisable.length > 0 &&
         selected.id === latest.id && (
           <details className="card">
-            <summary>发起交付后修订</summary>
+            <summary>{latest.isPartial ? "补齐缺项或修订已交付成果" : "发起交付后修订"}</summary>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 const data = new FormData(e.currentTarget);
-                const item = project.artifacts.find(
+                const item = revisable.find(
                   (a) => a.id === data.get("artifact"),
                 );
                 if (item)
@@ -184,9 +210,9 @@ export function DeliveryHistory({
               }}
             >
               <label>
-                需要修改的已交付成果
+                {latest.isPartial ? "要补齐或修改的成果" : "需要修改的已交付成果"}
                 <select name="artifact">
-                  {project.artifacts.map((a) => (
+                  {revisable.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name} · v{a.version}
                     </option>
@@ -294,8 +320,10 @@ function DeliveryReceipt({
     items: SealedItem[];
     changes: VersionChange[];
     changedNotes: string[];
+    unchanged?: number | null;
     comparisonHeld: boolean;
     distribution: import("./client").DistributionState;
+    coverage?: DeliveryCoverage | null;
   }>();
   const [error, setError] = useState("");
   async function load() {
@@ -319,6 +347,7 @@ function DeliveryReceipt({
       {receipt && (
         <>
           <Contents items={receipt.items} />
+          {selected.isPartial && <DeliveryGaps coverage={receipt.coverage} />}
           {receipt.comparisonHeld && (
             <p>前一批次已暂停分发，版本内容对照暂时关闭。</p>
           )}
@@ -331,7 +360,7 @@ function DeliveryReceipt({
                   <EditionDifference key={c.artifact} base={base} change={c} />
                 ))}
                 <small>
-                  沿用 {receipt.items.length - receipt.changes.length}{" "}
+                  沿用 {receipt.unchanged ?? receipt.items.length - receipt.changes.length}{" "}
                   项已审核版本
                 </small>
                 {receipt.changedNotes.length > 0 && (

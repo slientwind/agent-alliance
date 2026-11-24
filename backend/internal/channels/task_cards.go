@@ -62,6 +62,8 @@ func taskLocation(task projects.ReviewTodo) (label, anchor string) {
 		return "核对资料撤权影响", "delivery-distribution"
 	case "deliver":
 		return "最终确认交付", fmt.Sprintf("deliver-%d", task.Revision)
+	case "coverage":
+		return "核对必交项和缺项安排", "delivery-coverage"
 	case "review":
 		return fmt.Sprintf("审核成果 v%d", task.Version), fmt.Sprintf("review-%s-%d", task.Subject, task.Version)
 	}

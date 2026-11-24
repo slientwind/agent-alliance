@@ -756,7 +756,7 @@ func (s Server) read(w http.ResponseWriter, r *http.Request, view string) error 
 				return nil
 			}
 			var state string
-			err = tx.QueryRow(ctx, `select distribution_state(d.id),case when distribution_state(d.id) in('clear','reference') then jsonb_build_object('delivery',d.id,'edition',c.edition,'previous',c.previous,'changes',to_jsonb(c.changes),'changedNotes',to_jsonb(c.changed_notes),'handoff',d.handoff,'items',d.items) end from delivery_recipient_manifests d join delivery_comparisons c on c.id=d.id where d.id=$1`, delivery).Scan(&state, &body)
+			err = tx.QueryRow(ctx, `select distribution_state(d.id),case when distribution_state(d.id) in('clear','reference') then jsonb_build_object('delivery',d.id,'edition',c.edition,'previous',c.previous,'changes',to_jsonb(c.changes),'changedNotes',to_jsonb(c.changed_notes),'handoff',d.handoff,'items',d.items,'isPartial',d.partial,'coverage',d.coverage) end from delivery_recipient_manifests d join delivery_comparisons c on c.id=d.id where d.id=$1`, delivery).Scan(&state, &body)
 			if err != nil {
 				return err
 			}

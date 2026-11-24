@@ -9,6 +9,7 @@ import { ReviewPolicy } from "./review-reminders";
 import { outputOperations } from "./output-operations";
 import { DistributionReview, held } from "./distribution";
 import { DeliveryConfirmation, DeliveryHistory } from "./delivery";
+import { CoverageReview } from "./delivery-coverage";
 import { CallRecovery } from "./call-recovery";
 import { SourceReceipt } from "./source-receipt";
 import { SourceReview, hasSourceReview } from "./source-impact";
@@ -134,6 +135,14 @@ export function Work({
     available = [...agents, ...(p.sharedAgents || [])].filter(
       (a) => a.publishedReady,
     );
+  const coverageItems = p.deliveryCoverage?.items || [];
+  const deliveryMissing = coverageItems.filter(item => item.state === "missing");
+  const deliveryAccepted = new Set(coverageItems.filter(item => item.state === "covered").map(item => item.artifact));
+  const partial = !!p.deliveryCoverage?.allowPartial && deliveryMissing.length > 0 &&
+    deliveryAccepted.size > 0 && deliveryMissing.every(item => item.responsibleActive && !!item.continueWhen);
+  const deliveryCandidates = partial ? p.artifacts.filter(a => deliveryAccepted.has(a.id)) : p.artifacts;
+  const deliveryReady = coverageItems.every(item => item.state !== "unchecked") &&
+    (deliveryMissing.length === 0 || partial);
   const reviewScope = p.artifacts
     .filter((a) => !a.reviewNotesReadable)
     .map((a) => a.id)
@@ -863,6 +872,8 @@ export function Work({
           perform={perform}
         />
       )}
+      <CoverageReview project={p} busy={busy}
+        save={data => void perform(() => api(base + "/delivery/assessments", "POST", data))} />
       {p.artifacts.map((a) => (
         <article
           className="card"
@@ -1002,9 +1013,11 @@ export function Work({
       ))}
       {p.reviewer === user.id &&
         p.stage === "review" &&
-        p.artifacts.length > 0 &&
+        deliveryReady &&
+        deliveryCandidates.length > 0 &&
         !p.distributionCases.some((c) => c.current && held(c.state)) &&
-        p.artifacts.every(
+        !p.artifacts.some(hasSourceReview) &&
+        deliveryCandidates.every(
           (a) =>
             a.approved &&
             !a.needsTakeoverReview &&
@@ -1014,10 +1027,11 @@ export function Work({
           <DeliveryConfirmation
             project={p}
             busy={busy}
+            partial={partial}
             hasDraft={!!revisions && Object.keys(revisions).length > 0}
             confirm={(handoff) =>
               perform(async () => {
-                const request = { expected: p.revision, handoff };
+                const request = { expected: p.revision, handoff, partial };
                 if (!p.recoveryUntil) {
                   await api(base + "/deliver", "POST", request);
                   return;

@@ -208,6 +208,8 @@ func ApplySourceReceipt(ctx context.Context, tx pgx.Tx, run, actor, key string, 
 	for _, q := range []string{
 		"insert into plans(project_id,version,brief,confirmed_by,suggestion_id) select project_id,$3,brief,confirmed_by,suggestion_id from plans where project_id=$1 and version=$2",
 		"insert into nodes select project_id,$3,ordinal,agent_id,agent_revision,lookup_phase from nodes where project_id=$1 and plan_version=$2",
+		"insert into plan_delivery_contracts select project_id,$3,allow_partial from plan_delivery_contracts where project_id=$1 and plan_version=$2",
+		"insert into plan_delivery_requirements select project_id,$3,item,ordinal,label from plan_delivery_requirements where project_id=$1 and plan_version=$2",
 		"insert into plan_tool_choices select project_id,$3,ordinal,selector,alternative,alternative_revision from plan_tool_choices where project_id=$1 and plan_version=$2",
 		"insert into node_edges select project_id,$3,ordinal,depends_on from node_edges where project_id=$1 and plan_version=$2",
 		"insert into plan_rules select project_id,$3,rule_id,rule_revision from plan_rules where project_id=$1 and plan_version=$2",

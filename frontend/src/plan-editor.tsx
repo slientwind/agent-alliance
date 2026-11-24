@@ -18,6 +18,7 @@ type Step = {
   outline?: boolean;
   vision?: boolean;
   editsImage?: boolean;
+  completion?: string;
   original?: { step: number; agent: string; revision: number };
 };
 export type PlanDraft = {
@@ -27,6 +28,7 @@ export type PlanDraft = {
   steps: Step[];
   documents: Record<string, number>;
   rules: Record<string, number>;
+  allowPartial?: boolean;
   templateUpdate?: {
     fromVersion: number;
     toVersion: number;
@@ -65,11 +67,18 @@ export function currentPlan(project: Project): PlanDraft {
     });
     keys.push(key);
   }
+  if (project.plan && project.deliveryCoverage) {
+    for (const item of project.deliveryCoverage.items) {
+      const step = steps.find(s => s.key === keys[item.step - 1]);
+      if (step) step.completion = [step.completion, item.label].filter(Boolean).join("\n");
+    }
+  }
   return {
     baseRevision: project.revision,
     baseVersion: project.planVersion,
     brief: project.plan?.brief ?? (template ? [goal, template.instructions, `输入约定\n${template.inputs}`, `交付约定\n${template.outcomes}`].join("\n\n") : goal),
     steps,
+    allowPartial: project.plan ? project.deliveryCoverage?.allowPartial : undefined,
     documents: Object.fromEntries(
       (project.plan?.sources ?? []).map((s) => [s.id, s.version]),
     ),
@@ -80,8 +89,15 @@ export function currentPlan(project: Project): PlanDraft {
 }
 
 export function planFromTemplateUpdate(project: Project, update: WorkflowTemplateUpdate): PlanDraft {
+  const previous = currentPlan(project);
+  const updated = currentPlan({ ...project, plan: null, workflowTemplate: update.target });
   return {
-    ...currentPlan({ ...project, plan: null, workflowTemplate: update.target }),
+    ...updated,
+    steps: updated.steps.map((step, i) => ({
+      ...step,
+      completion: previous.steps[i]?.completion,
+    })),
+    allowPartial: previous.allowPartial,
     documents: Object.fromEntries((project.plan?.sources ?? []).map(source => [source.id, source.version])),
     rules: Object.fromEntries((project.plan?.preferences ?? []).map(pref => [pref.id, pref.revision])),
     templateUpdate: {
@@ -118,6 +134,7 @@ function DraftSummary({
                   .map((k) => value.steps.findIndex((t) => t.key === k) + 1)
                   .join("、")
               : "可独立开始"}
+            {s.completion && <p className="preserve">{s.completion}</p>}
           </li>
         ))}
       </ol>
@@ -230,6 +247,13 @@ export function PlanEditor({
   const latest = currentPlan(project);
   const value = draft ?? latest;
   const { steps, documents, rules } = value;
+  const requiredItems = steps.flatMap((step, index) =>
+    (step.completion || "").split("\n").map(line => line.trim()).filter(Boolean)
+      .map(label => ({ step: index + 1, label })),
+  );
+  const invalidDeliveryContract = requiredItems.length > 32 ||
+    requiredItems.some(item => Array.from(item.label).length > 180) ||
+    !!value.allowPartial && requiredItems.length === 0;
   const replacements = steps.flatMap(({ original, agent, revision }, i) =>
     original && (original.agent !== agent || original.revision !== revision)
       ? [{ from: original.step, step: i + 1 }]
@@ -340,7 +364,7 @@ export function PlanEditor({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (stale || busy || !steps.length || needsPictureAgent || tooManyReferences || missingLookupSources || missingTemplateSources || invalidToolChoice || unavailableTemplateStep) return;
+        if (stale || busy || !steps.length || needsPictureAgent || tooManyReferences || missingLookupSources || missingTemplateSources || invalidToolChoice || unavailableTemplateStep || invalidDeliveryContract) return;
         void save({
           expected: value.baseRevision,
           ...(replacements.length > 0 && { replacements, replacementBase: value.baseVersion }),
@@ -349,6 +373,7 @@ export function PlanEditor({
           brief: value.brief,
           agents: steps.map((s) => s.agent),
           agentRevisions: steps.map((s) => s.revision),
+          deliveryContract: { allowPartial: !!value.allowPartial, items: requiredItems },
           dependencies: steps.map((s) =>
             s.inputs.map((key) => steps.findIndex((t) => t.key === key) + 1),
           ),
@@ -412,6 +437,24 @@ export function PlanEditor({
             onChange={(e) => edit({ brief: e.target.value })}
           />
         </label>
+        {!!steps.length && (
+          <details open={requiredItems.length || value.allowPartial ? true : undefined}>
+            <summary>必交项与缺项处理</summary>
+            {steps.map((step, i) => (
+              <label key={step.key}>
+                步骤 {i + 1} · {step.name} 的必交项
+                <textarea rows={2} value={step.completion || ""} placeholder="每行填写一个要核对的对象或条件"
+                  onChange={e => edit({ steps: steps.map(current => current.key === step.key
+                    ? { ...current, completion: e.target.value } : current) })} />
+              </label>
+            ))}
+            <label>
+              <input type="checkbox" checked={!!value.allowPartial} onChange={e => edit({ allowPartial: e.target.checked })} />
+              缺项时允许部分交付，并为每项指定接手人及继续条件
+            </label>
+            {invalidDeliveryContract && <small role="status">最多 32 项，每项 180 字。部分交付需要至少一个必交项。</small>}
+          </details>
+        )}
         <label>
           添加执行步骤
           <select
@@ -684,7 +727,7 @@ export function PlanEditor({
         })}
       </fieldset>
       <div className="actions">
-        <button disabled={busy || stale || !steps.length || needsPictureAgent || tooManyReferences || missingLookupSources || missingTemplateSources || invalidToolChoice || unavailableTemplateStep}>
+        <button disabled={busy || stale || !steps.length || needsPictureAgent || tooManyReferences || missingLookupSources || missingTemplateSources || invalidToolChoice || unavailableTemplateStep || invalidDeliveryContract}>
           {value.templateUpdate ? "采用新版并保存待确认方案" : "保存待确认方案"}
         </button>
         {draft && (

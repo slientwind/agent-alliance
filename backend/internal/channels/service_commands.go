@@ -255,6 +255,8 @@ func (f Feishu) reviewMessage(ctx context.Context, tx pgx.Tx, actor, project, ki
 				lines = append(lines, "交付分发受限 · 请在网页核对资料撤权影响")
 			case "deliver":
 				lines = append(lines, "待确认最终交付")
+			case "coverage":
+				lines = append(lines, "必交项和缺项安排待核对")
 			case "review":
 				lines = append(lines, fmt.Sprintf("待审核 · %s v%d", t.Name, t.Version))
 			default:
