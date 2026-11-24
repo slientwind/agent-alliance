@@ -48,9 +48,9 @@ func Capture(ctx context.Context, tx pgx.Tx, key Key, build BuildRef, refs []Ref
 		}
 	}
 	if _, err := tx.Exec(ctx, `insert into run_working_parents(run_id,ordinal,attempt_no,parent_run,parent_ordinal,parent_attempt)
-        select r.id,$2::int,$3::int,r.id,e.depends_on,i.attempt_no from runs r
+        select r.id,$2::int,$3::int,i.origin_run,e.depends_on,i.attempt_no from runs r
         join node_edges e on(e.project_id,e.plan_version)=(r.project_id,r.plan_version)
-        join invocations i on(i.run_id,i.ordinal)=(r.id,e.depends_on) and i.status='completed'
+        join run_observations i on(i.run_id,i.ordinal)=(r.id,e.depends_on)
         where r.id=$1 and e.ordinal=$2 and not exists(select from change_batches c where c.run_id=r.id)
         union select $1,$2,$3,origin.run_id,origin.ordinal,origin.attempt_no from (
             select artifact_id,version from change_inputs where run_id=$1
@@ -83,12 +83,15 @@ func Prior(ctx context.Context, tx pgx.Tx, run string, step int) (string, error)
 	err := tx.QueryRow(ctx, `select count(*),count(value) filter(where usable),
             coalesce(bool_or(not usable),false),coalesce(string_agg(value,E'\n\n' order by depends_on) filter(where usable),'')
         from (
-            select e.depends_on,coalesce(i.result,v.body) as value,
-                i.attempt_no is null or run_working_set_usable(r.id,e.depends_on,i.attempt_no) as usable
+            select e.depends_on,case when branch.mode='reuse' then coalesce(v.body,i.result) else coalesce(i.result,v.body) end as value,
+                (o.attempt_no is null or run_working_set_usable(o.origin_run,e.depends_on,o.attempt_no))
+                  and (branch.mode is distinct from 'reuse' or a.id is null or distribution_readable(a.id,branch.result_version,r.actor)) as usable
             from runs r join node_edges e on(e.project_id,e.plan_version)=(r.project_id,r.plan_version)
-            left join invocations i on i.run_id=r.id and i.ordinal=e.depends_on and i.status='completed'
-            left join artifacts a on(a.run_id,a.ordinal)=(r.id,e.depends_on)
-            left join artifact_versions v on(v.artifact_id,v.version)=(a.id,1)
+            left join run_observations o on(o.run_id,o.ordinal)=(r.id,e.depends_on)
+            left join invocations i on(i.run_id,i.ordinal,i.attempt_no)=(o.origin_run,o.ordinal,o.attempt_no)
+            left join run_candidate_artifacts a on(a.run_id,a.ordinal)=(r.id,e.depends_on)
+            left join rule_branch_steps branch on(branch.run_id,branch.ordinal)=(r.id,e.depends_on)
+            left join artifact_versions v on(v.artifact_id,v.version)=(a.id,coalesce(branch.result_version,1))
             where r.id=$1 and e.ordinal=$2
         ) ordered`, run, step).Scan(&needed, &available, &invalid, &body)
 	if err != nil {

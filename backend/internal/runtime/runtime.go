@@ -138,6 +138,14 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			result.Wait = !result.Stop
 			return nil
 		}
+		var alreadyFinished bool
+		if err := tx.QueryRow(ctx, `select exists(select from rule_branch_steps
+            where (run_id,ordinal)=($1,$2) and finished)`, step.Run, step.Ordinal).Scan(&alreadyFinished); err != nil {
+			return err
+		}
+		if alreadyFinished {
+			return nil
+		}
 		var waitingForSource bool
 		if err := tx.QueryRow(ctx, `select exists(select from calculation_requests
             where (run_id,ordinal)=($1,$2) and request_revision is not null
@@ -840,19 +848,26 @@ func commitOutput(ctx context.Context, tx pgx.Tx, step Step, d contextData, text
 		}
 		return err
 	}
+	var intermediate bool
 	if d.lookupPhase == "answer" {
-		var internal bool
 		err := tx.QueryRow(ctx, `select exists(select from node_edges e join nodes next using(project_id,plan_version,ordinal)
 			where (e.project_id,e.plan_version,e.depends_on)=($1,$2,$3) and next.lookup_phase='synthesize')`,
-			d.project, d.planVersion, step.Ordinal).Scan(&internal)
+			d.project, d.planVersion, step.Ordinal).Scan(&intermediate)
 		if err != nil {
 			return err
 		}
-		if internal {
-			_, err := tx.Exec(ctx, `insert into invocations(run_id,ordinal,status,result,ended_at)
-				values($1,$2,'completed',$3,now()) on conflict(run_id,ordinal) do nothing`, step.Run, step.Ordinal, text)
-			return err
+		if intermediate {
+			if _, err := tx.Exec(ctx, `insert into invocations(run_id,ordinal,status,result,ended_at)
+				values($1,$2,'completed',$3,now()) on conflict(run_id,ordinal) do nothing`, step.Run, step.Ordinal, text); err != nil {
+				return err
+			}
 		}
+	}
+	if branch, err := commitRuleBranchOutput(ctx, tx, step, d, text, intermediate, outcome); branch || err != nil {
+		return err
+	}
+	if intermediate {
+		return nil
 	}
 	var exists bool
 	if err := tx.QueryRow(ctx, "select exists(select from artifacts where run_id=$1 and ordinal=$2)", step.Run, step.Ordinal).Scan(&exists); err != nil {
@@ -861,8 +876,8 @@ func commitOutput(ctx context.Context, tx pgx.Tx, step Step, d contextData, text
 	if exists {
 		return nil
 	}
-	var id string
-	if err := tx.QueryRow(ctx, `insert into artifacts(project_id,run_id,ordinal,name) select $1,$2,$3,name||case $6::text when 'search' then ' · 检索依据' when 'answer' then ' · 据原文回答' when 'synthesize' then ' · 据原文回答' when 'answer_calc' then ' · 原文与金额核算' else '' end from agent_revisions where agent_id=$4 and revision=$5 returning id`, d.project, step.Run, step.Ordinal, d.agent, d.revision, d.lookupPhase).Scan(&id); err != nil {
+	id, err := createRunArtifact(ctx, tx, step, d)
+	if err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, "insert into artifact_versions(artifact_id,version,body,reason) values($1,1,$2,'初稿')", id, text); err != nil {
@@ -887,6 +902,15 @@ func commitOutput(ctx context.Context, tx pgx.Tx, step Step, d contextData, text
 		return projects.Note(ctx, tx, d.project, "assistant", "候选成果已就绪，请审核具体版本。", nil)
 	}
 	return nil
+}
+
+func createRunArtifact(ctx context.Context, tx pgx.Tx, step Step, d contextData) (string, error) {
+	var id string
+	err := tx.QueryRow(ctx, `insert into artifacts(project_id,run_id,ordinal,name)
+        select $1,$2,$3,name||case $6::text when 'search' then ' · 检索依据' when 'answer' then ' · 据原文回答'
+        when 'synthesize' then ' · 据原文回答' when 'answer_calc' then ' · 原文与金额核算' else '' end
+        from agent_revisions where agent_id=$4 and revision=$5 returning id`, d.project, step.Run, step.Ordinal, d.agent, d.revision, d.lookupPhase).Scan(&id)
+	return id, err
 }
 func requestReceipt(ctx context.Context, tx pgx.Tx, step Step, project string, kind projects.ReceiptKind, reason string) error {
 	var scoped bool
@@ -1017,7 +1041,16 @@ type Node struct {
 }
 
 func (a Activities) Topology(ctx context.Context, run string) ([]Node, error) {
-	rows, err := a.Catalog.DB.Query(ctx, `select n.ordinal,case when cb.run_id is not null then array[]::integer[] else array(select e.depends_on from node_edges e where(e.project_id,e.plan_version,e.ordinal)=(n.project_id,n.plan_version,n.ordinal) order by e.depends_on) end,agent_output_operation(ar)='png',n.lookup_phase='answer' and cb.run_id is null,n.lookup_phase='answer_calc' and cb.run_id is null from runs r left join change_batches cb on cb.run_id=r.id left join artifacts target on target.id=cb.artifact_id join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version) join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision) where r.id=$1 and (cb.run_id is null or n.ordinal=target.ordinal) order by n.ordinal`, run)
+	rows, err := a.Catalog.DB.Query(ctx, `select n.ordinal,case when cb.run_id is not null then array[]::integer[] else array(
+        select e.depends_on from node_edges e where(e.project_id,e.plan_version,e.ordinal)=(n.project_id,n.plan_version,n.ordinal)
+        and not exists(select from rule_branch_steps b where (b.run_id,b.ordinal)=(r.id,e.depends_on) and b.mode='reuse')
+        order by e.depends_on) end,agent_output_operation(ar)='png',n.lookup_phase='answer' and cb.run_id is null,n.lookup_phase='answer_calc' and cb.run_id is null
+        from runs r left join change_batches cb on cb.run_id=r.id left join artifacts target on target.id=cb.artifact_id
+        join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version)
+        join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision)
+        where r.id=$1 and (cb.run_id is null or n.ordinal=target.ordinal)
+        and not exists(select from rule_branch_steps b where (b.run_id,b.ordinal)=(r.id,n.ordinal) and b.mode='reuse')
+        order by n.ordinal`, run)
 	if err != nil {
 		return nil, err
 	}

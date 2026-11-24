@@ -56,6 +56,9 @@ func (s Server) artifactAction(w http.ResponseWriter, r *http.Request, u identit
 		if in.Version != ver {
 			return web.Fail(409, "成果已更新，请查看当前版本")
 		}
+		if err := requireCurrentArtifactRules(ctx, tx, id, ver); err != nil {
+			return err
+		}
 		if edit {
 			var binary bool
 			if err := tx.QueryRow(ctx, "select exists(select from artifact_files where artifact_id=$1 and version=$2)", id, ver).Scan(&binary); err != nil {
@@ -75,12 +78,6 @@ func (s Server) artifactAction(w http.ResponseWriter, r *http.Request, u identit
 			}
 		} else {
 			var pending bool
-			if err := tx.QueryRow(ctx, "select not artifact_rule_draft_readable($1,$2)", id, ver).Scan(&pending); err != nil {
-				return err
-			}
-			if pending {
-				return web.Fail(409, "此候选使用的团队规则已失效，请按当前规则重做后审核")
-			}
 			if err = tx.QueryRow(ctx, "select exists(select from feedback where artifact_id=$1 and "+activeFeedback+")", id).Scan(&pending); err != nil {
 				return err
 			}
@@ -121,6 +118,17 @@ func (s Server) artifactAction(w http.ResponseWriter, r *http.Request, u identit
 		return err
 	}
 	w.WriteHeader(204)
+	return nil
+}
+
+func requireCurrentArtifactRules(ctx context.Context, tx pgx.Tx, id string, version int) error {
+	var readable bool
+	if err := tx.QueryRow(ctx, "select artifact_rule_draft_readable($1,$2)", id, version).Scan(&readable); err != nil {
+		return err
+	}
+	if !readable {
+		return web.Fail(409, "此候选使用的团队规则已失效，请按当前规则重做后处理")
+	}
 	return nil
 }
 func (s Server) deliver(w http.ResponseWriter, r *http.Request, u identity.Member) error {
@@ -317,17 +325,26 @@ func (s Server) download(w http.ResponseWriter, r *http.Request, u identity.Memb
 	return err
 }
 
-const affectedNodes = `with recursive edges as (select e.ordinal,e.depends_on from runs r join node_edges e on(e.project_id,e.plan_version)=(r.project_id,r.plan_version) where r.id=$1), affected(ordinal) as (select ordinal from edges where depends_on=$2 union select e.ordinal from edges e join affected a on e.depends_on=a.ordinal) `
+const affectedNodes = `with recursive edges as (
+ select e.ordinal,e.depends_on from runs r join node_edges e on(e.project_id,e.plan_version)=(r.project_id,r.plan_version) where r.id=$1
+), affected(ordinal) as (
+ select ordinal from edges where depends_on=$2 union select e.ordinal from edges e join affected a on e.depends_on=a.ordinal
+), candidates as (
+ select a.id from run_candidate_artifacts a join affected using(ordinal)
+ where a.run_id=coalesce((select r.id from branch_rebuild_ancestors b join runs r on r.id=b.run_id
+   where b.source_run=$1 order by r.created_at desc,r.id desc limit 1),$1)
+   and artifact_rule_draft_readable(a.id,a.current_version)
+) `
 
 func advanceDescendants(ctx context.Context, tx pgx.Tx, run string, ord int) error {
 	// Only descendants of the changed node need a dependency review.
-	if _, err := tx.Exec(ctx, affectedNodes+`insert into artifact_versions(artifact_id,version,body,reason) select a.id,a.current_version+1,v.body,$3 from artifacts a join artifact_versions v on(v.artifact_id,v.version)=(a.id,a.current_version) where a.run_id=$1 and a.ordinal in(select ordinal from affected)`, run, ord, "上游内容变化，需要核对引用"); err != nil {
+	if _, err := tx.Exec(ctx, affectedNodes+`insert into artifact_versions(artifact_id,version,body,reason) select a.id,a.current_version+1,v.body,$3 from candidates c join artifacts a on a.id=c.id join artifact_versions v on(v.artifact_id,v.version)=(a.id,a.current_version)`, run, ord, "上游内容变化，需要核对引用"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, affectedNodes+`insert into artifact_files select a.id,a.current_version+1,f.object_hash,f.filename,f.media_type from artifacts a join artifact_files f on(f.artifact_id,f.version)=(a.id,a.current_version) where a.run_id=$1 and a.ordinal in(select ordinal from affected)`, run, ord); err != nil {
+	if _, err := tx.Exec(ctx, affectedNodes+`insert into artifact_files select a.id,a.current_version+1,f.object_hash,f.filename,f.media_type from candidates c join artifacts a on a.id=c.id join artifact_files f on(f.artifact_id,f.version)=(a.id,a.current_version)`, run, ord); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, affectedNodes+"update artifacts set current_version=current_version+1 where run_id=$1 and ordinal in(select ordinal from affected)", run, ord); err != nil {
+	if _, err := tx.Exec(ctx, affectedNodes+"update artifacts a set current_version=current_version+1 from candidates c where a.id=c.id", run, ord); err != nil {
 		return err
 	}
 	return nil

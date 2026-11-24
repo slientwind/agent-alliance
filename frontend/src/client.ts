@@ -367,6 +367,14 @@ export type WorkflowTemplateUpdate = {
   target: WorkflowTemplate;
 };
 
+export type RuleBranchStep = {
+  step: number;
+  name: string;
+  mode: "rebuild" | "reuse" | "continue";
+  artifact?: string;
+  version?: number;
+};
+
 export type Project = Summary & {
   workflowTemplate?: WorkflowTemplate | null;
   adoption?: { actor: string; at: string } | null;
@@ -534,6 +542,8 @@ export type Project = Summary & {
       availableRevision?: number;
       availableBody?: string;
     }[];
+    hasRuleBranchToRebuild?: boolean;
+    ruleBranchRebuild?: { sourceRun: string; authorizedCalls: number; steps: RuleBranchStep[] } | null;
     lookupPending?: boolean;
     calculationPending?: boolean;
     draftAvailable?: boolean;

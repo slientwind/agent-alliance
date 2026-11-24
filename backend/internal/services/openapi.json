@@ -159,6 +159,25 @@
         }
       }
     },
+    "/runs/{id}/rule-rebuild": {
+      "get": {
+        "operationId": "previewRuleBranchRebuild",
+        "summary": "预览原任务中受规则失效影响的步骤和可沿用成果",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "重做范围、确切成果版本和本批调用上限",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RuleBranchPreview" } } }
+          },
+          "default": {
+            "description": "原任务不可见、授权失效或需先核对调用回执",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+          }
+        }
+      }
+    },
     "/runs/{id}/actions": {
       "post": {
         "operationId": "actOnRun",
@@ -767,7 +786,16 @@
               "string",
               "null"
             ],
-            "description": "select_tool 时，由有权成员从原方案选择汇总工具。submit_lookup_receipt 时，按待办步骤补充原件。wait_source_index 表示存在自动索引等待。indexWait 为历史运行级等待，超时后使用 resume。并行步骤的 indexWaits 超时后使用 recheck_source_index，并提交原待办的 waitRevision。check_step_rule 时，检查 ruleWaits 中的规则修订、可用版本及是否需重做，适用时提交 recheck_step_rule。correct_columns 时原委托成员可确认待补正的字段，review_columns 时应用将待办交给 humanActionUrl 对应项目的审核人。"
+            "description": "select_tool 时，由有权成员从原方案选择汇总工具。submit_lookup_receipt 时，按待办步骤补充原件。wait_source_index 表示存在自动索引等待。indexWait 为历史运行级等待，超时后使用 resume。并行步骤的 indexWaits 超时后使用 recheck_source_index，并提交原待办的 waitRevision。check_step_rule 时可检查 ruleWaits 并按当前修订提交 recheck_step_rule。preview_rule_branch 时读取 ruleRebuildUrl，read_replacement_run 时查询 replacementRun。correct_columns 时原委托成员可确认待补正的字段，review_columns 时应用将待办交给 humanActionUrl 对应项目的审核人。"
+          },
+          "ruleRebuildUrl": {
+            "type": "string",
+            "description": "按原运行读取关联批次的确认清单。"
+          },
+          "replacementRun": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "已受理的关联批次运行号。可用原凭据和委托继续查询。"
           },
           "blocker": {
             "type": [
@@ -1100,8 +1128,60 @@
           "status"
         ]
       },
+      "RuleBranchPreview": {
+        "type": "object",
+        "required": ["run", "controlRevision", "planVersion", "projectRevision", "chargeTeam", "calls", "steps", "rules", "digest"],
+        "properties": {
+          "run": { "type": "string", "format": "uuid" },
+          "controlRevision": { "type": "integer", "minimum": 1 },
+          "planVersion": { "type": "integer", "minimum": 1 },
+          "projectRevision": { "type": "integer", "minimum": 1 },
+          "chargeTeam": { "type": "string" },
+          "calls": { "type": "integer", "minimum": 1 },
+          "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["step", "name", "mode"],
+              "properties": {
+                "step": { "type": "integer", "minimum": 1 },
+                "name": { "type": "string" },
+                "mode": { "enum": ["rebuild", "reuse", "continue"] },
+                "artifact": { "type": "string", "format": "uuid" },
+                "version": { "type": "integer", "minimum": 1 },
+                "originRun": { "type": "string", "format": "uuid" },
+                "attempt": { "type": "integer", "minimum": 1 }
+              }
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["step", "rule", "previous", "replacement", "body"],
+              "properties": {
+                "step": { "type": "integer", "minimum": 1 },
+                "rule": { "type": "string", "format": "uuid" },
+                "previous": { "type": "integer", "minimum": 1 },
+                "replacement": { "type": "integer", "minimum": 1 },
+                "body": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
       "Action": {
         "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "action": { "const": "rebuild_rule_branch" },
+              "rebuildDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "authorizeCalls": { "type": "integer", "minimum": 1 }
+            },
+            "required": ["action", "rebuildDigest", "authorizeCalls"]
+          },
           {
             "type": "object",
             "properties": {
@@ -1320,6 +1400,10 @@
         "properties": {
           "action": {
             "type": "string"
+          },
+          "run": {
+            "type": "string",
+            "format": "uuid"
           },
           "controlRevision": {
             "type": "integer",

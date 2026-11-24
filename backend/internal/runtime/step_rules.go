@@ -53,13 +53,13 @@ func parkRevokedWorkingRule(ctx context.Context, tx pgx.Tx, step Step, project s
 	var scoped bool
 	err := tx.QueryRow(ctx, `select d.rule_id,d.rule_revision,d.scoped
         from (
-          select $2::integer ordinal,$3::integer attempt_no where $3>0
+          select $1::uuid origin_run,$2::integer ordinal,$3::integer attempt_no where $3>0
           union all
-          select e.depends_on,i.attempt_no from runs r
+          select i.origin_run,e.depends_on,i.attempt_no from runs r
           join node_edges e on (e.project_id,e.plan_version)=(r.project_id,r.plan_version)
-          join invocations i on (i.run_id,i.ordinal)=(r.id,e.depends_on)
+          join run_observations i on (i.run_id,i.ordinal)=(r.id,e.depends_on)
           where r.id=$1 and e.ordinal=$2 and $3=0
-        ) a cross join lateral invalid_working_step_rules($1,a.ordinal,a.attempt_no) d
+        ) a cross join lateral invalid_working_step_rules(a.origin_run,a.ordinal,a.attempt_no) d
         where exists(select from runs where id=$1 and status='running')
         order by d.scoped,d.rule_id limit 1`, step.Run, step.Ordinal, attempt).Scan(&rule, &revision, &scoped)
 	if errors.Is(err, pgx.ErrNoRows) {

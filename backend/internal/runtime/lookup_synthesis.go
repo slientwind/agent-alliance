@@ -29,12 +29,12 @@ func lookupCitationRefs(hits []lookupHit, files []knowledge.InputSource) []index
 func synthesisEvidence(ctx context.Context, tx pgx.Tx, step Step, files []knowledge.InputSource) ([]lookupHit, error) {
 	var data []byte
 	err := tx.QueryRow(ctx, `select t.refinement_evidence
-		from runs r left join change_batches cb on cb.run_id=r.id left join artifacts origin on origin.id=cb.artifact_id
+		from runs r left join change_batches cb on cb.run_id=r.id
 		join node_edges e on(e.project_id,e.plan_version,e.ordinal)=(r.project_id,r.plan_version,$2)
-		join invocations i on(i.run_id,i.ordinal)=(coalesce(origin.run_id,r.id),e.depends_on)
-		join lookup_turns t on(t.run_id,t.ordinal,t.attempt_no)=(i.run_id,i.ordinal,i.attempt_no)
+		join run_observations i on(i.run_id,i.ordinal)=(coalesce(artifact_execution_run(cb.artifact_id,cb.base_version),r.id),e.depends_on)
+		join lookup_turns t on(t.run_id,t.ordinal,t.attempt_no)=(i.origin_run,i.ordinal,i.attempt_no)
 		where r.id=$1 and t.outcome='lookup_refined' and t.refinement_evidence is not null
-		  and run_working_set_usable(i.run_id,i.ordinal,i.attempt_no)`, step.Run, step.Ordinal).Scan(&data)
+		  and run_working_set_usable(i.origin_run,i.ordinal,i.attempt_no)`, step.Run, step.Ordinal).Scan(&data)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}

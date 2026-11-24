@@ -266,12 +266,12 @@ func (s Server) revoke(w http.ResponseWriter, r *http.Request, u identity.Member
 func recordSourceChange(ctx context.Context, tx pgx.Tx, project, source, state string) error {
 	if _, err := tx.Exec(ctx, `update projects p set revision=revision+1,updated_at=now() where id=$1 and (
       exists(select from plan_sources ps where(ps.project_id,ps.plan_version,ps.source_id)=(p.id,p.plan_version,$2))
-      or exists(select from run_source_receipts p join runs r on r.id=p.run_id where r.project_id=$1 and p.source_id=$2))`, project, source); err != nil {
+      or exists(select from run_source_receipt_pins p join runs r on r.id=p.run_id where r.project_id=$1 and p.source_id=$2))`, project, source); err != nil {
 		return err
 	}
 	_, err := tx.Exec(ctx, `select record_service_event(r.id,'project',$3) from runs r where r.project_id=$1 and (
       exists(select from plan_sources ps where(ps.project_id,ps.plan_version,ps.source_id)=(r.project_id,r.plan_version,$2))
-      or exists(select from run_source_receipts p where p.run_id=r.id and p.source_id=$2)) order by r.id`, project, source, state)
+      or exists(select from run_source_receipt_pins p where p.run_id=r.id and p.source_id=$2)) order by r.id`, project, source, state)
 	return err
 }
 

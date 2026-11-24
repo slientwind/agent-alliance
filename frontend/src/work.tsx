@@ -11,6 +11,7 @@ import { DistributionReview, held } from "./distribution";
 import { DeliveryConfirmation, DeliveryHistory } from "./delivery";
 import { CoverageReview } from "./delivery-coverage";
 import { CallRecovery } from "./call-recovery";
+import { RuleBranchReview, RuleBranchSummary } from "./rule-branch";
 import { SourceReceipt } from "./source-receipt";
 import { SourceReview, hasSourceReview } from "./source-impact";
 import { ProjectFeedback, type ProjectFeedbackDraft } from "./project-feedback";
@@ -839,7 +840,7 @@ export function Work({
           <h2>步骤 {wait.step} · 团队规则待核对</h2>
           <p>已采用的规则 v{wait.ruleRevision} 已失效。</p>
           {wait.rebuildRequired ? (
-            <p>此步骤已使用过失效规则或受影响的上游结果。请按当前规则重新发起这部分工作。</p>
+            <p>此步骤已使用过失效规则或受影响的上游结果，需要核对重做范围。</p>
           ) : (
             p.owner === user.id && (wait.availableRevision ? (
               <>
@@ -859,6 +860,10 @@ export function Work({
           )}
         </section>
       ))}
+      {p.run?.hasRuleBranchToRebuild && p.owner === user.id && (
+        <RuleBranchReview key={p.run.id} run={p.run.id} busy={busy} perform={perform}/>
+      )}
+      {p.run?.ruleBranchRebuild && <RuleBranchSummary steps={p.run.ruleBranchRebuild.steps}/>}
       {p.run && p.owner===user.id && (p.run.receiptRequests ?? (p.run.receiptRequest ? [p.run.receiptRequest] : [])).map(request => (
         <SourceReceipt key={`${p.run?.id}:${p.run?.controlRevision}:${request.step}:${request.receiptRevision ?? 0}`}
           project={p} request={request} sources={sources} busy={busy} perform={perform} reloadSources={reloadSources}/>

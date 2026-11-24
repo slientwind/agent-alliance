@@ -77,6 +77,23 @@ func (s Server) suggestColumns(w http.ResponseWriter, r *http.Request) error {
 	})
 }
 
+func (s Server) previewRuleBranch(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	var preview projects.RuleBranchPreview
+	err := database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {
+		run, err := authorizeRun(ctx, tx, r)
+		if err != nil {
+			return err
+		}
+		preview, err = projects.PreviewRuleBranch(ctx, tx, r.PathValue("id"), run.Actor)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	return web.JSON(w, 200, preview)
+}
+
 type apiAction struct {
 	InputMappings                            []knowledge.ColumnCorrection `json:"inputMappings,omitempty"`
 	Attempt                                  int                          `json:"attempt,omitempty"`
@@ -87,6 +104,8 @@ type apiAction struct {
 	ReceiptRevision                          int                          `json:"receiptRevision,omitempty"`
 	WaitRevision                             int                          `json:"waitRevision,omitempty"`
 	RuleRevision                             int                          `json:"ruleRevision,omitempty"`
+	RebuildDigest                            string                       `json:"rebuildDigest,omitempty"`
+	AuthorizeCalls                           int                          `json:"authorizeCalls,omitempty"`
 	Action, Reason, Body, Artifact, Position string
 	Expected, Step, Version                  int
 }
@@ -109,6 +128,9 @@ func (s Server) action(w http.ResponseWriter, r *http.Request) error {
 	if (in.Action != "recheck_source_index" && in.Action != "recheck_step_rule" && in.WaitRevision != 0) ||
 		(in.Action != "recheck_step_rule" && in.RuleRevision != 0) {
 		return web.Fail(422, "请使用对应的待办核对动作")
+	}
+	if in.Action != "rebuild_rule_branch" && (in.RebuildDigest != "" || in.AuthorizeCalls != 0) {
+		return web.Fail(422, "重做清单仅用于授权重做分支")
 	}
 	if in.Action == "correct_columns" {
 		if !in.AuthorizeOneCall || len(in.InputMappings) == 0 {
@@ -150,6 +172,13 @@ func (s Server) action(w http.ResponseWriter, r *http.Request) error {
 		}
 		var out map[string]any
 		switch in.Action {
+		case "rebuild_rule_branch":
+			next, err := projects.RebuildRuleBranch(ctx, tx, id, v.Actor, fmt.Sprintf("api/%s/%x", id, web.Hash(key)),
+				projects.RuleBranchInput{Digest: in.RebuildDigest, AuthorizeCalls: in.AuthorizeCalls})
+			if err != nil {
+				return err
+			}
+			out = map[string]any{"action": in.Action, "run": next}
 		case "recheck_step_rule":
 			if err := projects.RecheckStepRule(ctx, tx, id, v.Actor, fmt.Sprintf("api/%s/%x", id, web.Hash(key)),
 				projects.RuleRecheckInput{Step: in.Step, Expected: in.Expected, WaitRevision: in.WaitRevision, RuleRevision: in.RuleRevision}); err != nil {
@@ -221,7 +250,7 @@ func (s Server) action(w http.ResponseWriter, r *http.Request) error {
 				return web.Fail(409, "请重新核对运行状态与控制版本")
 			}
 			var acceptable bool
-			if err := tx.QueryRow(ctx, `select exists(select from runs r join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version) join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision) where r.id=$1 and n.ordinal=$2 and ar.tool is null and not exists(select from invocations where run_id=r.id and ordinal=n.ordinal) and not exists(select from artifacts where run_id=r.id and ordinal=n.ordinal)) and (select count(*)<8 from service_supplements where run_id=$1 and ordinal=$2)`, id, in.Step).Scan(&acceptable); err != nil {
+			if err := tx.QueryRow(ctx, `select exists(select from runs r join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version) join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision) where r.id=$1 and n.ordinal=$2 and ar.tool is null and not exists(select from invocations where run_id=r.id and ordinal=n.ordinal) and not exists(select from run_candidate_artifacts where run_id=r.id and ordinal=n.ordinal) and not exists(select from rule_branch_steps b where b.run_id=r.id and b.ordinal=n.ordinal and b.finished)) and (select count(*)<8 from service_supplements where run_id=$1 and ordinal=$2)`, id, in.Step).Scan(&acceptable); err != nil {
 				return err
 			}
 			if !acceptable {
@@ -337,10 +366,14 @@ var progressSQL = `select jsonb_build_object(
  'deliveries',array(select jsonb_build_object('edition',d.edition,'id',d.id,'isPartial',d.partial,'distribution',distribution_state(d.id),'deliveryUrl','/api/v1/runs/'||r.id||'/delivery?edition='||d.edition,'packageUrl','/api/v1/runs/'||r.id||'/delivery/package?edition='||d.edition) from deliveries d where d.project_id=p.id order by d.edition desc),
  'humanActionUrl','/#'||p.id::text,'deliveryUrl','/api/v1/runs/'||r.id||'/delivery'||urls.suffix,'packageUrl','/api/v1/runs/'||r.id||'/delivery/package'||urls.suffix,
  'eventsUrl','/api/v1/runs/'||r.id||'/events','actionsUrl','/api/v1/runs/'||r.id||'/actions',
- 'nextAction',case when p.stage='delivered' and (select distribution_state(id) from deliveries where project_id=p.id order by edition desc limit 1) not in ('clear','reference') then 'check_distribution' when p.stage='review' and candidate_distribution_held(p.id) then 'check_distribution'
+ 'nextAction',case when exists(select from rule_branch_rebuilds b where b.source_run=r.id) then 'read_replacement_run'
+ when exists(select from step_rule_waits w where w.run_id=r.id and w.rebuild_required and r.status='running')
+   or p.stage='review' and r.status='completed' and exists(select from run_candidate_artifacts a where a.run_id=r.id and not artifact_rule_draft_readable(a.id,a.current_version))
+   then 'preview_rule_branch'
+ when p.stage='delivered' and (select distribution_state(id) from deliveries where project_id=p.id order by edition desc limit 1) not in ('clear','reference') then 'check_distribution' when p.stage='review' and candidate_distribution_held(p.id) then 'check_distribution'
  when p.stage='review' and exists(select from plan_delivery_contracts c where(c.project_id,c.plan_version)=(p.id,p.plan_version))
    then case when exists(select from review_actions a where a.project_id=p.id and a.kind='deliver') then 'confirm_delivery' else 'review_artifacts' end
- when p.stage='review' then case when exists(select from artifacts a where a.run_id=r.id and (source_check_needed(a.id) or takeover_review_needed(p.id,a.id,a.current_version) or not exists(select from reviews v where(v.artifact_id,v.version)=(a.id,a.current_version)) or exists(select from feedback f where f.artifact_id=a.id and f.state in ('required','investigate','verification')))) then 'review_artifacts' else 'confirm_delivery' end
+ when p.stage='review' then case when exists(select from run_candidate_artifacts a where a.run_id=r.id and (source_check_needed(a.id) or takeover_review_needed(p.id,a.id,a.current_version) or not exists(select from reviews v where(v.artifact_id,v.version)=(a.id,a.current_version)) or exists(select from feedback f where f.artifact_id=a.id and f.state in ('required','investigate','verification')))) then 'review_artifacts' else 'confirm_delivery' end
  when r.status='blocked' and exists(select from run_tool_choices choice where choice.run_id=r.id and choice.choice=0 and choice.manual_choice is null) then 'select_tool'
  when r.status='running' and exists(select from step_rule_waits w where w.run_id=r.id) then 'check_step_rule'
  when r.status='blocked' and exists(select from lookup_index_waits w where w.run_id=r.id and w.active and w.step_wait_revision is null) then
@@ -361,11 +394,15 @@ var progressSQL = `select jsonb_build_object(
  'indexWait',` + projects.LookupIndexWaitSQL + `,
  'indexWaits',` + projects.StepIndexWaitsSQL + `,
  'ruleWaits',` + projects.StepRuleWaitsSQL("$2") + `,
+ 'ruleRebuildUrl','/api/v1/runs/'||r.id||'/rule-rebuild',
+ 'replacementRun',(select b.run_id from rule_branch_rebuilds b where b.source_run=r.id),
  'finalReviewer',reviewer.display_name,
- 'steps',array(select jsonb_strip_nulls(jsonb_build_object('step',n.ordinal,'name',ar.name,'revision',n.agent_revision,'toolChoice',n.choice,'status',case when n.lookup_phase='synthesize' and evidence_follow_up_skipped(r.id,n.ordinal) then 'skipped' else coalesce(i.status,case when n.lookup_phase in ('answer','answer_calc') and a.id is not null then 'skipped' else 'pending' end) end,
- 'canSupplement',r.status in('queued','running','blocked','paused') and i.run_id is null and a.id is null and ar.tool is null and (select count(*) from service_supplements x where(x.run_id,x.ordinal)=(r.id,n.ordinal))<8,
+ 'steps',array(select jsonb_strip_nulls(jsonb_build_object('step',n.ordinal,'name',ar.name,'revision',n.agent_revision,'toolChoice',n.choice,'status',case when branch.mode='reuse' then 'reused' when n.lookup_phase='synthesize' and evidence_follow_up_skipped(r.id,n.ordinal) then 'skipped' else coalesce(i.status,case when n.lookup_phase in ('answer','answer_calc') and a.id is not null then 'skipped' else 'pending' end) end,
+ 'canSupplement',r.status in('queued','running','blocked','paused') and i.run_id is null and a.id is null and not coalesce(branch.finished,false) and ar.tool is null and (select count(*) from service_supplements x where(x.run_id,x.ordinal)=(r.id,n.ordinal))<8,
  'artifact',a.id,'version',a.current_version,'needsSourceReview',case when a.id is not null then source_check_needed(a.id) end,'needsTakeoverReview',case when a.id is not null then takeover_review_needed(p.id,a.id,a.current_version) end,'approved',case when a.id is not null then exists(select from reviews rv where(rv.artifact_id,rv.version)=(a.id,a.current_version)) end))
- from effective_run_nodes n join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision) left join invocations i on(i.run_id,i.ordinal)=(r.id,n.ordinal) left join artifacts a on(a.run_id,a.ordinal)=(r.id,n.ordinal)
+ from effective_run_nodes n join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision)
+ left join rule_branch_steps branch on(branch.run_id,branch.ordinal)=(r.id,n.ordinal)
+ left join invocations i on(i.run_id,i.ordinal)=(r.id,n.ordinal) left join run_candidate_artifacts a on(a.run_id,a.ordinal)=(r.id,n.ordinal)
  where n.run_id=r.id order by n.ordinal),
  'blocker',case when r.status in('blocked','reconcile') then (select jsonb_build_object('step',e.ordinal,'reason',e.code) from trace_events e where e.run_id=r.id and e.kind='checkpoint' order by e.seq desc limit 1) end,
  'externalTasks',array(select jsonb_build_object('step',j.ordinal,'state',i.remote_status,'phase',j.phase,'detail',j.detail,'deadline',j.deadline,'cancelRequested',j.cancel_attempted) from remote_jobs j join invocations i using(run_id,ordinal) where j.run_id=r.id order by j.ordinal))

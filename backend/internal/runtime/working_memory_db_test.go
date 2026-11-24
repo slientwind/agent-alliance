@@ -122,9 +122,12 @@ func TestWorkingMemoryPostgres(t *testing.T) {
             select $1,1,'Independent Agent','独立整理',resource_id,resource_revision,created_by from agent_revisions
             where agent_id=$2 and revision=1`, other, target)
 		lookupTestSQL(t, ctx, db, "insert into validations(agent_id,revision,actor,status) values($1,1,$2,'passed')", other, f.actor)
-		lookupTestSQL(t, ctx, db, "insert into nodes(project_id,plan_version,ordinal,agent_id,agent_revision) values($1,1,3,$2,1),($1,1,4,$3,1),($1,1,5,$2,1)", f.project, other, target)
+		lookupTestSQL(t, ctx, db, "insert into nodes(project_id,plan_version,ordinal,agent_id,agent_revision) values($1,1,3,$2,1),($1,1,4,$3,1),($1,1,5,$2,1),($1,1,6,$2,1)", f.project, other, target)
 		lookupTestSQL(t, ctx, db, "insert into node_edges values($1,1,5,2)", f.project)
-		lookupTestSQL(t, ctx, db, "update runs set status='queued',max_calls=5 where id=$1", run)
+		lookupTestSQL(t, ctx, db, "update runs set status='queued',max_calls=6 where id=$1", run)
+		lookupTestSQL(t, ctx, db, `insert into artifact_versions(artifact_id,version,body,reason)
+            select a.id,1,i.result,'检索依据' from artifacts a join invocations i using(run_id,ordinal)
+            where (a.run_id,a.ordinal)=($1,1)`, run)
 		lookupTestSQL(t, ctx, db, `update rule_versions set agent_scope=array[$2::uuid],expires_at=now()-interval '1 minute'
             where (rule_id,revision)=($1,1)`, f.rule, target)
 		const nextRule = "新版目标规则要求单独核对回执。"
@@ -235,6 +238,121 @@ func TestWorkingMemoryPostgres(t *testing.T) {
 		skillTestRequest(t, mux, f.token, "POST", rulePath+"/"+f.rule+"/publish", map[string]int{"revision": 2}, 204)
 		if err := db.QueryRow(ctx, "select not distribution_readable($1,1,$2)", artifact, f.actor).Scan(&hidden); err != nil || !hidden {
 			t.Fatalf("republishing revived a revoked draft: %v %v", hidden, err)
+		}
+
+		path := "/api/runs/" + run + "/rules/rebuild"
+		data := skillTestRequest(t, mux, f.token, "GET", path, nil, 200)
+		var preview projects.RuleBranchPreview
+		if err := json.Unmarshal(data, &preview); err != nil || len(preview.Steps) != 6 || preview.Calls != 4 || len(preview.Rules) != 2 {
+			t.Fatalf("unexpected rebuild preview: %s %v", data, err)
+		}
+		wantModes := []string{"reuse", "rebuild", "reuse", "rebuild", "rebuild", "continue"}
+		for idx, step := range preview.Steps {
+			if step.Step != idx+1 || step.Mode != wantModes[idx] {
+				t.Fatalf("preview step %d: %+v", idx+1, step)
+			}
+		}
+		kept := preview.Steps[2]
+		if kept.Artifact == nil || kept.Version == nil || *kept.Version != 1 || kept.OriginRun == nil || *kept.OriginRun != run {
+			t.Fatalf("preview lost the independent artifact edition: %+v", kept)
+		}
+		confirm := func(key, digest string, calls, want int) string {
+			t.Helper()
+			body, err := json.Marshal(projects.RuleBranchInput{Digest: digest, AuthorizeCalls: calls})
+			if err != nil {
+				t.Fatal(err)
+			}
+			req := httptest.NewRequest("POST", path, bytes.NewReader(body)).WithContext(ctx)
+			req.AddCookie(&http.Cookie{Name: "aa_session", Value: f.token})
+			req.Header.Set("Idempotency-Key", key)
+			res := httptest.NewRecorder()
+			mux.ServeHTTP(res, req)
+			if res.Code != want {
+				t.Fatalf("rebuild %s: got %d, want %d: %s", key, res.Code, want, res.Body.String())
+			}
+			if want != 202 {
+				return ""
+			}
+			var receipt struct{ Run string }
+			if err := json.Unmarshal(res.Body.Bytes(), &receipt); err != nil || receipt.Run == "" || receipt.Run == run {
+				t.Fatalf("bad replacement receipt: %s %v", res.Body.String(), err)
+			}
+			return receipt.Run
+		}
+		confirm("stale-preview", strings.Repeat("0", 64), 4, 409)
+		confirm("under-authorized", preview.Digest, 3, 409)
+		lookupTestSQL(t, ctx, db, "update invocations set status='unknown' where (run_id,ordinal)=($1,4)", run)
+		confirm("in-flight", preview.Digest, 4, 409)
+		lookupTestSQL(t, ctx, db, "update invocations set status='completed' where (run_id,ordinal)=($1,4)", run)
+		next := confirm("approved", preview.Digest, 4, 202)
+		if replay := confirm("approved", preview.Digest, 4, 202); replay != next {
+			t.Fatalf("replay opened a different batch: %s", replay)
+		}
+		confirm("duplicate", preview.Digest, 4, 409)
+		// A recovery can itself encounter a new invalidation before a
+		// different step replaces the candidate carried over as its base.
+		lookupTestSQL(t, ctx, db, "update runs set status='running' where id=$1", next)
+		lookupTestSQL(t, ctx, db, "update projects set stage='running' where id=$1", f.project)
+		lookupTestSQL(t, ctx, db, `insert into step_rule_waits(run_id,ordinal,rule_id,rule_revision,rebuild_required)
+            values($1,4,$2,2,true)`, next, f.rule)
+		again := skillTestRequest(t, mux, f.token, "GET", "/api/runs/"+next+"/rules/rebuild", nil, 200)
+		var nextPreview projects.RuleBranchPreview
+		if err := json.Unmarshal(again, &nextPreview); err != nil || len(nextPreview.Steps) != 6 ||
+			nextPreview.Steps[1].Mode != "continue" || nextPreview.Steps[1].Artifact == nil || *nextPreview.Steps[1].Artifact != artifact {
+			t.Fatalf("an unbuilt candidate was offered for reuse: %s %v", again, err)
+		}
+		lookupTestSQL(t, ctx, db, "delete from step_rule_waits where run_id=$1 and ordinal=4", next)
+		nodes, err := worker.Topology(ctx, next)
+		if err != nil || len(nodes) != 4 || nodes[0].Ordinal != 2 || nodes[1].Ordinal != 4 || nodes[2].Ordinal != 5 ||
+			len(nodes[2].Dependencies) != 1 || nodes[2].Dependencies[0] != 2 || nodes[3].Ordinal != 6 {
+			t.Fatalf("replacement topology scheduled already completed work: %+v %v", nodes, err)
+		}
+		if out, err := worker.ExecuteStep(ctx, Step{run, 6}); err != nil || !out.Stop || len(prompts) != 0 {
+			t.Fatalf("old run could still dispatch: %+v %v", out, err)
+		}
+		for _, node := range nodes {
+			releases <- release
+			out, err := worker.ExecuteStep(ctx, Step{next, node.Ordinal})
+			if err != nil || out.Wait || len(prompts) != 1 {
+				t.Fatalf("replacement step %d did not dispatch exactly once: %+v %v", node.Ordinal, out, err)
+			}
+			prompt := <-prompts
+			if inScope := node.Ordinal == 2 || node.Ordinal == 4; strings.Contains(prompt, nextRule) != inScope {
+				t.Fatalf("wrong rule scope for replacement step %d: %s", node.Ordinal, prompt)
+			}
+		}
+		var previous, child, stage string
+		var oldCharges, newCharges, invocations, version, keptVersion int
+		var oldHidden, newReadable, parentsExact bool
+		err = db.QueryRow(ctx, `select old.status,b.status,p.stage,
+            (select count(*) from spend s where s.run_id=old.id),
+            (select count(*) from spend s where s.run_id=b.id),
+            (select count(*) from invocations i where i.run_id=b.id),a.current_version,k.current_version,
+            not distribution_readable(a.id,1,$5),distribution_readable(a.id,2,$5),
+            exists(select from run_working_parents d where (d.run_id,d.ordinal,d.parent_run,d.parent_ordinal)=(b.id,2,old.id,1))
+            and exists(select from run_working_parents d where (d.run_id,d.ordinal,d.parent_run,d.parent_ordinal)=(b.id,5,b.id,2))
+            from runs old join runs b on b.id=$2 join projects p on p.id=b.project_id
+            join run_candidate_artifacts a on(a.run_id,a.ordinal,a.id)=(b.id,2,$3)
+            join run_candidate_artifacts k on(k.run_id,k.ordinal,k.id)=(b.id,3,$4) where old.id=$1`,
+			run, next, artifact, *kept.Artifact, f.actor).Scan(&previous, &child, &stage, &oldCharges, &newCharges,
+			&invocations, &version, &keptVersion, &oldHidden, &newReadable, &parentsExact)
+		if err != nil || previous != "cancelled" || child != "completed" || stage != "review" || oldCharges != 3 || newCharges != 4 ||
+			invocations != 4 || version != 2 || keptVersion != 1 || !oldHidden || !newReadable || !parentsExact {
+			t.Fatalf("replacement ledger: old=%s/%d child=%s/%d stage=%s invocations=%d editions=%d/%d readable=%v/%v parents=%v %v",
+				previous, oldCharges, child, newCharges, stage, invocations, version, keptVersion, !oldHidden, newReadable, parentsExact, err)
+		}
+		artifactPath := "/api/projects/" + f.project + "/artifacts/" + artifact
+		skillTestRequest(t, mux, f.token, "POST", artifactPath+"/review", map[string]int{"version": 1}, 409)
+		skillTestRequest(t, mux, f.token, "POST", artifactPath+"/review", map[string]int{"version": 2}, 204)
+		skillTestRequest(t, mux, f.token, "POST", artifactPath+"/revise", map[string]any{
+			"version": 2, "body": "人工核对新版工作结果", "reason": "补充核对说明",
+		}, 204)
+		var historical, dependent int
+		if err := db.QueryRow(ctx, `select old.current_version,dependent.current_version
+            from run_candidate_artifacts old,run_candidate_artifacts dependent
+            where (old.run_id,old.ordinal)=($1,2) and (dependent.run_id,dependent.ordinal)=($2,5)`,
+			run, next).Scan(&historical, &dependent); err != nil || historical != 1 || dependent != 2 {
+			t.Fatalf("revision did not preserve history and reopen the recovered dependent: %d/%d %v", historical, dependent, err)
 		}
 	})
 	t.Run("editing a preference discards the in-flight draft but preserves the receipt", func(t *testing.T) {

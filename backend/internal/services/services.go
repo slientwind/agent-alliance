@@ -38,6 +38,7 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 	m.Handle("GET /api/v1/openapi.json", web.Handler(func(w http.ResponseWriter, _ *http.Request) error { return web.JSON(w, 200, serviceContract) }))
 	m.Handle("GET /api/v1/services/{id}", web.Handler(s.describe))
 	m.Handle("GET /api/v1/runs/{id}/events", web.Handler(s.events))
+	m.Handle("GET /api/v1/runs/{id}/rule-rebuild", web.Handler(s.previewRuleBranch))
 	m.Handle("POST /api/v1/runs/{id}/actions", web.Handler(s.action))
 	m.Handle("POST /api/v1/runs/{id}/calls/{step}/column-suggestion", web.Handler(s.suggestColumns))
 	m.Handle("POST /api/v1/services/{id}/runs", web.Handler(s.start))

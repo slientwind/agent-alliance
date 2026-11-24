@@ -207,7 +207,7 @@ func ApplySourceReceipt(ctx context.Context, tx pgx.Tx, run, actor, key string, 
       select from plan_sources pin join source_versions v on (v.source_id,v.version)=(pin.source_id,pin.source_version)
       where pin.project_id=$1 and pin.plan_version=$2 and (pin.source_id::text=$3 or v.object_hash=$4)
       union all
-      select from run_source_receipts p join source_versions v on (v.source_id,v.version)=(p.source_id,p.source_version)
+      select from run_source_receipt_pins p join source_versions v on (v.source_id,v.version)=(p.source_id,p.source_version)
       where p.run_id=$5 and ($6=0 or p.ordinal=$7) and (p.source_id::text=$3 or v.object_hash=$4)
     )`, project, version, in.Source, digest, run, question, in.Step).Scan(&bound); err != nil {
 		return 0, err

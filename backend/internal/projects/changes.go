@@ -134,9 +134,9 @@ func (s Server) startChange(w http.ResponseWriter, r *http.Request, u identity.M
 		var allowed, admitted bool
 		var tool, state, original, lookupPhase string
 		var revision, version, ordinal, plan int
-		err = tx.QueryRow(ctx, `select pm.can_review,a.current_version,a.ordinal,a.run_id,r.plan_version,f.revision,f.state,n.lookup_phase,
+		err = tx.QueryRow(ctx, `select pm.can_review,a.current_version,a.ordinal,r.id,r.plan_version,f.revision,f.state,n.lookup_phase,
    case when agent_edits_picture(v) then 'image-edit' when agent_output_operation(v)='png' then 'png' else coalesce(v.tool->>'operation','') end,agent_verified(n.agent_id,n.agent_revision) and not agent.disabled and not agent.emergency and coalesce(m.enabled,true) and project_agent_admissible(a.project_id,n.agent_id,n.agent_revision,$3)
-   from artifacts a join runs r on r.id=a.run_id join effective_run_nodes n on(n.run_id,n.ordinal)=(r.id,a.ordinal)
+   from artifacts a join runs r on r.id=artifact_execution_run(a.id,a.current_version) join effective_run_nodes n on(n.run_id,n.ordinal)=(r.id,a.ordinal)
    join agents agent on agent.id=n.agent_id join agent_revisions v on(v.agent_id,v.revision)=(n.agent_id,n.agent_revision)
    left join model_resources m on m.id=v.resource_id join feedback f on f.artifact_id=a.id join project_members pm on pm.project_id=a.project_id
    where a.project_id=$1 and a.id=$2 and pm.member_id=$3 and f.id=$4`, p.ID, artifact, u.ID, feedback).Scan(&allowed, &version, &ordinal, &original, &plan, &revision, &state, &lookupPhase, &tool, &admitted)
@@ -151,6 +151,9 @@ func (s Server) startChange(w http.ResponseWriter, r *http.Request, u identity.M
 		}
 		if p.Stage != "review" || revision != in.Expected || version != in.Version || state != "required" {
 			return web.Fail(409, "请核对当前成果、版本及已采纳修改项")
+		}
+		if err := requireCurrentArtifactRules(ctx, tx, artifact, version); err != nil {
+			return err
 		}
 		if in.ImageRegion != nil && tool != "image-edit" {
 			return web.Fail(422, "此成果未绑定参考图编辑 Agent，无法按选区修改")
@@ -230,7 +233,11 @@ func (s Server) startChange(w http.ResponseWriter, r *http.Request, u identity.M
 				return web.Fail(409, "新版资料或修改项已变化，请重新核对后授权")
 			}
 		}
-		if _, err = tx.Exec(ctx, `insert into change_inputs select $1,a.id,a.current_version from node_edges e join artifacts a on a.run_id=$2 and a.ordinal=e.depends_on where e.project_id=$3 and e.plan_version=$4 and e.ordinal=$5`, run, original, p.ID, plan, ordinal); err != nil {
+		if _, err = tx.Exec(ctx, `insert into change_inputs select $1,a.id,a.current_version from node_edges e join run_candidate_artifacts a on a.run_id=$2 and a.ordinal=e.depends_on where e.project_id=$3 and e.plan_version=$4 and e.ordinal=$5`, run, original, p.ID, plan, ordinal); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `insert into step_rule_replacements
+            select $1,ordinal,rule_id,rule_revision from step_rule_replacements where (run_id,ordinal)=($2,$3)`, run, original, ordinal); err != nil {
 			return err
 		}
 		if _, err = tx.Exec(ctx, "insert into outbox(run_id) values($1)", run); err != nil {
@@ -260,7 +267,7 @@ func readTarget(ctx context.Context, tx pgx.Tx, run, actor string) (changeTarget
 	if err != nil {
 		return t, err
 	}
-	err = tx.QueryRow(ctx, `select p.id,a.id,f.id,a.run_id,p.stage,f.state,c.disposition,a.ordinal,a.current_version,c.base_version,f.revision,c.feedback_revision,
+	err = tx.QueryRow(ctx, `select p.id,a.id,f.id,artifact_execution_run(a.id,c.base_version),p.stage,f.state,c.disposition,a.ordinal,a.current_version,c.base_version,f.revision,c.feedback_revision,
  exists(select from project_members m join members u on u.id=m.member_id where m.project_id=p.id and m.member_id=$2 and u.enabled and (m.can_review or u.id=p.owner)),
  exists(select from change_inputs i join artifacts dep on dep.id=i.artifact_id where i.run_id=c.run_id and dep.current_version<>i.version)
  from change_batches c join artifacts a on a.id=c.artifact_id join projects p on p.id=a.project_id join feedback f on f.id=c.feedback_id where c.run_id=$1 for update of p`, run, actor).Scan(&t.project, &t.artifact, &t.feedback, &t.original, &t.stage, &t.state, &t.disposition, &t.ordinal, &t.current, &t.base, &t.revision, &t.feedbackRevision, &t.allowed, &t.staleInputs)
