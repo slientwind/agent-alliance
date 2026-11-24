@@ -11,6 +11,7 @@ import (
 
 	"alliance/internal/database"
 	"alliance/internal/knowledge"
+	"alliance/internal/memory"
 	"alliance/internal/resources"
 	"alliance/internal/web"
 	"github.com/jackc/pgx/v5"
@@ -23,6 +24,7 @@ type remoteJob struct {
 	project, actor, agent, state, lease string
 	deadline                            time.Time
 	revision                            int
+	attempt                             int
 	cancel                              bool
 	receipt                             resources.RemoteWait
 	model                               resources.Model
@@ -116,8 +118,8 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 			return err
 		}
 		var expired, cancelSent bool
-		err := tx.QueryRow(ctx, `select j.ordinal,i.remote_task,coalesce(i.remote_context,''),n.agent_id,n.agent_revision,j.deadline,j.deadline<=now(),j.cancel_attempted from remote_jobs j join invocations i using(run_id,ordinal) join runs r on r.id=j.run_id join nodes n on(n.project_id,n.plan_version,n.ordinal)=(r.project_id,r.plan_version,j.ordinal)
-  where j.run_id=$1 and j.phase='checking' and j.next_at<=now() and(j.lease_until is null or j.lease_until<now()) order by j.next_at,j.ordinal limit 1 for update of j`, job.Run).Scan(&job.Ordinal, &job.receipt.Task, &job.receipt.Context, &job.agent, &job.revision, &job.deadline, &expired, &cancelSent)
+		err := tx.QueryRow(ctx, `select j.ordinal,i.remote_task,coalesce(i.remote_context,''),n.agent_id,n.agent_revision,j.deadline,j.deadline<=now(),j.cancel_attempted,i.attempt_no from remote_jobs j join invocations i using(run_id,ordinal) join runs r on r.id=j.run_id join nodes n on(n.project_id,n.plan_version,n.ordinal)=(r.project_id,r.plan_version,j.ordinal)
+  where j.run_id=$1 and j.phase='checking' and j.next_at<=now() and(j.lease_until is null or j.lease_until<now()) order by j.next_at,j.ordinal limit 1 for update of j`, job.Run).Scan(&job.Ordinal, &job.receipt.Task, &job.receipt.Context, &job.agent, &job.revision, &job.deadline, &expired, &cancelSent, &job.attempt)
 		if err != nil {
 			return err
 		}
@@ -223,7 +225,14 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 			return nil
 		}
 		var body any
+		working := true
 		if job.state != "cancelled" {
+			working, err = memory.Usable(ctx, tx, memory.Key{Run: job.Run, Step: job.Ordinal, Attempt: job.attempt})
+			if err != nil {
+				return err
+			}
+		}
+		if working && job.state != "cancelled" {
 			var excerpt, base string
 			err = tx.QueryRow(ctx, `select coalesce(cb.excerpt,''),case when coalesce(cb.excerpt,'')<>'' then av.body else '' end from runs r left join change_batches cb on cb.run_id=r.id left join artifact_versions av on(av.artifact_id,av.version)=(cb.artifact_id,cb.base_version) where r.id=$1`, job.Run).Scan(&excerpt, &base)
 			if err != nil {
@@ -236,6 +245,12 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 		}
 		if _, err = tx.Exec(ctx, "update invocations set status='completed',result=$1,ended_at=now() where run_id=$2 and ordinal=$3", body, job.Run, job.Ordinal); err != nil {
 			return err
+		}
+		if !working {
+			if job.state == "running" || job.state == "reconcile" {
+				return setState(ctx, tx, job.Step, job.project, "blocked", "working_memory_invalidated", memory.Unavailable)
+			}
+			return nil
 		}
 		if job.state == "reconcile" {
 			return resumeReturnedSubmission(ctx, tx, job.Run, job.project)

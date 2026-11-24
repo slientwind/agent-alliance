@@ -10,6 +10,7 @@ import (
 	"alliance/internal/harness"
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
+	"alliance/internal/memory"
 	"alliance/internal/resources"
 	"alliance/internal/web"
 
@@ -192,6 +193,13 @@ func (a Activities) ExecuteLookupAction(ctx context.Context, action lookupAction
 		}
 		if len(sealed) == 0 || savedPlan != d.planVersion || d.lookupPhase != "answer" {
 			return invalid("续查依据或方案已变化，请核对后重新发起。")
+		}
+		usable, err := memory.Usable(ctx, tx, memory.Key{Run: step.Run, Step: step.Ordinal, Attempt: action.Attempt})
+		if err != nil {
+			return err
+		}
+		if !usable {
+			return invalid(memory.Unavailable)
 		}
 		// Source edits and revocations take the same project lock.
 		var project string

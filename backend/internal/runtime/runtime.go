@@ -6,6 +6,7 @@ import (
 	"alliance/internal/harness"
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
+	"alliance/internal/memory"
 	"alliance/internal/projects"
 	"alliance/internal/resources"
 	"alliance/internal/web"
@@ -161,6 +162,16 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 			result.Wait = true
 			return setState(ctx, tx, step, d.project, "reconcile", "receipt_pending", "已有提交记录，等待核对；不会重复调用。")
 		}
+		if invocationStatus == "completed" {
+			usable, err := memory.Usable(ctx, tx, memory.Key{Run: step.Run, Step: step.Ordinal, Attempt: attempt})
+			if err != nil {
+				return err
+			}
+			if !usable {
+				result.Wait = true
+				return setState(ctx, tx, step, d.project, "blocked", "working_memory_invalidated", memory.Unavailable)
+			}
+		}
 		if lookupTurns && invocationStatus == "completed" && recorded == nil && d.lookupPhase == "answer" {
 			found, err := resumeLookupTurn(ctx, tx, step, d, attempt, &result)
 			if found || err != nil {
@@ -183,6 +194,14 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 		if !validGrant {
 			result.Wait = true
 			return setState(ctx, tx, step, d.project, "blocked", "delegation_expired", "应用或成员委托已失效")
+		}
+		if err := tx.QueryRow(ctx, `select exists(select from project_members p join members u on u.id=p.member_id
+            where p.project_id=$1 and p.member_id=$2 and u.enabled)`, d.project, d.actor).Scan(&validGrant); err != nil {
+			return err
+		}
+		if !validGrant {
+			result.Wait = true
+			return setState(ctx, tx, step, d.project, "blocked", "resource_denied", "项目访问已失效")
 		}
 		if ok, err := checkAgentEvidence(ctx, tx, step, &result, d); !ok || err != nil {
 			return err
@@ -211,7 +230,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 				return setState(ctx, tx, step, d.project, "cancelled", "base_changed", "派发前基准稿或反馈已变化，请核对后重新发起修改")
 			}
 		}
-		sources, files, err := knowledge.RunInputs(ctx, tx, step.Run, step.Ordinal, d.lookupPhase == "" && d.routing.target == 0)
+		sources, files, refs, err := knowledge.CapturedRunInputs(ctx, tx, step.Run, step.Ordinal, d.lookupPhase == "" && d.routing.target == 0)
 		if err != nil {
 			var problem web.Problem
 			if !errors.As(err, &problem) {
@@ -268,12 +287,14 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 		if d.change {
 			kind = "revision"
 		} else {
-			var needed, available int
-			if err = tx.QueryRow(ctx, `select count(*),count(coalesce(i.result,v.body)),coalesce(string_agg(coalesce(i.result,v.body),E'\n\n' order by e.depends_on),'') from runs r join node_edges e on(e.project_id,e.plan_version)=(r.project_id,r.plan_version) left join invocations i on i.run_id=r.id and i.ordinal=e.depends_on and i.status='completed' left join artifacts done on (done.run_id,done.ordinal)=(r.id,e.depends_on) left join artifact_versions v on (v.artifact_id,v.version)=(done.id,1) where r.id=$1 and e.ordinal=$2`, step.Run, step.Ordinal).Scan(&needed, &available, &d.prior); err != nil {
-				return err
+			d.prior, err = memory.Prior(ctx, tx, step.Run, step.Ordinal)
+			var invalid web.Problem
+			if errors.As(err, &invalid) {
+				result.Wait = true
+				return setState(ctx, tx, step, d.project, "blocked", "working_memory_invalidated", invalid.Message)
 			}
-			if needed != available {
-				return errors.New("prerequisite has no committed result")
+			if err != nil {
+				return err
 			}
 		}
 		switch d.lookupPhase {
@@ -420,6 +441,9 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 		if err != nil {
 			return err
 		}
+		if err := memory.Capture(ctx, tx, memory.Key{Run: step.Run, Step: step.Ordinal, Attempt: attempt}, refs); err != nil {
+			return err
+		}
 		_, err = tx.Exec(ctx, "update runs set status='running' where id=$1", step.Run)
 		invoke = true
 		return err
@@ -448,6 +472,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 		return result, err
 	}
 	reply, callErr := runnable.Invoke(ctx, d.brief)
+	workingKey := memory.Key{Run: step.Run, Step: step.Ordinal, Attempt: dispatchedAttempt}
 	var lookupOutcome string
 	var lookupDecision []byte
 	if callErr == nil {
@@ -456,6 +481,10 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 			var fallback func() (knowledge.SemanticLookup, error)
 			if d.lookupGoal != "" {
 				fallback = func() (knowledge.SemanticLookup, error) {
+					ok, err := memory.Usable(ctx, db, workingKey)
+					if err != nil || !ok {
+						return knowledge.SemanticLookup{}, err
+					}
 					return knowledge.PinnedSemanticPassages(ctx, db, step.Run, d.lookupGoal)
 				}
 			}
@@ -550,6 +579,23 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 				return nil
 			}
 			return setState(ctx, tx, step, d.project, "reconcile", "outcome_unknown", note)
+		}
+		working, err := memory.Usable(ctx, tx, workingKey)
+		if err != nil {
+			return err
+		}
+		if !working {
+			// Retain the receipt and its cost while discarding the obsolete output.
+			if _, err := tx.Exec(ctx, `update invocations set status='completed',tokens=$3,result=null,ended_at=now()
+                where run_id=$1 and ordinal=$2`, step.Run, step.Ordinal, callTokens(d.model, reply)); err != nil {
+				return err
+			}
+			result.Stop = runEnded(status)
+			result.Wait = !result.Stop
+			if status == "running" || status == "reconcile" {
+				return setState(ctx, tx, step, d.project, "blocked", "working_memory_invalidated", memory.Unavailable)
+			}
+			return nil
 		}
 		if lookupDecision != nil {
 			return saveLookupTurn(ctx, tx, step, d, dispatchedAttempt, status, lookupDecision, reply, &result)

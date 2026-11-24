@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -98,7 +99,7 @@ func TestTextDraftPostgresSSE(t *testing.T) {
 	projects.Server{DB: db}.Routes(routes, identity.Server{DB: db})
 	api := httptest.NewServer(routes)
 	defer api.Close()
-	for _, test := range []string{"reconnect", "interrupted", "revoked"} {
+	for _, test := range []string{"reconnect", "interrupted", "revoked", "edited preference"} {
 		t.Run(test, func(t *testing.T) {
 			sub, stop := context.WithCancel(ctx)
 			defer stop()
@@ -106,6 +107,12 @@ func TestTextDraftPostgresSSE(t *testing.T) {
 			var project, actor string
 			if err := db.QueryRow(sub, "select project_id,actor from runs where id=$1", step.Run).Scan(&project, &actor); err != nil {
 				t.Fatal(err)
+			}
+			var preference string
+			if test == "edited preference" {
+				preference = uuid.NewString()
+				lookupTestSQL(t, sub, db, "insert into preferences(id,member_id,body) values($1,$2,'旧偏好')", preference, actor)
+				lookupTestSQL(t, sub, db, "insert into plan_preferences values($1,1,$2,1)", project, preference)
 			}
 			lookupTestSQL(t, sub, db, "update nodes set lookup_phase='' where project_id=$1 and ordinal=$2", project, step.Ordinal)
 			lookupTestSQL(t, sub, db, "delete from node_edges where project_id=$1 and ordinal=$2", project, step.Ordinal)
@@ -153,6 +160,10 @@ func TestTextDraftPostgresSSE(t *testing.T) {
 				lookupTestSQL(t, sub, db, "delete from project_members where project_id=$1 and member_id=$2", project, actor)
 				readDraftFrame(t, resumed, func(frame string) bool { return strings.Contains(frame, "event: access-ended") })
 			}
+			if test == "edited preference" {
+				lookupTestSQL(t, sub, db, "update preferences set revision=revision+1,body='新偏好' where id=$1", preference)
+				readDraftFrame(t, resumed, func(frame string) bool { return strings.Contains(frame, "data: []") })
+			}
 			close(finish)
 			if err := <-done; err != nil || calls.Load() != started+1 {
 				t.Fatalf("outcome %v, provider calls=%d", err, calls.Load()-started)
@@ -182,7 +193,7 @@ func TestTextDraftPostgresSSE(t *testing.T) {
 				if !strings.Contains(unknown, first+second) {
 					t.Fatalf("interrupted draft missing: %q", unknown)
 				}
-			case "revoked":
+			case "revoked", "edited preference":
 				if candidate != nil {
 					t.Fatal("revoked member generated a candidate")
 				}

@@ -725,16 +725,31 @@ export function Work({
             项
           </summary>
           {p.run.attempts.map((a) => (
-            <p key={a.step}>
-              步骤 {a.step}
-              {a.callReview &&
-                a.callReview.attempt > 1 &&
-                " · 第 " + a.callReview.attempt + " 次"}{" "}
-              · {statusLabel[a.status] || a.status} ·{" "}
-              {p.canViewCosts &&
-                (a.tokens === null ? "用量待核对" : a.tokens + " token")}{" "}
-              {a.diagnostic}
-            </p>
+            <div key={a.step}>
+              <p>
+                步骤 {a.step}
+                {a.callReview &&
+                  a.callReview.attempt > 1 &&
+                  " · 第 " + a.callReview.attempt + " 次"}{" "}
+                · {statusLabel[a.status] || a.status} ·{" "}
+                {p.canViewCosts &&
+                  (a.tokens === null ? "用量待核对" : a.tokens + " token")}{" "}
+                {a.diagnostic}
+              </p>
+              {a.workingSet && (!a.workingSet.usable ||
+                a.workingSet.sources + a.workingSet.preferences + a.workingSet.rules + a.workingSet.parents > 0) && (
+                <p>
+                  {a.workingSet.usable
+                    ? [
+                        a.workingSet.sources > 0 && `${a.workingSet.sources} 份资料`,
+                        a.workingSet.preferences > 0 && `${a.workingSet.preferences} 条个人偏好`,
+                        a.workingSet.rules > 0 && `${a.workingSet.rules} 条团队规则`,
+                        a.workingSet.parents > 0 && `${a.workingSet.parents} 项上游结果`,
+                      ].filter(Boolean).join(" · ")
+                    : "原上下文已失效"}
+                </p>
+              )}
+            </div>
           ))}
           {p.run.attempts.map((a) => (
             <CallRecovery

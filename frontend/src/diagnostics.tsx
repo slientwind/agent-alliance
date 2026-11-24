@@ -96,6 +96,7 @@ const labels: Record<string, string> = {
   reviewer_changed: "修改职责已变化",
   base_changed: "基准版本已变化",
   input_changed: "资料、规则或偏好需核验",
+  working_memory_invalidated: "已用来源、偏好、规则或上游结果失效，等待重新核对",
   budget_denied: "预算或费用授权需核验",
   remote_pending: "等待外部服务回执",
   call_hold: "负责人记录核对依据，继续等待",

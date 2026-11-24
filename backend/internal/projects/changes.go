@@ -357,7 +357,8 @@ func (s Server) decideChange(w http.ResponseWriter, r *http.Request, u identity.
 			return database.Audit(ctx, tx, u.ID, "change.discard", run, map[string]string{"reason": in.Reason})
 		}
 		var invalidInput bool
-		if err = tx.QueryRow(ctx, "select exists(select from run_source_inputs where run_id=$1 and extracted is null and picture_hash is null)", run).Scan(&invalidInput); err != nil {
+		if err = tx.QueryRow(ctx, `select exists(select from run_source_inputs where run_id=$1 and extracted is null and picture_hash is null)
+            or exists(select from invocations i where i.run_id=$1 and not run_working_set_usable(i.run_id,i.ordinal,i.attempt_no))`, run).Scan(&invalidInput); err != nil {
 			return err
 		}
 		if invalidInput {

@@ -19,7 +19,9 @@ func (s Server) artifact(w http.ResponseWriter, r *http.Request, u identity.Memb
 func (s Server) changeFile(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	return s.authorizedFile(w, r, func() (fileRef, error) {
 		var ref fileRef
-		err := s.DB.QueryRow(r.Context(), `select f.object_hash,f.filename,f.media_type from invocation_files f join change_batches c on c.run_id=f.run_id join runs run on run.id=f.run_id join project_members pm on pm.project_id=run.project_id join feedback note on note.id=c.feedback_id where run.project_id=$1 and c.run_id=$2 and pm.member_id=$3 and c.disposition='conflict' and run.status='completed' and distribution_readable(c.artifact_id,c.base_version,$3) and feedback_notes_readable(note,$3)`, r.PathValue("id"), r.PathValue("change"), u.ID).Scan(&ref.hash, &ref.name, &ref.media)
+		err := s.DB.QueryRow(r.Context(), `select f.object_hash,f.filename,f.media_type from invocation_files f join change_batches c on c.run_id=f.run_id join runs run on run.id=f.run_id join project_members pm on pm.project_id=run.project_id join feedback note on note.id=c.feedback_id where run.project_id=$1 and c.run_id=$2 and pm.member_id=$3 and c.disposition='conflict' and run.status='completed' and distribution_readable(c.artifact_id,c.base_version,$3) and feedback_notes_readable(note,$3)
+ and exists(select from invocations i where (i.run_id,i.ordinal)=(f.run_id,f.ordinal)
+   and run_working_set_usable(i.run_id,i.ordinal,i.attempt_no))`, r.PathValue("id"), r.PathValue("change"), u.ID).Scan(&ref.hash, &ref.name, &ref.media)
 		return ref, err
 	})
 }

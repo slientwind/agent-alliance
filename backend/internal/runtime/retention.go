@@ -21,8 +21,21 @@ func (a Activities) CleanRetention(ctx context.Context) {
 			slog.Warn("preference retention cleanup pending")
 		}
 		if _, err := a.Catalog.DB.Exec(ctx, `delete from run_draft_fragments
-            where created_at <= now()-interval '1 hour'`); err != nil && ctx.Err() == nil {
+            where created_at <= now()-interval '1 hour'
+                or not run_working_set_usable(run_id,ordinal,attempt_no)`); err != nil && ctx.Err() == nil {
 			slog.Warn("expired text preview cleanup pending")
+		}
+		if _, err := a.Catalog.DB.Exec(ctx, `update lookup_turns set decision=null,outcome='invalidated'
+            where decision is not null and not run_working_set_usable(run_id,ordinal,attempt_no)`); err != nil && ctx.Err() == nil {
+			slog.Warn("invalidated lookup cleanup pending")
+		}
+		if _, err := a.Catalog.DB.Exec(ctx, `update invocations i set result=null from run_working_sets s
+            where (s.run_id,s.ordinal,s.attempt_no)=(i.run_id,i.ordinal,i.attempt_no)
+              and i.status='completed' and i.result is not null
+              and not run_working_set_usable(s.run_id,s.ordinal,s.attempt_no)
+              and not exists(select from artifacts a where(a.run_id,a.ordinal)=(i.run_id,i.ordinal))
+              and not exists(select from change_batches c where c.run_id=i.run_id and c.applied_version is not null)`); err != nil && ctx.Err() == nil {
+			slog.Warn("invalidated pending results cleanup pending")
 		}
 		_, err := a.Catalog.DB.Exec(ctx, `delete from trace_events e using runs r where r.id=e.run_id and r.trace_expires_at <= now()`)
 		if err == nil {

@@ -3,6 +3,7 @@ package knowledge
 import (
 	"alliance/internal/database"
 	"alliance/internal/identity"
+	"alliance/internal/memory"
 	"alliance/internal/web"
 	"bytes"
 	"context"
@@ -295,6 +296,16 @@ func InputSourceSize(name string, version, textBytes int) int {
 // RunInputs keeps the same pins, limits and authorization checks when the model
 // only needs the source names. The local search tool receives the full files.
 func RunInputs(ctx context.Context, tx pgx.Tx, run string, step int, includeText bool) (string, []InputSource, error) {
+	return runInputs(ctx, tx, run, step, includeText, nil)
+}
+
+func CapturedRunInputs(ctx context.Context, tx pgx.Tx, run string, step int, includeText bool) (string, []InputSource, []memory.Reference, error) {
+	var refs []memory.Reference
+	text, files, err := runInputs(ctx, tx, run, step, includeText, &refs)
+	return text, files, refs, err
+}
+
+func runInputs(ctx context.Context, tx pgx.Tx, run string, step int, includeText bool, refs *[]memory.Reference) (string, []InputSource, error) {
 	inputBytes := 0
 	rows, err := tx.Query(ctx, `select f.source_id,f.filename,f.version,
         case when f.extracted is null or (pin.receipt_step is not null and f.version<>f.plan_pin) then null
@@ -323,6 +334,9 @@ func RunInputs(ctx context.Context, tx pgx.Tx, run string, step int, includeText
 			return "", nil, err
 		}
 		if picture && available && receipt == 0 {
+			if refs != nil {
+				*refs = append(*refs, memory.Reference{Kind: "source", ID: id, Revision: ver})
+			}
 			continue
 		}
 		if body == nil {
@@ -349,6 +363,9 @@ func RunInputs(ctx context.Context, tx pgx.Tx, run string, step int, includeText
 			return "", nil, web.Fail(409, "资料已撤权、指定新版发生变化、不可读取或超过上下文容量")
 		}
 		files = append(files, InputSource{ID: id, Name: name, Version: ver, Text: *body, Locations: locations, ReceiptStep: receipt, ExcerptStart: from, ExcerptEnd: end})
+		if refs != nil {
+			*refs = append(*refs, memory.Reference{Kind: "source", ID: id, Revision: ver})
+		}
 		b.WriteString(inputSourceHeader(name, ver))
 		if includeText {
 			b.WriteString(input)
@@ -359,29 +376,13 @@ func RunInputs(ctx context.Context, tx pgx.Tx, run string, step int, includeText
 	if err = rows.Err(); err != nil {
 		return "", nil, err
 	}
-	var invalid bool
-	var rules string
-	err = tx.QueryRow(ctx, `select coalesce(bool_or(not owner.enabled or not p.enabled or p.deleted_at is not null or p.expires_at<=now() or pp.revision<>p.revision or p.member_id<>r.actor),false),coalesce(string_agg(p.body,E'\n' order by p.id),'') from runs r join plan_preferences pp on(pp.project_id,pp.plan_version)=(r.project_id,r.plan_version) join preferences p on p.id=pp.preference_id join members owner on owner.id=p.member_id where r.id=$1`, run).Scan(&invalid, &rules)
+	recalled, recalledRefs, err := memory.RecallWithReferences(ctx, tx, run)
 	if err != nil {
 		return "", nil, err
 	}
-	if invalid {
-		return "", nil, web.Fail(409, "已采用的个人偏好发生变化")
+	if refs != nil {
+		*refs = append(*refs, recalledRefs...)
 	}
-	if rules != "" {
-		fmt.Fprintf(&b, "\n用户明确采用的偏好\n%s", rules)
-	}
-	var bad bool
-	var teamRules string
-	err = tx.QueryRow(ctx, `select coalesce(bool_or(not rule_usable(pr.rule_id,pr.rule_revision,run.actor)),false),coalesce(string_agg(v.body,E'\n' order by r.id),'') from runs run join plan_rules pr on(pr.project_id,pr.plan_version)=(run.project_id,run.plan_version) join team_rules r on r.id=pr.rule_id join rule_versions v on(v.rule_id,v.revision)=(r.id,pr.rule_revision) where run.id=$1`, run).Scan(&bad, &teamRules)
-	if err != nil {
-		return "", nil, err
-	}
-	if bad {
-		return "", nil, web.Fail(409, "已采用的团队规则到期、停用或授权撤销")
-	}
-	if teamRules != "" {
-		fmt.Fprintf(&b, "\n适用的已发布团队规则（优先于个人偏好）\n%s", teamRules)
-	}
+	b.WriteString(recalled)
 	return b.String(), files, nil
 }

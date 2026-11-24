@@ -74,6 +74,7 @@ func readDraftBatch(ctx context.Context, tx pgx.Tx, project, run, actor string, 
                   and agent_revision_ready(n.agent_id,n.agent_revision)
                   and project_agent_access($2,n.agent_id,n.agent_revision,$3)
                   and agent_skills_usable(n.agent_id,n.agent_revision,$3)
+                  and run_working_set_usable(i.run_id,i.ordinal,i.attempt_no)
                   and exists(select from run_draft_fragments f where
                       (f.run_id,f.ordinal,f.attempt_no)=(i.run_id,i.ordinal,i.attempt_no)
                       and f.control_revision=$4 and f.byte_offset=0 and f.created_at>now()-interval '1 hour')

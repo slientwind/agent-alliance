@@ -96,7 +96,7 @@ const traceSpansSQL = `select jsonb_build_object('run',r.id,'traceId',replace(r.
 // Business excerpts refer to the pinned plan and committed artifact. Never collect HTTP headers,
 // system prompts or provider request bodies in the operational event stream.
 const traceContentSQL = `select pl.brief,v.body,i.remote_task,i.remote_context,
- ` + traceInputsAllowed + `
+ (` + traceInputsAllowed + `) and run_working_set_usable(r.id,n.ordinal,coalesce(i.attempt_no,1))
  from runs r join plans pl on(pl.project_id,pl.version)=(r.project_id,r.plan_version)
  join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version) and n.ordinal=$2
  left join change_batches cb on cb.run_id=r.id
