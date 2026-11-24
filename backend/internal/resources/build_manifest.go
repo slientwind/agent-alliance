@@ -45,10 +45,11 @@ func (c Catalog) buildManifest(w http.ResponseWriter, r *http.Request, u identit
 	ctx, id := r.Context(), r.PathValue("id")
 	rev := int(revision)
 	result := struct {
-		Build       builder.Manifest `json:"build"`
-		Evidence    builder.Evidence `json:"evidence"`
-		Review      json.RawMessage  `json:"review,omitempty"`
-		Publication json.RawMessage  `json:"publication,omitempty"`
+		Build                     builder.Manifest  `json:"build"`
+		Evidence                  builder.Evidence  `json:"evidence"`
+		Review                    json.RawMessage   `json:"review,omitempty"`
+		Publication               json.RawMessage   `json:"publication,omitempty"`
+		PublishedRemoteOperations *RemoteOperations `json:"publishedRemoteOperations,omitempty"`
 	}{}
 	err = pgx.BeginTxFunc(ctx, c.DB, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}, func(tx pgx.Tx) error {
 		var generation int64
@@ -83,6 +84,9 @@ func (c Catalog) buildManifest(w http.ResponseWriter, r *http.Request, u identit
             'evidenceDigest',evidence_digest,'publishedAt',published_at,'priorRevision',prior_revision)
             from agent_publications where (agent_id,revision)=($1,$2) order by generation desc limit 1)`,
 			id, rev).Scan(&result.Publication)
+		if err == nil && evidence.RemoteOperations != nil {
+			result.PublishedRemoteOperations, err = ReadRemoteOperations(ctx, tx, id, rev)
+		}
 		return err
 	})
 	if err != nil {

@@ -52,11 +52,13 @@ export function ExternalCardForm({
   const endpoint = endpoints.includes(selected) ? selected : endpoints[0] || "";
   let declaredName = "",
     declaredDescription = "";
+  let declaredStreaming = false;
   try {
     const raw = JSON.parse(card);
     if (typeof raw?.name === "string") declaredName = raw.name;
     if (typeof raw?.description === "string")
       declaredDescription = raw.description;
+    declaredStreaming = raw?.capabilities?.streaming === true;
   } catch {
     /* Incomplete input is editable. */
   }
@@ -171,6 +173,7 @@ export function ExternalCardForm({
           </select>
         </label>
       )}
+      {declaredName && <p><strong>Card 声明</strong> · {declaredName}{declaredStreaming && " · 声明支持流式传输"}</p>}
       {agent && (
         <label>
           访问凭据

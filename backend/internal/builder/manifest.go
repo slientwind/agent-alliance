@@ -14,9 +14,10 @@ type Manifest struct {
 }
 
 type Evidence struct {
-	Passed   bool            `json:"passed"`
-	Digest   string          `json:"digest"`
-	Snapshot json.RawMessage `json:"snapshot"`
+	Passed           bool            `json:"passed"`
+	Digest           string          `json:"digest"`
+	Snapshot         json.RawMessage `json:"snapshot"`
+	RemoteOperations json.RawMessage `json:"remoteOperations,omitempty"`
 }
 
 const DriftMessage = "Agent 定义与发布清单不一致，请由维护人核对修订"
@@ -79,8 +80,16 @@ func EvidenceFor(ctx context.Context, q Queryer, agent string, revision int, dig
           else jsonb_build_object('mode','standalone','passed',exists(select from standalone),
             'items',array(select jsonb_build_object('trial',id,'passed',true,'legacy',legacy) from standalone))
           end as snapshot
-        ) select (snapshot->>'passed')::boolean,agent_build_digest(snapshot),snapshot from proof`,
-		agent, revision, digest).Scan(&e.Passed, &e.Digest, &e.Snapshot)
+        ), remote as (
+          select coalesce(agent_released_remote_operation_evidence($1,$2),agent_remote_operation_evidence($1,$2,$3)) as operations
+          from agent_revisions where (agent_id,revision)=($1,$2) and card is not null
+        ), combined as (
+          select case when operations is null then snapshot else snapshot || jsonb_build_object('remoteOperations',operations,
+            'passed',(snapshot->>'passed')::boolean and remote_operation_ready(operations)) end as snapshot,
+            remote_operation_availability(operations) as availability
+          from proof left join remote on true
+        ) select (snapshot->>'passed')::boolean,agent_build_digest(snapshot),snapshot,availability from combined`,
+		agent, revision, digest).Scan(&e.Passed, &e.Digest, &e.Snapshot, &e.RemoteOperations)
 	return e, err
 }
 

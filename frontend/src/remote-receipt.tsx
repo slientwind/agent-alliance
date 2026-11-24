@@ -7,6 +7,7 @@ export type Remote = {
   deadline: string;
   checks: number;
   cancelRequested: boolean;
+  canQuery?: boolean;
 };
 const states: Record<string, string> = {
   submitted: "已受理",
@@ -27,6 +28,9 @@ const reasons: Record<string, string> = {
   remote_denied: "访问授权已失效",
   remote_query_retry: "正在重试查询",
   remote_legacy: "等待首次核对",
+  remote_query_unverified: "查询证据缺失或已撤回，由连接负责人核对原任务",
+  remote_cancel_unverified: "未验证远端取消，由连接负责人核对原任务",
+  remote_text_unverified: "收到完成回执，成果路径待验收",
 };
 export function RemoteReceipt({
   remote,
@@ -59,7 +63,7 @@ export function RemoteReceipt({
           本轮核对截至 {new Date(remote.deadline).toLocaleString("zh-CN")}
         </small>
       )}
-      {remote.phase === "manual" && canCheck && (
+      {remote.phase === "manual" && canCheck && remote.canQuery !== false && (
         <form
           onSubmit={(e) => {
             e.preventDefault();

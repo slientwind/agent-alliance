@@ -211,6 +211,10 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 		if err != nil {
 			return blockUnavailableAgent(ctx, tx, step, d, &result, err)
 		}
+		if !m.RemoteOperations.CanStart() {
+			result.Wait = true
+			return setState(ctx, tx, step, d.project, "blocked", "remote_policy_unverified", "此发布修订已无有效的远端执行证据，请联系维护人")
+		}
 		if d.change {
 			if _, err := tx.Exec(ctx, "select id from projects where id=$1 for update", d.project); err != nil {
 				return err
@@ -583,7 +587,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 			}
 			var remote *resources.RemoteWait
 			if errors.As(callErr, &remote) {
-				return beginRemote(ctx, tx, step, d.project, status, remote, d.model.Policy)
+				return beginRemote(ctx, tx, step, d.project, status, remote, d.model)
 			}
 			diagnostic, note := "调用未取得确定结果", "调用结果未知，自动执行已停止"
 			if d.model.OutputOperation == resources.ImageEditOperation && errors.Is(callErr, resources.ErrImageFormat) {
@@ -596,6 +600,17 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 				return nil
 			}
 			return setState(ctx, tx, step, d.project, "reconcile", "outcome_unknown", note)
+		}
+		if d.model.External && status != "cancelled" {
+			operations, err := resources.ReadRemoteOperations(ctx, tx, d.agent, d.revision)
+			if err != nil {
+				return err
+			}
+			if !operations.CanReturnText(false) {
+				result.Stop = runEnded(status)
+				result.Wait = !result.Stop
+				return closeUnverifiedRemoteOutput(ctx, tx, step, d.project, status, reply.Receipt)
+			}
 		}
 		working, err := memory.Usable(ctx, tx, workingKey)
 		if err != nil {

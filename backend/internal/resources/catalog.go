@@ -377,6 +377,9 @@ func (c Catalog) ResolveRun(ctx context.Context, q Query, project, actor, id str
 	if err == nil {
 		err = builder.CheckPublished(ctx, q, id, rev)
 	}
+	if err == nil && model.External {
+		model.RemoteOperations, err = ReadRemoteOperations(ctx, q, id, rev)
+	}
 	return model, instructions, err
 }
 func (c Catalog) resolve(ctx context.Context, q Query, project, actor, id string, rev int, accepted bool) (Model, string, error) {
@@ -590,7 +593,7 @@ func (c Catalog) validate(w http.ResponseWriter, r *http.Request, u identity.Mem
 	}
 	m.Operation = evidence
 	reply, callErr := m.Generate(ctx, []Message{{"system", prompt}, {"user", in.Input}})
-	status, body, err := c.saveTrial(context.WithoutCancel(ctx), evidence, m, in.Expected, reply, callErr, "")
+	status, body, err := c.saveTrial(context.WithoutCancel(ctx), evidence, m, in.Expected, reply, callErr, "", "send")
 	if err != nil {
 		return err
 	}

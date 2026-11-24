@@ -64,11 +64,12 @@ type Reply struct {
 	FinishReason string
 }
 type Model struct {
-	ProjectGrant    string
-	OutputOperation string
-	ResourceID      string
-	KeyGeneration   int
-	StreamText      bool
+	ProjectGrant     string
+	OutputOperation  string
+	ResourceID       string
+	KeyGeneration    int
+	StreamText       bool
+	RemoteOperations *RemoteOperations
 
 	SourceRevision                                 int
 	Policy                                         RemotePolicy
@@ -96,6 +97,9 @@ func (m Model) Generate(ctx context.Context, messages []Message) (Reply, error) 
 		return m.Tool.invoke(ctx, text, m.Sources)
 	}
 	if m.External {
+		if !m.RemoteOperations.CanStart() {
+			return Reply{}, errors.New("此发布修订的远端提交与成果验证已失效")
+		}
 		var parts []map[string]string
 		for _, msg := range messages {
 			if msg.Role == "user" {

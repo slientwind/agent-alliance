@@ -43,7 +43,10 @@ const callReviewSummarySQL = `case when i.run_id is not null and (i.status in ('
  where(v.run_id,v.ordinal)=(i.run_id,i.ordinal) order by c.revision))
  from (select case when i.status='input_rejected' then visible_column_issues(i.run_id,$1,i.input_issue) end as list) issue) end`
 
-const remoteSummarySQL = `(select jsonb_build_object('step',j.ordinal,'state',i.remote_status,'phase',j.phase,'detail',j.detail,'deadline',j.deadline,'checks',j.checks,'cancelRequested',j.cancel_attempted) from remote_jobs j where(j.run_id,j.ordinal)=(i.run_id,i.ordinal))`
+const remoteSummarySQL = `(select jsonb_build_object('step',j.ordinal,'state',i.remote_status,'phase',j.phase,'detail',j.detail,'deadline',j.deadline,'checks',j.checks,'cancelRequested',j.cancel_attempted,
+ 'canQuery',coalesce((remote_operation_availability(agent_released_remote_operation_evidence(n.agent_id,n.agent_revision))->>'query')::boolean,true))
+ from remote_jobs j join effective_run_nodes n on(n.run_id,n.ordinal)=(j.run_id,j.ordinal)
+ where(j.run_id,j.ordinal)=(i.run_id,i.ordinal))`
 const fields = "p.id,p.title,p.stage,p.revision,p.plan_version,p.owner,p.final_reviewer"
 const access = " from projects p join project_members m on m.project_id=p.id where m.member_id=$1 "
 

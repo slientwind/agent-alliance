@@ -20,6 +20,17 @@ type Trial = {
   output: string | null;
   canCheck: boolean;
   cancelRequested: boolean;
+  remoteOperations?: { operation: string; outcome: string; state?: string; time: string }[];
+};
+const operationLabels: Record<string, string> = {
+  send: "提交", query: "查询原任务", cancel: "取消请求",
+};
+const operationOutcomes: Record<string, string> = {
+  text: "已取得文本", state: "已核对任务状态", unconfirmed: "回执待核对",
+};
+const operationStates: Record<string, string> = {
+  submitted: "已受理", working: "执行中", "input-required": "等待输入",
+  "auth-required": "等待授权", completed: "已完成", canceled: "已取消", failed: "失败", rejected: "已拒绝",
 };
 export function TrialEvidence({
   agent,
@@ -75,7 +86,9 @@ export function TrialEvidence({
         <section key={t.id}>
           <strong>
             v{t.revision} ·{" "}
-            {(
+            {t.remoteState === "canceled" && t.remoteOperations?.some(item => item.operation === "cancel" && item.state === "canceled")
+              ? "远端已确认取消"
+              : (
               {
                 submitted: "已受理，等待结果",
                 passed: "验证通过",
@@ -147,6 +160,17 @@ export function TrialEvidence({
           )}
           {t.picture && <FilePreview name={t.picture} url={"/api/" + base + "/" + t.id + "/picture"} />}
           {t.output && <p className="preserve">{t.output}</p>}
+          {!!t.remoteOperations?.length && (
+            <ul aria-label="远端操作回执">
+              {t.remoteOperations.map((item, index) => (
+                <li key={index}>
+                  {operationLabels[item.operation] || item.operation} · {operationOutcomes[item.outcome] || item.outcome}
+                  {item.state && operationStates[item.state] && " · " + operationStates[item.state]}
+                  <small>{new Date(item.time).toLocaleString("zh-CN")}</small>
+                </li>
+              ))}
+            </ul>
+          )}
           {onReuse && t.canReuseSample && (
             <button
               type="button"

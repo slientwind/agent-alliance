@@ -150,7 +150,8 @@ func (c Catalog) publishRevision(ctx context.Context, tx pgx.Tx, actor, id strin
 	if err := guardReplacementPublication(ctx, tx, id, revision, rollback); err != nil {
 		return err
 	}
-	if _, _, err := c.Resolve(ctx, tx, actor, id, revision); err != nil {
+	model, _, err := c.Resolve(ctx, tx, actor, id, revision)
+	if err != nil {
 		return err
 	}
 	if err := builder.CheckPublished(ctx, tx, id, revision); err != nil {
@@ -171,6 +172,19 @@ func (c Catalog) publishRevision(ctx context.Context, tx pgx.Tx, actor, id strin
 	var generation int64
 	if err := tx.QueryRow(ctx, "select published_revision,publication_generation from agents where id=$1", id).Scan(&prior, &generation); err != nil {
 		return err
+	}
+	if model.External {
+		var legacyUse bool
+		if err := tx.QueryRow(ctx, `select agent_released_remote_operation_evidence($1,$2) is null and (
+          exists(select from agents where id=$1 and published_revision=$2) or
+          exists(select from agent_publications where (agent_id,revision)=($1,$2)) or
+          exists(select from nodes n join runs r on(r.project_id,r.plan_version)=(n.project_id,n.plan_version)
+            where (n.agent_id,n.agent_revision)=($1,$2)))`, id, revision).Scan(&legacyUse); err != nil {
+			return err
+		}
+		if legacyUse {
+			return web.Fail(409, "此发布记录早于操作验收，请创建并验证新的外部修订")
+		}
 	}
 	request, err := latestRelease(ctx, tx, id, revision)
 	if err != nil {

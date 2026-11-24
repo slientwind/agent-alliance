@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-func (c Catalog) saveTrial(ctx context.Context, id string, m Model, expected string, reply Reply, callErr error, lease string) (string, string, error) {
+func (c Catalog) saveTrial(ctx context.Context, id string, m Model, expected string, reply Reply, callErr error, lease, operation string) (string, string, error) {
 	status, body := "failed", reply.Text
 	receipt := reply.Receipt
 	if callErr != nil {
@@ -77,6 +77,11 @@ func (c Catalog) saveTrial(ctx context.Context, id string, m Model, expected str
 		if err == pgx.ErrNoRows {
 			err = web.Fail(409, "此回执已由另一次核对接管")
 		}
+		if err == nil && m.External {
+			outcome := remoteTrialOutcome(reply, callErr)
+			_, err = tx.Exec(ctx, `insert into remote_trial_observations(trial_id,operation,outcome,remote_state)
+                values($1,$2,$3,$4)`, id, operation, outcome, state)
+		}
 		if err != nil || callErr != nil || reply.File == nil || discardFile {
 			return err
 		}
@@ -90,6 +95,18 @@ func (c Catalog) saveTrial(ctx context.Context, id string, m Model, expected str
 
 	return status, body, err
 }
+
+func remoteTrialOutcome(reply Reply, callErr error) string {
+	if callErr == nil && !web.Blank(reply.Text) {
+		return "text"
+	}
+	var receipt *RemoteWait
+	if errors.As(callErr, &receipt) && receipt.State != "unknown" {
+		return "state"
+	}
+	return "unconfirmed"
+}
+
 func (c Catalog) trialReceipt(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	var in struct{ Action string }
 	if err := web.Read(r, &in); err != nil {
@@ -130,7 +147,11 @@ func (c Catalog) trialReceipt(w http.ResponseWriter, r *http.Request, u identity
 		return err
 	}
 	reply, callErr := model.CheckRemote(ctx, receipt, in.Action == "cancel")
-	status, body, err := c.saveTrial(context.WithoutCancel(ctx), id, model, expected, reply, callErr, lease)
+	operation := "query"
+	if in.Action == "cancel" {
+		operation = "cancel"
+	}
+	status, body, err := c.saveTrial(context.WithoutCancel(ctx), id, model, expected, reply, callErr, lease, operation)
 	if err != nil {
 		return err
 	}

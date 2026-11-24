@@ -63,26 +63,55 @@ func remoteNote(code string) string {
 		return "已到达外部任务核对时限，请决定是否继续查询原任务。"
 	case "remote_denied":
 		return "执行身份或资源授权已变化，恢复授权后可核对原任务。"
+	case "remote_query_unverified":
+		return "此发布修订没有有效的远端查询证据。请由连接负责人核对原任务。"
+	case "remote_cancel_unverified":
+		return "平台已停止后续执行。此发布修订没有可用于确认远端取消的证据，请由连接负责人核对原任务。"
+	case "remote_text_unverified":
+		return "已收到远端完成回执，此结果路径尚无有效验收证据，请由连接负责人核对。"
 	default:
 		return "未取得可验证的远端结果，可以核对原任务回执。"
 	}
 }
-func beginRemote(ctx context.Context, tx pgx.Tx, step Step, project, state string, r *resources.RemoteWait, policy resources.RemotePolicy) error {
+func beginRemote(ctx context.Context, tx pgx.Tx, step Step, project, state string, r *resources.RemoteWait, model resources.Model) error {
 	phase, detail := remoteDisposition(r)
 	terminal := phase == "finished"
 	_, err := tx.Exec(ctx, `update invocations set status=case when $6 then 'remote_closed' else 'remote' end,remote_task=$1,remote_context=$2,remote_status=$3,ended_at=case when $6 then now() end where run_id=$4 and ordinal=$5`, r.Task, r.Context, r.State, step.Run, step.Ordinal, terminal)
 	if err != nil {
 		return err
 	}
-	if state == "cancelled" && !terminal {
-		phase = "checking"
+	if !terminal {
+		switch {
+		case state == "cancelled" && (model.RemoteOperations.CanFollow(true) || model.RemoteOperations.CanFollow(false)):
+			phase = "checking"
+		case state == "cancelled":
+			phase, detail = "manual", "remote_cancel_unverified"
+		case !model.RemoteOperations.CanFollow(false):
+			phase, detail = "manual", "remote_query_unverified"
+		}
 	}
-	_, err = tx.Exec(ctx, `insert into remote_jobs(run_id,ordinal,phase,detail,check_window_seconds,deadline) values($1,$2,$3,$4,$5::int,now()+$5::int*interval '1 second')`, step.Run, step.Ordinal, phase, detail, policy.WindowSeconds)
+	_, err = tx.Exec(ctx, `insert into remote_jobs(run_id,ordinal,phase,detail,check_window_seconds,deadline) values($1,$2,$3,$4,$5::int,now()+$5::int*interval '1 second')`, step.Run, step.Ordinal, phase, detail, model.Policy.WindowSeconds)
 	if err != nil {
 		return err
 	}
 	if phase != "checking" && state == "running" {
 		return setState(ctx, tx, step, project, "reconcile", detail, remoteNote(detail))
+	}
+	return nil
+}
+
+func closeUnverifiedRemoteOutput(ctx context.Context, tx pgx.Tx, step Step, project, state string, receipt *resources.RemoteWait) error {
+	var task, correlation, remoteState any
+	if receipt != nil {
+		task, correlation, remoteState = receipt.Task, receipt.Context, receipt.State
+	}
+	if _, err := tx.Exec(ctx, `update invocations set status='remote_closed',diagnostic='remote_text_unverified',ended_at=now(),
+      remote_task=coalesce($3,remote_task),remote_context=coalesce($4,remote_context),remote_status=coalesce($5,remote_status)
+      where run_id=$1 and ordinal=$2`, step.Run, step.Ordinal, task, correlation, remoteState); err != nil {
+		return err
+	}
+	if state == "running" || state == "reconcile" {
+		return setState(ctx, tx, step, project, "reconcile", "remote_text_unverified", remoteNote("remote_text_unverified"))
 	}
 	return nil
 }
@@ -118,7 +147,7 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 			return err
 		}
 		var expired, cancelSent bool
-		err := tx.QueryRow(ctx, `select j.ordinal,i.remote_task,coalesce(i.remote_context,''),n.agent_id,n.agent_revision,j.deadline,j.deadline<=now(),j.cancel_attempted,i.attempt_no from remote_jobs j join invocations i using(run_id,ordinal) join runs r on r.id=j.run_id join nodes n on(n.project_id,n.plan_version,n.ordinal)=(r.project_id,r.plan_version,j.ordinal)
+		err := tx.QueryRow(ctx, `select j.ordinal,i.remote_task,coalesce(i.remote_context,''),n.agent_id,n.agent_revision,j.deadline,j.deadline<=now(),j.cancel_attempted,i.attempt_no from remote_jobs j join invocations i using(run_id,ordinal) join effective_run_nodes n on(n.run_id,n.ordinal)=(j.run_id,j.ordinal)
   where j.run_id=$1 and j.phase='checking' and j.next_at<=now() and(j.lease_until is null or j.lease_until<now()) order by j.next_at,j.ordinal limit 1 for update of j`, job.Run).Scan(&job.Ordinal, &job.receipt.Task, &job.receipt.Context, &job.agent, &job.revision, &job.deadline, &expired, &cancelSent, &job.attempt)
 		if err != nil {
 			return err
@@ -159,7 +188,13 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 				return parkRemote(ctx, tx, job, "remote_denied")
 			}
 		}
-		job.cancel = job.state == "cancelled" && !cancelSent
+		job.cancel = job.state == "cancelled" && !cancelSent && job.model.RemoteOperations.CanFollow(true)
+		if !job.cancel && !job.model.RemoteOperations.CanFollow(false) {
+			if job.state == "cancelled" && !cancelSent {
+				return parkRemote(ctx, tx, job, "remote_cancel_unverified")
+			}
+			return parkRemote(ctx, tx, job, "remote_query_unverified")
+		}
 		err = tx.QueryRow(ctx, `update remote_jobs set lease=gen_random_uuid(),lease_until=now()+interval '35 seconds',cancel_attempted=cancel_attempted or $3,checks=checks+1 where run_id=$1 and ordinal=$2 returning lease`, job.Run, job.Ordinal, job.cancel).Scan(&job.lease)
 		ready = err == nil
 		return err
@@ -198,7 +233,8 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 			return parkRemote(ctx, tx, job, "remote_unknown")
 		}
 		phase, code := remoteDisposition(receipt)
-		if job.state == "cancelled" && phase == "manual" && cancelSent && !job.cancel {
+		if job.state == "cancelled" && phase == "manual" && !job.cancel &&
+			(cancelSent || !job.model.RemoteOperations.CanFollow(true)) {
 			return parkRemote(ctx, tx, job, code)
 		}
 		if job.state == "cancelled" && phase == "manual" && (!cancelSent || job.cancel) {
@@ -224,6 +260,18 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 				return setState(ctx, tx, job.Step, job.project, "reconcile", code, remoteNote(code))
 			}
 			return nil
+		}
+		if job.state != "cancelled" {
+			operations, err := resources.ReadRemoteOperations(ctx, tx, job.agent, job.revision)
+			if err != nil {
+				return err
+			}
+			if !operations.CanReturnText(true) {
+				if _, err := tx.Exec(ctx, "update remote_jobs set detail='remote_text_unverified' where run_id=$1 and ordinal=$2", job.Run, job.Ordinal); err != nil {
+					return err
+				}
+				return closeUnverifiedRemoteOutput(ctx, tx, job.Step, job.project, job.state, receipt)
+			}
 		}
 		var body any
 		working := true

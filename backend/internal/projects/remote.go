@@ -38,12 +38,13 @@ func (s Server) recheckRemote(w http.ResponseWriter, r *http.Request, u identity
 	err = database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {
 		var rev int
 		var phase, state string
-		var allowed bool
+		var allowed, queryVerified bool
 		err := tx.QueryRow(ctx, `select r.control_revision,j.phase,r.status,not a.emergency and
- project_agent_access(r.project_id,a.id,n.agent_revision,r.actor) and exists(select from project_members pm where pm.project_id=p.id and pm.member_id=r.actor)
+ project_agent_access(r.project_id,a.id,n.agent_revision,r.actor) and exists(select from project_members pm where pm.project_id=p.id and pm.member_id=r.actor),
+ coalesce((remote_operation_availability(agent_released_remote_operation_evidence(n.agent_id,n.agent_revision))->>'query')::boolean,true)
  from runs r join projects p on p.id=r.project_id join remote_jobs j on j.run_id=r.id
- join nodes n on(n.project_id,n.plan_version,n.ordinal)=(r.project_id,r.plan_version,j.ordinal)
- join agents a on a.id=n.agent_id where r.id=$1 and j.ordinal=$2 and (p.owner=$3 or (r.actor=$3 and exists(select from change_batches where run_id=r.id) and exists(select from project_members m where m.project_id=p.id and m.member_id=$3 and m.can_review))) for update of r,j`, run, step, u.ID).Scan(&rev, &phase, &state, &allowed)
+ join effective_run_nodes n on(n.run_id,n.ordinal)=(j.run_id,j.ordinal)
+ join agents a on a.id=n.agent_id where r.id=$1 and j.ordinal=$2 and (p.owner=$3 or (r.actor=$3 and exists(select from change_batches where run_id=r.id) and exists(select from project_members m where m.project_id=p.id and m.member_id=$3 and m.can_review))) for update of r,j`, run, step, u.ID).Scan(&rev, &phase, &state, &allowed, &queryVerified)
 		if err != nil {
 			return err
 		}
@@ -63,6 +64,9 @@ func (s Server) recheckRemote(w http.ResponseWriter, r *http.Request, u identity
 		}
 		if !allowed {
 			return web.Fail(409, "当前执行人无权核对原远端任务，请先恢复项目及绑定修订的授权")
+		}
+		if !queryVerified {
+			return web.Fail(409, "此发布修订的远端查询未通过验证或证据已撤回")
 		}
 		if state == "paused" || state == "blocked" {
 			return web.Fail(409, "请先恢复运行条件")

@@ -180,7 +180,9 @@ func (c Catalog) withdrawEvidence(w http.ResponseWriter, r *http.Request, u iden
 		}
 		var trial string
 		if err := tx.QueryRow(ctx, `select v.id from validations v join agents a on a.id=v.agent_id join team_members t on t.team_id=a.team_id left join agent_checks c on c.id=v.check_id
- where v.id=$1 and a.id=$2 and t.member_id=$3 and(v.actor=$3 or c.reviewer=$3 or (a.owner=$3 and not a.maintenance_vacant)) and v.status='passed' for update of v`, id, r.PathValue("id"), u.ID).Scan(&trial); err != nil {
+ where v.id=$1 and a.id=$2 and t.member_id=$3 and(v.actor=$3 or c.reviewer=$3 or (a.owner=$3 and not a.maintenance_vacant))
+ and (v.status='passed' or exists(select from remote_trial_observations o where o.trial_id=v.id and o.outcome<>'unconfirmed'))
+ for update of v`, id, r.PathValue("id"), u.ID).Scan(&trial); err != nil {
 			return err
 		}
 		tag, err := tx.Exec(ctx, "insert into validation_withdrawals(trial_id,actor,reason) values($1,$2,$3) on conflict do nothing", id, u.ID, in.Reason)

@@ -1,6 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { api, type Agent } from "./client";
 
+type RemoteOperations = {
+  send: boolean;
+  directText: boolean;
+  query: boolean;
+  asyncText: boolean;
+  cancel: boolean;
+};
+
 type BuildSnapshot = {
   build: {
     digest: string;
@@ -17,10 +25,20 @@ type BuildSnapshot = {
     passed: boolean;
     digest: string;
     snapshot: { items: { passed: boolean; legacy: boolean }[] };
+    remoteOperations?: RemoteOperations;
   };
   review?: { id: string; stale: boolean; legacy: boolean };
   publication?: { generation: number; buildDigest: string };
+  publishedRemoteOperations?: RemoteOperations;
 };
+
+const operations = [
+  ["send", "提交"],
+  ["directText", "同步文本"],
+  ["query", "查询原任务"],
+  ["asyncText", "异步取回文本"],
+  ["cancel", "取消确认"],
+] as const;
 
 export function BuildReview({
   agent, openInitially = false, children,
@@ -73,6 +91,24 @@ export function BuildReview({
             {!!items.length && ` · ${items.filter(item => item.passed).length}/${items.length} 项`}
             {items.some(item => item.legacy) && " · 含升级前证据"}
           </p>
+          {snapshot.evidence.remoteOperations && (
+            <section aria-label="外部操作验收">
+              <strong>{snapshot.publishedRemoteOperations ? "已发布的操作范围" : "此修订的操作验收"}</strong>
+              <ul>
+                {operations.map(([key, label]) => (
+                  <li key={key}>
+                    {label} · {(snapshot.publishedRemoteOperations ?? snapshot.evidence.remoteOperations)?.[key] ? "证据有效" : "待核验"}
+                  </li>
+                ))}
+              </ul>
+              {agent.published === agent.revision && !snapshot.publishedRemoteOperations && (
+                <small>旧版发布沿用原操作范围。可创建新修订并按项试跑后发布。</small>
+              )}
+              {snapshot.publishedRemoteOperations && (
+                <small>新增操作的试跑可用于下一修订，当前发布沿用原验收范围。</small>
+              )}
+            </section>
+          )}
           {snapshot.review?.stale && (
             <p role="status">
               {snapshot.review.legacy

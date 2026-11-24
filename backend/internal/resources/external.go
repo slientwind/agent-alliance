@@ -172,6 +172,9 @@ func (m Model) CheckRemote(ctx context.Context, receipt RemoteWait, cancel bool)
 	if !m.External || receipt.Task == "" {
 		return Reply{}, errors.New("需要已登记的外部任务编号")
 	}
+	if !m.RemoteOperations.CanFollow(cancel) {
+		return Reply{}, web.Fail(409, "此发布修订没有有效的远端查询或取消证据")
+	}
 	method := "tasks/get"
 	params := map[string]any{"id": receipt.Task, "historyLength": 0}
 	if cancel {
