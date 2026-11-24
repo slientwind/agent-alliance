@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { CoverageItem, Project, RemoteReviewEvidence } from "./client";
 import { FileEvidencePicker } from "./delivery-file-evidence";
+import { UpstreamReviewEvidence } from "./upstream-review-evidence";
 
 export type Assessment = {
   expected: number;
@@ -14,6 +15,7 @@ export type Assessment = {
   continueWhen?: string;
   fileEvidence?: string;
   remoteEvidence?: boolean;
+  upstreamEvidence?: number;
 };
 
 function RequirementAssessment({
@@ -30,6 +32,7 @@ function RequirementAssessment({
   const [responsible, setResponsible] = useState(item.responsibleActive ? item.responsible || "" : "");
   const [fileChoice, setFileChoice] = useState<(NonNullable<CoverageItem["fileEvidence"]> & { proof: string }) | null>();
   const [remoteChoice, setRemoteChoice] = useState<boolean>();
+  const [upstreamChoice, setUpstreamChoice] = useState<number>();
   const fileEvidence = fileChoice === undefined ? item.fileEvidence : fileChoice;
   return (
     <details>
@@ -50,6 +53,7 @@ function RequirementAssessment({
           continueWhen: state === "missing" && responsible ? String(fields.get("continueWhen") || "").trim() : undefined,
           fileEvidence: item.fileEvidenceAvailable ? fileChoice?.proof ?? (fileChoice === null ? "" : undefined) : undefined,
           remoteEvidence: item.remoteEvidence ? remoteChoice : undefined,
+          upstreamEvidence: item.upstreamEvidenceReady ? upstreamChoice : undefined,
         });
       }}>
         <label>
@@ -81,6 +85,11 @@ function RequirementAssessment({
               onChange={event => setRemoteChoice(event.target.checked)} />
             将第三方回执记为本项依据
           </label>
+        )}
+        {item.artifact && item.version && item.upstreamEvidenceReady !== undefined && (
+          <UpstreamReviewEvidence key={String(item.upstreamEvidenceReady)} project={project.id}
+            artifact={item.artifact} version={item.version} ready={item.upstreamEvidenceReady}
+            selected={upstreamChoice ?? item.upstreamEvidenceStep} choose={setUpstreamChoice} />
         )}
         <label>
           {state === "missing" ? "缺少什么" : "依据位置或说明"}
@@ -141,7 +150,7 @@ export function CoverageReview({ project, busy, save }: {
   save: (data: Assessment) => void;
 }) {
   const coverage = project.deliveryCoverage;
-  if (!coverage || project.stage === "delivered" && !coverage.items.some(item => item.fileEvidence || item.remoteEvidenceRecorded)) return null;
+  if (!coverage || project.stage === "delivered" && !coverage.items.some(item => item.fileEvidence || item.remoteEvidenceRecorded || item.upstreamEvidenceStep)) return null;
   const blocked = new Set(project.artifacts.filter(a => a.draftBlock).map(a => a.id));
   const covered = coverage.items.filter(item => item.state === "covered" && !blocked.has(item.artifact ?? "")).length;
   const missing = coverage.items.filter(item => item.state === "missing");
@@ -154,7 +163,9 @@ export function CoverageReview({ project, busy, save }: {
         {missing.length > 0 && !coverage.allowPartial && " · 等待补齐后交付"}
       </p>
       <ol>
-        {coverage.items.map(item => (
+        {coverage.items.map(item => {
+          const editable = project.stage === "review" && project.canReview && item.run && !blocked.has(item.artifact ?? "");
+          return (
           <li key={item.item}>
             <strong>{item.label}</strong>{" · "}
             {blocked.has(item.artifact ?? "") ? "候选待重做" : item.state === "covered" ? "已满足" : item.state === "missing" ? "缺项" : "待核对"}
@@ -173,17 +184,23 @@ export function CoverageReview({ project, busy, save }: {
             {item.remoteEvidence && (project.stage !== "delivered" || item.remoteEvidenceRecorded) && (
               <RemoteEvidenceDetails receipt={item.remoteEvidence} recorded={item.remoteEvidenceRecorded} version={item.version} />
             )}
+            {!editable && item.artifact && item.version && item.upstreamEvidenceReady !== undefined && (project.stage !== "delivered" || item.upstreamEvidenceStep) && (
+              <UpstreamReviewEvidence key={[item.artifact, item.version, item.upstreamEvidenceReady].join(":")}
+                project={project.id} artifact={item.artifact} version={item.version}
+                ready={item.upstreamEvidenceReady} selected={item.upstreamEvidenceStep} />
+            )}
             {item.state === "missing" && item.responsible && <p>
               {item.responsibleActive ? `接手人 ${item.responsibleName}` : "接手权限已失效"}
               {item.continueWhen && ` · ${item.continueWhen}`}
             </p>}
-            {project.stage === "review" && project.canReview && item.run && !blocked.has(item.artifact ?? "") && (
+            {editable && (
               <RequirementAssessment
                 key={[item.run,item.artifact,item.version,item.reviewedAt,item.state,item.reason,item.responsible,item.continueWhen].join(":")}
                 item={item} project={project} busy={busy} save={save} />
             )}
           </li>
-        ))}
+          );
+        })}
       </ol>
     </section>
   );

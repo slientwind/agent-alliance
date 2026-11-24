@@ -106,8 +106,8 @@ const priorBodies = `select e.depends_on,
     (o.attempt_no is null or run_working_set_usable(o.origin_run,e.depends_on,o.attempt_no))
         and (branch.mode is distinct from 'reuse' or a.id is null or distribution_readable(a.id,branch.result_version,r.actor)) as usable,
     coalesce(o.origin_run::text,'') as origin_run,coalesce(o.attempt_no,0) as origin_attempt,
-    case when v.body is not null and (branch.mode='reuse' or i.result is null) then v.artifact_id end as used_artifact,
-    case when v.body is not null and (branch.mode='reuse' or i.result is null) then v.version end as used_version,
+    case when v.body is not null and (branch.mode='reuse' or i.result is null or v.body=i.result) then v.artifact_id end as used_artifact,
+    case when v.body is not null and (branch.mode='reuse' or i.result is null or v.body=i.result) then v.version end as used_version,
     r.actor
  from runs r join node_edges e on(e.project_id,e.plan_version)=(r.project_id,r.plan_version)
  left join run_observations o on(o.run_id,o.ordinal)=(r.id,e.depends_on)

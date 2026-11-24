@@ -1049,7 +1049,7 @@ func commitOutput(ctx context.Context, tx pgx.Tx, step Step, d contextData, text
 	if err := storeRequirementEvidence(ctx, tx, step, d, id, 1); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, "select bind_artifact_remote_receipt($1,1,$2,$3)", id, step.Run, step.Ordinal); err != nil {
+	if _, err := tx.Exec(ctx, "select bind_artifact_remote_receipt($1,1,$2,$3),bind_artifact_upstream_context($1,1,$2,$3)", id, step.Run, step.Ordinal); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, "insert into artifact_files select $1,1,object_hash,filename,media_type from invocation_files where run_id=$2 and ordinal=$3", id, step.Run, step.Ordinal); err != nil {

@@ -10,6 +10,7 @@ import { outputOperations } from "./output-operations";
 import { DistributionReview, held } from "./distribution";
 import { DeliveryConfirmation, DeliveryHistory } from "./delivery";
 import { CoverageReview } from "./delivery-coverage";
+import { UpstreamReviewEvidence } from "./upstream-review-evidence";
 import { CallRecovery } from "./call-recovery";
 import { RuleBranchReview, RuleBranchSummary } from "./rule-branch";
 import { SourceReceipt } from "./source-receipt";
@@ -1032,6 +1033,12 @@ export function Work({
           ) : p.plan?.nodes[a.ordinal - 1]?.lookupPhase
             ? <LookupBody artifact={a} project={p} sources={sources} />
             : <div className="preserve">{a.body}</div>}
+          {a.upstreamEvidenceReady != null &&
+            !p.deliveryCoverage?.items.some(item => item.artifact === a.id && item.upstreamEvidenceReady !== undefined &&
+              (p.stage !== "delivered" || item.upstreamEvidenceStep)) && (
+            <UpstreamReviewEvidence key={a.version + ":" + a.upstreamEvidenceReady} project={p.id}
+              artifact={a.id} version={a.version} ready={a.upstreamEvidenceReady} />
+          )}
           {a.file && canPreview(a.file) && (
             <FilePreview
               key={a.version}

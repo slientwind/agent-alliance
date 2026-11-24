@@ -162,6 +162,7 @@ type deliveryAssessment struct {
 	ContinueWhen            string
 	FileEvidence            *string
 	RemoteEvidence          *bool
+	UpstreamEvidence        *int
 }
 
 func (s Server) assessDeliveryItem(w http.ResponseWriter, r *http.Request, u identity.Member) error {
@@ -177,6 +178,7 @@ func (s Server) assessDeliveryItem(w http.ResponseWriter, r *http.Request, u ide
 		(in.Responsible == "") != (in.ContinueWhen == "") ||
 		in.FileEvidence != nil && (*in.FileEvidence != "" && in.Artifact == "" || len(*in.FileEvidence) > 8192) ||
 		in.RemoteEvidence != nil && *in.RemoteEvidence && in.Artifact == "" ||
+		in.UpstreamEvidence != nil && (*in.UpstreamEvidence < 0 || *in.UpstreamEvidence > 0 && in.Artifact == "") ||
 		utf8.RuneCountInString(in.ContinueWhen) > 1000 || strings.ContainsRune(in.ContinueWhen, 0) {
 		return web.Fail(422, "请选择必交项并填写核对依据。指定接手人时请填写继续条件")
 	}
@@ -237,9 +239,13 @@ func (s Server) assessDeliveryItem(w http.ResponseWriter, r *http.Request, u ide
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `insert into delivery_item_assessments(project_id,plan_version,item,run_id,artifact_id,artifact_version,state,reason,responsible,continue_when,reviewer,file_evidence,remote_receipt_version)
-          values($1,$2,$3,$4,nullif($5,'')::uuid,nullif($6,0),$7,$8,nullif($9,'')::uuid,$10,$11,$12,$13)`,
-			p.ID, p.PlanVersion, in.Item, in.Run, in.Artifact, in.Version, in.State, in.Reason, in.Responsible, in.ContinueWhen, u.ID, evidence, remoteVersion); err != nil {
+		upstreamStep, err := deliveryAssessmentUpstreamEvidence(ctx, tx, p, u.ID, in, current)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `insert into delivery_item_assessments(project_id,plan_version,item,run_id,artifact_id,artifact_version,state,reason,responsible,continue_when,reviewer,file_evidence,remote_receipt_version,upstream_evidence_step)
+          values($1,$2,$3,$4,nullif($5,'')::uuid,nullif($6,0),$7,$8,nullif($9,'')::uuid,$10,$11,$12,$13,$14)`,
+			p.ID, p.PlanVersion, in.Item, in.Run, in.Artifact, in.Version, in.State, in.Reason, in.Responsible, in.ContinueWhen, u.ID, evidence, remoteVersion, upstreamStep); err != nil {
 			return err
 		}
 		return Touch(ctx, tx, p.ID, p.Stage)

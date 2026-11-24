@@ -20,6 +20,7 @@ type UpstreamSlice struct {
 	TotalBytes int    `json:"totalBytes"`
 	HeadBytes  int    `json:"headBytes"`
 	TailFrom   int    `json:"tailFrom"`
+	Digest     string `json:"digest,omitempty"`
 }
 
 type UpstreamInput struct {
@@ -37,7 +38,8 @@ func ReadUpstream(ctx context.Context, tx pgx.Tx, run string, step, controlStep,
         select depends_on,origin_run,origin_attempt,coalesce(used_artifact::text,''),coalesce(used_version,0),readable,
           case when readable then octet_length(value) end,
           case when readable then left(value,$3) end,
-          case when readable and octet_length(value)>$3 then right(value,$3) else '' end
+          case when readable and octet_length(value)>$3 then right(value,$3) else '' end,
+          coalesce(case when readable then encode(digest(convert_to(value,'UTF8'),'sha256'),'hex') end,'')
         from authorized order by depends_on`, run, step, max(1, budget))
 	if err != nil {
 		return nil, err
@@ -50,7 +52,7 @@ func ReadUpstream(ctx context.Context, tx pgx.Tx, run string, step, controlStep,
 		var size *int
 		var head *string
 		err := rows.Scan(&in.Slice.Step, &in.Slice.Run, &in.Slice.Attempt, &in.Slice.Artifact, &in.Slice.Version,
-			&usable, &size, &head, &in.Tail)
+			&usable, &size, &head, &in.Tail, &in.Slice.Digest)
 		if err != nil {
 			return nil, err
 		}

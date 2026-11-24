@@ -17,6 +17,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -235,6 +236,10 @@ func TestUpstreamContextPostgres(t *testing.T) {
 			if prior != upstreamResultsLabel+strings.Join(parts, "\n\n") {
 				t.Fatal("legacy handoff changed")
 			}
+			var recorded bool
+			if err := db.QueryRow(ctx, "select exists(select from artifact_upstream_context where run_id=$1)", run).Scan(&recorded); err != nil || recorded {
+				t.Fatalf("historical request was retroactively given a proof: %t %v", recorded, err)
+			}
 			continue
 		}
 		if len(messages[0].Content)+len(messages[1].Content)+len(prior) > harness.ExecutionTextBytes || !utf8.ValidString(prior) ||
@@ -248,7 +253,8 @@ func TestUpstreamContextPostgres(t *testing.T) {
 		}
 		for i, clip := range clips {
 			full := parts[i]
-			if clip.Step != i+1 || clip.Run != run || clip.Attempt != 1 || clip.TotalBytes != len(full) ||
+			if clip.Step != i+1 || clip.Run != run || clip.Attempt != 1 || clip.Artifact == "" || clip.Version != 1 ||
+				clip.TotalBytes != len(full) || clip.Digest != receiptDigest([]byte(full)) ||
 				!strings.Contains(prior, full[:clip.HeadBytes]) || !strings.Contains(prior, full[clip.TailFrom:]) {
 				t.Fatalf("prompt disagrees with recorded input: %+v", clip)
 			}
@@ -261,5 +267,84 @@ func TestUpstreamContextPostgres(t *testing.T) {
 		if exposed == wait {
 			t.Fatal("project visibility did not follow source validity")
 		}
+		if !wait {
+			checkUpstreamReview(t, ctx, db, routes, path, project, run, token, clips[0], longA)
+		}
 	}
+}
+
+func checkUpstreamReview(t *testing.T, ctx context.Context, db *pgxpool.Pool, routes http.Handler, path, project, run, token string, first memory.UpstreamSlice, longA string) {
+	t.Helper()
+	var artifact string
+	if err := db.QueryRow(ctx, "select id from artifacts where run_id=$1 and ordinal=4", run).Scan(&artifact); err != nil {
+		t.Fatal(err)
+	}
+	get := func(token string, suffix string, want int) []byte {
+		t.Helper()
+		return skillTestRequest(t, routes, token, "GET", path+suffix, nil, want)
+	}
+	entriesPath := "/artifacts/" + artifact + "/upstream-evidence?version="
+	raw := get(token, entriesPath+"1", 200)
+	var entries []struct {
+		OriginVersion, Step, SourceVersion, CurrentVersion int
+		Available                                          bool
+	}
+	if err := json.Unmarshal(raw, &entries); err != nil || len(entries) != 3 || !entries[0].Available || entries[0].SourceVersion != 1 {
+		t.Fatalf("missing verified parent versions: %s %v", raw, err)
+	}
+	tailPath := "&step=1&cursor=" + strconv.Itoa(first.HeadBytes)
+	var excerpt struct {
+		Start, End int
+		Text       string
+	}
+	raw = get(token, entriesPath+"1"+tailPath, 200)
+	if err := json.Unmarshal(raw, &excerpt); err != nil || excerpt.Start != first.TailFrom || excerpt.Text != longA[excerpt.Start:excerpt.End] {
+		t.Fatalf("wrong admitted tail: %+v %v", excerpt, err)
+	}
+	get(token, entriesPath+"1&step=1&cursor="+strconv.Itoa(first.HeadBytes+1), 422)
+	readOnly := uuid.NewString()
+	lookupTestSQL(t, ctx, db, "insert into members(id,email,display_name,password_hash,role) values($1,$2,'普通成员','unused','member')", readOnly, readOnly+"@example.invalid")
+	lookupTestSQL(t, ctx, db, "insert into project_memberships(project_id,member_id,can_review) values($1,$2,false)", project, readOnly)
+	readerToken := web.Token()
+	lookupTestSQL(t, ctx, db, "insert into sessions(token_hash,member_id,expires_at) values($1,$2,now()+interval '2 minutes')", web.Hash(readerToken), readOnly)
+	get(readerToken, entriesPath+"1&step=1", 404)
+	assess := func(ver, source, want int) {
+		t.Helper()
+		var revision int
+		if err := db.QueryRow(ctx, "select revision from projects where id=$1", project).Scan(&revision); err != nil {
+			t.Fatal(err)
+		}
+		skillTestRequest(t, routes, token, "POST", path+"/delivery/assessments", map[string]any{
+			"expected": revision, "item": 1, "run": run, "artifact": artifact, "version": ver,
+			"reason": "已核对实际采用的上游版本", "state": "covered", "upstreamEvidence": source,
+		}, want)
+	}
+	assess(1, 8, 409)
+	assess(1, 1, 204)
+	if raw := get(token, "", 200); !bytes.Contains(raw, []byte(`"upstreamEvidenceStep": 1`)) {
+		t.Fatalf("selected input not recorded: %s", raw)
+	}
+	skillTestRequest(t, routes, token, "POST", path+"/artifacts/"+artifact+"/review", map[string]int{"version": 1}, 204)
+	get(token, entriesPath+"1"+tailPath, 200)
+	skillTestRequest(t, routes, token, "POST", path+"/artifacts/"+first.Artifact+"/revise", map[string]any{
+		"version": 1, "body": "甲方更正为下周有效。", "reason": "上游原文改版",
+	}, 204)
+	get(token, entriesPath+"1", 404)
+	raw = get(token, entriesPath+"2", 200)
+	if err := json.Unmarshal(raw, &entries); err != nil || len(entries) != 3 || entries[0].OriginVersion != 1 ||
+		entries[0].SourceVersion != 1 || entries[0].CurrentVersion != 2 {
+		t.Fatalf("copied result failed to preserve original input version: %s %v", raw, err)
+	}
+	get(token, entriesPath+"2"+tailPath, 200)
+	lookupTestSQL(t, ctx, db, "update artifact_versions set body=overlay(body placing '错' from 1 for 1) where (artifact_id,version)=($1,1)", first.Artifact)
+	get(token, entriesPath+"2&step=1", 409)
+	assess(2, 1, 409)
+	lookupTestSQL(t, ctx, db, "update artifact_versions set body=$2 where (artifact_id,version)=($1,1)", first.Artifact, longA)
+	lookupTestSQL(t, ctx, db, "update run_working_sets set invalidated_at=now() where run_id=$1 and ordinal=1", run)
+	raw = get(token, entriesPath+"2", 200)
+	if bytes.Contains(raw, []byte("sourceVersion")) || bytes.Contains(raw, []byte("甲方")) {
+		t.Fatalf("revoked input still revealed its label or version: %s", raw)
+	}
+	get(token, entriesPath+"2&step=1", 409)
+	assess(2, 1, 409)
 }

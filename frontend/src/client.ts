@@ -204,6 +204,7 @@ export type SourceReceiptRequest = {
 
 export type Artifact = {
   draftBlock?: "preference" | "rule" | null;
+  upstreamEvidenceReady?: boolean | null;
   verifiedWord?:boolean;
   sourcePins?: { id: string; version: number }[] | null;
   reviewNotesReadable: boolean;
@@ -343,6 +344,8 @@ export type CoverageItem = {
   fileEvidence?: FileEvidenceExcerpt & { name: string };
   remoteEvidence?: RemoteReviewEvidence;
   remoteEvidenceRecorded?: boolean;
+  upstreamEvidenceReady?: boolean;
+  upstreamEvidenceStep?: number;
   evidence?: {
     gap?: string;
     citations?: { name: string; version: number; start: number; end: number; text: string }[];
