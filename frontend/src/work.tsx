@@ -1078,7 +1078,7 @@ export function Work({
         />
       )}
       {p.stage === "delivered" && p.owner === user.id && p.plan && (
-        <SaveWorkflowTemplate project={p} openTemplates={openWorkflowTemplates} />
+        <SaveWorkflowTemplate key={p.id + "/" + p.planVersion} project={p} openTemplates={openWorkflowTemplates} />
       )}
       <section
         className="project-options"

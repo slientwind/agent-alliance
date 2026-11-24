@@ -25,7 +25,7 @@ func (s Server) previewWorkflowTemplateUpdate(w http.ResponseWriter, r *http.Req
      where fresh.build_digest is distinct from old.build_digest
    ) order by pos),
  'target',jsonb_build_object('id',v.template_id,'version',v.version,'name',v.name,'instructions',v.instructions,
-   'inputs',v.inputs,'outcomes',v.outcomes,'requiresSources',v.requires_sources,'manifestDigest',v.manifest_digest,'nodes',`+workflowTemplateNodes+`))
+   'inputs',v.inputs,'outcomes',v.outcomes,'requiresSources',v.requires_sources,'deliveryContract',v.delivery_contract,'manifestDigest',v.manifest_digest,'nodes',`+workflowTemplateNodes+`))
  from projects p join project_members pm on pm.project_id=p.id and pm.member_id=$1
  join project_workflow_template_binding b on b.project_id=p.id
  join workflow_templates t on t.id=b.template_id

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, type Project, type WorkflowTemplate, type WorkflowTemplateReference } from "./client";
 import { outputOperations } from "./output-operations";
+import { conditionItems, deliveryOutputs } from "./delivery-conditions";
+import { TemplateDelivery } from "./template-delivery";
 
 type Summary = Pick<WorkflowTemplate, "id" | "name" | "version"> & {
   team: string;
@@ -29,13 +31,24 @@ function useRequestKey() {
 }
 
 export function SaveWorkflowTemplate({ project, openTemplates }: { project: Project; openTemplates: () => void }) {
+  const sourceSteps = deliveryOutputs(project.plan?.nodes ?? []).map(({ node, ordinal }) => ({
+    name: node.name, key: ordinal,
+    completion: (project.deliveryCoverage?.items ?? []).filter(item => item.step === ordinal).map(item => item.label).join("\n"),
+  }));
   const [items, setItems] = useState<Summary[]>([]);
   const [existing, setExisting] = useState("");
   const [fields, setFields] = useState(newFields);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState<{ id: string; version: number }>();
+  const [conditions, setConditions] = useState(() => sourceSteps.map(step => step.completion ?? ""));
+  const [allowPartial, setAllowPartial] = useState(!!project.deliveryCoverage?.allowPartial);
+  const [reviewed, setReviewed] = useState(false);
   const requestKey = useRequestKey();
+  const sharedConditions = conditionItems(conditions.map(completion => ({ completion })));
+  const needsReview = !!project.deliveryCoverage?.items.length || sharedConditions.length > 0;
+  const invalid = sharedConditions.length > 32 || sharedConditions.some(item => Array.from(item.label).length > 180) ||
+    (allowPartial && sharedConditions.length === 0);
 
   async function choose(id: string) {
     setExisting(id);
@@ -61,6 +74,7 @@ export function SaveWorkflowTemplate({ project, openTemplates }: { project: Proj
 
   async function save(event: FormEvent) {
     event.preventDefault();
+    if (invalid || (needsReview && !reviewed)) return;
     setError("");
     setBusy(true);
     const body = {
@@ -68,6 +82,7 @@ export function SaveWorkflowTemplate({ project, openTemplates }: { project: Proj
       expected: project.revision,
       replace: existing,
       expectedVersion: items.find(item => item.id === existing)?.version || 0,
+      deliveryContract: { allowPartial, items: sharedConditions },
     };
     try {
       setSaved(await api<{ id: string; version: number }>(
@@ -109,7 +124,25 @@ export function SaveWorkflowTemplate({ project, openTemplates }: { project: Proj
             <label>可复用的执行要求<textarea value={fields.instructions} maxLength={4000} required onChange={e => setFields({ ...fields, instructions: e.target.value })} /></label>
             <label>需要准备的资料<textarea value={fields.inputs} maxLength={2000} required onChange={e => setFields({ ...fields, inputs: e.target.value })} /></label>
             <label>交付和审核约定<textarea value={fields.outcomes} maxLength={2000} required onChange={e => setFields({ ...fields, outcomes: e.target.value })} /></label>
-            <button className="primary">保存模板草稿</button>
+            {!!sourceSteps.length && <details open={needsReview ? true : undefined}>
+              <summary>可复用的必交项</summary>
+              <p>核对每项条件，删去项目专有资料名称、客户信息或其他仅限本次使用的内容。</p>
+              {sourceSteps.map((step, i) => <label key={step.key}>
+                步骤 {i+1} · {step.name} 的模板必交项
+                <textarea rows={2} value={conditions[i] || ""} placeholder="每行一项"
+                  onChange={e => {
+                    setConditions(conditions.map((text, at) => at === i ? e.target.value : text));
+                    setReviewed(false);
+                  }} />
+              </label>)}
+              <label><input type="checkbox" checked={allowPartial} onChange={e => {
+                setAllowPartial(e.target.checked);
+                setReviewed(false);
+              }} /> 标记为支持部分交付</label>
+              {invalid && <small role="status">最多 32 项，每项 180 字。支持部分交付的模板需要至少一个必交项。</small>}
+              {needsReview && <label><input type="checkbox" checked={reviewed} onChange={e => setReviewed(e.target.checked)} /> 我已核对适合写入模板的交付条件</label>}
+            </details>}
+            <button className="primary" disabled={invalid || (needsReview && !reviewed)}>保存模板草稿</button>
           </fieldset>
         </form>
       )}
@@ -213,6 +246,7 @@ export function WorkflowTemplates({ initialGoal, openProject, back, initialTempl
           <p className="preserve">{selected.instructions}</p>
           <p><strong>输入</strong> {selected.inputs}</p>
           <p><strong>交付</strong> {selected.outcomes}</p>
+          {selected.deliveryContract && selected.deliveryContract.items.length > 0 && <TemplateDelivery contract={selected.deliveryContract} nodes={selected.nodes} />}
           {selected.manifestDigest && <small>构建清单 {selected.manifestDigest.slice(0, 12)}</small>}
           <ol>
             {selected.nodes.map((node, i) => (

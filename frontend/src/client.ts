@@ -320,6 +320,7 @@ export type DeliveryCoverage = {
   allowPartial: boolean;
   items: CoverageItem[];
 };
+export type DeliveryContract = { allowPartial: boolean; items: { step: number; label: string }[] };
 export type WorkflowTemplate = {
   id: string;
   version: number;
@@ -328,6 +329,7 @@ export type WorkflowTemplate = {
   inputs: string;
   outcomes: string;
   requiresSources: boolean;
+  deliveryContract?: DeliveryContract | null;
   manifestDigest?: string | null;
   updateVersion?: number | null;
   nodes: {

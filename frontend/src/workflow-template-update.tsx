@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, type Project, type WorkflowTemplate, type WorkflowTemplateReference, type WorkflowTemplateUpdate } from "./client";
 import { fileFormat, plannedOutputs } from "./output-operations";
+import { TemplateDelivery } from "./template-delivery";
 
 type Step = Pick<WorkflowTemplate["nodes"][number], "agent" | "name" | "revision" | "operation" | "lookupPhase" | "dependsOn"> & {
   toolChoice?: { agent: string; name: string; revision: number; selector: number } | null;
@@ -86,6 +87,12 @@ export function WorkflowTemplateVersionReview({ project, owner, hasDraft, busy, 
               <div className="preserve">新版 · {preview.target[field]}</div>
             </div>
           ))}
+          {preview.target.deliveryContract && (preview.target.deliveryContract.items.length > 0 || current.deliveryContract?.items.length) ? (
+            <div>
+              <strong>新版模板必交项</strong>
+              {preview.target.deliveryContract.items.length ? <TemplateDelivery contract={preview.target.deliveryContract} nodes={preview.target.nodes} /> : <p>新版模板未登记必交项。保存前核对本项目的交付条件。</p>}
+            </div>
+          ) : null}
           {current.requiresSources !== preview.target.requiresSources && (
             <p>{preview.target.requiresSources ? "新版要求引用本项目资料。" : "新版可以根据文字目标设置方案。"}</p>
           )}

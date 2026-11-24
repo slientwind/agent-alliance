@@ -236,7 +236,8 @@ func TestEvidenceFollowUpPostgres(t *testing.T) {
 				// Template storage opens after delivery. Approval itself is exercised by the delivery suite.
 				lookupTestSQL(t, ctx, db, "update projects set stage='delivered' where id=$1", project)
 				body, _ := json.Marshal(map[string]any{"expected": currentRevision(), "name": "原文续答模板", "inputs": "原文资料",
-					"outcomes": "带出处的回答", "instructions": "补查获得新证据时续答"})
+					"outcomes": "带出处的回答", "instructions": "补查获得新证据时续答",
+					"deliveryContract": projects.DeliveryContract{Items: []projects.DeliveryRequirement{{Step: 1, Label: "提供带出处的核对结论"}}}})
 				req := httptest.NewRequest("POST", root+"/workflow-templates", bytes.NewReader(body)).WithContext(ctx)
 				req.Header.Set("Idempotency-Key", web.Token())
 				req.AddCookie(&http.Cookie{Name: "aa_session", Value: token})
@@ -246,9 +247,10 @@ func TestEvidenceFollowUpPostgres(t *testing.T) {
 					t.Fatalf("save follow-up template: %d %s", w.Code, w.Body)
 				}
 				var phase string
-				if err := db.QueryRow(ctx, "select nodes->2->>'lookupPhase' from workflow_template_versions where origin_project=$1", project).
-					Scan(&phase); err != nil || phase != "synthesize" {
-					t.Fatalf("template lost the conditional step: %s %v", phase, err)
+				var businessStep int
+				if err := db.QueryRow(ctx, "select nodes->2->>'lookupPhase',(delivery_contract->'items'->0->>'step')::int from workflow_template_versions where origin_project=$1", project).
+					Scan(&phase, &businessStep); err != nil || phase != "synthesize" || businessStep != 1 {
+					t.Fatalf("template lost the conditional step or copied an execution ordinal: %s %d %v", phase, businessStep, err)
 				}
 			}
 		})

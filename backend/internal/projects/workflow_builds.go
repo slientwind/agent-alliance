@@ -56,7 +56,7 @@ func compileWorkflow(ctx context.Context, tx pgx.Tx, t templateReceipt) error {
 	}
 	_, err = tx.Exec(ctx, `update workflow_template_versions v set manifest_digest=agent_build_digest(jsonb_build_object(
      'format',1,'name',v.name,'instructions',v.instructions,'inputs',v.inputs,'outcomes',v.outcomes,
-     'requiresSources',v.requires_sources,'nodes',v.nodes,'builds',array(
+     'requiresSources',v.requires_sources,'deliveryContract',v.delivery_contract,'nodes',v.nodes,'builds',array(
        select jsonb_build_array(b.agent_id,b.agent_revision,b.build_digest) from workflow_template_builds b
        where (b.template_id,b.version)=(v.template_id,v.version) order by b.agent_id,b.agent_revision)))
     where (v.template_id,v.version)=($1,$2)`, t.ID, t.Version)

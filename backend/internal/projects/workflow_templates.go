@@ -35,7 +35,7 @@ const workflowTemplateNodes = `coalesce((select jsonb_agg(jsonb_build_object(
  where a.id=(n.doc->'toolChoice'->>'agent')::uuid and not a.removed and project_agent_access(null,a.id,ar.revision,$1)) b on true),'[]')`
 
 const projectWorkflowTemplateSQL = `(select jsonb_build_object('id',v.template_id,'version',v.version,'name',v.name,
- 'instructions',v.instructions,'inputs',v.inputs,'outcomes',v.outcomes,'requiresSources',v.requires_sources,'manifestDigest',v.manifest_digest,'nodes',` + workflowTemplateNodes + `,
+ 'instructions',v.instructions,'inputs',v.inputs,'outcomes',v.outcomes,'requiresSources',v.requires_sources,'deliveryContract',v.delivery_contract,'manifestDigest',v.manifest_digest,'nodes',` + workflowTemplateNodes + `,
  'updateVersion',nullif(greatest(offered_workflow_template_version(u.template_id,$1),v.version),v.version))
  from project_workflow_template_binding u join workflow_template_versions v on(v.template_id,v.version)=(u.template_id,u.version) where u.project_id=p.id)`
 
@@ -69,7 +69,7 @@ func (s Server) workflowTemplateDetail(w http.ResponseWriter, r *http.Request, u
 	}
 	var result json.RawMessage
 	err = s.DB.QueryRow(r.Context(), `select jsonb_build_object(`+templateSummary+`,
- 'instructions',v.instructions,'inputs',v.inputs,'outcomes',v.outcomes,'requiresSources',v.requires_sources,'manifestDigest',v.manifest_digest,'nodes',`+workflowTemplateNodes+`) `+
+ 'instructions',v.instructions,'inputs',v.inputs,'outcomes',v.outcomes,'requiresSources',v.requires_sources,'deliveryContract',v.delivery_contract,'manifestDigest',v.manifest_digest,'nodes',`+workflowTemplateNodes+`) `+
 		templateCatalogScope+` and t.id=$2 and v.version=$3`, u.ID, r.PathValue("template"), ver).Scan(&result)
 	if err != nil {
 		return err
@@ -80,6 +80,7 @@ func (s Server) workflowTemplateDetail(w http.ResponseWriter, r *http.Request, u
 type templateVersionInput struct {
 	Name, Instructions, Inputs, Outcomes, Replace string
 	Expected, ExpectedVersion                     int
+	DeliveryContract                              *DeliveryContract `json:",omitempty"`
 }
 
 type templateReceipt struct {
@@ -154,6 +155,10 @@ func (s Server) saveWorkflowTemplate(w http.ResponseWriter, r *http.Request, u i
 		if string(nodes) == "[]" {
 			return web.Fail(409, "此交付没有可复用的协作步骤")
 		}
+		contract, err := authoredWorkflowDelivery(ctx, tx, p, nodes, in.DeliveryContract)
+		if err != nil {
+			return err
+		}
 		if in.Replace == "" {
 			err = tx.QueryRow(ctx, `insert into workflow_templates(team_id,owner) values($1,$2) returning id,current_version`, team, u.ID).Scan(&result.ID, &result.Version)
 		} else {
@@ -167,8 +172,8 @@ func (s Server) saveWorkflowTemplate(w http.ResponseWriter, r *http.Request, u i
 		if err != nil {
 			return err
 		}
-		if _, err = tx.Exec(ctx, `insert into workflow_template_versions(template_id,version,name,instructions,inputs,outcomes,nodes,origin_project,origin_plan,author,request_key,request_hash,requires_sources)
- values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,exists(select from plan_sources where(project_id,plan_version)=($8,$9)))`, result.ID, result.Version, in.Name, in.Instructions, in.Inputs, in.Outcomes, nodes, project, p.PlanVersion, u.ID, key, sig); err != nil {
+		if _, err = tx.Exec(ctx, `insert into workflow_template_versions(template_id,version,name,instructions,inputs,outcomes,nodes,origin_project,origin_plan,author,request_key,request_hash,requires_sources,delivery_contract)
+ values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,exists(select from plan_sources where(project_id,plan_version)=($8,$9)),$13)`, result.ID, result.Version, in.Name, in.Instructions, in.Inputs, in.Outcomes, nodes, project, p.PlanVersion, u.ID, key, sig, contract); err != nil {
 			return err
 		}
 		if err := compileWorkflow(ctx, tx, result); err != nil {

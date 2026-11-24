@@ -442,21 +442,22 @@ type SourcePin struct {
 	Version int    `json:"version"`
 }
 type PlanInput struct {
-	DeliveryContract *DeliveryContract
-	ToolChoices      []ToolChoicePin
-	Replacements     []StepReplacement
-	ReplacementBase  int
-	SourceLookup     bool
-	CalculationSteps []int
-	FollowUpSteps    []int
-	LookupSteps      []int
-	Brief            string
-	Suggestion       string
-	Agents           []string
-	Dependencies     [][]int
-	AgentRevisions   []int
-	Sources          []SourcePin
-	Preferences      []struct {
+	DeliveryContract       *DeliveryContract
+	ConfirmDeliveryChanges bool `json:",omitempty"`
+	ToolChoices            []ToolChoicePin
+	Replacements           []StepReplacement
+	ReplacementBase        int
+	SourceLookup           bool
+	CalculationSteps       []int
+	FollowUpSteps          []int
+	LookupSteps            []int
+	Brief                  string
+	Suggestion             string
+	Agents                 []string
+	Dependencies           [][]int
+	AgentRevisions         []int
+	Sources                []SourcePin
+	Preferences            []struct {
 		ID       string
 		Revision int
 	}
@@ -561,9 +562,6 @@ func savePlan(ctx context.Context, tx pgx.Tx, project, actor string, in PlanInpu
 			return web.Fail(422, "所选能力尚未发布或未获授权")
 		}
 	}
-	if err := saveDeliveryContract(ctx, tx, p, ver, in.DeliveryContract, nodes); err != nil {
-		return err
-	}
 	if err := checkStepReplacements(ctx, tx, p.ID, p.PlanVersion, ver, in.Replacements); err != nil {
 		return err
 	}
@@ -600,6 +598,13 @@ func savePlan(ctx context.Context, tx pgx.Tx, project, actor string, in PlanInpu
 				return err
 			}
 		}
+	}
+	contract, err := workflowPlanDelivery(ctx, tx, p, ver, templateVersion, in)
+	if err != nil {
+		return err
+	}
+	if err := saveDeliveryContract(ctx, tx, p, ver, contract, nodes); err != nil {
+		return err
 	}
 	if _, err = tx.Exec(ctx, "update projects set plan_version=$1 where id=$2", ver, p.ID); err != nil {
 		return err

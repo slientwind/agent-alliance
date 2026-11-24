@@ -235,4 +235,87 @@ func TestWorkflowTemplateBuildsPostgres(t *testing.T) {
 	call("POST", toolPath, map[string]any{"version": 1, "action": "request"}, 204)
 	lookupTestSQL(t, ctx, db, `update agent_revisions set instructions='不同的汇总约定' where agent_id=$1 and revision=1`, alternative)
 	call("POST", toolPath, map[string]any{"version": 1, "action": "publish"}, 409)
+
+	t.Run("delivery contracts survive template reuse and deliberate revision changes", func(t *testing.T) {
+		lookupTestSQL(t, ctx, db, `delete from plan_tool_choices where project_id=$1`, origin)
+		lookupTestSQL(t, ctx, db, `update nodes set agent_id=$2 where project_id=$1 and ordinal=2`, origin, replacement)
+		lookupTestSQL(t, ctx, db, `insert into plan_delivery_contracts values($1,1,true)`, origin)
+		lookupTestSQL(t, ctx, db, `insert into plan_delivery_requirements values($1,1,1,1,'原项目私有标识'),($1,1,2,2,'原项目单据')`, origin)
+		saveContract := func(previous templateRef, contract *projects.DeliveryContract, want int) templateRef {
+			t.Helper()
+			var result templateRef
+			body := call("POST", "projects/"+origin+"/workflow-templates", map[string]any{
+				"replace": previous.ID, "expectedVersion": previous.Version, "expected": projectRevision(origin),
+				"name": "交付复核", "instructions": "复核依据", "inputs": "本次资料", "outcomes": "复核记录",
+				"deliveryContract": contract,
+			}, want)
+			if want == 201 {
+				decode(body, &result)
+			}
+			return result
+		}
+		saveContract(templateRef{}, nil, 422)
+		saveContract(templateRef{}, &projects.DeliveryContract{Items: []projects.DeliveryRequirement{{Step: 3, Label: "超出业务步骤"}}}, 422)
+		firstContract := &projects.DeliveryContract{AllowPartial: true, Items: []projects.DeliveryRequirement{
+			{Step: 1, Label: "记录材料依据"}, {Step: 2, Label: "提供复核结论"},
+		}}
+		first := saveContract(templateRef{}, firstContract, 201)
+		path := "workflow-templates/" + first.ID
+		detail := call("GET", path+"?version=1", nil, 200)
+		if bytes.Contains(detail, []byte("原项目私有标识")) || !bytes.Contains(detail, []byte("记录材料依据")) {
+			t.Fatalf("template should store only its authored reusable conditions: %s", detail)
+		}
+		var project struct{ ID string }
+		decode(call("POST", path+"/projects", map[string]any{"version": 1, "goal": "核对新一批记录"}, 201), &project)
+		root := "projects/" + project.ID
+		plan := projects.PlanInput{Expected: projectRevision(project.ID), Brief: "跟进本次记录", Agents: []string{agent, replacement}, AgentRevisions: []int{1, 1}}
+		call("POST", root+"/plan", plan, 204)
+		var label string
+		var partial bool
+		checkItem := func(version, ordinal int, want string, allowPartial bool) {
+			t.Helper()
+			err := db.QueryRow(ctx, `select r.label,c.allow_partial from plan_delivery_requirements r
+ join plan_delivery_contracts c using(project_id,plan_version) where (r.project_id,r.plan_version,r.ordinal)=($1,$2,$3)`, project.ID, version, ordinal).
+				Scan(&label, &partial)
+			if err != nil || label != want || partial != allowPartial {
+				t.Fatalf("delivery at plan %d/%d: %q %t %v", version, ordinal, label, partial, err)
+			}
+		}
+		checkItem(1, 1, "记录材料依据", false)
+		checkItem(1, 2, "提供复核结论", false)
+		plan.Expected = projectRevision(project.ID)
+		plan.DeliveryContract = &projects.DeliveryContract{}
+		call("POST", root+"/plan", plan, 409)
+
+		lookupTestSQL(t, ctx, db, `update nodes set agent_id=case when ordinal=1 then $2::uuid else $3::uuid end where project_id=$1`, origin, replacement, agent)
+		updatedContract := &projects.DeliveryContract{AllowPartial: true, Items: []projects.DeliveryRequirement{
+			{Step: 1, Label: "提供复核结论"}, {Step: 2, Label: "记录材料依据"},
+		}}
+		updated := saveContract(first, updatedContract, 201)
+		plan.Agents = []string{replacement, agent}
+		plan.DeliveryContract = updatedContract
+		adopt := func(from, to, want int) {
+			t.Helper()
+			plan.Expected = projectRevision(project.ID)
+			call("POST", root+"/workflow-template-update", map[string]any{"fromVersion": from, "toVersion": to, "plan": plan}, want)
+		}
+		adopt(1, updated.Version, 409)
+		plan.ConfirmDeliveryChanges = true
+		adopt(1, updated.Version, 200)
+		checkItem(1, 1, "记录材料依据", false)
+		checkItem(2, 1, "提供复核结论", true)
+		checkItem(2, 2, "记录材料依据", true)
+
+		// Stored versions from before migration 128 have no delivery contract.
+		lookupTestSQL(t, ctx, db, `insert into workflow_template_versions(template_id,version,name,instructions,inputs,outcomes,requires_sources,nodes,origin_project,origin_plan,author,request_key,request_hash)
+ select template_id,3,name,instructions,inputs,outcomes,requires_sources,nodes,origin_project,origin_plan,author,$2,request_hash
+ from workflow_template_versions where (template_id,version)=($1,2)`, first.ID, web.Token())
+		lookupTestSQL(t, ctx, db, `update workflow_templates set current_version=3 where id=$1`, first.ID)
+		plan.DeliveryContract = nil
+		plan.ConfirmDeliveryChanges = false
+		adopt(2, 3, 409)
+		plan.DeliveryContract = updatedContract
+		adopt(2, 3, 200)
+		checkItem(3, 2, "记录材料依据", true)
+	})
 }

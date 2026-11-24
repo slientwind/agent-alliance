@@ -23,10 +23,7 @@ type DeliveryContract struct {
 	Items        []DeliveryRequirement `json:"items"`
 }
 
-func normalizeDeliveryRequirements(contract DeliveryContract, nodes []executionNode) ([]DeliveryRequirement, error) {
-	if len(contract.Items) > 32 || contract.AllowPartial && len(contract.Items) == 0 {
-		return nil, web.Fail(422, "请配置最多 32 个必交项。允许部分交付时至少指定一项")
-	}
+func deliveryOrdinals(nodes []executionNode) []int {
 	ordinals := make([]int, 0, len(nodes))
 	for i, node := range nodes {
 		followed := node.phase == "answer" && i+1 < len(nodes) && nodes[i+1].phase == "synthesize"
@@ -34,14 +31,29 @@ func normalizeDeliveryRequirements(contract DeliveryContract, nodes []executionN
 			ordinals = append(ordinals, i+1)
 		}
 	}
+	return ordinals
+}
+
+func normalizeDeliveryRequirements(contract DeliveryContract, nodes []executionNode) ([]DeliveryRequirement, error) {
+	ordinals := deliveryOrdinals(nodes)
+	items, err := validateBusinessDeliveryRequirements(contract, len(ordinals))
+	for i := range items {
+		items[i].Step = ordinals[items[i].Step-1]
+	}
+	return items, err
+}
+
+func validateBusinessDeliveryRequirements(contract DeliveryContract, steps int) ([]DeliveryRequirement, error) {
+	if len(contract.Items) > 32 || contract.AllowPartial && len(contract.Items) == 0 {
+		return nil, web.Fail(422, "请配置最多 32 个必交项。允许部分交付时至少指定一项")
+	}
 	items := make([]DeliveryRequirement, 0, len(contract.Items))
 	seen := make(map[DeliveryRequirement]bool)
 	for _, item := range contract.Items {
 		item.Label = strings.TrimSpace(item.Label)
-		if item.Step < 1 || item.Step > len(ordinals) || !validTemplateText(item.Label, 180) {
+		if item.Step < 1 || item.Step > steps || !validTemplateText(item.Label, 180) {
 			return nil, web.Fail(422, "每个必交项都需绑定业务步骤，并填写不超过 180 字的完成条件")
 		}
-		item.Step = ordinals[item.Step-1]
 		key := DeliveryRequirement{Step: item.Step, Label: strings.ToLower(item.Label)}
 		if seen[key] {
 			return nil, web.Fail(422, "同一步骤有重复的必交项")
