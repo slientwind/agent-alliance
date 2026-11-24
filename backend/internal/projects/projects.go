@@ -347,7 +347,7 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
     left join rule_branch_steps rebuilt on (rebuilt.artifact_id,rebuilt.result_version)=(a.id,v.version) and rebuilt.mode<>'reuse'
     left join reviews e on (e.artifact_id,e.version)=(a.id,a.current_version) where a.project_id=p.id),'[]'),
  'run',(select jsonb_build_object('id',r.id,'status',r.status,'controlRevision',r.control_revision,'canResolveToolChoice',p.owner=$1 or (r.app_id is not null and r.delegated_by is null and p.final_reviewer=$1 and m.can_review),
- 'receiptRequests',`+SourceReceiptRequestsSQL+`,
+ 'receiptRequests',`+SourceReceiptRequestsSQL("$1")+`,
  'indexWaits',`+StepIndexWaitsSQL+`,
  'dispatchWaits',`+StepDispatchWaitsSQL+`,
  'canRecheckDispatch',r.status='running' and (p.owner=$1 or (r.app_id is not null and r.delegated_by is null and p.final_reviewer=$1 and m.can_review)),

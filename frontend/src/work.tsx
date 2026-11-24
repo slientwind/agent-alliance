@@ -660,7 +660,7 @@ export function Work({
             >
               {p.plan.nodes.some(n=>n.lookupPhase==="answer_calc") && <label><input type="checkbox" name="awaitReceipt" defaultChecked/>缺少金额时等待我补件</label>}
               {p.plan.nodes.some((n) => n.lookupPhase === "answer") && (
-                <label><input type="checkbox" name="awaitLookup" />找不到原文时等待我补件</label>
+                <label><input type="checkbox" name="awaitLookup" />原文不足时等待我补件</label>
               )}
 
               <p>

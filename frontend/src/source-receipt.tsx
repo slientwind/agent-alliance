@@ -61,6 +61,12 @@ export function SourceReceipt({
   const route = "runs/" + run.id;
   const step = request.step;
   const lookup = request.kind === "lookup";
+  if (request.unavailable) {
+    return <section className="card" aria-label={`步骤 ${step} 的补件状态`}>
+      <h2>步骤 {step} · 补件需要重新核对</h2>
+      <p role="status">上一轮提出补件所用的依据已变化。请核对原任务中的资料与权限。</p>
+    </section>;
+  }
   async function list(form: HTMLFormElement, history: number[]) {
     const data = new FormData(form);
     await perform(async () => {
@@ -85,6 +91,7 @@ export function SourceReceipt({
     <section className="card">
       <h2>{lookup ? "补充引用原件" : "补充核算原件"}{request.receiptRevision ? " · 步骤 " + step : ""}</h2>
       <p>{request.reason}</p>
+      {request.question && <p>步骤 {request.originStep} 提出的问题：{request.question}</p>}
       <form
         onSubmit={(event) => {
           event.preventDefault();

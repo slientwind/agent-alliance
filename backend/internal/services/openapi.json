@@ -789,7 +789,7 @@
               "string",
               "null"
             ],
-            "description": "select_tool 时，由有权成员从原方案选择固定候选工具。submit_lookup_receipt 时，按待办步骤补充原件。wait_source_index 表示存在自动索引等待。indexWait 为历史运行级等待，超时后使用 resume。并行步骤的 indexWaits 超时后使用 recheck_source_index，并提交原待办的 waitRevision。check_step_rule 时可检查 ruleWaits 并按当前修订提交 recheck_step_rule。recheck_step_dispatch 时原委托可按 dispatchWaits 的步骤、待办与当前控制修订提交复查。review_step_dispatch 时无成员委托的应用使用 humanActionUrl 交原项目负责人处理。preview_rule_branch 时读取 ruleRebuildUrl，read_replacement_run 时查询 replacementRun。correct_columns 时原委托成员可确认待补正的字段，review_columns 时应用将待办交给 humanActionUrl 对应项目的审核人。"
+            "description": "select_tool 时，由有权成员从原方案选择固定候选工具。submit_lookup_receipt 时，按待办步骤补充原件。review_lookup_receipt 表示提出补件的原轮依据已失效，需回原任务核对。wait_source_index 表示存在自动索引等待。indexWait 为历史运行级等待，超时后使用 resume。并行步骤的 indexWaits 超时后使用 recheck_source_index，并提交原待办的 waitRevision。check_step_rule 时可检查 ruleWaits 并按当前修订提交 recheck_step_rule。recheck_step_dispatch 时原委托可按 dispatchWaits 的步骤、待办与当前控制修订提交复查。review_step_dispatch 时无成员委托的应用使用 humanActionUrl 交原项目负责人处理。preview_rule_branch 时读取 ruleRebuildUrl，read_replacement_run 时查询 replacementRun。correct_columns 时原委托成员可确认待补正的字段，review_columns 时应用将待办交给 humanActionUrl 对应项目的审核人。"
           },
           "ruleRebuildUrl": {
             "type": "string",
@@ -1112,14 +1112,17 @@
           },
           "receiptRequests": {
             "type": "array",
-            "description": "当前可提交的原件补件待办。并行步骤各自携带 receiptRevision，提交时必须回传。",
+            "description": "当前原件补件待办。步骤待办各自携带 receiptRevision，提交时必须回传。原件问答中已有授权的后续步骤可显示 waiting_source_receipt。",
             "items": {
               "type": "object",
               "properties": {
                 "kind": { "type": "string", "enum": ["calculation", "lookup"] },
                 "step": { "type": "integer", "minimum": 1 },
                 "reason": { "type": "string" },
-                "receiptRevision": { "type": "integer", "minimum": 1 }
+                "receiptRevision": { "type": "integer", "minimum": 1 },
+                "originStep": { "type": "integer", "minimum": 1, "description": "提出补件的原步骤。" },
+                "question": { "type": "string", "maxLength": 320, "description": "原成员委托在上一轮依据仍可用时可读取的补件问题。" },
+                "unavailable": { "type": "boolean", "description": "为 true 时，需先核对提出该待办所用的依据，当前待办暂停受理。" }
               },
               "required": ["kind", "step", "reason"]
             }

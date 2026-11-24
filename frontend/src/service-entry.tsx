@@ -355,7 +355,7 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
                       setConsent(false);
                     }}
                   />
-                  找不到原文时在原任务等待我补件
+                  原文不足时在原任务等待我补件
                 </label>
               )}
               {entry.ready && canAwaitReceipt && (

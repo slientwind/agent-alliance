@@ -50,6 +50,7 @@ func (s Server) receiptPassages(w http.ResponseWriter, r *http.Request, u identi
  join sources s on s.project_id=p.id and s.id::text=$3 and s.revoked_at is null
  join source_versions v on v.source_id=s.id and v.version=s.current_version and v.version=$4
  where r.id=$1 and r.actor=$2 and case when cr.kind='lookup' then r.await_lookup_receipt else r.await_calculation_receipt end and v.extracted is not null
+ and not exists(select from lookup_question_availability q where (q.run_id,q.target)=(cr.run_id,cr.ordinal) and not q.usable)
  and (`+identity.RunGrantSQL+`)`, r.PathValue("id"), u.ID, params.Get("source"), version, step, question).Scan(&body, &locations, &kind)
 	if err != nil {
 		return err

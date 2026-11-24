@@ -30,6 +30,7 @@ const eligibleReceiptSQL = `
  join current_source_receipt_requests cr on cr.run_id=r.id
  join project_members m on (m.project_id,m.member_id)=(p.id,r.actor)
  where r.actor=$1 and p.owner=$1 and r.app_id is null
+ and not exists(select from lookup_question_availability q where (q.run_id,q.target)=(cr.run_id,cr.ordinal) and not q.usable)
  and ((cr.kind='lookup' and r.await_lookup_receipt) or (cr.kind='calculation' and r.await_calculation_receipt))`
 
 func (r runReceipt) currentProject(ctx context.Context, tx pgx.Tx, actor string) (string, error) {
@@ -134,7 +135,13 @@ func stepWaitProgress(ctx context.Context, tx pgx.Tx, actor, project string) (st
         select w.ordinal,true,'dispatch' from current_step_dispatch_waits w
         join runs r on r.id=w.run_id join projects p on (p.id,p.plan_version)=(r.project_id,r.plan_version)
         join project_members pm on (pm.project_id,pm.member_id)=(p.id,$1)
-        where p.id=$2 and r.status='running' order by 1`, actor, project)
+        where p.id=$2 and r.status='running'
+        union all
+        select cr.ordinal,false,'receipt_changed' from current_source_receipt_requests cr
+        join lookup_question_availability q on(q.run_id,q.target)=(cr.run_id,cr.ordinal)
+        join runs r on r.id=cr.run_id join projects p on(p.id,p.plan_version)=(r.project_id,r.plan_version)
+        join project_members pm on(pm.project_id,pm.member_id)=(p.id,$1)
+        where p.id=$2 and r.actor=$1 and not q.usable order by 1`, actor, project)
 	if err != nil {
 		return "", err
 	}
@@ -147,6 +154,8 @@ func stepWaitProgress(ctx context.Context, tx pgx.Tx, actor, project string) (st
 			return "", err
 		}
 		switch {
+		case kind == "receipt_changed":
+			notes = append(notes, fmt.Sprintf("步骤 %d 的补件依据已变化。请打开原项目核对。", step))
 		case kind == "dispatch":
 			notes = append(notes, fmt.Sprintf("步骤 %d 待核对执行条件，其他就绪步骤可继续。打开原项目查看原因。", step))
 		case kind == "tool" || kind == "agent":

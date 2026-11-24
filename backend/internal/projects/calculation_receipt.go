@@ -78,9 +78,15 @@ const (
 )
 
 // Projections share the same wait window as receipt admission.
-const SourceReceiptRequestsSQL = `coalesce((select jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
- 'step',ordinal,'reason',reason,'kind',kind,'receiptRevision',request_revision)) order by ordinal)
- from current_source_receipt_requests where run_id=r.id),'[]'::jsonb)`
+func SourceReceiptRequestsSQL(viewer string) string {
+	return `coalesce((select jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+ 'step',cr.ordinal,'reason',cr.reason,'kind',cr.kind,'receiptRevision',cr.request_revision,
+ 'originStep',q.parent,'unavailable',case when not q.usable then true end,
+ 'question',case when q.usable and r.actor=` + viewer + ` and (r.app_id is null or r.delegated_by is not null) then q.question end
+ )) order by cr.ordinal) from current_source_receipt_requests cr
+ left join lookup_question_availability q on(q.run_id,q.target)=(cr.run_id,cr.ordinal)
+ where cr.run_id=r.id),'[]'::jsonb)`
+}
 
 func (s Server) calculationReceipt(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	return s.submitSourceReceipt(w, r, u, CalculationReceipt)
@@ -168,6 +174,14 @@ func ApplySourceReceipt(ctx context.Context, tx pgx.Tx, run, actor, key string, 
 	}
 	if err != nil {
 		return 0, err
+	}
+	var obsolete bool
+	if err := tx.QueryRow(ctx, `select exists(select from lookup_question_availability
+        where (run_id,target)=($1,$2) and not usable)`, run, in.Step).Scan(&obsolete); err != nil {
+		return 0, err
+	}
+	if obsolete {
+		return 0, web.Fail(409, "上一轮提出补件所用的依据已变化，请重新核对任务")
 	}
 	var body, digest string
 	var locations []byte
@@ -290,6 +304,9 @@ func applyStepSourceReceipt(ctx context.Context, tx pgx.Tx, run, project, actor,
 		return err
 	}
 	if _, err := tx.Exec(ctx, "delete from calculation_requests where run_id=$1 and ordinal=$2", run, in.Step); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, "update lookup_question_handoffs set question=null where (run_id,target)=($1,$2) and question is not null", run, in.Step); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, "delete from lookup_index_waits where run_id=$1 and ordinal=$2 and step_wait_revision is not null", run, in.Step); err != nil {

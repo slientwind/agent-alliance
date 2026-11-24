@@ -174,6 +174,9 @@ func startDAGStep(ctx workflow.Context, run string, node Node, lookupTurns, loca
 
 func localTurnActivity(node Node) string {
 	if node.CheckpointEvidence {
+		if node.EvidenceQuestions {
+			return "AdvanceEvidenceQuestion"
+		}
 		return "AdvanceEvidenceStep"
 	}
 	if node.batchLookupActions {
@@ -195,6 +198,9 @@ func localTransitionLimit(node Node) int {
 func advanceLocalActivity(ctx workflow.Context, run string, node Node, outcome Result) workflow.Future {
 	if outcome.TextReply != nil {
 		if node.CheckpointEvidence {
+			if node.EvidenceQuestions {
+				return workflow.ExecuteActivity(ctx, "CommitEvidenceQuestion", *outcome.TextReply)
+			}
 			return workflow.ExecuteActivity(ctx, "CommitEvidenceReply", *outcome.TextReply)
 		}
 		return workflow.ExecuteActivity(ctx, "CommitTextReply", *outcome.TextReply)

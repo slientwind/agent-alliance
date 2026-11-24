@@ -391,6 +391,8 @@ var progressSQL = `select jsonb_build_object(
       from lookup_index_waits w where w.run_id=r.id and w.active and w.step_wait_revision is null)
  when r.status='running' and exists(select from lookup_index_waits w where (w.run_id,w.plan_version)=(r.id,r.plan_version)
       and w.active and w.step_wait_revision is not null and w.deadline<=statement_timestamp()) then 'recheck_source_index'
+ when exists(select from current_source_receipt_requests cr join lookup_question_availability q
+   on(q.run_id,q.target)=(cr.run_id,cr.ordinal) where cr.run_id=r.id and not q.usable) then 'review_lookup_receipt'
  when exists(select from current_source_receipt_requests cr where cr.run_id=r.id) then
    (select case when cr.kind='lookup' then 'submit_lookup_receipt' else 'submit_receipt' end from current_source_receipt_requests cr where cr.run_id=r.id order by cr.ordinal limit 1)
  when jsonb_array_length(repair.requests)>0 then 'correct_columns'
@@ -401,7 +403,7 @@ var progressSQL = `select jsonb_build_object(
       and w.active and w.step_wait_revision is not null) then 'wait_source_index'
  when run_failure_confirmable(r.id) then 'review_failure_receipt' when r.status='blocked' then 'restore_prerequisite' when r.status='reconcile' then 'check_original_receipt' when r.status='paused' then 'resume_or_cancel' when p.stage='delivered' then 'download' end,
  'columnCorrections',repair.requests,
- 'receiptRequests',` + projects.SourceReceiptRequestsSQL + `,
+ 'receiptRequests',` + projects.SourceReceiptRequestsSQL("$2") + `,
  'receiptRequest',(select jsonb_strip_nulls(jsonb_build_object('step',cr.ordinal,'reason',cr.reason,'kind',cr.kind,'receiptRevision',cr.request_revision)) from current_source_receipt_requests cr where cr.run_id=r.id order by cr.ordinal limit 1),
  'indexWait',` + projects.LookupIndexWaitSQL + `,
  'indexWaits',` + projects.StepIndexWaitsSQL + `,
@@ -415,6 +417,8 @@ var progressSQL = `select jsonb_build_object(
    'status',case when branch.mode='reuse' then 'reused'
    when choice_wait.step_scoped then 'waiting_tool_choice'
    when exists(select from current_step_dispatch_waits w where (w.run_id,w.ordinal)=(n.run_id,n.ordinal)) then 'waiting_dispatch'
+   when exists(select from current_source_receipt_requests cr join lookup_question_handoffs q
+     on(q.run_id,q.target)=(cr.run_id,cr.ordinal) where (cr.run_id,cr.ordinal)=(n.run_id,n.ordinal)) then 'waiting_source_receipt'
    when r.status='running' and exists(select from text_reply_checkpoints reply where
      (reply.run_id,reply.ordinal,reply.attempt_no)=(i.run_id,i.ordinal,i.attempt_no) and reply.state='pending'
      and run_working_set_usable(i.run_id,i.ordinal,i.attempt_no)) then 'checking_model_reply'

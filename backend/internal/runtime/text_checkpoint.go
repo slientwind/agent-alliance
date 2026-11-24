@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"alliance/internal/database"
+	"alliance/internal/harness"
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
 	"alliance/internal/memory"
@@ -124,16 +125,20 @@ func lockReplyInputs(ctx context.Context, tx pgx.Tx, ref TextReplyRef, d context
 // CommitTextReply adopts one recorded response. Activity retries use the
 // checkpoint and never enter the inference or budget-reservation path.
 func (a Activities) CommitTextReply(ctx context.Context, ref TextReplyRef) (Result, error) {
-	return a.commitModelReply(ctx, ref, false)
+	return a.commitModelReply(ctx, ref, checkpointedTextReply)
 }
 
 // Keep the evidence Activity distinct so an older worker cannot adopt a
 // numbered lookup reply as an ordinary text candidate.
 func (a Activities) CommitEvidenceReply(ctx context.Context, ref TextReplyRef) (Result, error) {
-	return a.commitModelReply(ctx, ref, true)
+	return a.commitModelReply(ctx, ref, checkpointedLookupReply)
 }
 
-func (a Activities) commitModelReply(ctx context.Context, ref TextReplyRef, evidence bool) (Result, error) {
+func (a Activities) CommitEvidenceQuestion(ctx context.Context, ref TextReplyRef) (Result, error) {
+	return a.commitModelReply(ctx, ref, checkpointedLookupQuestion)
+}
+
+func (a Activities) commitModelReply(ctx context.Context, ref TextReplyRef, mode turnMode) (Result, error) {
 	step := ref.Step
 	var result Result
 	err := database.WithTx(ctx, a.Catalog.DB, func(tx pgx.Tx) error {
@@ -156,7 +161,7 @@ func (a Activities) commitModelReply(ctx context.Context, ref TextReplyRef, evid
 		if result.Stop || result.Wait {
 			return nil
 		}
-		if evidence != isEvidenceReply(d.lookupPhase) {
+		if (mode != checkpointedTextReply) != isEvidenceReply(d.lookupPhase) {
 			return errors.New("recorded reply does not belong to this activity")
 		}
 		usable, err := lockReplyInputs(ctx, tx, ref, d)
@@ -233,14 +238,14 @@ func (a Activities) commitModelReply(ctx context.Context, ref TextReplyRef, evid
 			return setState(ctx, tx, step, d.project, "blocked", "model_reply_unreadable", "原模型回包无法核对，请联系维护人")
 		}
 		if isEvidenceReply(d.lookupPhase) || reply.Evidence != nil {
-			return a.adoptLookupReply(ctx, tx, ref, d, reply, files, status, &result)
+			return a.adoptLookupReply(ctx, tx, ref, d, reply, files, status, mode, &result)
 		}
 		return a.adoptPlainReply(ctx, tx, ref, d, reply, &result)
 	})
 	return result, err
 }
 
-func (a Activities) adoptLookupReply(ctx context.Context, tx pgx.Tx, ref TextReplyRef, d contextData, reply checkpointedReply, files []knowledge.InputSource, status string, result *Result) error {
+func (a Activities) adoptLookupReply(ctx context.Context, tx pgx.Tx, ref TextReplyRef, d contextData, reply checkpointedReply, files []knowledge.InputSource, status string, mode turnMode, result *Result) error {
 	if reply.Evidence == nil || !reply.Evidence.restore(&d, files) {
 		result.Wait = true
 		if err := retireTextReply(ctx, tx, ref, "discarded"); err != nil {
@@ -249,7 +254,7 @@ func (a Activities) adoptLookupReply(ctx context.Context, tx pgx.Tx, ref TextRep
 		return setState(ctx, tx, ref.Step, d.project, "blocked", "lookup_reply_input_changed", lookupReplyChanged)
 	}
 	d.frozenLookup = reply.Evidence
-	interpreted, err := a.interpretLookupReply(ref, d, reply, checkpointedLookupReply, true)
+	interpreted, err := a.interpretLookupReply(ref, d, reply, mode, true)
 	if err != nil {
 		return err
 	}
@@ -259,6 +264,14 @@ func (a Activities) adoptLookupReply(ctx context.Context, tx pgx.Tx, ref TextRep
 		}
 		return saveLookupDecision(ctx, tx, ref.Step, d, ref.Attempt, d.controlRevision, status, interpreted.kind,
 			interpreted.decision, true, interpreted.groups, result)
+	}
+	if mode == checkpointedLookupQuestion && interpreted.outcome == "lookup_ask" {
+		ask, err := harness.DecodeLookup(reply.Text, len(d.hits))
+		if err == nil {
+			if staged, err := stageLookupQuestion(ctx, tx, ref, d, ask.Question); staged || err != nil {
+				return err
+			}
+		}
 	}
 	if interpreted.outcome != "" {
 		if _, err := tx.Exec(ctx, "insert into trace_events(run_id,ordinal,kind,code) values($1,$2,'checkpoint',$3)",

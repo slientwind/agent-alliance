@@ -3,8 +3,20 @@ package harness
 import (
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 )
+
+func TestIsReceiptQuestion(t *testing.T) {
+	if !IsReceiptQuestion("请补充供应商的有效期确认函。") || !IsReceiptQuestion(strings.Repeat("问", 320)) {
+		t.Fatal("bounded question was rejected")
+	}
+	for _, value := range []string{"", "问\n答", "问\u202e答", "问\u2028答", strings.Repeat("问", 321)} {
+		if IsReceiptQuestion(value) {
+			t.Fatalf("question was accepted: %q", value)
+		}
+	}
+}
 
 func TestLookupDecisionBranches(t *testing.T) {
 	for _, tc := range []struct {

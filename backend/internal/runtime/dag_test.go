@@ -53,6 +53,30 @@ func TestDAGTextCheckpointVersionAndDependencies(t *testing.T) {
 	}
 }
 
+func TestDAGEvidenceQuestionActivityVersion(t *testing.T) {
+	for _, version := range []workflow.Version{workflow.DefaultVersion, 1} {
+		env, a := dagTestEnvironment([]Node{{Ordinal: 1, CheckpointEvidence: true, EvidenceQuestions: true},
+			{Ordinal: 2, Dependencies: []int{1}, CheckpointEvidence: true, EvidenceQuestions: true}})
+		env.OnGetVersion("evidence-question-handoffs", workflow.DefaultVersion, 1).Return(version).Once()
+		advance, commit := a.AdvanceEvidenceStep, a.CommitEvidenceReply
+		if version != workflow.DefaultVersion {
+			advance, commit = a.AdvanceEvidenceQuestion, a.CommitEvidenceQuestion
+		}
+		env.RegisterActivity(advance)
+		env.RegisterActivity(commit)
+		first := Step{"run", 1}
+		ref := TextReplyRef{Step: first, Attempt: 1}
+		recorded := env.OnActivity(advance, mock.Anything, first).Return(Result{TextReply: &ref}, nil).Once()
+		adopted := env.OnActivity(commit, mock.Anything, ref).NotBefore(recorded).Return(Result{}, nil).Once()
+		env.OnActivity(advance, mock.Anything, Step{"run", 2}).NotBefore(adopted).Return(Result{}, nil).Once()
+		env.ExecuteWorkflow(Collaborate, "run")
+		if err := env.GetWorkflowError(); err != nil {
+			t.Fatalf("workflow version %d: %v", version, err)
+		}
+		env.AssertExpectations(t)
+	}
+}
+
 func TestDAGStartsReadySuccessorBeforeUnrelatedActivityFinishes(t *testing.T) {
 	for _, legacy := range []bool{false, true} {
 		name := "independent scheduling"

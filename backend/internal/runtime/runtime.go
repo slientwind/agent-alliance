@@ -99,14 +99,15 @@ const (
 	batchedLookupActions
 	checkpointedTextReply
 	checkpointedLookupReply
+	checkpointedLookupQuestion
 )
 
 func (mode turnMode) checkpointsReply() bool {
-	return mode == checkpointedTextReply || mode == checkpointedLookupReply
+	return mode == checkpointedTextReply || mode == checkpointedLookupReply || mode == checkpointedLookupQuestion
 }
 
 func (mode turnMode) batchesLookup() bool {
-	return mode == batchedLookupActions || mode == checkpointedLookupReply
+	return mode == batchedLookupActions || mode == checkpointedLookupReply || mode == checkpointedLookupQuestion
 }
 
 type contextData struct {
@@ -159,6 +160,10 @@ func (a Activities) AdvanceTextStep(ctx context.Context, step Step) (Result, err
 
 func (a Activities) AdvanceEvidenceStep(ctx context.Context, step Step) (Result, error) {
 	return a.executeStep(ctx, step, checkpointedLookupReply)
+}
+
+func (a Activities) AdvanceEvidenceQuestion(ctx context.Context, step Step) (Result, error) {
+	return a.executeStep(ctx, step, checkpointedLookupQuestion)
 }
 
 func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (Result, error) {
@@ -457,7 +462,13 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		case "review_evidence", "synthesize":
 			d.lookupFiles = files
 			review := d.lookupPhase == "review_evidence"
-			d.hits, d.knownLookupEvidence, err = synthesisEvidence(ctx, tx, step, files, review)
+			var fromQuestion bool
+			if mode == checkpointedLookupQuestion && !d.change {
+				d.hits, fromQuestion, err = lookupQuestionEvidence(ctx, tx, step, files)
+			}
+			if !fromQuestion && err == nil {
+				d.hits, d.knownLookupEvidence, err = synthesisEvidence(ctx, tx, step, files, review)
+			}
 			if err != nil {
 				var changed web.Problem
 				if errors.As(err, &changed) {
@@ -467,13 +478,19 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 				return err
 			}
 			if len(d.hits) == 0 {
-				if d.change {
+				if fromQuestion {
+					result.Wait = true
+					return requestScopedReceipt(ctx, tx, step, d.project, projects.LookupReceipt, lookupQuestionWait, true)
+				} else if d.change {
 					d.hits = checkedAnswerCitations(d.baseBody, files)
 				} else {
 					return skipSynthesis(ctx, tx, step, d, refs, &result)
 				}
 			}
 			d.prior = lookupContext(d.hits, files)
+			if fromQuestion {
+				d.prompt += "\n优先核对第 1 条新增原句是否能补足原问题所需的依据。仅采用提供的原文。"
+			}
 			if review {
 				d.prompt += "\n" + evidenceReviewInstructions + "\n" + answerInstructions
 				if mode.batchesLookup() && !d.change && !m.External && m.Tool == nil && m.OutputOperation == "text" {
@@ -687,7 +704,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		switch {
 		case mode == checkpointedTextReply && d.lookupPhase == "":
 			return a.recordTextReply(ctx, TextReplyRef{step, dispatchedAttempt}, d, reply, result)
-		case mode == checkpointedLookupReply && isEvidenceReply(d.lookupPhase) && d.routing.target == 0:
+		case mode.checkpointsReply() && isEvidenceReply(d.lookupPhase) && d.routing.target == 0:
 			d.frozenLookup = captureLookupReply(d)
 			return a.recordTextReply(ctx, TextReplyRef{step, dispatchedAttempt}, d, reply, result)
 		}
@@ -1011,11 +1028,15 @@ func createRunArtifact(ctx context.Context, tx pgx.Tx, step Step, d contextData)
 	return id, err
 }
 func requestReceipt(ctx context.Context, tx pgx.Tx, step Step, project string, kind projects.ReceiptKind, reason string) error {
+	return requestScopedReceipt(ctx, tx, step, project, kind, reason, false)
+}
+
+func requestScopedReceipt(ctx context.Context, tx pgx.Tx, step Step, project string, kind projects.ReceiptKind, reason string, scopedWait bool) error {
 	var scoped bool
 	if err := tx.QueryRow(ctx, `insert into calculation_requests(run_id,ordinal,reason,kind,request_revision)
-   select id,$2,$3,$4,case when step_source_receipt and status='running' then nextval('source_receipt_request_no') end
+   select id,$2,$3,$4,case when (step_source_receipt or $5) and status='running' then nextval('source_receipt_request_no') end
    from runs where id=$1 on conflict(run_id,ordinal) do update set reason=excluded.reason
-   returning request_revision is not null`, step.Run, step.Ordinal, reason, kind).Scan(&scoped); err != nil {
+   returning request_revision is not null`, step.Run, step.Ordinal, reason, kind, scopedWait).Scan(&scoped); err != nil {
 		return err
 	}
 	if scoped {
@@ -1139,6 +1160,7 @@ type Node struct {
 	ToolChoice          bool
 	CheckpointText      bool
 	CheckpointEvidence  bool
+	EvidenceQuestions   bool
 	observeLocalActions bool
 	batchLookupActions  bool
 }
@@ -1151,7 +1173,8 @@ func (a Activities) Topology(ctx context.Context, run string) ([]Node, error) {
         cb.run_id is null and exists(select from plan_tool_choices c where (c.project_id,c.plan_version,c.ordinal)=(n.project_id,n.plan_version,n.ordinal)),
         cb.run_id is null and n.lookup_phase='' and ar.resource_id is not null and ar.tool is null and ar.card is null and agent_output_operation(ar)='text',
         cb.run_id is null and n.lookup_phase in ('answer','answer_calc','review_evidence','synthesize')
-        and ar.resource_id is not null and ar.tool is null and ar.card is null and agent_output_operation(ar)='text'
+        and ar.resource_id is not null and ar.tool is null and ar.card is null and agent_output_operation(ar)='text',
+        r.await_lookup_receipt and n.lookup_phase in ('answer','review_evidence','synthesize')
         from runs r left join change_batches cb on cb.run_id=r.id left join artifacts target on target.id=cb.artifact_id
         join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version)
         join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision)
@@ -1204,6 +1227,12 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 		if workflow.GetVersion(ctx, "evidence-reply-checkpoints", workflow.DefaultVersion, 1) == workflow.DefaultVersion {
 			for i := range nodes {
 				nodes[i].CheckpointEvidence = false
+			}
+		}
+		if slices.ContainsFunc(nodes, func(node Node) bool { return node.CheckpointEvidence && node.EvidenceQuestions }) &&
+			workflow.GetVersion(ctx, "evidence-question-handoffs", workflow.DefaultVersion, 1) == workflow.DefaultVersion {
+			for i := range nodes {
+				nodes[i].EvidenceQuestions = false
 			}
 		}
 		if parallel && workflow.GetVersion(ctx, "step-dispatch-waits", workflow.DefaultVersion, 1) != workflow.DefaultVersion {

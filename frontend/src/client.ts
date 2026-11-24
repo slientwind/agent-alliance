@@ -196,6 +196,9 @@ export type SourceReceiptRequest = {
   reason: string;
   kind?: "calculation" | "lookup";
   receiptRevision?: number;
+  originStep?: number;
+  question?: string;
+  unavailable?: boolean;
 };
 
 export type Artifact = {
