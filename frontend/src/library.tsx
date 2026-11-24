@@ -1,4 +1,5 @@
-import { ReleaseQueue, RequestRelease } from "./agent-release";
+import { PublishDraft, ReleaseQueue, RequestRelease } from "./agent-release";
+import { BuildReview } from "./agent-build";
 import { AgentTeamField, type AgentTeam } from "./agent-team";
 import { ModelMaintenance } from "./model-maintenance";
 import { MaintenancePanel } from "./maintenance";
@@ -168,8 +169,11 @@ export function Library({
                 (a.publishedReady ? "" : " · 需复验或恢复资源")
               : "尚未发布"}
           </small>
-          {!admin && a.revision !== a.published && (a.validated || a.release) &&
-            <RequestRelease agent={a} refresh={refresh} />}
+          {a.release?.state === "pending" || !admin && a.revision !== a.published
+            ? <RequestRelease agent={a} refresh={refresh} />
+            : admin && a.revision !== a.published
+              ? <PublishDraft agent={a} refresh={refresh} />
+              : <BuildReview agent={a} />}
           {a.publishedReady &&
             a.publishedReviewDue &&
             Date.parse(a.publishedReviewDue) <= Date.now() && (
@@ -231,22 +235,6 @@ export function Library({
                 }}
                 exclude={a.id}
               />
-            )}
-            {admin && a.validated && a.published !== a.revision && a.release?.state !== "pending" && (
-              <button
-                onClick={async () => {
-                  try {
-                    await api("agents/" + a.id + "/publish", "POST", {
-                      revision: a.revision,
-                    });
-                    await refresh();
-                  } catch (e) {
-                    setText((e as Error).message);
-                  }
-                }}
-              >
-                发布此版本
-              </button>
             )}
           </div>
         </div>

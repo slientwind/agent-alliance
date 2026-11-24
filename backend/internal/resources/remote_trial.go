@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"alliance/internal/builder"
 	"alliance/internal/database"
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
@@ -54,6 +55,21 @@ func (c Catalog) saveTrial(ctx context.Context, id string, m Model, expected str
 		tokens = reply.Tokens
 	}
 	err := database.WithTx(ctx, c.DB, func(tx pgx.Tx) error {
+		var agent string
+		if err := tx.QueryRow(ctx, `select a.id from validations v join agents a on a.id=v.agent_id
+            where v.id=$1 for no key update of a`, id).Scan(&agent); err != nil {
+			return err
+		}
+		discardFile := false
+		if status == "passed" {
+			matches, err := builder.TrialMatches(ctx, tx, id)
+			if err != nil {
+				return err
+			}
+			if !matches {
+				status, body, discardFile = "failed", "试运行期间 Agent 定义已变化，请核对修订后复验", true
+			}
+		}
 		if err := ObserveKeyRejection(ctx, tx, m, callErr); err != nil {
 			return err
 		}
@@ -61,7 +77,7 @@ func (c Catalog) saveTrial(ctx context.Context, id string, m Model, expected str
 		if err == pgx.ErrNoRows {
 			err = web.Fail(409, "此回执已由另一次核对接管")
 		}
-		if err != nil || callErr != nil || reply.File == nil {
+		if err != nil || callErr != nil || reply.File == nil || discardFile {
 			return err
 		}
 		hash, _, err := knowledge.ConfiguredObjects().Put(ctx, tx, bytes.NewReader(reply.File.Data), 6<<20)
@@ -96,6 +112,13 @@ func (c Catalog) trialReceipt(w http.ResponseWriter, r *http.Request, u identity
 		}
 		if busy || (cancelled && in.Action == "cancel") {
 			return web.Fail(409, "已有查询或取消请求，请查看原回执")
+		}
+		matches, err := builder.TrialMatches(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if !matches {
+			return web.Fail(409, "原试运行的远端配置已变化，请由维护人核对原回执")
 		}
 		model, _, err = c.Resolve(ctx, tx, u.ID, agent, rev)
 		if err != nil {

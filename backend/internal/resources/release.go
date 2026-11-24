@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"alliance/internal/builder"
 	"alliance/internal/database"
 	"alliance/internal/identity"
 	"alliance/internal/web"
@@ -12,6 +13,7 @@ import (
 )
 
 type releaseRequest struct {
+	builder.Selection
 	Revision int
 	Previous string
 }
@@ -31,28 +33,54 @@ func (c Catalog) requestRelease(w http.ResponseWriter, r *http.Request, u identi
 		if err := currentReleaseDraft(ctx, tx, id, in.Revision); err != nil {
 			return err
 		}
-		var state string
-		err := tx.QueryRow(ctx, `select id,state from agent_release_requests where agent_id=$1 and revision=$2 order by requested_at desc limit 1`, id, in.Revision).Scan(&request, &state)
-		if err != nil && err != pgx.ErrNoRows {
+		previous, err := latestRelease(ctx, tx, id, in.Revision)
+		if err != nil {
 			return err
 		}
-		if state == "pending" {
-			return nil
-		}
-		if in.Previous != request {
+		if previous.State != "pending" && in.Previous != previous.ID {
 			return web.Fail(409, "发布处理记录已更新，请刷新后重试")
+		}
+		build, err := builder.Capture(ctx, tx, id, in.Revision)
+		if err != nil {
+			return err
+		}
+		proof, err := builder.EvidenceFor(ctx, tx, id, in.Revision, build.Digest)
+		if err != nil {
+			return err
+		}
+		if !in.Match(build, proof) {
+			return web.Fail(409, "清单或验收证据已变化，请核对后重新申请")
+		}
+		var generation int64
+		if err := tx.QueryRow(ctx, `select publication_generation from agents where id=$1`, id).Scan(&generation); err != nil {
+			return err
+		}
+		if previous.State == "pending" {
+			if previous.matches(build, proof, generation) {
+				request = previous.ID
+				return nil
+			}
+			if in.Previous != previous.ID {
+				return web.Fail(409, "待审清单已变化，请核对并更新发布申请")
+			}
 		}
 		var ready bool
 		if err := tx.QueryRow(ctx, "select agent_revision_ready($1,$2)", id, in.Revision).Scan(&ready); err != nil {
 			return err
 		}
-		if !ready {
+		if !ready || !proof.Passed {
 			return web.Fail(409, "请先恢复资源并完成本版必要验证")
 		}
-		if err := tx.QueryRow(ctx, `insert into agent_release_requests(agent_id,revision,requester) values ($1,$2,$3) returning id`, id, in.Revision, u.ID).Scan(&request); err != nil {
+		if previous.State == "pending" {
+			if _, err := tx.Exec(ctx, "update agent_release_requests set state='superseded',decider=$2,decided_at=now() where id=$1", previous.ID, u.ID); err != nil {
+				return err
+			}
+		}
+		if err := tx.QueryRow(ctx, `insert into agent_release_requests(agent_id,revision,requester,build_digest,evidence_digest,evidence_snapshot,base_generation)
+            values ($1,$2,$3,$4,$5,$6,$7) returning id`, id, in.Revision, u.ID, build.Digest, proof.Digest, proof.Snapshot, generation).Scan(&request); err != nil {
 			return err
 		}
-		return database.Audit(ctx, tx, u.ID, "agent.release.request", id, map[string]any{"request": request, "revision": in.Revision})
+		return database.Audit(ctx, tx, u.ID, "agent.release.request", id, map[string]any{"request": request, "revision": in.Revision, "build": build.Digest, "evidence": proof.Digest})
 	})
 	if err != nil {
 		return err
@@ -74,6 +102,7 @@ func currentReleaseDraft(ctx context.Context, tx pgx.Tx, id string, revision int
 
 func (c Catalog) decideRelease(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	var in struct {
+		builder.Selection
 		Revision       int
 		Action, Reason string
 	}
@@ -103,7 +132,7 @@ func (c Catalog) decideRelease(w http.ResponseWriter, r *http.Request, u identit
 			return err
 		}
 		if in.Action == "publish" {
-			return c.publishRevision(ctx, tx, u.ID, id, in.Revision, false)
+			return c.publishRevision(ctx, tx, u.ID, id, in.Revision, false, in.Selection)
 		}
 		if _, err := tx.Exec(ctx, `update agent_release_requests set state='returned',decider=$2,reason=$3,decided_at=now() where id=$1`, request, u.ID, in.Reason); err != nil {
 			return err
@@ -115,4 +144,65 @@ func (c Catalog) decideRelease(w http.ResponseWriter, r *http.Request, u identit
 	}
 	w.WriteHeader(204)
 	return nil
+}
+
+func (c Catalog) publishRevision(ctx context.Context, tx pgx.Tx, actor, id string, revision int, rollback bool, seen builder.Selection) error {
+	if err := guardReplacementPublication(ctx, tx, id, revision, rollback); err != nil {
+		return err
+	}
+	if _, _, err := c.Resolve(ctx, tx, actor, id, revision); err != nil {
+		return err
+	}
+	if err := builder.CheckPublished(ctx, tx, id, revision); err != nil {
+		return err
+	}
+	build, err := builder.Capture(ctx, tx, id, revision)
+	if err != nil {
+		return err
+	}
+	proof, err := builder.EvidenceFor(ctx, tx, id, revision, build.Digest)
+	if err != nil {
+		return err
+	}
+	if !seen.Match(build, proof) {
+		return web.Fail(409, "清单或验收证据已变化，请核对后再发布")
+	}
+	var prior *int
+	var generation int64
+	if err := tx.QueryRow(ctx, "select published_revision,publication_generation from agents where id=$1", id).Scan(&prior, &generation); err != nil {
+		return err
+	}
+	request, err := latestRelease(ctx, tx, id, revision)
+	if err != nil {
+		return err
+	}
+	if request.State == "pending" && !request.matches(build, proof, generation) {
+		return web.Fail(409, "待审清单、验收证据或发布基线已变化，请更新发布申请")
+	}
+	if !proof.Passed {
+		return web.Fail(409, "指定修订的必要验证尚未通过")
+	}
+	var requestID string
+	if request.State == "pending" {
+		requestID = request.ID
+	}
+	if err := tx.QueryRow(ctx, `update agents set published_revision=$1 where id=$2 and not disabled and agent_verified($2,$1)
+            returning publication_generation`, revision, id).Scan(&generation); err != nil {
+		if err == pgx.ErrNoRows {
+			return web.Fail(409, "指定修订的必要验证尚未通过")
+		}
+		return err
+	}
+	tag, err := tx.Exec(ctx, `insert into agent_publications(agent_id,generation,revision,build_digest,evidence_digest,evidence_snapshot,prior_revision,request_id,actor)
+            values($1,$2,$3,$4,$5,$6,$7,nullif($8,'')::uuid,$9) on conflict do nothing`,
+		id, generation, revision, build.Digest, proof.Digest, proof.Snapshot, prior, requestID, actor)
+	if err != nil || tag.RowsAffected() == 0 {
+		return err
+	}
+	if requestID != "" {
+		if _, err := tx.Exec(ctx, "update agent_release_requests set state='published',decider=$2,decided_at=now() where id=$1", requestID, actor); err != nil {
+			return err
+		}
+	}
+	return database.Audit(ctx, tx, actor, "agent.publish", id, map[string]any{"revision": revision, "generation": generation, "build": build.Digest, "evidence": proof.Digest})
 }

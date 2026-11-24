@@ -22,13 +22,18 @@ type Reference struct {
 	Revision int    `json:"revision"`
 }
 
+type BuildRef struct {
+	Agent, Digest string
+	Revision      int
+}
+
 // Capture records the scope and source revisions already bound for dispatch.
 // It stores references and the supplemental message watermark without copying content.
-func Capture(ctx context.Context, tx pgx.Tx, key Key, refs []Reference) error {
-	if _, err := tx.Exec(ctx, `insert into run_working_sets(run_id,ordinal,attempt_no,plan_version,control_revision,message_through)
+func Capture(ctx context.Context, tx pgx.Tx, key Key, build BuildRef, refs []Reference) error {
+	if _, err := tx.Exec(ctx, `insert into run_working_sets(run_id,ordinal,attempt_no,plan_version,control_revision,message_through,build_agent,build_revision,build_digest)
         select r.id,$2,$3,r.plan_version,r.control_revision,
-            coalesce((select max(s.message_seq) from service_supplements s where s.run_id=r.id and s.ordinal=$2),0)
-        from runs r where r.id=$1`, key.Run, key.Step, key.Attempt); err != nil {
+            coalesce((select max(s.message_seq) from service_supplements s where s.run_id=r.id and s.ordinal=$2),0),$4,$5,$6
+        from runs r where r.id=$1`, key.Run, key.Step, key.Attempt, build.Agent, build.Revision, build.Digest); err != nil {
 		return err
 	}
 	if len(refs) != 0 {

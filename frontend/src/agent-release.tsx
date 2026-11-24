@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BuildReview, buildSelection } from "./agent-build";
 import { api, type Agent } from "./client";
 import { TrialEvidence } from "./trial-evidence";
 
@@ -9,19 +10,19 @@ export function RequestRelease({ agent, refresh }: Props) {
   const [error, setError] = useState("");
   const request = agent.release;
   const pending = request?.state === "pending";
-  async function update(submit: boolean) {
+  async function update(selection: ReturnType<typeof buildSelection>, reload: () => void) {
     setBusy(true);
     setError("");
     try {
-      if (submit) {
-        await api("agents/" + agent.id + "/release-requests", "POST", {
-          revision: agent.revision,
-          previous: request?.id || "",
-        });
-      }
+      await api("agents/" + agent.id + "/release-requests", "POST", {
+        revision: agent.revision,
+        previous: request?.id || "",
+        ...selection,
+      });
       await refresh();
     } catch (e) {
       setError((e as Error).message);
+      reload();
     } finally {
       setBusy(false);
     }
@@ -38,16 +39,44 @@ export function RequestRelease({ agent, refresh }: Props) {
         </small>
       )}
       {request?.state === "returned" && <p>退回原因 · {request.reason}</p>}
-      {!pending && agent.validated && (
-        <button type="button" disabled={busy} onClick={() => void update(true)}>
-          {request?.state === "returned" ? "重新申请发布" : "申请发布此版本"}
-        </button>
-      )}
-      <button type="button" disabled={busy} onClick={() => void update(false)}>
-        查看发布状态
-      </button>
+      <BuildReview agent={agent}>
+        {(snapshot, reload) => (!pending || snapshot.review?.stale) && snapshot.evidence.passed && (
+          <button type="button" disabled={busy} onClick={() => void update(buildSelection(snapshot), reload)}>
+            {pending ? "更新发布申请" : request?.state === "returned" ? "重新申请发布" : "申请发布此版本"}
+          </button>
+        )}
+      </BuildReview>
       {error && <p role="alert">{error}</p>}
     </div>
+  );
+}
+
+export function PublishDraft({ agent, refresh }: Props) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function publish(selection: ReturnType<typeof buildSelection>, reload: () => void) {
+    setBusy(true);
+    setError("");
+    try {
+      await api("agents/" + agent.id + "/publish", "POST", { revision: agent.revision, ...selection });
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+      reload();
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <BuildReview agent={agent}>
+      {(snapshot, reload) => <>
+        <button type="button" disabled={busy || !snapshot.evidence.passed || !!snapshot.review}
+          onClick={() => void publish(buildSelection(snapshot), reload)}>
+          发布此版本
+        </button>
+        {error && <p role="alert">{error}</p>}
+      </>}
+    </BuildReview>
   );
 }
 
@@ -77,14 +106,14 @@ function ReleaseDecision({ agent, refresh }: Props) {
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
-  async function decide(action: "publish" | "return") {
+  async function decide(action: "publish" | "return", selection?: ReturnType<typeof buildSelection>) {
     setBusy(true);
     setError("");
     try {
       await api(
         "agents/" + agent.id + "/release-requests/" + request.id,
         "POST",
-        { revision: agent.revision, action, reason: reason.trim() },
+        { revision: agent.revision, action, reason: reason.trim(), ...selection },
       );
       await refresh();
     } catch (e) {
@@ -107,14 +136,15 @@ function ReleaseDecision({ agent, refresh }: Props) {
       >
         查看此版验收记录
       </button>
-      <button
-        type="button"
-        disabled={busy || !agent.validated}
-        onClick={() => void decide("publish")}
-      >
-        确认发布 v{agent.revision}
-      </button>
-      {!agent.validated && <small>必要验证已失效，需重新验证。</small>}
+      <BuildReview agent={agent} openInitially>
+        {(snapshot) => (
+          <button type="button"
+            disabled={busy || !snapshot.evidence.passed || snapshot.review?.id !== request.id || snapshot.review.stale}
+            onClick={() => void decide("publish", buildSelection(snapshot))}>
+            确认发布 v{agent.revision}
+          </button>
+        )}
+      </BuildReview>
       <details>
         <summary>退回修改</summary>
         <label>

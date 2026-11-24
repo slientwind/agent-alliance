@@ -127,6 +127,9 @@ func (c Catalog) reviewCheck(w http.ResponseWriter, r *http.Request, u identity.
 	ctx := r.Context()
 	agent, trial := r.PathValue("id"), r.PathValue("trial")
 	err := database.WithTx(ctx, c.DB, func(tx pgx.Tx) error {
+		if err := lockEvidenceAgent(ctx, tx, agent, u.ID); err != nil {
+			return err
+		}
 		var checkID string
 		if err := tx.QueryRow(ctx, `select c.id from validations v join agent_checks c on c.id=v.check_id join agents a on a.id=c.agent_id join team_members t on t.team_id=a.team_id and t.member_id=c.reviewer where v.id=$1 and a.id=$2 and c.reviewer=$3 and v.status='passed' and not a.removed for update of v`, trial, agent, u.ID).Scan(&checkID); err != nil {
 			return err
@@ -172,6 +175,9 @@ func (c Catalog) withdrawEvidence(w http.ResponseWriter, r *http.Request, u iden
 	ctx := r.Context()
 	id := r.PathValue("trial")
 	err := database.WithTx(ctx, c.DB, func(tx pgx.Tx) error {
+		if err := lockEvidenceAgent(ctx, tx, r.PathValue("id"), u.ID); err != nil {
+			return err
+		}
 		var trial string
 		if err := tx.QueryRow(ctx, `select v.id from validations v join agents a on a.id=v.agent_id join team_members t on t.team_id=a.team_id left join agent_checks c on c.id=v.check_id
  where v.id=$1 and a.id=$2 and t.member_id=$3 and(v.actor=$3 or c.reviewer=$3 or (a.owner=$3 and not a.maintenance_vacant)) and v.status='passed' for update of v`, id, r.PathValue("id"), u.ID).Scan(&trial); err != nil {
@@ -198,4 +204,12 @@ func (c Catalog) withdrawEvidence(w http.ResponseWriter, r *http.Request, u iden
 	}
 	w.WriteHeader(204)
 	return nil
+}
+
+// Evidence changes and publication serialize on the agent before the trial row.
+// Members may still withdraw evidence after the agent is disabled.
+func lockEvidenceAgent(ctx context.Context, tx pgx.Tx, agent, member string) error {
+	var id string
+	return tx.QueryRow(ctx, `select a.id from agents a join team_members t on t.team_id=a.team_id
+         where a.id=$1 and t.member_id=$2 for no key update of a`, agent, member).Scan(&id)
 }

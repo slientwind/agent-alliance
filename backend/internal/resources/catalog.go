@@ -2,6 +2,7 @@ package resources
 
 import (
 	"alliance/internal/billing"
+	"alliance/internal/builder"
 	"alliance/internal/database"
 	"alliance/internal/harness"
 	"alliance/internal/identity"
@@ -32,6 +33,7 @@ func (c Catalog) Routes(m *http.ServeMux, s identity.Server) {
 	m.Handle("POST /api/agents/{id}/improvements", s.Protect(false, c.requestImprovement))
 	m.Handle("POST /api/agent-improvements/{request}/decisions", s.Protect(false, c.decideImprovement))
 	m.Handle("GET /api/agents/{id}/checks/{revision}", s.Protect(false, c.checks))
+	m.Handle("GET /api/agents/{id}/builds/{revision}", s.Protect(false, c.buildManifest))
 	m.Handle("PUT /api/agents/{id}/checks/{revision}", s.Protect(false, c.setChecks))
 	m.Handle("POST /api/agents/{id}/evidence/{trial}/withdraw", s.Protect(false, c.withdrawEvidence))
 	m.Handle("POST /api/agents/{id}/evidence/{trial}/review", s.Protect(false, c.reviewCheck))
@@ -371,7 +373,11 @@ func (c Catalog) Resolve(ctx context.Context, q Query, actor, id string, rev int
 	return c.resolve(ctx, q, "", actor, id, rev, false)
 }
 func (c Catalog) ResolveRun(ctx context.Context, q Query, project, actor, id string, rev int) (Model, string, error) {
-	return c.resolve(ctx, q, project, actor, id, rev, true)
+	model, instructions, err := c.resolve(ctx, q, project, actor, id, rev, true)
+	if err == nil {
+		err = builder.CheckPublished(ctx, q, id, rev)
+	}
+	return model, instructions, err
 }
 func (c Catalog) resolve(ctx context.Context, q Query, project, actor, id string, rev int, accepted bool) (Model, string, error) {
 	var m Model
@@ -567,7 +573,11 @@ func (c Catalog) validate(w http.ResponseWriter, r *http.Request, u identity.Mem
 				return web.Fail(422, "请先为此图像修订配置至少一项指定业务验收人的必要检查，实看 PNG 原件后确认")
 			}
 		}
-		if _, err := tx.Exec(ctx, "update validations set key_generation=nullif($2,0) where id=$1", evidence, m.KeyGeneration); err != nil {
+		build, err := builder.Capture(ctx, tx, id, in.Revision)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, "update validations set key_generation=nullif($2,0),build_digest=$3 where id=$1", evidence, m.KeyGeneration, build.Digest); err != nil {
 			return err
 		}
 		return billing.Reserve(ctx, tx, billing.Operation{Key: "validation/" + evidence, Kind: "validation", Project: in.Project, Actor: u.ID, Team: m.Team, Resource: m.BudgetID, SourceRevision: m.SourceRevision, SourceName: m.Name, Estimate: m.Estimate, AllowUnknown: in.AuthorizeOneCall})
@@ -587,7 +597,10 @@ func (c Catalog) validate(w http.ResponseWriter, r *http.Request, u identity.Mem
 	return web.JSON(w, 200, map[string]any{"id": evidence, "status": status, "output": body})
 }
 func (c Catalog) publish(w http.ResponseWriter, r *http.Request, u identity.Member) error {
-	var in struct{ Revision int }
+	var in struct {
+		builder.Selection
+		Revision int
+	}
 	if err := web.Read(r, &in); err != nil {
 		return err
 	}
@@ -597,32 +610,11 @@ func (c Catalog) publish(w http.ResponseWriter, r *http.Request, u identity.Memb
 		if err := identity.RequireAdmin(ctx, tx, u.ID); err != nil {
 			return err
 		}
-		return c.publishRevision(ctx, tx, u.ID, id, in.Revision, false)
+		return c.publishRevision(ctx, tx, u.ID, id, in.Revision, false, in.Selection)
 	})
 	if err != nil {
 		return err
 	}
 	w.WriteHeader(204)
 	return nil
-}
-
-func (c Catalog) publishRevision(ctx context.Context, tx pgx.Tx, actor, id string, revision int, rollback bool) error {
-	if err := guardReplacementPublication(ctx, tx, id, revision, rollback); err != nil {
-		return err
-	}
-	if _, _, err := c.Resolve(ctx, tx, actor, id, revision); err != nil {
-		return err
-	}
-	tag, err := tx.Exec(ctx, `update agents set published_revision=$1 where id=$2 and not disabled and agent_verified($2,$1)`, revision, id)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() != 1 {
-		return web.Fail(409, "指定修订的必要验证尚未通过")
-	}
-	if _, err := tx.Exec(ctx, `update agent_release_requests set state='published',decider=$3,decided_at=now()
- where agent_id=$1 and revision=$2 and state='pending'`, id, revision, actor); err != nil {
-		return err
-	}
-	return database.Audit(ctx, tx, actor, "agent.publish", id, map[string]int{"revision": revision})
 }

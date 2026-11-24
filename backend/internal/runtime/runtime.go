@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"alliance/internal/billing"
+	"alliance/internal/builder"
 	"alliance/internal/database"
 	"alliance/internal/harness"
 	"alliance/internal/identity"
@@ -441,7 +442,12 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 		if err != nil {
 			return err
 		}
-		if err := memory.Capture(ctx, tx, memory.Key{Run: step.Run, Step: step.Ordinal, Attempt: attempt}, refs); err != nil {
+		build, err := builder.Capture(ctx, tx, d.agent, d.revision)
+		if err != nil {
+			return err
+		}
+		buildRef := memory.BuildRef{Agent: d.agent, Revision: d.revision, Digest: build.Digest}
+		if err := memory.Capture(ctx, tx, memory.Key{Run: step.Run, Step: step.Ordinal, Attempt: attempt}, buildRef, refs); err != nil {
 			return err
 		}
 		_, err = tx.Exec(ctx, "update runs set status='running' where id=$1", step.Run)
@@ -686,6 +692,9 @@ func blockUnavailableAgent(ctx context.Context, tx pgx.Tx, step Step, d contextD
 	var unavailable web.Problem
 	if errors.As(err, &unavailable) {
 		result.Wait = true
+		if unavailable.Message == builder.DriftMessage {
+			return setState(ctx, tx, step, d.project, "blocked", "build_unavailable", unavailable.Message)
+		}
 		return setState(ctx, tx, step, d.project, "blocked", "skill_unavailable", unavailable.Message)
 	}
 	return err

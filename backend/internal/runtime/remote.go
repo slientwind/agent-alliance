@@ -135,7 +135,8 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 			return parkRemote(ctx, tx, job, "remote_denied")
 		}
 		job.model, _, err = a.Catalog.ResolveRun(ctx, tx, job.project, job.actor, job.agent, job.revision)
-		if errors.Is(err, pgx.ErrNoRows) {
+		var unavailable web.Problem
+		if errors.Is(err, pgx.ErrNoRows) || errors.As(err, &unavailable) {
 			return parkRemote(ctx, tx, job, "remote_denied")
 		}
 		if err != nil {
