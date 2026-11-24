@@ -213,14 +213,17 @@ func (a Activities) ExecuteLookupAction(ctx context.Context, action lookupAction
 		if ok, err := checkAgentEvidence(ctx, tx, step, &result, d); !ok || err != nil {
 			return err
 		}
+		var problem web.Problem
 		if _, _, err = a.Catalog.ResolveRun(ctx, tx, d.project, d.actor, d.agent, d.revision); errors.Is(err, pgx.ErrNoRows) {
 			return invalid("成员或资源授权已失效，已停止续查。")
+		}
+		if errors.As(err, &problem) {
+			return invalid(problem.Message)
 		}
 		if err != nil {
 			return err
 		}
 		_, files, err := knowledge.RunInputs(ctx, tx, step.Run, step.Ordinal, false)
-		var problem web.Problem
 		if errors.As(err, &problem) {
 			return invalid(problem.Message)
 		}

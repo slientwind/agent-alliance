@@ -209,7 +209,8 @@ func (o Objects) cleanSourceObject(ctx context.Context, db *pgxpool.Pool, hash s
 		var referenced bool
 		if err := tx.QueryRow(ctx, `select exists(select from source_versions where object_hash=$1) or exists(select from artifact_files where object_hash=$1)
    or exists(select from invocation_files where object_hash=$1) or exists(select from validation_files where object_hash=$1)
-   or exists(select from validation_pictures where object_hash=$1)`, hash).Scan(&referenced); err != nil {
+   or exists(select from validation_pictures where object_hash=$1)
+   or exists(select from skill_files where object_hash=$1)`, hash).Scan(&referenced); err != nil {
 			return err
 		}
 		if referenced {

@@ -3,9 +3,11 @@ package resources
 import (
 	"alliance/internal/billing"
 	"alliance/internal/database"
+	"alliance/internal/harness"
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
 	"alliance/internal/maintenance"
+	"alliance/internal/skills"
 	"alliance/internal/web"
 	"bytes"
 	"context"
@@ -24,6 +26,7 @@ type Catalog struct {
 }
 
 func (c Catalog) Routes(m *http.ServeMux, s identity.Server) {
+	skills.Catalog{DB: c.DB, Objects: knowledge.ConfiguredObjects()}.Routes(m, s)
 	maintenance.AgentRoutes(m, s, c.DB)
 	m.Handle("GET /api/agent-improvements", s.Protect(false, c.improvements))
 	m.Handle("POST /api/agents/{id}/improvements", s.Protect(false, c.requestImprovement))
@@ -198,6 +201,7 @@ type AgentInfo struct {
 	Resource              string          `json:"resource"`
 	ResourceRevision      int             `json:"resourceRevision"`
 	Validated             bool            `json:"validated"`
+	Skills                json.RawMessage `json:"skills,omitempty"`
 }
 
 func (c Catalog) listAgents(w http.ResponseWriter, r *http.Request, u identity.Member) error {
@@ -227,7 +231,9 @@ func (c Catalog) listAgents(w http.ResponseWriter, r *http.Request, u identity.M
  a.team_id,coalesce(a.proposed_owner=$1,false),team.name,coalesce(pub.instructions,''),coalesce(pub.name,''),
  agent_next_review(a.id,a.published_revision),r.tool,coalesce(r.rpc_endpoint,''),r.card,r.remote_policy,
  a.id,r.name,r.instructions,r.revision,agent_admissible(a.id,a.published_revision,$1),
- coalesce(a.published_revision,0),coalesce(r.resource_id::text,''),coalesce(r.resource_revision,0),agent_verified(a.id,r.revision)
+ coalesce(a.published_revision,0),coalesce(r.resource_id::text,''),coalesce(r.resource_revision,0),agent_verified(a.id,r.revision),
+ (select jsonb_agg(jsonb_build_object('id',b.skill_id,'revision',b.skill_revision) order by b.position)
+    from agent_skill_bindings b where (b.agent_id,b.revision)=(a.id,r.revision) and b.root)
  from agents a
  join team_members t on t.team_id=a.team_id and t.member_id=$1
  join teams team on team.id=a.team_id
@@ -274,6 +280,8 @@ func lockTeamAgent(ctx context.Context, tx pgx.Tx, actor, id, requestedTeam stri
 type DraftConfig struct {
 	ID, Name, Instructions, Resource, Key string
 	ResourceRevision, Expected            int
+	Skills                                *[]skills.Ref
+	skillBase                             int
 }
 
 func (c Catalog) SaveDraftTx(ctx context.Context, tx pgx.Tx, actor string, in DraftConfig) (string, int, error) {
@@ -281,8 +289,8 @@ func (c Catalog) SaveDraftTx(ctx context.Context, tx pgx.Tx, actor string, in Dr
 		return "", 0, web.Fail(422, "需要名称、任务描述和模型修订")
 	}
 	id, rev := in.ID, 0
-	var team string
-	if err := tx.QueryRow(ctx, `select m.team_id from model_resources m join model_revisions r on r.resource_id=m.id join team_members t on t.team_id=m.team_id where m.id=$1 and r.revision=$2 and m.enabled and t.member_id=$3`, in.Resource, in.ResourceRevision, actor).Scan(&team); err != nil {
+	var team, operation string
+	if err := tx.QueryRow(ctx, `select m.team_id,r.operation from model_resources m join model_revisions r on r.resource_id=m.id join team_members t on t.team_id=m.team_id where m.id=$1 and r.revision=$2 and m.enabled and t.member_id=$3 for share of t`, in.Resource, in.ResourceRevision, actor).Scan(&team, &operation); err != nil {
 		return "", 0, err
 	}
 	if id == "" {
@@ -312,6 +320,28 @@ func (c Catalog) SaveDraftTx(ctx context.Context, tx pgx.Tx, actor string, in Dr
 	}
 	if _, err := tx.Exec(ctx, `insert into agent_revisions(agent_id,revision,name,instructions,resource_id,resource_revision,key_override,created_by) values($1,$2,$3,$4,$5,$6,$7,$8)`, id, rev, in.Name, in.Instructions, in.Resource, in.ResourceRevision, key, actor); err != nil {
 		return "", 0, err
+	}
+	hasSkills := false
+	switch {
+	case in.Skills != nil:
+		hasSkills = len(*in.Skills) > 0
+		if err := skills.Bind(ctx, tx, team, id, rev, *in.Skills); err != nil {
+			return "", 0, err
+		}
+	case rev > 1:
+		base := rev - 1
+		if in.skillBase > 0 {
+			base = in.skillBase
+		}
+		tag, err := tx.Exec(ctx, `insert into agent_skill_bindings(agent_id,revision,skill_id,skill_revision,position,root)
+            select agent_id,$2,skill_id,skill_revision,position,root from agent_skill_bindings where agent_id=$1 and revision=$3`, id, rev, base)
+		if err != nil {
+			return "", 0, err
+		}
+		hasSkills = tag.RowsAffected() > 0
+	}
+	if hasSkills && operation != "text" && operation != VisionOperation {
+		return "", 0, web.Fail(422, "请选择支持 Skill 文本上下文的模型，或清除 Skill 绑定")
 	}
 	return id, rev, database.Audit(ctx, tx, actor, "agent.revise", id, map[string]int{"revision": rev})
 }
@@ -346,6 +376,7 @@ func (c Catalog) ResolveRun(ctx context.Context, q Query, project, actor, id str
 func (c Catalog) resolve(ctx context.Context, q Query, project, actor, id string, rev int, accepted bool) (Model, string, error) {
 	var m Model
 	var cardData, key, toolData, policy []byte
+	var hasSkills bool
 	// Lock a project grant before exposing the bound credential. Dispatch, result
 	// acceptance and revocation then agree on the order of concurrent decisions.
 	var direct bool
@@ -397,7 +428,7 @@ func (c Catalog) resolve(ctx context.Context, q Query, project, actor, id string
 	var secret, override []byte
 	var instructions, rid string
 	var rr int
-	err = q.QueryRow(ctx, `select mr.estimate_cny::text,mr.endpoint,mr.model,mr.encrypted_key,r.key_override,r.instructions,r.resource_id,r.resource_revision,mr.key_generation,mr.operation,mr.stream_text from agent_revisions r join agents a on a.id=r.agent_id join model_resources src on src.id=r.resource_id and (src.enabled or $4) and not src.emergency join model_revisions mr on (mr.resource_id,mr.revision)=(r.resource_id,r.resource_revision) where src.team_id=a.team_id and r.agent_id=$1 and r.revision=$2 and project_agent_access(nullif($5,'')::uuid,a.id,r.revision,$3) and (not a.disabled or $4) and not a.emergency and (not mr.key_blocked or r.key_override is not null)`, id, rev, actor, accepted, project).Scan(&m.Estimate, &m.Endpoint, &m.Name, &secret, &override, &instructions, &rid, &rr, &m.KeyGeneration, &m.OutputOperation, &m.StreamText)
+	err = q.QueryRow(ctx, `select mr.estimate_cny::text,mr.endpoint,mr.model,mr.encrypted_key,r.key_override,r.instructions,r.resource_id,r.resource_revision,mr.key_generation,mr.operation,mr.stream_text,exists(select from agent_skill_bindings b where (b.agent_id,b.revision)=(r.agent_id,r.revision)) from agent_revisions r join agents a on a.id=r.agent_id join model_resources src on src.id=r.resource_id and (src.enabled or $4) and not src.emergency join model_revisions mr on (mr.resource_id,mr.revision)=(r.resource_id,r.resource_revision) where src.team_id=a.team_id and r.agent_id=$1 and r.revision=$2 and project_agent_access(nullif($5,'')::uuid,a.id,r.revision,$3) and (not a.disabled or $4) and not a.emergency and (not mr.key_blocked or r.key_override is not null)`, id, rev, actor, accepted, project).Scan(&m.Estimate, &m.Endpoint, &m.Name, &secret, &override, &instructions, &rid, &rr, &m.KeyGeneration, &m.OutputOperation, &m.StreamText, &hasSkills)
 	if err != nil {
 		return m, "", err
 	}
@@ -409,6 +440,14 @@ func (c Catalog) resolve(ctx context.Context, q Query, project, actor, id string
 		scope = fmt.Sprintf("agent/%s/%d", id, rev)
 	}
 	m.Key, err = c.Vault.Open(secret, scope)
+	if err != nil || !hasSkills {
+		return m, instructions, err
+	}
+	selected, err := skills.Load(ctx, q, knowledge.ConfiguredObjects(), id, rev, actor)
+	if err != nil {
+		return m, "", err
+	}
+	instructions, err = harness.WithSkills(instructions, selected)
 	return m, instructions, err
 }
 func (c Catalog) validate(w http.ResponseWriter, r *http.Request, u identity.Member) error {

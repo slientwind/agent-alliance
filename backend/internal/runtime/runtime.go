@@ -188,12 +188,8 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 			return err
 		}
 		m, prompt, err := a.Catalog.ResolveRun(ctx, tx, d.project, d.actor, d.agent, d.revision)
-		if errors.Is(err, pgx.ErrNoRows) {
-			result.Wait = true
-			return setState(ctx, tx, step, d.project, "blocked", "resource_denied", "成员或资源授权已失效")
-		}
 		if err != nil {
-			return err
+			return blockUnavailableAgent(ctx, tx, step, d, &result, err)
 		}
 		if d.change {
 			if _, err := tx.Exec(ctx, "select id from projects where id=$1 for update", d.project); err != nil {
@@ -616,11 +612,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 			return err
 		}
 		if _, _, err := a.Catalog.ResolveRun(ctx, tx, d.project, d.actor, d.agent, d.revision); err != nil {
-			if err != pgx.ErrNoRows {
-				return err
-			}
-			result.Wait = true
-			return setState(ctx, tx, step, d.project, "blocked", "resource_denied", "提交成果前授权已变化，请核对")
+			return blockUnavailableAgent(ctx, tx, step, d, &result, err)
 		}
 		if d.change {
 			if _, err := tx.Exec(ctx, "select id from projects where id=$1 for update", d.project); err != nil {
@@ -639,6 +631,20 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 	})
 	return result, err
 }
+
+func blockUnavailableAgent(ctx context.Context, tx pgx.Tx, step Step, d contextData, result *Result, err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		result.Wait = true
+		return setState(ctx, tx, step, d.project, "blocked", "resource_denied", "成员或资源授权已失效")
+	}
+	var unavailable web.Problem
+	if errors.As(err, &unavailable) {
+		result.Wait = true
+		return setState(ctx, tx, step, d.project, "blocked", "skill_unavailable", unavailable.Message)
+	}
+	return err
+}
+
 func checkAgentEvidence(ctx context.Context, tx pgx.Tx, step Step, result *Result, d contextData) (bool, error) {
 	var verified bool
 	if err := tx.QueryRow(ctx, "select agent_verified($1,$2)", d.agent, d.revision).Scan(&verified); err != nil {

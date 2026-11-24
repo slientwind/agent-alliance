@@ -112,7 +112,7 @@ func (c Catalog) replaceModel(w http.ResponseWriter, r *http.Request, u identity
 			if err := lockTeamAgent(ctx, tx, u.ID, a.ID, team); err != nil {
 				return err
 			}
-			draft := DraftConfig{ID: a.ID, Resource: in.Target, ResourceRevision: in.TargetRevision}
+			draft := DraftConfig{ID: a.ID, Resource: in.Target, ResourceRevision: in.TargetRevision, skillBase: a.Published}
 			err = tx.QueryRow(ctx, `select ar.name,ar.instructions,(select max(revision) from agent_revisions head where head.agent_id=a.id) from agents a join agent_revisions ar on(ar.agent_id,ar.revision)=(a.id,a.published_revision) where a.id=$1 and ar.revision=$2 and (ar.resource_id,ar.resource_revision)=($3,$4) and not a.emergency and not a.removed and a.publication_generation=$5 and model_replacement_base_clear(a.id,ar.revision)`, a.ID, a.Published, source, rev, *a.Generation).Scan(&draft.Name, &draft.Instructions, &draft.Expected)
 			if err == pgx.ErrNoRows {
 				return web.Fail(409, "助手的发布修订或绑定已变化，请重新核对")

@@ -1,5 +1,6 @@
 import type { AggregationConfig } from "./aggregation-scope";
 import type { Remote } from "./remote-receipt";
+import type { SkillRef } from "./skill-packs";
 export type Member = {
   id: string;
   name: string;
@@ -77,6 +78,7 @@ export type Agent = {
   resource: string;
   resourceRevision: number;
   validated: boolean;
+  skills?: SkillRef[];
 };
 export type Summary = {
   id: string;

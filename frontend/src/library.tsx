@@ -9,7 +9,8 @@ import { authorizeTrial } from "./trial-request";
 import { PictureTrialField } from "./picture-trial-field";
 import { ExternalCardForm, EditExternalCard } from "./external-card";
 import { TrialEvidence } from "./trial-evidence";
-import { useRef, useState } from "react";
+import { SkillBindings, SkillPacks, type SkillPack } from "./skill-packs";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type Model, type Agent } from "./client";
 type Props = {
   models: Model[];
@@ -126,6 +127,14 @@ export function Library({
     [trial, setTrial] = useState<Agent | null>(null),
     [text, setText] = useState(""),
     [busy, setBusy] = useState(false);
+  const [draftModel, setDraftModel] = useState("");
+  const [skillPacks, setSkillPacks] = useState<SkillPack[]>([]);
+  const refreshSkills = useCallback(async () => {
+    setSkillPacks(await api<SkillPack[]>("skills"));
+  }, []);
+  useEffect(() => {
+    void refreshSkills().catch(() => setSkillPacks([]));
+  }, [refreshSkills]);
   async function refreshEvidence() {
     bump((value) => value + 1);
     await refresh();
@@ -205,7 +214,10 @@ export function Library({
             ) : a.tool ? (
               <ToolDraft key={a.revision} agent={a} refresh={refresh} />
             ) : (
-              <button onClick={() => setEditing(a)}>编辑草稿</button>
+              <button onClick={() => {
+                setEditing(a);
+                setDraftModel(a.resource);
+              }}>编辑草稿</button>
             )}
             <button onClick={() => setTrial(a)}>试运行</button>
             {admin && a.validated && a.published !== a.revision && a.release?.state !== "pending" && (
@@ -287,6 +299,9 @@ export function Library({
         </form>
       )}
       <ToolDraft refresh={refresh} agents={agents} teams={teams} />
+      <SkillPacks packs={skillPacks} admin={admin} teams={teams} refresh={async () => {
+        await Promise.all([refreshSkills(), refresh()]);
+      }} />
       <details className="card">
         <summary>注册已有 Agent Card</summary>
         <ExternalCardForm refresh={refresh} agents={agents} teams={teams} />
@@ -296,6 +311,7 @@ export function Library({
         key={editing?.id || "new"}
         onChange={(e) => {
           const data = new FormData(e.currentTarget);
+          setDraftModel(String(data.get("resource") || ""));
           describe({
             name: String(data.get("name") || ""),
             description: String(data.get("instructions") || ""),
@@ -307,6 +323,10 @@ export function Library({
             f = new FormData(form),
             model = models.find((m) => m.id === f.get("resource"));
           if (!model) return;
+          const skills = f.getAll("skill").filter(Boolean).map((value) => {
+            const [id, revision] = String(value).split("/");
+            return { id, revision: Number(revision) };
+          });
           try {
             await api("agents", "POST", {
               id: editing?.id || "",
@@ -316,8 +336,10 @@ export function Library({
               resource: model.id,
               resourceRevision: model.revision,
               key: f.get("key"),
+              ...(f.has("skillBindings") ? { skills } : {}),
             });
             setEditing(null);
+            setDraftModel("");
             describe({});
             form.reset();
             await refresh();
@@ -359,6 +381,10 @@ export function Library({
             ))}
           </select>
         </label>
+        <SkillBindings packs={skillPacks}
+          team={models.find((m) => m.id === draftModel && (m.operation === "text" || m.operation === "vision"))?.team}
+          current={editing?.skills}
+        />
         <label>
           此版本专用凭据（留空采用团队模型凭据）
           <input name="key" type="password" />
@@ -387,6 +413,7 @@ export function Library({
             type="button"
             onClick={() => {
               setEditing(null);
+              setDraftModel("");
               describe({});
             }}
           >
