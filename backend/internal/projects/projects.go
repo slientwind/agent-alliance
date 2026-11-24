@@ -47,6 +47,7 @@ const fields = "p.id,p.title,p.stage,p.revision,p.plan_version,p.owner,p.final_r
 const access = " from projects p join project_members m on m.project_id=p.id where m.member_id=$1 "
 
 func (s Server) Routes(m *http.ServeMux, g identity.Server) {
+	m.Handle("GET /api/projects/{id}/events", web.Handler(s.events(g)))
 	actions := map[string]identity.Action{
 		"GET /api/projects/{id}/artifacts/{artifact}/feedback/{feedback}/source-quote": s.feedbackQuote,
 		"GET /api/projects/{id}/artifacts/{artifact}/source-comparison/{source}":       s.sourceComparison,

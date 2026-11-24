@@ -49,21 +49,7 @@ func (s Server) Routes(m *http.ServeMux) {
 }
 func (s Server) Protect(admin bool, next Action) web.Handler {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		c, err := r.Cookie("aa_session")
-		if err != nil {
-			return web.Fail(401, "请登录")
-		}
-		var u Member
-		issuer, client, emergency := s.loginScope()
-		err = s.DB.QueryRow(r.Context(), `select m.id,m.display_name,m.email,m.role,m.enabled from sessions s join members m on m.id=s.member_id
-          left join oidc_bindings b on b.id=s.oidc_binding and b.member_id=m.id
-          where s.token_hash=$1 and s.expires_at>now() and m.enabled and
-          ((s.oidc_binding is not null and b.issuer=$2 and b.client_id=$3) or
-           (s.oidc_binding is null and not s.emergency and not $4) or
-           (s.emergency and $4 and m.role='admin' and m.id::text=$5))`, web.Hash(c.Value), issuer, client, s.required(), emergency).Scan(&u.ID, &u.Name, &u.Email, &u.Role, &u.Enabled)
-		if err == pgx.ErrNoRows {
-			return web.Fail(401, "登录已失效")
-		}
+		u, err := s.Authenticate(r)
 		if err != nil {
 			return err
 		}
@@ -72,6 +58,26 @@ func (s Server) Protect(admin bool, next Action) web.Handler {
 		}
 		return next(w, r, u)
 	}
+}
+
+// Authenticate resolves the current session, including expiry and identity-provider policy.
+func (s Server) Authenticate(r *http.Request) (Member, error) {
+	var u Member
+	c, err := r.Cookie("aa_session")
+	if err != nil {
+		return u, web.Fail(401, "请登录")
+	}
+	issuer, client, emergency := s.loginScope()
+	err = s.DB.QueryRow(r.Context(), `select m.id,m.display_name,m.email,m.role,m.enabled from sessions s join members m on m.id=s.member_id
+          left join oidc_bindings b on b.id=s.oidc_binding and b.member_id=m.id
+          where s.token_hash=$1 and s.expires_at>now() and m.enabled and
+          ((s.oidc_binding is not null and b.issuer=$2 and b.client_id=$3) or
+           (s.oidc_binding is null and not s.emergency and not $4) or
+           (s.emergency and $4 and m.role='admin' and m.id::text=$5))`, web.Hash(c.Value), issuer, client, s.required(), emergency).Scan(&u.ID, &u.Name, &u.Email, &u.Role, &u.Enabled)
+	if err == pgx.ErrNoRows {
+		return u, web.Fail(401, "登录已失效")
+	}
+	return u, err
 }
 func (s Server) status(w http.ResponseWriter, r *http.Request) error {
 	var name string

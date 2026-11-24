@@ -504,6 +504,7 @@ function App() {
     return () => window.removeEventListener("hashchange", navigate);
   });
   const visibleProject = p?.id;
+  const [streamInterrupted, setStreamInterrupted] = useState(false);
   const restoreThread = useCallback((thread: HTMLDivElement | null) => {
     const request = restore.current;
     if (!thread || !visibleProject || request?.id !== visibleProject) return;
@@ -532,50 +533,88 @@ function App() {
       current.current ? load(current.current) : Promise.resolve(),
     ]);
   }
-  const changing = p?.artifacts.some((a) =>
-    a.feedback.some((f) =>
-      f.changes.some(
-        (c) =>
-          c.disposition === "pending" &&
-          ["queued", "running"].includes(c.status),
-      ),
-    ),
-  );
   useEffect(() => {
-    if (!p) return;
-    const id = p.id;
+    setStreamInterrupted(false);
+    if (!visibleProject) return;
+    const id = visibleProject;
     let fetching = false;
-    const sync = async () => {
-      if (fetching || document.hidden || current.current !== id) return;
+    let again = false;
+    let active = true;
+    let connected = false;
+    let interruption: number | undefined;
+    const sync = async (force = false) => {
+      if (!active || (!force && document.hidden) || current.current !== id) return;
+      if (fetching) {
+        again = true;
+        return;
+      }
       fetching = true;
       try {
-        await load(id);
+        do {
+          again = false;
+          await load(id);
+        } while (again && active && current.current === id);
       } catch (e) {
-        if (current.current === id || !current.current)
+        if (active && (current.current === id || !current.current))
           setErr((e as Error).message);
       } finally {
         fetching = false;
       }
     };
-    const expiry = p.recoveryUntil
-      ? setTimeout(
-          sync,
-          Math.max(0, Date.parse(p.recoveryUntil) - Date.now() + 100),
-        )
-      : undefined;
-    const timer = setInterval(
-      sync,
-      p.stage === "running" || changing ? 2000 : 15000,
-    );
-    document.addEventListener("visibilitychange", sync);
-    window.addEventListener("focus", sync);
+    const check = () => void sync();
+    const stream = typeof EventSource === "undefined" ? undefined :
+      new EventSource("/api/projects/" + encodeURIComponent(id) + "/events");
+    if (stream) {
+      stream.onopen = () => {
+        if (!active) return;
+        connected = true;
+        window.clearTimeout(interruption);
+        setStreamInterrupted(false);
+      };
+      stream.onerror = () => {
+        if (!active) return;
+        connected = false;
+        window.clearTimeout(interruption);
+        interruption = window.setTimeout(() => setStreamInterrupted(true), 1500);
+        void sync(true);
+      };
+      stream.addEventListener("project.changed", check);
+      stream.addEventListener("access-ended", () => {
+        stream.close();
+        void sync(true);
+      });
+    }
+    // The snapshot also covers legacy state with no change notification,
+    // such as deadline countdowns and external catalog changes.
+    let nextSnapshot = Date.now() + 15000;
+    const timer = window.setInterval(() => {
+      if (!connected || Date.now() >= nextSnapshot) {
+        nextSnapshot = Date.now() + 15000;
+        check();
+      }
+    }, 2000);
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
     return () => {
-      clearTimeout(expiry);
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", sync);
-      window.removeEventListener("focus", sync);
+      active = false;
+      stream?.close();
+      window.clearTimeout(interruption);
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
     };
-  }, [p?.stage, p?.id, p?.recoveryUntil, changing, load]);
+  }, [visibleProject, load]);
+  const recoveryUntil = p?.recoveryUntil;
+  useEffect(() => {
+    if (!visibleProject || !recoveryUntil) return;
+    const delay = Date.parse(recoveryUntil) - Date.now();
+    if (delay < 0) return;
+    const expiry = window.setTimeout(() => {
+      if (current.current === visibleProject)
+        void load(visibleProject).catch((e) => setErr(e.message));
+    }, delay + 100);
+    return () => window.clearTimeout(expiry);
+  }, [visibleProject, recoveryUntil, load]);
   async function sendAttachments(project: string) {
     const receipts: Awaited<ReturnType<typeof upload>>[] = [];
     for (const item of files) {
@@ -793,6 +832,9 @@ function App() {
       </header>
       <main className={p ? "chat" : "start"}>
         {err && <p role="alert">{err}</p>}
+        {p && streamInterrupted && (
+          <p role="status">实时连接中断，正在重新连接。工作仍会在后台运行。</p>
+        )}
         {deliveryReceipt && (
           <p role="status">
             <strong>已确认交付</strong> · 回执 {deliveryReceipt}
