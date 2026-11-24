@@ -162,7 +162,7 @@ func startDAGStep(ctx workflow.Context, run string, node Node, lookupTurns, loca
 		ctx = workflow.WithStartToCloseTimeout(ctx, resources.ImageTimeout+30*time.Second)
 	}
 	activity := "ExecuteStep"
-	if localActions && (node.LookupAnswer || node.Calculation) {
+	if node.CheckpointEvidence || localActions && (node.LookupAnswer || node.Calculation) {
 		activity = localTurnActivity(node)
 	} else if lookupTurns && node.LookupAnswer {
 		activity = "AdvanceTurn"
@@ -173,6 +173,9 @@ func startDAGStep(ctx workflow.Context, run string, node Node, lookupTurns, loca
 }
 
 func localTurnActivity(node Node) string {
+	if node.CheckpointEvidence {
+		return "AdvanceEvidenceStep"
+	}
 	if node.batchLookupActions {
 		return "AdvanceBatchedLookup"
 	}
@@ -183,7 +186,7 @@ func localTurnActivity(node Node) string {
 }
 
 func localTransitionLimit(node Node) int {
-	if node.batchLookupActions {
+	if node.CheckpointEvidence || node.batchLookupActions {
 		return 2*harness.MaxLookupBatches + 4
 	}
 	return 4
@@ -191,13 +194,22 @@ func localTransitionLimit(node Node) int {
 
 func advanceLocalActivity(ctx workflow.Context, run string, node Node, outcome Result) workflow.Future {
 	if outcome.TextReply != nil {
+		if node.CheckpointEvidence {
+			return workflow.ExecuteActivity(ctx, "CommitEvidenceReply", *outcome.TextReply)
+		}
 		return workflow.ExecuteActivity(ctx, "CommitTextReply", *outcome.TextReply)
 	}
 	if outcome.RevisitTurn {
 		return workflow.ExecuteActivity(ctx, localTurnActivity(node), Step{run, node.Ordinal})
 	}
 	if outcome.Observation != nil {
+		if node.CheckpointEvidence {
+			return workflow.ExecuteActivity(ctx, "CommitEvidenceObservation", *outcome.Observation)
+		}
 		return workflow.ExecuteActivity(ctx, "CommitLocalObservation", *outcome.Observation)
+	}
+	if node.CheckpointEvidence {
+		return workflow.ExecuteActivity(ctx, "ExecuteEvidenceAction", *outcome.Action)
 	}
 	return workflow.ExecuteActivity(ctx, "ExecuteAction", *outcome.Action)
 }

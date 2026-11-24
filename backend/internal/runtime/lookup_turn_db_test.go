@@ -397,6 +397,7 @@ func TestLookupTurnPostgresRecovery(t *testing.T) {
 		env.RegisterActivity(a.ExecuteAction)
 		env.RegisterActivity(a.CommitLocalObservation)
 		env.OnGetVersion("batched-lookup-actions", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+		env.OnGetVersion("evidence-reply-checkpoints", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
 		env.ExecuteWorkflow(Collaborate, step.Run)
 		if err := env.GetWorkflowError(); err != nil {
 			t.Fatal(err)
@@ -423,6 +424,10 @@ func TestLookupTurnPostgresRecovery(t *testing.T) {
 		env.RegisterActivity(a.EnableStepRemoteInput)
 		env.RegisterActivity(a.ExecuteStep)
 		env.RegisterActivity(a.AdvanceBatchedLookup)
+		env.RegisterActivity(a.AdvanceEvidenceStep)
+		env.RegisterActivity(a.CommitEvidenceReply)
+		env.RegisterActivity(a.ExecuteEvidenceAction)
+		env.RegisterActivity(a.CommitEvidenceObservation)
 		env.RegisterActivity(a.ExecuteAction)
 		env.RegisterActivity(a.CommitLocalObservation)
 		env.ExecuteWorkflow(Collaborate, step.Run)

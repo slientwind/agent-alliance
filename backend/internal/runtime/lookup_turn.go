@@ -27,11 +27,12 @@ func (a lookupAction) scope() string {
 }
 
 type lookupTurnInput struct {
-	Terms         []string
-	SearchBatches [][]string                   `json:",omitempty"`
-	Calculation   *harness.CalculationDecision `json:",omitempty"`
-	Citations     []indexCitation
-	AlreadyKnown  []indexCitation `json:",omitempty"`
+	Terms          []string
+	SearchBatches  [][]string                   `json:",omitempty"`
+	Calculation    *harness.CalculationDecision `json:",omitempty"`
+	Citations      []indexCitation
+	AlreadyKnown   []indexCitation      `json:",omitempty"`
+	FrozenEvidence *lookupReplyEvidence `json:",omitempty"`
 }
 
 type ActionKind string
@@ -102,8 +103,12 @@ func (a Activities) prepareLocalAction(step Step, attempt int, d contextData, re
 }
 
 func (a Activities) sealLookupAction(action ActionRef, d contextData, input lookupTurnInput) ([]byte, error) {
-	input.Citations = lookupCitationRefs(d.hits, d.lookupFiles)
-	input.AlreadyKnown = lookupCitationRefs(d.knownLookupEvidence, d.lookupFiles)
+	if d.frozenLookup != nil {
+		input.FrozenEvidence = d.frozenLookup
+	} else {
+		input.Citations = lookupCitationRefs(d.hits, d.lookupFiles)
+		input.AlreadyKnown = lookupCitationRefs(d.knownLookupEvidence, d.lookupFiles)
+	}
 	encoded, err := json.Marshal(input)
 	if err != nil {
 		return nil, err
@@ -116,6 +121,10 @@ func saveLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, at
         where run_id=$1 and ordinal=$2`, step.Run, step.Ordinal, callTokens(d.model, reply)); err != nil {
 		return err
 	}
+	return saveLookupDecision(ctx, tx, step, d, attempt, control, status, kind, decision, observe, actionCount, result)
+}
+
+func saveLookupDecision(ctx context.Context, tx pgx.Tx, step Step, d contextData, attempt, control int, status string, kind ActionKind, decision []byte, observe bool, actionCount int, result *Result) error {
 	if runEnded(status) {
 		result.Stop = true
 		return nil
@@ -260,6 +269,14 @@ func (a Activities) CommitLocalObservation(ctx context.Context, action ActionRef
 	return a.executeLocalAction(ctx, action, true)
 }
 
+func (a Activities) ExecuteEvidenceAction(ctx context.Context, action ActionRef) (Result, error) {
+	return a.ExecuteAction(ctx, action)
+}
+
+func (a Activities) CommitEvidenceObservation(ctx context.Context, action ActionRef) (Result, error) {
+	return a.CommitLocalObservation(ctx, action)
+}
+
 func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, commit bool) (Result, error) {
 	step := action.Step
 	var result Result
@@ -378,16 +395,27 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 		if err != nil || json.Unmarshal([]byte(raw), &input) != nil {
 			return invalid("续查记录无法读取，请核对后重新发起。")
 		}
-		first, ok := reopenLookupTurn(input.Citations, files)
-		if !ok {
-			return invalid("首轮引文的资料位置或版本已变化，请核对后重新发起。")
+		var first, known []lookupHit
+		if input.FrozenEvidence != nil {
+			if !input.FrozenEvidence.restore(&d, files) {
+				return invalid(lookupReplyChanged)
+			}
+			first, known = d.hits, d.knownLookupEvidence
+		} else {
+			var ok bool
+			first, ok = reopenLookupTurn(input.Citations, files)
+			if !ok {
+				return invalid("首轮引文的资料位置或版本已变化，请核对后重新发起。")
+			}
+			if len(input.AlreadyKnown) > 0 {
+				known, ok = reopenLookupTurn(input.AlreadyKnown, files)
+				if !ok {
+					return invalid("已核对的原文位置或版本已变化，请核对后继续。")
+				}
+			}
 		}
 		prior := first
-		if len(input.AlreadyKnown) > 0 {
-			known, ok := reopenLookupTurn(input.AlreadyKnown, files)
-			if !ok {
-				return invalid("已核对的原文位置或版本已变化，请核对后继续。")
-			}
+		if len(known) > 0 {
 			prior = append(append([]lookupHit{}, first...), known...)
 		}
 		progress := lookupBatchProgress{count: actionCount}

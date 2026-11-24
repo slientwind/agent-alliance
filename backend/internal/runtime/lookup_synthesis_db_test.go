@@ -121,6 +121,13 @@ func TestEvidenceFollowUpPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	worker := Activities{Catalog: resources.Catalog{DB: db, Vault: vault}}
+	advanceEvidence := func(ctx context.Context, step Step) (Result, error) {
+		advanced, err := worker.AdvanceEvidenceStep(ctx, step)
+		if err != nil || advanced.TextReply == nil {
+			return advanced, err
+		}
+		return worker.CommitEvidenceReply(ctx, *advanced.TextReply)
+	}
 	routes := http.NewServeMux()
 	auth := identity.Server{DB: db}
 	projects.Server{DB: db, Vault: vault}.Routes(routes, auth)
@@ -230,7 +237,7 @@ func TestEvidenceFollowUpPostgres(t *testing.T) {
 			advance := worker.AdvanceExecutionTurn
 			batched := strings.HasPrefix(scenario, "batch ")
 			if batched || withReview {
-				advance = worker.AdvanceBatchedLookup
+				advance = advanceEvidence
 			}
 			answer, err := advance(ctx, Step{run, 2})
 			if err != nil || answer.Wait || ((answer.Action == nil) != (scenario == "answered")) {
@@ -273,7 +280,7 @@ func TestEvidenceFollowUpPostgres(t *testing.T) {
 				lookupTestSQL(t, ctx, db, "update source_versions set extracted='质保单必须在周四前签收。' where source_id=$1", secondSource)
 			}
 			if withReview {
-				review, err := worker.AdvanceBatchedLookup(ctx, Step{run, 3})
+				review, err := advanceEvidence(ctx, Step{run, 3})
 				expectsAction := scenario == "review fresh" || scenario == "review repeats" || scenario == "review revoked"
 				if err != nil || review.Wait || (review.Action != nil) != expectsAction {
 					t.Fatalf("unexpected evidence review: %+v %v", review, err)
@@ -295,7 +302,7 @@ func TestEvidenceFollowUpPostgres(t *testing.T) {
 			waiting := scenario == "unknown" || scenario == "revoked" || scenario == "changed" || scenario == "review revoked"
 			last := Step{run, wantFinal}
 			for range 2 {
-				result, err := worker.ExecuteStep(ctx, last)
+				result, err := advanceEvidence(ctx, last)
 				if err != nil || result.Wait != waiting && !result.Stop {
 					t.Fatalf("unexpected follow-up disposition: %+v %v", result, err)
 				}

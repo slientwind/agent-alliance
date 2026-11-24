@@ -98,7 +98,16 @@ const (
 	observedLocalActions
 	batchedLookupActions
 	checkpointedTextReply
+	checkpointedLookupReply
 )
+
+func (mode turnMode) checkpointsReply() bool {
+	return mode == checkpointedTextReply || mode == checkpointedLookupReply
+}
+
+func (mode turnMode) batchesLookup() bool {
+	return mode == batchedLookupActions || mode == checkpointedLookupReply
+}
 
 type contextData struct {
 	memberDraft                                            bool
@@ -115,6 +124,7 @@ type contextData struct {
 	operands                                               []moneyOperand
 	hits                                                   []lookupHit
 	knownLookupEvidence                                    []lookupHit
+	frozenLookup                                           *lookupReplyEvidence
 	change                                                 bool
 	replacement, excerpt, baseBody                         string
 	changeArtifact                                         string
@@ -144,6 +154,10 @@ func (a Activities) AdvanceBatchedLookup(ctx context.Context, step Step) (Result
 
 func (a Activities) AdvanceTextStep(ctx context.Context, step Step) (Result, error) {
 	return a.executeStep(ctx, step, checkpointedTextReply)
+}
+
+func (a Activities) AdvanceEvidenceStep(ctx context.Context, step Step) (Result, error) {
+	return a.executeStep(ctx, step, checkpointedLookupReply)
 }
 
 func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (Result, error) {
@@ -234,7 +248,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			return setState(ctx, tx, step, d.project, "reconcile", "receipt_pending", "已有提交记录，等待核对；不会重复调用。")
 		}
 		if invocationStatus == "completed" {
-			if mode == checkpointedTextReply && recorded == nil {
+			if mode.checkpointsReply() && recorded == nil {
 				var saved bool
 				if err := tx.QueryRow(ctx, `select exists(select from text_reply_checkpoints
                     where (run_id,ordinal,attempt_no)=($1,$2,$3))`, step.Run, step.Ordinal, attempt).Scan(&saved); err != nil {
@@ -456,7 +470,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			d.prior = lookupContext(d.hits, files)
 			if review {
 				d.prompt += "\n" + evidenceReviewInstructions + "\n" + answerInstructions
-				if mode == batchedLookupActions && !d.change && !m.External && m.Tool == nil && m.OutputOperation == "text" {
+				if mode.batchesLookup() && !d.change && !m.External && m.Tool == nil && m.OutputOperation == "text" {
 					d.prompt += "\n" + batchedLookupInstructions
 				}
 			} else {
@@ -525,7 +539,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			semantic := d.lookupPhase == "answer" && strings.Contains(d.prior, "\n"+semanticEvidence+"\n")
 			d.prior = lookupContext(d.hits, files)
 			d.prompt += "\n" + answerInstructions
-			if mode == batchedLookupActions && d.lookupPhase == "answer" && !d.change && d.routing.target == 0 && !m.External && m.Tool == nil && m.OutputOperation == "text" {
+			if mode.batchesLookup() && d.lookupPhase == "answer" && !d.change && d.routing.target == 0 && !m.External && m.Tool == nil && m.OutputOperation == "text" {
 				d.prompt += "\n" + batchedLookupInstructions
 			}
 			if semantic {
@@ -647,72 +661,42 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		return result, err
 	}
 	reply, callErr := runnable.Invoke(ctx, d.brief)
-	if mode == checkpointedTextReply && callErr == nil && d.lookupPhase == "" && !d.change &&
-		!d.model.External && d.model.Tool == nil && d.model.OutputOperation == "text" && reply.File == nil && reply.Receipt == nil {
-		return a.recordTextReply(ctx, TextReplyRef{step, dispatchedAttempt}, d, reply, result)
+	localText := !d.change && !d.model.External && d.model.Tool == nil && d.model.OutputOperation == "text" && reply.File == nil && reply.Receipt == nil
+	if callErr == nil && localText {
+		switch {
+		case mode == checkpointedTextReply && d.lookupPhase == "":
+			return a.recordTextReply(ctx, TextReplyRef{step, dispatchedAttempt}, d, reply, result)
+		case mode == checkpointedLookupReply && isEvidenceReply(d.lookupPhase) && d.routing.target == 0:
+			d.frozenLookup = captureLookupReply(d)
+			return a.recordTextReply(ctx, TextReplyRef{step, dispatchedAttempt}, d, reply, result)
+		}
 	}
 	workingKey := memory.Key{Run: step.Run, Step: step.Ordinal, Attempt: dispatchedAttempt}
 	var lookupOutcome string
 	var lookupDecision []byte
 	var actionKind ActionKind
 	lookupActionCount := 1
-	if callErr == nil {
-		localText := !d.change && d.routing.target == 0 && !d.model.External && d.model.Tool == nil &&
-			d.model.OutputOperation == "text" && reply.File == nil && reply.Receipt == nil
-		switch d.lookupPhase {
-		case "search":
-			var fallback func() (knowledge.SemanticLookup, error)
-			if d.lookupGoal != "" {
-				fallback = func() (knowledge.SemanticLookup, error) {
-					ok, err := memory.Usable(ctx, db, workingKey)
-					if err != nil || !ok {
-						return knowledge.SemanticLookup{}, err
-					}
-					return knowledge.PinnedSemanticPassages(ctx, db, step.Run, d.lookupGoal)
+	if callErr == nil && d.lookupPhase == "search" {
+		var fallback func() (knowledge.SemanticLookup, error)
+		if d.lookupGoal != "" {
+			fallback = func() (knowledge.SemanticLookup, error) {
+				ok, err := memory.Usable(ctx, db, workingKey)
+				if err != nil || !ok {
+					return knowledge.SemanticLookup{}, err
 				}
+				return knowledge.PinnedSemanticPassages(ctx, db, step.Run, d.lookupGoal)
 			}
-			reply.Text, lookupOutcome = searchForGoal(reply.Text, d.lookupFiles, d.moneyGoal, fallback)
-		case "answer_calc":
-			if mode >= durableLocalActions && localText {
-				if reply.FinishReason != "" && reply.FinishReason != "stop" {
-					reply.Text = ""
-				}
-				actionKind, lookupDecision, err = a.prepareLocalAction(step, dispatchedAttempt, d, reply.Text)
-				if err != nil {
-					return result, err
-				}
-				if lookupDecision == nil {
-					reply.Text, lookupOutcome = unplannedCalculation(reply.Text, d.hits, d.lookupFiles)
-				}
-			} else {
-				reply.Text, lookupOutcome = calculationAnswer(reply.Text, d.hits, d.lookupFiles, d.operands)
-			}
-		case "answer", "review_evidence":
-			if reply.FinishReason != "" && reply.FinishReason != "stop" {
-				reply.Text = ""
-			}
-			if mode != fixedStep && localText {
-				if mode == batchedLookupActions {
-					actionKind = refineLookupAction
-					lookupDecision, lookupActionCount, err = a.prepareBatchedRefinement(step, dispatchedAttempt, d, reply.Text)
-				} else if mode >= durableLocalActions {
-					actionKind, lookupDecision, err = a.prepareLocalAction(step, dispatchedAttempt, d, reply.Text)
-				} else {
-					lookupDecision, err = a.prepareLookupTurn(step, dispatchedAttempt, d, reply.Text)
-				}
-				if err != nil {
-					return result, err
-				}
-			}
-			if lookupDecision == nil {
-				reply.Text, lookupOutcome = groundedAnswer(reply.Text, d.hits, d.lookupFiles)
-			}
-		case "synthesize":
-			if reply.FinishReason != "" && reply.FinishReason != "stop" {
-				reply.Text = ""
-			}
-			reply.Text, lookupOutcome = answerFromEvidence(reply.Text, d.hits, d.lookupFiles, false)
 		}
+		reply.Text, lookupOutcome = searchForGoal(reply.Text, d.lookupFiles, d.moneyGoal, fallback)
+	}
+	if callErr == nil && isEvidenceReply(d.lookupPhase) {
+		interpreted, err := a.interpretLookupReply(TextReplyRef{step, dispatchedAttempt}, d,
+			checkpointedReply{Text: reply.Text, FinishReason: reply.FinishReason}, mode, localText && d.routing.target == 0)
+		if err != nil {
+			return result, err
+		}
+		reply.Text, lookupOutcome = interpreted.text, interpreted.outcome
+		actionKind, lookupDecision, lookupActionCount = interpreted.kind, interpreted.decision, interpreted.groups
 	}
 	selectedTool := 0
 	if callErr == nil && d.routing.target > 0 {
@@ -1133,6 +1117,7 @@ type Node struct {
 	Calculation         bool
 	ToolChoice          bool
 	CheckpointText      bool
+	CheckpointEvidence  bool
 	observeLocalActions bool
 	batchLookupActions  bool
 }
@@ -1143,7 +1128,9 @@ func (a Activities) Topology(ctx context.Context, run string) ([]Node, error) {
         and not exists(select from rule_branch_steps b where (b.run_id,b.ordinal)=(r.id,e.depends_on) and b.mode='reuse')
         order by e.depends_on) end,agent_output_operation(ar)='png',n.lookup_phase in ('answer','review_evidence') and cb.run_id is null,n.lookup_phase='answer_calc' and cb.run_id is null,
         cb.run_id is null and exists(select from plan_tool_choices c where (c.project_id,c.plan_version,c.ordinal)=(n.project_id,n.plan_version,n.ordinal)),
-        cb.run_id is null and n.lookup_phase='' and ar.resource_id is not null and ar.tool is null and ar.card is null and agent_output_operation(ar)='text'
+        cb.run_id is null and n.lookup_phase='' and ar.resource_id is not null and ar.tool is null and ar.card is null and agent_output_operation(ar)='text',
+        cb.run_id is null and n.lookup_phase in ('answer','answer_calc','review_evidence','synthesize')
+        and ar.resource_id is not null and ar.tool is null and ar.card is null and agent_output_operation(ar)='text'
         from runs r left join change_batches cb on cb.run_id=r.id left join artifacts target on target.id=cb.artifact_id
         join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version)
         join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision)
@@ -1193,10 +1180,16 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 				nodes[i].CheckpointText = false
 			}
 		}
+		if workflow.GetVersion(ctx, "evidence-reply-checkpoints", workflow.DefaultVersion, 1) == workflow.DefaultVersion {
+			for i := range nodes {
+				nodes[i].CheckpointEvidence = false
+			}
+		}
 		return scheduleIndependentSteps(ctx, run, nodes, lookupTurns, localActions)
 	}
 	for i := range nodes {
 		nodes[i].CheckpointText = false
+		nodes[i].CheckpointEvidence = false
 	}
 	done := map[int]bool{}
 	control := workflow.GetSignalChannel(ctx, "control")

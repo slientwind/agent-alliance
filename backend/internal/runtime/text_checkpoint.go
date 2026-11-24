@@ -31,6 +31,7 @@ func (ref TextReplyRef) scope() string {
 type checkpointedReply struct {
 	Text         string
 	FinishReason string
+	Evidence     *lookupReplyEvidence `json:",omitempty"`
 }
 
 func (reply checkpointedReply) complete() bool {
@@ -77,7 +78,7 @@ func (a Activities) recordTextReply(ctx context.Context, ref TextReplyRef, d con
 		var payload []byte
 		if usable {
 			state = "pending"
-			data, err := json.Marshal(checkpointedReply{Text: reply.Text, FinishReason: reply.FinishReason})
+			data, err := json.Marshal(checkpointedReply{Text: reply.Text, FinishReason: reply.FinishReason, Evidence: d.frozenLookup})
 			if err != nil {
 				return err
 			}
@@ -123,19 +124,30 @@ func lockReplyInputs(ctx context.Context, tx pgx.Tx, ref TextReplyRef, d context
 // CommitTextReply adopts one recorded response. Activity retries use the
 // checkpoint and never enter the inference or budget-reservation path.
 func (a Activities) CommitTextReply(ctx context.Context, ref TextReplyRef) (Result, error) {
+	return a.commitModelReply(ctx, ref, false)
+}
+
+// Keep the evidence Activity distinct so an older worker cannot adopt a
+// numbered lookup reply as an ordinary text candidate.
+func (a Activities) CommitEvidenceReply(ctx context.Context, ref TextReplyRef) (Result, error) {
+	return a.commitModelReply(ctx, ref, true)
+}
+
+func (a Activities) commitModelReply(ctx context.Context, ref TextReplyRef, evidence bool) (Result, error) {
 	step := ref.Step
 	var result Result
 	err := database.WithTx(ctx, a.Catalog.DB, func(tx pgx.Tx) error {
 		var d contextData
 		var status string
 		var attempt int
+		var published bool
 		if err := tx.QueryRow(ctx, `select r.project_id,r.actor,r.status,r.plan_version,r.max_calls,r.control_revision,
-            n.agent_id,n.agent_revision,i.attempt_no,`+runSkillTaskSQL+`
+            n.agent_id,n.agent_revision,n.lookup_phase,i.attempt_no,i.result is not null,`+runSkillTaskSQL+`
             from runs r join plans p on (p.project_id,p.version)=(r.project_id,r.plan_version)
             join effective_run_nodes n on n.run_id=r.id join invocations i on (i.run_id,i.ordinal)=(n.run_id,n.ordinal)
             where (r.id,n.ordinal)=($1,$2) for update of r`, step.Run, step.Ordinal).
 			Scan(&d.project, &d.actor, &status, &d.planVersion, &d.maximum, &d.controlRevision,
-				&d.agent, &d.revision, &attempt, &d.skillTask); err != nil {
+				&d.agent, &d.revision, &d.lookupPhase, &attempt, &published, &d.skillTask); err != nil {
 			return err
 		}
 		result.More = step.Ordinal < d.maximum
@@ -143,6 +155,9 @@ func (a Activities) CommitTextReply(ctx context.Context, ref TextReplyRef) (Resu
 		result.Wait = !result.Stop && (status != "running" || attempt != ref.Attempt)
 		if result.Stop || result.Wait {
 			return nil
+		}
+		if evidence != isEvidenceReply(d.lookupPhase) {
+			return errors.New("recorded reply does not belong to this activity")
 		}
 		usable, err := lockReplyInputs(ctx, tx, ref, d)
 		if err != nil {
@@ -154,7 +169,7 @@ func (a Activities) CommitTextReply(ctx context.Context, ref TextReplyRef) (Resu
             where (run_id,ordinal,attempt_no)=($1,$2,$3)`, step.Run, step.Ordinal, ref.Attempt).Scan(&state, &payload); err != nil {
 			return err
 		}
-		if state == "consumed" {
+		if state == "consumed" && (published || !isEvidenceReply(d.lookupPhase)) {
 			return nil
 		}
 		if !usable || state == "discarded" {
@@ -184,7 +199,20 @@ func (a Activities) CommitTextReply(ctx context.Context, ref TextReplyRef) (Resu
 		if _, _, err := a.Catalog.ResolveRunTask(ctx, tx, d.project, d.actor, d.agent, d.revision, d.skillTask); err != nil {
 			return blockUnavailableAgent(ctx, tx, step, d, &result, err)
 		}
-		if _, _, err := knowledge.Inputs(ctx, tx, step.Run); err != nil {
+		if state == "consumed" {
+			found, err := resumeLookupTurn(ctx, tx, step, d, ref.Attempt, &result)
+			if err != nil || found {
+				return err
+			}
+			return errors.New("lookup reply was consumed without a candidate or decision")
+		}
+		var files []knowledge.InputSource
+		if isEvidenceReply(d.lookupPhase) {
+			_, files, err = knowledge.RunInputs(ctx, tx, step.Run, step.Ordinal, false)
+		} else {
+			_, _, err = knowledge.Inputs(ctx, tx, step.Run)
+		}
+		if err != nil {
 			var problem web.Problem
 			if !errors.As(err, &problem) {
 				return err
@@ -204,34 +232,75 @@ func (a Activities) CommitTextReply(ctx context.Context, ref TextReplyRef) (Resu
 			}
 			return setState(ctx, tx, step, d.project, "blocked", "model_reply_unreadable", "原模型回包无法核对，请联系维护人")
 		}
-		if err := d.routing.load(ctx, tx, step.Run, step.Ordinal); err != nil {
+		if isEvidenceReply(d.lookupPhase) || reply.Evidence != nil {
+			return a.adoptLookupReply(ctx, tx, ref, d, reply, files, status, &result)
+		}
+		return a.adoptPlainReply(ctx, tx, ref, d, reply, &result)
+	})
+	return result, err
+}
+
+func (a Activities) adoptLookupReply(ctx context.Context, tx pgx.Tx, ref TextReplyRef, d contextData, reply checkpointedReply, files []knowledge.InputSource, status string, result *Result) error {
+	if reply.Evidence == nil || !reply.Evidence.restore(&d, files) {
+		result.Wait = true
+		if err := retireTextReply(ctx, tx, ref, "discarded"); err != nil {
 			return err
 		}
-		if d.routing.target > 0 {
-			if !reply.complete() {
-				reply.Text = ""
-			}
-			choice, text := d.routing.accept(reply.Text, reply.FinishReason)
-			if err := d.routing.record(ctx, tx, step, choice); err != nil {
-				return err
-			}
-			reply.Text = text
-		} else if !reply.complete() {
-			if err := retireTextReply(ctx, tx, ref, "incomplete"); err != nil {
-				return err
-			}
-			return blockIncompleteReply(ctx, tx, step, d.project, &result)
-		}
+		return setState(ctx, tx, ref.Step, d.project, "blocked", "lookup_reply_input_changed", lookupReplyChanged)
+	}
+	d.frozenLookup = reply.Evidence
+	interpreted, err := a.interpretLookupReply(ref, d, reply, checkpointedLookupReply, true)
+	if err != nil {
+		return err
+	}
+	if interpreted.decision != nil {
 		if err := retireTextReply(ctx, tx, ref, "consumed"); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `update invocations set result=$4
-            where (run_id,ordinal,attempt_no)=($1,$2,$3)`, step.Run, step.Ordinal, ref.Attempt, reply.Text); err != nil {
+		return saveLookupDecision(ctx, tx, ref.Step, d, ref.Attempt, d.controlRevision, status, interpreted.kind,
+			interpreted.decision, true, interpreted.groups, result)
+	}
+	if interpreted.outcome != "" {
+		if _, err := tx.Exec(ctx, "insert into trace_events(run_id,ordinal,kind,code) values($1,$2,'checkpoint',$3)",
+			ref.Step.Run, ref.Step.Ordinal, interpreted.outcome); err != nil {
 			return err
 		}
-		return commitOutput(ctx, tx, step, d, reply.Text, &result)
-	})
-	return result, err
+	}
+	return publishTextReply(ctx, tx, ref, d, interpreted.text, result)
+}
+
+func (a Activities) adoptPlainReply(ctx context.Context, tx pgx.Tx, ref TextReplyRef, d contextData, reply checkpointedReply, result *Result) error {
+	step := ref.Step
+	if err := d.routing.load(ctx, tx, step.Run, step.Ordinal); err != nil {
+		return err
+	}
+	if d.routing.target > 0 {
+		if !reply.complete() {
+			reply.Text = ""
+		}
+		choice, text := d.routing.accept(reply.Text, reply.FinishReason)
+		if err := d.routing.record(ctx, tx, step, choice); err != nil {
+			return err
+		}
+		reply.Text = text
+	} else if !reply.complete() {
+		if err := retireTextReply(ctx, tx, ref, "incomplete"); err != nil {
+			return err
+		}
+		return blockIncompleteReply(ctx, tx, step, d.project, result)
+	}
+	return publishTextReply(ctx, tx, ref, d, reply.Text, result)
+}
+
+func publishTextReply(ctx context.Context, tx pgx.Tx, ref TextReplyRef, d contextData, text string, result *Result) error {
+	if err := retireTextReply(ctx, tx, ref, "consumed"); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `update invocations set result=$4
+        where (run_id,ordinal,attempt_no)=($1,$2,$3)`, ref.Step.Run, ref.Step.Ordinal, ref.Attempt, text); err != nil {
+		return err
+	}
+	return commitOutput(ctx, tx, ref.Step, d, text, result)
 }
 
 func retireTextReply(ctx context.Context, tx pgx.Tx, ref TextReplyRef, state string) error {
