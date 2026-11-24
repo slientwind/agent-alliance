@@ -353,6 +353,12 @@
 
 成员在「我的工作区 → 账号设置 → 钉钉账号绑定」领取并发送绑定指令。单聊发送「新建 工作目标」或「切换 项目ID」，接下来在原单聊发送「进度」「待办」或「补充 内容」。核对执行条件后，可发送待办给出的当前复查指令。附件、正式补件、审核和交付从链接进入原项目。会话回复地址失效后，可重新发送「进度」查看原项目的当前状态。
 
+### 在 Slack 或钉钉调用已发布服务
+
+在已绑定的单聊发送「服务」或「服务 关键词」，选取需要的服务 ID，再发送「发起 服务ID 工作目标」。预览列出目标、版本、调用次数、费用承担团队和最终确认人。十分钟内按提示在同一 Slack 线程或钉钉单聊确认，也可以从预览打开企业网页，对照原目标后附资料并确认。需要原件或包含第三方 Agent 的服务从网页核对并确认。
+
+网页受理后可在原会话查「进度」和「待办」，两边指向同一项目。重复确认可取回已有的任务。更换目标、预览过期或服务换版时，在原会话重新发起并核对。用「新建」或「切换」进入其他项目时，当前尚未确认的服务预览失效。
+
 ### 飞书任务入口
 
 为 API 配置企业实例的 HTTPS 外部地址 `PUBLIC_BASE_URL`，以及 `FEISHU_APP_ID`、`FEISHU_APP_SECRET`、`FEISHU_ENCRYPT_KEY`、`FEISHU_VERIFICATION_TOKEN`、`FEISHU_TENANT_KEY`。群内定向消息另需机器人的 `FEISHU_BOT_OPEN_ID`。企业自建应用须开通机器人、接收指定范围的消息和回复消息的权限，并发布到试用成员可用的范围。把加密事件订阅地址设成企业实例的 `/api/channels/feishu/events`，订阅 `im.message.receive_v1`。[接收消息事件](https://open.feishu.cn/document/server-docs/im-v1/message/events/receive) · [回复消息](https://open.feishu.cn/document/server-docs/im-v1/message/reply)

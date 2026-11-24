@@ -13,6 +13,7 @@ import (
 	"alliance/internal/database"
 	"alliance/internal/identity"
 	"alliance/internal/projects"
+	"alliance/internal/services"
 	"alliance/internal/web"
 	"github.com/jackc/pgx/v5"
 )
@@ -24,11 +25,12 @@ type imJob struct {
 	binding, project         *string
 	text                     string
 	sealed                   []byte
+	replyArgument            []byte
 	replyKind                string
 	attempts                 int
 }
 
-type imReply struct{ project, kind, note string }
+type imReply struct{ project, kind, note, argument string }
 
 func (s imChannel) boundMember(ctx context.Context, tx pgx.Tx, job imJob) (string, error) {
 	var actor string
@@ -79,6 +81,11 @@ func (s imChannel) command(ctx context.Context, tx pgx.Tx, job *imJob) (imReply,
 	if verb == "绑定" {
 		return imReply{note: s.name + " 身份已绑定。"}, nil
 	}
+	scope := services.ChannelConversation{Binding: *job.binding, Chat: job.chat, Thread: job.thread}
+	switch verb {
+	case "服务", "发起", "确认":
+		return s.serviceCommand(ctx, tx, scope, actor, verb, value)
+	}
 	var project string
 	if verb == "新建" || verb == "切换" {
 		if verb == "新建" {
@@ -93,6 +100,9 @@ func (s imChannel) command(ctx context.Context, tx pgx.Tx, job *imJob) (imReply,
 			project, err = imReadableProject(ctx, tx, value, actor)
 		}
 		if err != nil {
+			return imReply{}, err
+		}
+		if err := services.DiscardChannelLaunch(ctx, tx, scope); err != nil {
 			return imReply{}, err
 		}
 		_, err = tx.Exec(ctx, `insert into im_threads(binding_id,chat_id,thread_id,project_id) values($1,$2,$3,$4)

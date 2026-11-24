@@ -28,7 +28,7 @@ func (s imChannel) publicConfigured() bool {
 }
 
 func (s imChannel) conversationGuide() string {
-	return "发送“新建 工作目标”开始，或发送“切换 项目ID”接续原项目。后续在同一" + s.conversation + "发送“进度”“待办”或“补充 内容”。"
+	return "发送“服务”查找已发布服务，或发送“新建 工作目标”“切换 项目ID”进入项目对话。后续在同一" + s.conversation + "发送“进度”“待办”或“补充 内容”。"
 }
 
 type imMessage struct {

@@ -11,13 +11,22 @@ import (
 
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
+	"alliance/internal/resources"
 	"alliance/internal/web"
 	"github.com/jackc/pgx/v5"
 )
 
 func (s Server) entry(w http.ResponseWriter, r *http.Request, u identity.Member) error {
+	result, err := readEntry(r.Context(), s.DB, r.PathValue("id"), u.ID)
+	if err != nil {
+		return err
+	}
+	return web.JSON(w, 200, result)
+}
+
+func readEntry(ctx context.Context, q resources.Query, id, actor string) (json.RawMessage, error) {
 	var result json.RawMessage
-	err := s.DB.QueryRow(r.Context(), `select jsonb_build_object('id',s.id,'name',s.name,'version',v.version,'brief',v.instructions,'example',v.example_input,
+	err := q.QueryRow(ctx, `select jsonb_build_object('id',s.id,'name',s.name,'version',v.version,'brief',v.instructions,'example',v.example_input,
  'team',t.name,'reviewer',reviewer.display_name,'allowDocumentAttachments',`+serviceAcceptsDocuments+`,'requiresPictures',`+serviceUsesPictures+`,'editsImage',`+serviceEditsPicture+`,
  'ready',reviewer.enabled and exists(select from team_members tm where tm.team_id=s.team_id and tm.member_id=v.reviewer) and not exists(select from service_nodes n where(n.service_id,n.version)=(s.id,v.version) and not agent_admissible(n.agent_id,n.agent_revision,$2))
  and not exists(select from service_tool_choices c where (c.service_id,c.version)=(s.id,v.version) and not agent_admissible(c.alternative,c.alternative_revision,$2)),
@@ -28,11 +37,8 @@ func (s Server) entry(w http.ResponseWriter, r *http.Request, u identity.Member)
  where(c.service_id,c.version,c.ordinal)=(n.service_id,n.version,n.ordinal))) from service_nodes n join agent_revisions a on(a.agent_id,a.revision)=(n.agent_id,n.agent_revision) where(n.service_id,n.version)=(s.id,v.version) order by n.ordinal),
  'recent',array(select jsonb_build_object('id',p.id,'version',r.service_version,'stage',p.stage,'input',left(msg.body,75)) from runs r join projects p on p.id=r.project_id join project_members pm on pm.project_id=p.id and pm.member_id=$2 left join lateral(select body from messages where project_id=p.id and kind='user' order by seq limit 1)msg on true
  where r.service_id=s.id and r.actor=$2 order by p.created_at desc,p.id limit 20))
- from services s join service_versions v on(v.service_id,v.version)=(s.id,s.current_version) join teams t on t.id=s.team_id join team_members member on member.team_id=s.team_id and member.member_id=$2 join members reviewer on reviewer.id=v.reviewer where s.id=$1 and s.enabled`, r.PathValue("id"), u.ID).Scan(&result)
-	if err != nil {
-		return err
-	}
-	return web.JSON(w, 200, result)
+ from services s join service_versions v on(v.service_id,v.version)=(s.id,s.current_version) join teams t on t.id=s.team_id join team_members member on member.team_id=s.team_id and member.member_id=$2 join members reviewer on reviewer.id=v.reviewer where s.id=$1 and s.enabled`, id, actor).Scan(&result)
+	return result, err
 }
 
 // Attachment is the original file accepted by a service entry point.

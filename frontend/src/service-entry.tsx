@@ -26,6 +26,14 @@ type Entry = Omit<PublishedService, "calls"> & {
   steps: { toolChoice?: {name:string; revision:number;selector:number;primaryConfig:AggregationConfig;config:AggregationConfig;primaryRemote?: boolean; alternativeRemote?: boolean} | null; lookupPhase?: string; name: string; revision: number; operation: string }[];
   recent: { id: string; version: number; stage: string; input: string }[];
 };
+type ChannelLaunch = {
+  provider: string;
+  input?: string;
+  expiresAt: string;
+  entry?: Entry;
+  externalAgents?: string[];
+  receipt?: { id: string; project: string };
+};
 export function serviceURL(id: string) {
   return "/?" + new URLSearchParams({ service: id });
 }
@@ -98,6 +106,10 @@ function validateFiles(files: File[], formats: string[]) {
 }
 
 export function ServiceEntry({ id, member }: { id: string; member: string }) {
+  const channelLaunch = new URLSearchParams(location.search).get("channelLaunch");
+  const servicePath = "services/" + encodeURIComponent(id);
+  const channelPath = channelLaunch ? servicePath + "/channel-launches/" + encodeURIComponent(channelLaunch) : "";
+  const [channelView, setChannelView] = useState<ChannelLaunch | null>(null);
   const [entry, setEntry] = useState<Entry | null>(null),
     [loadError, setLoadError] = useState(""),
     [error, setError] = useState("");
@@ -105,30 +117,41 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
     [input, setInput] = useState(""),
     [files, setFiles] = useState<File[]>([]),
     [awaitReceipt, setAwaitReceipt] = useState(true),
-    [awaitLookup, setAwaitLookup] = useState(false),
+    [awaitLookup, setAwaitLookup] = useState(!!channelLaunch),
     [consent, setConsent] = useState(false),
     [busy, setBusy] = useState(false);
   const [fromGoal, setFromGoal] = useState("");
   useEffect(() => {
     let live = true;
     setEntry(null);
+    setChannelView(null);
     setConsent(false);
     setLoadError("");
-    api<Entry>("services/" + encodeURIComponent(id) + "/entry")
-      .then((data) => {
-        if (live) setEntry(data);
-      })
-      .catch((e) => {
-        if (live) setLoadError(e.message);
-      });
+    const load = async () => {
+      try {
+        if (channelPath) {
+          const data = await api<ChannelLaunch>(channelPath);
+          if (!live) return;
+          setChannelView(data);
+          setEntry(data.entry || null);
+          setInput(data.input || "");
+        } else {
+          const data = await api<Entry>(servicePath + "/entry");
+          if (live) setEntry(data);
+        }
+      } catch (err) {
+        if (live) setLoadError((err as Error).message);
+      }
+    };
+    void load();
     return () => {
       live = false;
     };
-  }, [id, refresh]);
+  }, [channelPath, servicePath, refresh]);
   useEffect(() => {
     let live = true;
     const from = new URLSearchParams(location.search).get("from");
-    if (from)
+    if (from && !channelPath)
       api<Project>("projects/" + encodeURIComponent(from))
         .then((p) => {
           if (live)
@@ -138,7 +161,7 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
     return () => {
       live = false;
     };
-  }, []);
+  }, [channelPath]);
   const needsCSV = !!entry?.steps.some(s => s.operation === "aggregate" && s.toolChoice);
   const allowsDocuments = !!entry?.allowDocumentAttachments && !needsCSV;
   const requiresPictures = !!entry?.requiresPictures;
@@ -165,14 +188,25 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
     setError("");
     try {
       const originals = await Promise.all(files.map(encodeAttachment));
-      const body = {
-        version: entry.version,
-        input,
-        authorizeCalls: entry.steps.length,
+      const inputOptions = {
         awaitCalculationReceipt: canAwaitReceipt && awaitReceipt ? true : undefined,
         awaitLookupReceipt: canAwaitLookup && awaitLookup ? true : undefined,
         attachment: originals.length === 1 ? originals[0] : undefined,
         attachments: originals.length > 1 ? originals : undefined,
+      };
+      if (channelPath) {
+        const result = await api<{ project: string }>(channelPath, "POST", {
+          acknowledged: true,
+          ...inputOptions,
+        });
+        location.assign("/#" + result.project);
+        return;
+      }
+      const body = {
+        version: entry.version,
+        input,
+        authorizeCalls: entry.steps.length,
+        ...inputOptions,
       };
       const digest = new Uint8Array(
         await crypto.subtle.digest(
@@ -194,11 +228,13 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
     } catch (err) {
       setError(
         err instanceof TypeError
-          ? "未收到提交回执，可使用相同输入重试，或在此服务的最近任务中核对。"
+          ? channelPath
+            ? "未收到提交回执，可重新打开同一入口核对，或重试确认。"
+            : "未收到提交回执，可使用相同输入重试，或在此服务的最近任务中核对。"
           : (err as Error).message,
       );
       if (err instanceof RequestError) {
-        if (err.status === 403 || err.status === 404 || err.status === 409) {
+        if (err.status === 403 || err.status === 404 || err.status === 409 || err.status === 410) {
           setRefresh((n) => n + 1);
         } else if (err.status === 401) {
           location.reload();
@@ -219,9 +255,15 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
         {loadError ? (
           <>
             <p role="alert">{loadError}</p>
+            {channelPath && <p>可回到发送预览的原单聊重新发起。</p>}
             <button onClick={() => setRefresh((n) => n + 1)}>
               重新读取服务
             </button>
+          </>
+        ) : channelView?.receipt ? (
+          <>
+            <h1>服务任务已受理</h1>
+            <a href={"/#" + channelView.receipt.project}>打开原任务</a>
           </>
         ) : !entry ? (
           <p role="status">正在读取服务…</p>
@@ -232,6 +274,7 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
             <small>
               {entry.team} · v{entry.version} · 最终确认人 {entry.reviewer}
             </small>
+            {channelView && <p>接续{channelView.provider === "slack" ? " Slack" : "钉钉"}预览 · 确认有效至 {new Date(channelView.expiresAt).toLocaleTimeString()}</p>}
             <details>
               <summary>协作步骤 · {entry.steps.length}</summary>
               <ol>
@@ -266,6 +309,7 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
                   value={input}
                   required
                   disabled={busy}
+                  readOnly={!!channelPath}
                   onChange={(e) => {
                     setInput(e.target.value);
                     setConsent(false);
@@ -319,7 +363,7 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
               </div>
               <small>{allowsDocuments ? "原件合计最多 8 MiB，可读取文字合计最多 96 KiB。" : "文本文件合计最多 96 KiB。"}</small>
               <div className="actions">
-                {entry.example && (
+                {!channelPath && entry.example && (
                   <button
                     disabled={busy}
                     type="button"
@@ -331,7 +375,7 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
                     使用发布者示例
                   </button>
                 )}
-                {fromGoal && (
+                {!channelPath && fromGoal && (
                   <button
                     disabled={busy}
                     type="button"
@@ -374,7 +418,9 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
                   />{" "}
                   授权本次最多 {entry.steps.length} 次调用，由{entry.team}
                   承担实际费用。
-                  {entry.steps.some(step => step.toolChoice?.primaryRemote || step.toolChoice?.alternativeRemote) &&
+                  {channelView?.externalAgents?.length
+                    ? "本次获准的输入和相关前置成果可能发送给第三方 Agent " + channelView.externalAgents.join("、") + "。"
+                    : entry.steps.some(step => step.toolChoice?.primaryRemote || step.toolChoice?.alternativeRemote) &&
                     "若选中第三方候选，本次授权的输入及相关前置成果会发送给该 Agent。"}
                 </label>
               ) : (
@@ -387,7 +433,7 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
                 className="primary"
                 disabled={!entry.ready || !input.trim() || !consent || busy || missingFile}
               >
-                {busy ? "正在受理…" : "确认并启动对话"}
+                {busy ? "正在受理…" : channelPath ? "确认并启动原委托" : "确认并启动对话"}
               </button>
             </form>
             {entry.recent.length > 0 && (

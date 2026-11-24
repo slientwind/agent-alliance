@@ -137,34 +137,38 @@ func (f Feishu) setProject(ctx context.Context, tx pgx.Tx, chat, actor, project 
 	return err
 }
 
+func memberServiceCatalog(ctx context.Context, tx pgx.Tx, actor, arg string) (string, error) {
+	rows, err := tx.Query(ctx, `select s.id,s.name,s.current_version from services s join team_members tm on tm.team_id=s.team_id
+    where tm.member_id=$1 and s.enabled and strpos(lower(s.name),lower($2))>0 order by s.name,s.id limit 9`, actor, arg)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	var lines []string
+	for rows.Next() {
+		var id, name string
+		var v int
+		if err = rows.Scan(&id, &name, &v); err != nil {
+			return "", err
+		}
+		if len(lines) == 8 {
+			lines = append(lines, "更多结果请发送“服务 关键词”。")
+			break
+		}
+		lines = append(lines, fmt.Sprintf("%s · v%d\n%s", name, v, id))
+	}
+	if err = rows.Err(); err != nil {
+		return "", err
+	}
+	if len(lines) == 0 {
+		return "当前没有匹配的已发布服务。", nil
+	}
+	return strings.Join(lines, "\n") + "\n发送“发起 服务ID 工作目标”查看本次调用范围。", nil
+}
+
 func (f Feishu) serviceMessage(ctx context.Context, tx pgx.Tx, actor, kind, arg string) (string, error) {
 	if kind == "catalog" {
-		rows, err := tx.Query(ctx, `select s.id,s.name,s.current_version from services s join team_members tm on tm.team_id=s.team_id
-    where tm.member_id=$1 and s.enabled and strpos(lower(s.name),lower($2))>0 order by s.name,s.id limit 9`, actor, arg)
-		if err != nil {
-			return "", err
-		}
-		defer rows.Close()
-		var lines []string
-		for rows.Next() {
-			var id, name string
-			var v int
-			if err = rows.Scan(&id, &name, &v); err != nil {
-				return "", err
-			}
-			if len(lines) == 8 {
-				lines = append(lines, "更多结果请发送“服务 关键词”。")
-				break
-			}
-			lines = append(lines, fmt.Sprintf("%s · v%d\n%s", name, v, id))
-		}
-		if err = rows.Err(); err != nil {
-			return "", err
-		}
-		if len(lines) == 0 {
-			return "当前没有匹配的已发布服务。", nil
-		}
-		return strings.Join(lines, "\n") + "\n发送“发起 服务ID 工作目标”查看本次调用范围。", nil
+		return memberServiceCatalog(ctx, tx, actor, arg)
 	}
 	var name, team, input, reviewer, brief, service, fileName string
 	var version, calls int

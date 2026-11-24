@@ -32,6 +32,8 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 	for p, h := range map[string]identity.Action{"GET /api/services": s.list, "GET /api/services/{id}/access": s.access, "GET /api/services/{id}/entry": s.entry, "POST /api/services/{id}/delegate": s.delegate, "DELETE /api/delegations/{id}": s.revokeDelegation, "POST /api/services/{id}/chat": s.chat} {
 		m.Handle(p, g.Protect(false, h))
 	}
+	m.Handle("GET /api/services/{id}/channel-launches/{launch}", g.Protect(false, s.channelLaunchEntry))
+	m.Handle("POST /api/services/{id}/channel-launches/{launch}", g.Protect(false, s.confirmChannelLaunch))
 	for p, h := range map[string]identity.Action{"POST /api/services": s.publish, "GET /api/services/{id}/versions": s.serviceVersions, "GET /api/services/{id}/versions/{version}/preflight": s.rollbackPreview, "POST /api/services/{id}/rollback": s.rollback, "POST /api/services/{id}/applications": s.issue, "DELETE /api/applications/{id}": s.revokeApp} {
 		m.Handle(p, g.Protect(true, h))
 	}
@@ -436,75 +438,97 @@ func checkServiceAdmission(ctx context.Context, tx pgx.Tx, id string, version in
 }
 
 type serviceAdmission struct {
-	team, reviewer, instructions, name string
-	count                              int
+	team, reviewer, instructions, name, teamName, reviewerName string
+	version, currentVersion, routingRevision, count            int
+	calculation, lookup, csvChoice, needsSource                bool
+	acceptsDocuments, usesPictures, editsPicture               bool
 }
 
-func admitService(ctx context.Context, tx pgx.Tx, sub subject, input request) (info serviceAdmission, err error) {
-	var currentVersion int
-	var calculation, lookup, csvChoice, needsSource, acceptsDocuments, usesPictures, editsPicture bool
-	err = tx.QueryRow(ctx, `select s.team_id,v.reviewer,v.instructions,coalesce(v.name,s.name),s.current_version,
+// A zero version selects the current publication for a new member preview.
+func readServiceAdmission(ctx context.Context, tx pgx.Tx, sub subject, version int) (info serviceAdmission, err error) {
+	err = tx.QueryRow(ctx, `select s.team_id,v.reviewer,v.instructions,coalesce(v.name,s.name),team.name,m.display_name,
+ v.version,s.current_version,s.routing_revision,
  (select count(*) from service_nodes where service_id=s.id and version=v.version),
  exists(select from service_nodes where service_id=s.id and version=v.version and lookup_phase='answer_calc'),
  exists(select from service_nodes where service_id=s.id and version=v.version and lookup_phase='answer'),
  service_requires_csv_choice(s.id,v.version),
  exists(select from service_nodes where service_id=s.id and version=v.version and lookup_phase='search'), `+serviceAcceptsDocuments+`, `+serviceUsesPictures+`, `+serviceEditsPicture+`
- from services s join service_versions v on v.service_id=s.id join team_members t on t.team_id=s.team_id
- join members m on m.id=v.reviewer and m.enabled where s.id=$1 and v.version=$2 and s.enabled and t.member_id=$3
- and exists(select from team_members where team_id=s.team_id and member_id=v.reviewer) for share of s,t,m`,
-		sub.Service, input.Version, sub.Actor).Scan(&info.team, &info.reviewer, &info.instructions, &info.name, &currentVersion, &info.count, &calculation, &lookup, &csvChoice, &needsSource, &acceptsDocuments, &usesPictures, &editsPicture)
+ from services s join service_versions v on v.service_id=s.id join teams team on team.id=s.team_id
+ join team_members t on t.team_id=s.team_id and t.member_id=$3
+ join members m on m.id=v.reviewer and m.enabled
+ join team_members reviewer on (reviewer.team_id,reviewer.member_id)=(s.team_id,v.reviewer)
+ where s.id=$1 and v.version=coalesce(nullif($2,0),s.current_version) and s.enabled
+ for share of s,t,m,reviewer`,
+		sub.Service, version, sub.Actor).Scan(&info.team, &info.reviewer, &info.instructions, &info.name, &info.teamName, &info.reviewerName,
+		&info.version, &info.currentVersion, &info.routingRevision, &info.count, &info.calculation, &info.lookup,
+		&info.csvChoice, &info.needsSource, &info.acceptsDocuments, &info.usesPictures, &info.editsPicture)
 	if err != nil {
 		return info, err
 	}
-	if sub.App == "" && currentVersion != input.Version {
+	if sub.App == "" && info.currentVersion != info.version {
 		return info, web.Fail(409, "服务已换版，请核对新版本后重新确认")
 	}
-	if err = checkServiceAdmission(ctx, tx, sub.Service, input.Version, sub.Actor); err != nil {
+	if err = checkServiceAdmission(ctx, tx, sub.Service, info.version, sub.Actor); err != nil {
 		return info, err
 	}
-	if input.AwaitCalculationReceipt && !calculation {
-		return info, web.Fail(422, "该服务版本没有可等待补件的金额核算步骤")
+	return info, nil
+}
+
+func admitService(ctx context.Context, tx pgx.Tx, sub subject, input request) (serviceAdmission, error) {
+	if input.Version <= 0 {
+		return serviceAdmission{}, pgx.ErrNoRows
 	}
-	if input.AwaitLookupReceipt && !lookup {
-		return info, web.Fail(422, "该服务版本没有可等待补件的原文问答步骤")
+	info, err := readServiceAdmission(ctx, tx, sub, input.Version)
+	if err != nil {
+		return info, err
+	}
+	return info, info.validateInput(input)
+}
+
+func (info serviceAdmission) validateInput(input request) error {
+	if input.AwaitCalculationReceipt && !info.calculation {
+		return web.Fail(422, "该服务版本没有可等待补件的金额核算步骤")
+	}
+	if input.AwaitLookupReceipt && !info.lookup {
+		return web.Fail(422, "该服务版本没有可等待补件的原文问答步骤")
 	}
 	pictures := input.pictureCount()
-	if editsPicture && pictures != 1 {
-		return info, web.Fail(422, "参考图编辑服务需要恰好一张 PNG 或 JPEG 原件")
+	if info.editsPicture && pictures != 1 {
+		return web.Fail(422, "参考图编辑服务需要恰好一张 PNG 或 JPEG 原件")
 	}
-	if usesPictures && pictures == 0 {
-		return info, web.Fail(422, "此服务需要附上 PNG 或 JPEG 图片")
+	if info.usesPictures && pictures == 0 {
+		return web.Fail(422, "此服务需要附上 PNG 或 JPEG 图片")
 	}
-	if !usesPictures && pictures > 0 {
-		return info, web.Fail(422, "此服务没有读取图片的步骤，请移除图片或选用支持图片的服务")
+	if !info.usesPictures && pictures > 0 {
+		return web.Fail(422, "此服务没有读取图片的步骤，请移除图片或选用支持图片的服务")
 	}
 	files := input.files()
-	if input.hasDocuments() && !acceptsDocuments {
-		return info, web.Fail(422, "此服务的汇总步骤需要 CSV 资料，请改用 CSV 后再启动")
+	if input.hasDocuments() && !info.acceptsDocuments {
+		return web.Fail(422, "此服务的汇总步骤需要 CSV 资料，请改用 CSV 后再启动")
 	}
-	if csvChoice {
+	if info.csvChoice {
 		if len(files) == 0 {
-			return info, web.Fail(422, "此服务需要 CSV 资料以选择并执行汇总")
+			return web.Fail(422, "此服务需要 CSV 资料以选择并执行汇总")
 		}
 		for _, file := range files {
 			if !strings.EqualFold(filepath.Ext(file.Name), ".csv") {
-				return info, web.Fail(422, "此服务需要 CSV 资料以选择并执行汇总")
+				return web.Fail(422, "此服务需要 CSV 资料以选择并执行汇总")
 			}
 		}
 	}
 	if input.AuthorizeCalls != info.count {
-		return info, web.Fail(422, "本次调用范围与服务步骤数不符")
+		return web.Fail(422, "本次调用范围与服务步骤数不符")
 	}
-	if needsSource {
+	if info.needsSource {
 		textSource := false
 		for _, file := range files {
 			textSource = textSource || knowledge.PictureMedia(file.Name) == ""
 		}
 		if !textSource {
-			return info, web.Fail(422, "此服务需要一份可读资料以检索原文")
+			return web.Fail(422, "此服务需要一份可读资料以检索原文")
 		}
 	}
-	return info, nil
+	return nil
 }
 
 // CheckMemberAttachment verifies scope and the named input before fetching an original.

@@ -51,11 +51,18 @@ func (s imChannel) expireJobs(ctx context.Context) error {
           (received_at<=now()-interval '1 hour' or reply_expires_at<=now()))
         limit 128 for update skip locked
       ) update im_events e set state=case when x.state='sending' then 'unknown' else 'suppressed' end,
-        payload=null,reply_target=null,note='' from expired x where (e.connection,e.event_id)=($1,x.event_id)`, s.key); err != nil {
+        payload=null,reply_target=null,reply_argument=null,note='' from expired x where (e.connection,e.event_id)=($1,x.event_id)`, s.key); err != nil {
 		return err
 	}
 	if _, err := s.db.Exec(ctx, `delete from im_events where connection=$1 and state in ('sent','unknown','failed','suppressed')
         and received_at<=now()-interval '7 days'`, s.key); err != nil {
+		return err
+	}
+	if _, err := s.db.Exec(ctx, `with expired as (
+        select p.id from im_service_launches p join im_bindings b on b.id=p.binding_id
+        where b.connection=$1 and (p.run_id is null and p.expires_at<=now() or p.accepted_at<=now()-interval '7 days')
+        order by coalesce(p.accepted_at,p.expires_at) limit 128 for update of p skip locked
+      ) delete from im_service_launches p using expired x where p.id=x.id`, s.key); err != nil {
 		return err
 	}
 	_, err := s.db.Exec(ctx, "delete from im_binding_codes where connection=$1 and expires_at<=now()", s.key)
@@ -107,9 +114,16 @@ func (s imChannel) processNext(ctx context.Context) error {
                 where (connection,event_id)=($1,$2)`, s.key, job.id)
 			return err
 		}
-		_, err = tx.Exec(ctx, `update im_events set binding_id=$3,project_id=nullif($4,'')::uuid,reply_kind=$5,note=$6,
+		var argument []byte
+		if reply.kind == imServiceCatalog || reply.kind == imServicePreview {
+			argument, err = s.vault.Seal(reply.argument, s.eventScope(job.id)+"/reply-argument")
+			if err != nil {
+				return err
+			}
+		}
+		_, err = tx.Exec(ctx, `update im_events set binding_id=$3,project_id=nullif($4,'')::uuid,reply_kind=$5,note=$6,reply_argument=$7,
           state='ready',payload=null,next_at=clock_timestamp() where (connection,event_id)=($1,$2)`,
-			s.key, job.id, job.binding, reply.project, reply.kind, reply.note)
+			s.key, job.id, job.binding, reply.project, reply.kind, reply.note, argument)
 		return err
 	})
 }
@@ -150,9 +164,9 @@ func (s imChannel) deliverNext(ctx context.Context, send imSender, format imForm
 	return database.WithTx(ctx, s.db, func(tx pgx.Tx) error {
 		var job imJob
 		job.id = id
-		err := tx.QueryRow(ctx, `select chat_id,thread_id,external_user,binding_id,project_id,note,reply_kind,attempts,reply_target,reply_expires_at
+		err := tx.QueryRow(ctx, `select chat_id,thread_id,external_user,binding_id,project_id,note,reply_kind,attempts,reply_target,reply_expires_at,reply_argument
           from im_events where (connection,event_id)=($1,$2) and state='sending' and next_at>now() for update`, s.key, id).
-			Scan(&job.chat, &job.thread, &job.sender, &job.binding, &job.project, &job.text, &job.replyKind, &job.attempts, &job.replyTarget, &job.replyExpiry)
+			Scan(&job.chat, &job.thread, &job.sender, &job.binding, &job.project, &job.text, &job.replyKind, &job.attempts, &job.replyTarget, &job.replyExpiry, &job.replyArgument)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -183,6 +197,9 @@ func (s imChannel) authorizeReply(ctx context.Context, tx pgx.Tx, job imJob, for
 	if job.replyKind == "" {
 		return format(job.text, ""), nil
 	}
+	if job.replyKind == imServiceCatalog || job.replyKind == imServicePreview {
+		return s.serviceReply(ctx, tx, job, actor, format)
+	}
 	if job.project == nil || actor == "" {
 		return "", pgx.ErrNoRows
 	}
@@ -202,7 +219,7 @@ func (s imChannel) authorizeReply(ctx context.Context, tx pgx.Tx, job imJob, for
 
 func (s imChannel) finishReply(ctx context.Context, tx pgx.Tx, id, state string, delay time.Duration) error {
 	_, err := tx.Exec(ctx, `update im_events set state=$3,payload=null,note=case when $3='ready' then note else '' end,
-        reply_target=case when $3='ready' then reply_target end,
+        reply_target=case when $3='ready' then reply_target end,reply_argument=case when $3='ready' then reply_argument end,
         next_at=clock_timestamp()+make_interval(secs=>$4) where (connection,event_id)=($1,$2)`, s.key, id, state, delay.Seconds())
 	return err
 }
