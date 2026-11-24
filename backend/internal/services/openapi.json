@@ -914,6 +914,10 @@
                 "canSupplement": {
                   "type": "boolean"
                 },
+                "upstreamExcerpted": {
+                  "type": "boolean",
+                  "description": "当前调用的有权上游结果是否按容量逐字摘录。完整输入或摘录的范围记录在原项目的调用详情。"
+                },
                 "lookupBatch": {
                   "type": "object",
                   "description": "当前正在检索或核对的分组及本次计划组数。该进度不代表候选已生成。",

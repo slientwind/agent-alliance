@@ -378,9 +378,11 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
     'sources',count(*) filter(where d.kind='source'),'preferences',count(*) filter(where d.kind='preference'),
     'rules',count(*) filter(where d.kind='rule'),
     'parents',(select count(*) from run_working_parents p where (p.run_id,p.ordinal,p.attempt_no)=(i.run_id,i.ordinal,i.attempt_no)),
+    'upstreamContext',case when run_working_set_usable(i.run_id,i.ordinal,i.attempt_no) then c.upstream_context end,
     'usable',run_working_set_usable(i.run_id,i.ordinal,i.attempt_no))
     from run_working_sets c left join run_working_inputs d using(run_id,ordinal,attempt_no)
     where (c.run_id,c.ordinal,c.attempt_no)=(i.run_id,i.ordinal,i.attempt_no)
+    group by c.upstream_context
     having count(c.run_id)>0) end,'callReview',`+callReviewSummarySQL+`,'remote',`+remoteSummarySQL+`,'tokens',case when m.can_view_costs or p.owner=$1 then tokens end,'diagnostic',case when r.trace_expires_at is null or r.trace_expires_at>clock_timestamp() then diagnostic end) order by ordinal),'[]') from invocations i where run_id=r.id)) from runs r where project_id=p.id and not exists(select from change_batches cb where cb.run_id=r.id) order by created_at desc limit 1))`+access+"and p.id=$2", u.ID, id).Scan(&result)
 	if err != nil {
 		return err

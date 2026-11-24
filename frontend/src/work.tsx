@@ -745,8 +745,11 @@ export function Work({
             )}{" "}
             项
           </summary>
-          {p.run.attempts.map((a) => (
-            <div key={a.step}>
+          {p.run.attempts.map((a) => {
+            const excerpts = a.workingSet?.usable
+              ? a.workingSet.upstreamContext?.filter(entry => entry.headBytes < entry.tailFrom) ?? []
+              : [];
+            return <div key={a.step}>
               <p>
                 步骤 {a.step}
                 {a.callReview &&
@@ -770,8 +773,23 @@ export function Work({
                     : "原上下文已失效"}
                 </p>
               )}
-            </div>
-          ))}
+              {excerpts.length > 0 && (
+                <details>
+                  <summary>已摘录 {excerpts.length} 项上游结果</summary>
+                  <ul>
+                    {excerpts.map(entry => (
+                      <li key={entry.step}>
+                        步骤 {entry.step}
+                        {entry.version ? ` · 成果 v${entry.version}` : entry.originAttempt ? ` · 第 ${entry.originAttempt} 次调用` : ""}
+                        {" · 送入 " + (entry.headBytes + entry.totalBytes - entry.tailFrom).toLocaleString() +
+                          " / " + entry.totalBytes.toLocaleString() + " 字节"}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>;
+          })}
           {p.run.attempts.map((a) => (
             <CallRecovery
               project={p.id}

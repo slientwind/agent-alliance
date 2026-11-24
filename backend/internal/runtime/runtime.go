@@ -4,6 +4,7 @@ import (
 	"alliance/internal/billing"
 	"alliance/internal/builder"
 	"alliance/internal/database"
+	"alliance/internal/harness"
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
 	"alliance/internal/memory"
@@ -38,6 +39,8 @@ type Step struct {
 	Run     string
 	Ordinal int
 }
+
+const upstreamResultsLabel = "上一步成果供参考：\n"
 
 func runEnded(state string) bool {
 	return state == "completed" || state == "cancelled" || state == "failed"
@@ -141,7 +144,8 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		var runState string
 		var selector, choice *int
 		var stepToolChoice bool
-		err := tx.QueryRow(ctx, `select r.project_id,r.actor,n.agent_id,n.agent_revision,p.brief,r.status,r.max_calls,n.lookup_phase,r.await_calculation_receipt,r.await_lookup_receipt,exists(select from nodes next where n.lookup_phase='search' and (next.project_id,next.plan_version,next.ordinal)=(n.project_id,n.plan_version,n.ordinal+1) and next.lookup_phase='answer_calc'),exists(select from change_batches where run_id=r.id),n.selector,n.choice,r.plan_version,r.control_revision,r.service_id is null,r.step_tool_choice from runs r join plans p on(p.project_id,p.version)=(r.project_id,r.plan_version) join effective_run_nodes n on n.run_id=r.id where r.id=$1 and n.ordinal=$2 for update of r`, step.Run, step.Ordinal).Scan(&d.project, &d.actor, &d.agent, &d.revision, &d.brief, &runState, &d.maximum, &d.lookupPhase, &d.awaitReceipt, &d.awaitLookupReceipt, &d.searchForCalculation, &d.change, &selector, &choice, &d.planVersion, &d.controlRevision, &d.memberDraft, &stepToolChoice)
+		var boundedUpstream bool
+		err := tx.QueryRow(ctx, `select r.project_id,r.actor,n.agent_id,n.agent_revision,p.brief,r.status,r.max_calls,n.lookup_phase,r.await_calculation_receipt,r.await_lookup_receipt,exists(select from nodes next where n.lookup_phase='search' and (next.project_id,next.plan_version,next.ordinal)=(n.project_id,n.plan_version,n.ordinal+1) and next.lookup_phase='answer_calc'),exists(select from change_batches where run_id=r.id),n.selector,n.choice,r.plan_version,r.control_revision,r.service_id is null,r.step_tool_choice,r.bounded_upstream_context from runs r join plans p on(p.project_id,p.version)=(r.project_id,r.plan_version) join effective_run_nodes n on n.run_id=r.id where r.id=$1 and n.ordinal=$2 for update of r`, step.Run, step.Ordinal).Scan(&d.project, &d.actor, &d.agent, &d.revision, &d.brief, &runState, &d.maximum, &d.lookupPhase, &d.awaitReceipt, &d.awaitLookupReceipt, &d.searchForCalculation, &d.change, &selector, &choice, &d.planVersion, &d.controlRevision, &d.memberDraft, &stepToolChoice, &boundedUpstream)
 		if err != nil {
 			return err
 		}
@@ -358,14 +362,28 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		d.prompt = prompt
 		officeChoice := selector != nil && m.Tool != nil && m.Tool.Operation != "aggregate"
 		kind := "execution"
+		var upstream []memory.UpstreamSlice
 		if d.change {
 			kind = "revision"
 		} else {
-			controlStep := 0
-			if officeChoice {
-				controlStep = *selector
+			if boundedUpstream && d.lookupPhase == "" && d.routing.target == 0 && !m.External && m.Tool == nil && m.OutputOperation == "text" {
+				budget := harness.ExecutionTextBytes - len(d.prompt) - len(d.brief) - len(upstreamResultsLabel)
+				var inputs []memory.UpstreamInput
+				inputs, err = memory.ReadUpstream(ctx, tx, step.Run, step.Ordinal, budget)
+				if err == nil {
+					d.prior, upstream, err = harness.BuildUpstream(inputs, budget)
+				}
+			} else {
+				controlStep := 0
+				if officeChoice {
+					controlStep = *selector
+				}
+				d.prior, err = memory.PriorWithControl(ctx, tx, step.Run, step.Ordinal, controlStep)
 			}
-			d.prior, err = memory.PriorWithControl(ctx, tx, step.Run, step.Ordinal, controlStep)
+			if errors.Is(err, harness.ErrUpstreamContextFull) {
+				result.Wait = true
+				return setState(ctx, tx, step, d.project, "blocked", "upstream_context_full", err.Error())
+			}
 			var invalid web.Problem
 			if errors.As(err, &invalid) {
 				result.Wait = true
@@ -563,7 +581,11 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			return err
 		}
 		buildRef := memory.BuildRef{Agent: d.agent, Revision: d.revision, Digest: build.Digest}
-		if err := memory.Capture(ctx, tx, memory.Key{Run: step.Run, Step: step.Ordinal, Attempt: attempt}, buildRef, refs); err != nil {
+		workingKey := memory.Key{Run: step.Run, Step: step.Ordinal, Attempt: attempt}
+		if err := memory.Capture(ctx, tx, workingKey, buildRef, refs); err != nil {
+			return err
+		}
+		if err := memory.RecordUpstream(ctx, tx, workingKey, upstream); err != nil {
 			return err
 		}
 		_, err = tx.Exec(ctx, "update runs set status='running' where id=$1", step.Run)
@@ -582,7 +604,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 	chain.AppendLambda(compose.InvokableLambda(func(ctx context.Context, brief string) (resources.Reply, error) {
 		msgs := []resources.Message{{Role: "system", Content: d.prompt}, {Role: "user", Content: brief}}
 		if d.prior != "" {
-			msgs = append(msgs, resources.Message{Role: "user", Content: "上一步成果供参考：\n" + d.prior})
+			msgs = append(msgs, resources.Message{Role: "user", Content: upstreamResultsLabel + d.prior})
 		}
 		if streamText {
 			return a.streamDraft(ctx, step, dispatchedAttempt, d.controlRevision, d.model, msgs)

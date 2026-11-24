@@ -561,7 +561,21 @@ export type Project = Summary & {
       status: string;
       tokens: number | null;
       diagnostic: string | null;
-      workingSet?: { sources: number; preferences: number; rules: number; parents: number; usable: boolean } | null;
+      workingSet?: {
+        sources: number;
+        preferences: number;
+        rules: number;
+        parents: number;
+        usable: boolean;
+        upstreamContext?: {
+          step: number;
+          originAttempt?: number;
+          version?: number;
+          totalBytes: number;
+          headBytes: number;
+          tailFrom: number;
+        }[] | null;
+      } | null;
     }[];
   };
 };
