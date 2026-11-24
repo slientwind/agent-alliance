@@ -934,3 +934,19 @@ dialog .service-version-contract {
 .planning-suggestion {
   overflow-wrap: anywhere;
 }
+.planning-recalled-messages {
+  display: grid;
+  gap: 0.8rem;
+  list-style: none;
+  padding: 0;
+}
+.planning-recalled-messages li {
+  border-inline-start: 2px solid var(--line);
+  padding-inline-start: 0.9rem;
+}
+.planning-recalled-messages blockquote {
+  margin: 0 0 0.45rem;
+}
+.planning-recalled-messages button {
+  font-size: 0.875rem;
+}

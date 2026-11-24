@@ -100,8 +100,19 @@ func TestPlanningConversationPostgres(t *testing.T) {
 	exec(`insert into model_revisions(resource_id,revision,endpoint,model,encrypted_key,estimate_cny) values($1,1,$2,'fixture',$3,0.2)`, model, provider.URL, key)
 	exec(`insert into projects(id,owner,final_reviewer,team_id,title) values($1,$2,$2,$3,'Main'),($4,$2,$2,$3,'Other')`, project, actor, team, other)
 	exec(`insert into project_members(project_id,member_id) values($1,$2),($3,$2) on conflict do nothing`, project, actor, other)
-	const goal, latest, prior, unrelated = "开场目标：核对交付时限", "最新要求：优先核对本周。", "先前采用源资料的答复", "另一个项目的独立消息"
+	const goal, latest, prior, unrelated = "开场目标：核对交付时限", "最新要求：本周核对 PO-4721 和北湾合同续签。", "先前采用源资料的答复", "另一个项目的独立消息 PO-4721"
+	const oldRecord, otherRecord = "旧交付地点是西门仓库，对应 PO-4721.", "北湾合同续签须经采购复核。"
+	const outsideExcerpt = "这段文字离摘录位置很远"
 	exec(`insert into messages(project_id,author,kind,body) values($1,$2,'user',$3),($4,$2,'user',$5)`, project, actor, goal, other, unrelated)
+	var oldSeq int64
+	if err := db.QueryRow(ctx, `insert into messages(project_id,author,kind,body) values($1,$2,'user',$3) returning seq`,
+		project, actor, strings.Repeat("较早背景。", 140)+oldRecord+strings.Repeat("其他细节。", 100)+outsideExcerpt).Scan(&oldSeq); err != nil {
+		t.Fatal(err)
+	}
+	exec(`insert into messages(project_id,author,kind,body) values($1,$2,'user',$3),($1,$2,'user',$4),($1,$2,'assistant',$5)`, project, actor,
+		strings.Repeat("过早的背景。", 3500)+otherRecord, "PO-47210 的另一订单；PO-4721-ALT 是另一个编号。", "PO-4721 的模型旧答复不得作为相关历史")
+	exec(`insert into messages(project_id,author,kind,body) values($1,$2,'user',$3)`, project, actor,
+		strings.Repeat("序", 8192-len("PO-4721"))+"PO-47210 属于窗口边界测试。"+strings.Repeat("尾", 10000))
 	exec(`insert into messages(project_id,author,kind,body) select $1,$2,'user',repeat('历史输入',1200) from generate_series(1,44)`, project, actor)
 	hash := hex.EncodeToString(web.Hash(source))
 	exec(`insert into objects(hash,size_bytes) values($1,6)`, hash)
@@ -154,13 +165,15 @@ func TestPlanningConversationPostgres(t *testing.T) {
 		t.Fatalf("initial planner status: %q", status)
 	}
 	prompt := readPrompt()
-	for _, s := range []string{goal, latest, prior} {
+	for _, s := range []string{goal, latest, prior, oldRecord, otherRecord} {
 		if !strings.Contains(prompt, s) {
 			t.Fatalf("missing authorized context %q", s)
 		}
 	}
-	if strings.Contains(prompt, unrelated) {
-		t.Fatal("another project's message entered the prompt")
+	for _, excluded := range []string{unrelated, outsideExcerpt, "另一订单", "另一个编号", "窗口边界测试", "模型旧答复不得作为", strings.Repeat("过早的背景。", 100)} {
+		if strings.Contains(prompt, excluded) {
+			t.Fatalf("unrelated history entered the prompt: %q", excluded)
+		}
 	}
 	var compacted, includesParent, reachedLatest bool
 	err = db.QueryRow(ctx, `select q.context_compacted,
@@ -171,8 +184,17 @@ func TestPlanningConversationPostgres(t *testing.T) {
 	if err != nil || !compacted || !includesParent || !reachedLatest {
 		t.Fatalf("missing recorded context coverage: %v", err)
 	}
+	var sourceStart int
+	var sourceExcerpt string
+	err = db.QueryRow(ctx, `select c.body_start,convert_from(substring(convert_to(m.body,'UTF8')
+         from c.body_start+1 for c.body_bytes),'UTF8')
+         from planning_context_messages c join messages m on m.seq=c.message_seq
+         where c.request_id=$1 and c.message_seq=$2 and c.recalled`, first, oldSeq).Scan(&sourceStart, &sourceExcerpt)
+	if err != nil || sourceStart < 1 || !strings.Contains(sourceExcerpt, oldRecord) || strings.Contains(sourceExcerpt, outsideExcerpt) {
+		t.Fatalf("incorrect recalled span: source=%d excerpt=%q err=%v", sourceStart, sourceExcerpt, err)
+	}
 	action.Store("unselected")
-	_, status = suggest("no-source", 2, nil)
+	independent, status := suggest("no-source", 2, nil)
 	if p := readPrompt(); status != "ready" || strings.Contains(p, prior) || strings.Contains(p, "规划答复-pinned") {
 		t.Fatalf("an unselected source influenced a later planning prompt")
 	}
@@ -196,5 +218,20 @@ func TestPlanningConversationPostgres(t *testing.T) {
 	routes.ServeHTTP(w, r)
 	if w.Code != 200 || strings.Contains(w.Body.String(), prior) || strings.Contains(w.Body.String(), "规划答复-pinned") || !strings.Contains(w.Body.String(), "规划答复-unselected") {
 		t.Fatalf("project snapshot exposed revoked planning history or lost the independent answer (HTTP %d)", w.Code)
+	}
+	exec("update messages set body=replace(body,$2,'调整了未采用的部分') where seq=$1", oldSeq, outsideExcerpt)
+	var state string
+	if err := db.QueryRow(ctx, "select current_status from current_planning_requests where id=$1", independent).Scan(&state); err != nil || state != "ready" {
+		t.Fatalf("outside the recalled span: status=%s err=%v", state, err)
+	}
+	exec("update messages set body=replace(body,$2,'PO-4721 的交付地点已更正为南门。') where seq=$1", oldSeq, oldRecord)
+	replayed, status = suggest("no-source", 2, nil)
+	if replayed != independent || status != "stale" || len(prompts) != 0 {
+		t.Fatalf("changed excerpt was not invalidated on replay: %s %s", replayed, status)
+	}
+	w = httptest.NewRecorder()
+	routes.ServeHTTP(w, r)
+	if w.Code != 200 || strings.Contains(w.Body.String(), "规划答复-unselected") || strings.Contains(w.Body.String(), oldRecord) {
+		t.Fatal("changed excerpt or its derived answer remained visible")
 	}
 }

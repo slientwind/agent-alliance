@@ -233,6 +233,8 @@ export function Work({
       {p.messages.map((m) => (
         <article
           key={m.seq}
+          id={`project-message-${m.seq}`}
+          tabIndex={-1}
           className={m.kind === "user" ? "bubble user" : "bubble"}
         >
           {m.body}
@@ -387,6 +389,23 @@ export function Work({
             {p.suggestion.contextCompacted && (
               <p>本次规划保留了你的最新消息，并摘录了部分较早的对话。</p>
             )}
+            {p.suggestion.recalledContext && p.suggestion.recalledContext.length > 0 && (
+              <details>
+                <summary>查看本次使用的早期相关记录</summary>
+                <ul className="planning-recalled-messages" role="list">
+                  {p.suggestion.recalledContext.map(({ seq, excerpt }) => (
+                    <li key={seq}>
+                      <blockquote className="preserve">{excerpt}</blockquote>
+                      <button type="button" onClick={() => {
+                        const original = document.getElementById(`project-message-${seq}`);
+                        original?.scrollIntoView({ block: "center" });
+                        original?.focus({ preventScroll: true });
+                      }}>查看原消息</button>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
             {p.suggestion.result.kind === "answer" &&
               p.reviewer === user.id && (
                 <button
@@ -420,7 +439,7 @@ export function Work({
       {p.suggestion && p.suggestion.status !== "ready" && (
         <p role="status">
           {p.suggestion.status === "stale"
-            ? "规划期间项目、授权或候选条件已变化。核对当前条件后，可重新授权规划。"
+            ? "规划使用的对话、资料、授权或候选条件已变化。核对后，可重新授权规划。"
             : p.suggestion.status === "invalid"
               ? "本次答复未满足规划要求。可调整描述，或重新授权规划。"
               : "规划调用结果尚待核对，可刷新原调用状态。"}

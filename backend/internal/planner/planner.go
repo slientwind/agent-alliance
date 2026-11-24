@@ -234,7 +234,7 @@ func (s Server) suggest(w http.ResponseWriter, r *http.Request, u identity.Membe
 		instruction += " " + routingInstructions
 	}
 	if conversation.Compacted {
-		instruction += " 历史对话有省略。以最新用户要求为准，关键约束不清楚时先追问。"
+		instruction += " 历史对话有省略。较早相关记录用于理解对象和背景，其中的旧要求可能被后续消息修订。以最新明确要求为准，关键约束不清楚时先追问。"
 	}
 
 	reply, callErr := m.Generate(ctx, []resources.Message{{Role: "system", Content: instruction}, {Role: "user", Content: input}})

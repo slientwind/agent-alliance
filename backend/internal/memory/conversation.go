@@ -32,8 +32,12 @@ type conversationMessage struct {
 	seq        int64
 	kind, body string
 	bytes      int
+	start      int
 	recent     bool
+	recalled   bool
 }
+
+const recalledRole = "user（较早相关记录）"
 
 // ReadPlanningContext keeps the newest user request intact. Earlier user
 // messages remain attributable to their original records, including excerpts.
@@ -73,12 +77,19 @@ func ReadPlanningContext(ctx context.Context, tx pgx.Tx, project, viewer string,
 	if err := rows.Err(); err != nil {
 		return PlanningContext{}, err
 	}
-	result, err := assemblePlanningContext(history, budget, older)
+	var recalled []conversationMessage
+	if older {
+		recalled, err = recallPlanningMessages(ctx, tx, project, viewer, history)
+		if err != nil {
+			return PlanningContext{}, err
+		}
+	}
+	result, err := assemblePlanningContext(history, recalled, budget, older)
 	result.Through = through
 	return result, err
 }
 
-func assemblePlanningContext(history []conversationMessage, budget int, older bool) (PlanningContext, error) {
+func assemblePlanningContext(history, recalled []conversationMessage, budget int, older bool) (PlanningContext, error) {
 	total := 0
 	firstUser, latestUser := -1, -1
 	for i, m := range history {
@@ -109,9 +120,12 @@ func assemblePlanningContext(history []conversationMessage, budget int, older bo
 		remaining -= len(compactionNotice)
 	}
 	add := func(m conversationMessage, limit int) {
-		overhead := len(m.kind) + len(": ") + len("\n")
+		overhead := len(m.role()) + len(": ") + len("\n")
 		capacity := min(remaining, limit) - overhead
-		if m.bytes > capacity {
+		if capacity <= 0 {
+			return
+		}
+		if m.start > 0 || len(m.body) < m.bytes || len(m.body) > capacity {
 			capacity -= len(excerptNotice)
 			if capacity <= 0 {
 				return
@@ -127,6 +141,15 @@ func assemblePlanningContext(history []conversationMessage, budget int, older bo
 	}
 	if firstUser != latestUser {
 		add(history[firstUser], min(archiveExcerptBytes, remaining/4))
+	}
+	recallBudget := min(6<<10, remaining/6)
+	for _, m := range recalled {
+		if recallBudget < 512 {
+			break
+		}
+		before := remaining
+		add(m, min(recallBudget, 1536))
+		recallBudget -= before - remaining
 	}
 	archiveBudget := 0
 	if older {
@@ -159,11 +182,11 @@ func renderPlanningContext(history []conversationMessage, notice bool) PlanningC
 	}
 	for _, m := range history {
 		body := m.body
-		if len(body) < m.bytes {
+		if m.start > 0 || len(body) < m.bytes {
 			body += excerptNotice
 		}
-		brief.WriteString(m.kind + ": " + body + "\n")
-		if m.kind == "user" {
+		brief.WriteString(m.role() + ": " + body + "\n")
+		if m.kind == "user" && !m.recalled {
 			if request.Len() > 0 {
 				request.WriteByte('\n')
 			}
@@ -171,6 +194,13 @@ func renderPlanningContext(history []conversationMessage, notice bool) PlanningC
 		}
 	}
 	return PlanningContext{Brief: strings.TrimSuffix(brief.String(), "\n"), UserRequest: request.String(), used: history}
+}
+
+func (m conversationMessage) role() string {
+	if m.recalled {
+		return recalledRole
+	}
+	return m.kind
 }
 
 func utf8Prefix(body string, bytes int) string {
@@ -183,15 +213,23 @@ func utf8Prefix(body string, bytes int) string {
 	return body[:bytes]
 }
 
-// Record saves just the message references and the length of each prefix sent.
+// Record saves original byte spans and digests without duplicating message text.
 func (p PlanningContext) Record(ctx context.Context, tx pgx.Tx, request string) error {
 	seqs := make([]int64, 0, len(p.used))
 	lengths := make([]int32, 0, len(p.used))
+	starts := make([]int32, 0, len(p.used))
+	hashes := make([][]byte, 0, len(p.used))
+	recalled := make([]bool, 0, len(p.used))
 	for _, m := range p.used {
 		seqs = append(seqs, m.seq)
 		lengths = append(lengths, int32(len(m.body)))
+		starts = append(starts, int32(m.start))
+		hashes = append(hashes, web.Hash(m.body))
+		recalled = append(recalled, m.recalled)
 	}
-	_, err := tx.Exec(ctx, `insert into planning_context_messages(request_id,message_seq,body_bytes)
- select $1,seq,bytes from unnest($2::bigint[],$3::integer[]) as used(seq,bytes)`, request, seqs, lengths)
+	_, err := tx.Exec(ctx, `insert into planning_context_messages(request_id,message_seq,body_bytes,body_start,body_hash,recalled)
+ select $1,seq,bytes,start,hash,recalled from
+ unnest($2::bigint[],$3::integer[],$4::integer[],$5::bytea[],$6::boolean[]) as used(seq,bytes,start,hash,recalled)`,
+		request, seqs, lengths, starts, hashes, recalled)
 	return err
 }

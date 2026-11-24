@@ -429,6 +429,7 @@ export type Project = Summary & {
   previousPlanningSources?: { id: string; version: number }[] | null;
   suggestion: null | {
     contextCompacted?: boolean;
+    recalledContext?: { seq: number; excerpt: string }[] | null;
     inputSources?: { id: string; version: number }[] | null;
     requiredOutput?: string;
     requiredOutputs?: string[];
