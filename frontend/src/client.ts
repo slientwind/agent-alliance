@@ -402,6 +402,7 @@ export type Project = Summary & {
   previousPlanningOutputs?: string[];
   previousPlanningSources?: { id: string; version: number }[] | null;
   suggestion: null | {
+    contextCompacted?: boolean;
     inputSources?: { id: string; version: number }[] | null;
     requiredOutput?: string;
     requiredOutputs?: string[];

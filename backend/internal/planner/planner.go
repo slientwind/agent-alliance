@@ -4,6 +4,7 @@ import (
 	"alliance/internal/billing"
 	"alliance/internal/database"
 	"alliance/internal/identity"
+	"alliance/internal/memory"
 	"alliance/internal/projects"
 	"alliance/internal/resources"
 	"alliance/internal/web"
@@ -81,6 +82,7 @@ func (s Server) suggest(w http.ResponseWriter, r *http.Request, u identity.Membe
 	var brief, userRequest, id, status string
 	var cached, rulePins []byte
 	var ruleText string
+	var conversation memory.PlanningContext
 	var reused bool
 	var profile inputProfile
 	var available []Candidate
@@ -128,13 +130,11 @@ func (s Server) suggest(w http.ResponseWriter, r *http.Request, u identity.Membe
 		if rulePins == nil {
 			return web.Fail(409, "团队规则已到期或授权变化，请先核对再规划")
 		}
-		if err = tx.QueryRow(ctx, `select coalesce(string_agg(m.kind||': '||m.body,E'\n' order by m.seq),''),coalesce(string_agg(m.body,E'\n' order by m.seq) filter(where m.kind='user'),'') from messages m left join current_planning_requests q on q.id=m.planning_request
- where m.project_id=$1 and (m.planning_request is null or q.current_status='ready')`, pid).Scan(&brief, &userRequest); err != nil {
+		conversation, err = memory.ReadPlanningContext(ctx, tx, pid, u.ID, pins, memory.PlanningContextBytes-len(ruleText))
+		if err != nil {
 			return err
 		}
-		if len(brief)+len(ruleText) > 96<<10 {
-			return web.Fail(422, "业务对话与团队规则超出本次规划输入容量")
-		}
+		brief, userRequest = conversation.Brief, conversation.UserRequest
 		all, err := candidates(ctx, tx, u.ID, pid, brief, "", "")
 		if err != nil {
 			return err
@@ -163,8 +163,11 @@ func (s Server) suggest(w http.ResponseWriter, r *http.Request, u identity.Membe
                 on conflict(project_id) do update set project_revision=excluded.project_revision,budget_id=excluded.budget_id`, pid, in.Expected, m.BudgetID)
 			return err
 		}
-		_, err = tx.Exec(ctx, `insert into planning_requests(id,project_id,actor,request_key,project_revision,resource_id,resource_revision,rule_pins,key_generation,input_sources,required_output) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, id, pid, u.ID, key, in.Expected, in.Resource, in.Revision, rulePins, m.KeyGeneration, pins, scope)
+		_, err = tx.Exec(ctx, `insert into planning_requests(id,project_id,actor,request_key,project_revision,resource_id,resource_revision,rule_pins,key_generation,input_sources,required_output,context_through,context_compacted) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, id, pid, u.ID, key, in.Expected, in.Resource, in.Revision, rulePins, m.KeyGeneration, pins, scope, conversation.Through, conversation.Compacted)
 		if err != nil {
+			return err
+		}
+		if err := conversation.Record(ctx, tx, id); err != nil {
 			return err
 		}
 		_, err = tx.Exec(ctx, "delete from planning_budget_blocks where project_id=$1", pid)
@@ -230,6 +233,9 @@ func (s Server) suggest(w http.ResponseWriter, r *http.Request, u identity.Membe
 	if len(choices) > 0 {
 		instruction += " " + routingInstructions
 	}
+	if conversation.Compacted {
+		instruction += " 历史对话有省略。以最新用户要求为准，关键约束不清楚时先追问。"
+	}
 
 	reply, callErr := m.Generate(ctx, []resources.Message{{Role: "system", Content: instruction}, {Role: "user", Content: input}})
 	var result Suggestion
@@ -290,11 +296,11 @@ func (s Server) suggest(w http.ResponseWriter, r *http.Request, u identity.Membe
 		if err := tx.QueryRow(end, `select p.revision,m.enabled and u.enabled and exists(select from project_members pm where pm.project_id=p.id and pm.member_id=u.id) and exists(select from team_members tm where tm.team_id=m.team_id and tm.member_id=u.id) from projects p join members u on u.id=p.owner join model_resources m on m.id=$2 where p.id=$1 for update of p`, pid, in.Resource).Scan(&revision, &enabled); err != nil {
 			return err
 		}
-		var rulesCurrent bool
-		if err := tx.QueryRow(end, "select coalesce(rule_pins=planning_rule_pins(project_id,actor),false) and planning_sources_readable(project_id,input_sources) from planning_requests where id=$1", id).Scan(&rulesCurrent); err != nil {
+		var contextCurrent bool
+		if err := tx.QueryRow(end, "select planning_context_readable($1,$2)", id, u.ID).Scan(&contextCurrent); err != nil {
 			return err
 		}
-		if revision != in.Expected || !enabled || !rulesCurrent {
+		if revision != in.Expected || !enabled || !contextCurrent {
 			status = "stale"
 		}
 		if status == "ready" && len(result.Agents) > 0 {
@@ -420,7 +426,7 @@ func AdoptAnswer(ctx context.Context, tx pgx.Tx, id, actor, request string, expe
 	if rev != expected || stage != "brief" && stage != "plan" {
 		return web.Fail(409, "需要核对最新答复")
 	}
-	tag, err := tx.Exec(ctx, `insert into answer_adoptions(project_id,request_id,actor) select project_id,id,$3 from current_planning_requests where project_id=$1 and id=$2 and current_status='ready' and rule_pins=planning_rule_pins(project_id,$3) and result->>'kind'='answer' and project_revision=$4-1`, id, request, actor, rev)
+	tag, err := tx.Exec(ctx, `insert into answer_adoptions(project_id,request_id,actor) select project_id,id,$3 from current_planning_requests where project_id=$1 and id=$2 and current_status='ready' and planning_context_readable(id,$3) and rule_pins=planning_rule_pins(project_id,$3) and result->>'kind'='answer' and project_revision=$4-1`, id, request, actor, rev)
 	if err != nil {
 		return err
 	}

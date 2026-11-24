@@ -211,7 +211,7 @@ func simpleAnswer(ctx context.Context, tx pgx.Tx, reply, actor, project string) 
  from projects p join current_planning_requests q on q.project_id=p.id
  where p.id=$1 and p.owner=$2 and p.final_reviewer=$2 and q.actor=$2
  and q.project_revision=p.revision-1 and q.current_status='ready' and q.result->>'kind'='answer'
- and coalesce(q.input_sources,'[]'::jsonb)='[]'::jsonb and q.rule_pins=planning_rule_pins(p.id,$2)
+ and planning_context_readable(q.id,$2,'[]') and q.rule_pins=planning_rule_pins(p.id,$2)
  order by q.created_at desc,q.id limit 1`, project, actor).Scan(&request, &revision, &text)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, "", nil

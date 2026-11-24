@@ -383,6 +383,9 @@ export function Work({
         p.suggestion.result &&
         ["brief", "plan"].includes(p.stage) && (
           <section className="card planning-suggestion">
+            {p.suggestion.contextCompacted && (
+              <p>本次规划保留了你的最新消息，并摘录了部分较早的对话。</p>
+            )}
             {p.suggestion.result.kind === "answer" &&
               p.reviewer === user.id && (
                 <button
