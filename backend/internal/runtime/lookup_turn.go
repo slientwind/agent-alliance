@@ -272,8 +272,9 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 		var kind ActionKind
 		var sealed, accumulated []byte
 		var recorded, observe bool
-		if err := tx.QueryRow(ctx, `select project_id,actor,status,plan_version,max_calls,control_revision from runs
-            where id=$1 for update`, step.Run).Scan(&d.project, &d.actor, &status, &d.planVersion, &d.maximum, &control); err != nil {
+		if err := tx.QueryRow(ctx, `select r.project_id,r.actor,r.status,r.plan_version,r.max_calls,r.control_revision,`+runSkillTaskSQL+`
+            from runs r join plans p on(p.project_id,p.version)=(r.project_id,r.plan_version)
+            where r.id=$1 for update of r`, step.Run).Scan(&d.project, &d.actor, &status, &d.planVersion, &d.maximum, &control, &d.skillTask); err != nil {
 			return err
 		}
 		result.More = step.Ordinal < d.maximum
@@ -356,7 +357,7 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 			return err
 		}
 		var problem web.Problem
-		if _, _, err = a.Catalog.ResolveRun(ctx, tx, d.project, d.actor, d.agent, d.revision); errors.Is(err, pgx.ErrNoRows) {
+		if _, _, err = a.Catalog.ResolveRunTask(ctx, tx, d.project, d.actor, d.agent, d.revision, d.skillTask); errors.Is(err, pgx.ErrNoRows) {
 			return invalid("成员或资源授权已失效，已停止续查。")
 		}
 		if errors.As(err, &problem) {

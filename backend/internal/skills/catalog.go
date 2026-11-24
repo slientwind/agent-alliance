@@ -31,7 +31,7 @@ func (c Catalog) Routes(m *http.ServeMux, identity identity.Server) {
 func (c Catalog) list(w http.ResponseWriter, r *http.Request, member identity.Member) error {
 	rows, err := c.DB.Query(r.Context(), `select jsonb_build_object('id',p.id,'name',p.name,'team',p.team_id,'teamName',t.name,
         'revisions',(select jsonb_agg(jsonb_build_object('revision',r.revision,'description',r.description,
-            'digest',r.digest,'revoked',r.revoked_at is not null,
+            'digest',r.digest,'revoked',r.revoked_at is not null,'activationTerms',r.activation_terms,
             'dependencies',array(select jsonb_build_object('id',d.needs_skill,'revision',d.needs_revision)
               from skill_dependencies d where (d.skill_id,d.revision)=(r.skill_id,r.revision) order by d.position))
             order by r.revision desc) from skill_revisions r where r.skill_id=p.id))
@@ -106,8 +106,8 @@ func (c Catalog) publish(w http.ResponseWriter, r *http.Request, member identity
 		if size > contextLimit {
 			return web.Fail(409, "Skill 与依赖装载的内容合计最多 32 KiB")
 		}
-		if _, err := tx.Exec(ctx, `insert into skill_revisions(skill_id,revision,description,digest,published_by)
-            values($1,$2,$3,$4,$5)`, id, revision, pack.Description, pack.Digest, member.ID); err != nil {
+		if _, err := tx.Exec(ctx, `insert into skill_revisions(skill_id,revision,description,digest,published_by,activation_terms)
+            values($1,$2,$3,$4,$5,$6)`, id, revision, pack.Description, pack.Digest, member.ID, pack.ActivationTerms); err != nil {
 			return err
 		}
 		for position, dependency := range pack.Dependencies {

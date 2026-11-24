@@ -8,7 +8,7 @@ export type SkillPack = {
   name: string;
   team: string;
   teamName: string;
-  revisions: { revision: number; description: string; revoked: boolean }[];
+  revisions: { revision: number; description: string; revoked: boolean; activationTerms?: string[] }[];
 };
 
 export function SkillPacks({
@@ -73,6 +73,9 @@ export function SkillPacks({
           {pack.revisions.map((revision) => (
             <section key={revision.revision}>
               <p>v{revision.revision} · {revision.revoked ? "已停用" : "可绑定"} · {revision.description}</p>
+              {!!revision.activationTerms?.length && (
+                <small>按需装载 · {revision.activationTerms.join("、")} · 也可在任务中输入 @{pack.name}</small>
+              )}
               {!revision.revoked && (
                 <button type="button" onClick={() => {
                   const ref = JSON.stringify({ id: pack.id, revision: revision.revision });
@@ -113,6 +116,8 @@ export function SkillPacks({
             <pre>{"---\nname: quote-review\ndescription: 核对供应商报价\n---\n逐项核对报价有效期和缺失字段。"}</pre>
             <p>将需要随正文读取的文本文件写入可选的 manifest.json。依赖项使用相应 Skill 的固定修订引用。</p>
             <pre>{'{"contextFiles":["references/checklist.md"],"dependencies":[]}'}</pre>
+            <p>可用 activationTerms 设置触发词。带触发词的 Skill 需在命中它的试跑中验收。</p>
+            <pre>{'{"activationTerms":["供应商报价","询价"]}'}</pre>
           </details>
           <button disabled={busy || teams.length === 0}>验证并发布</button>
           {updating && <button type="button" onClick={() => setUpdating(null)}>返回导入</button>}
@@ -140,7 +145,7 @@ export function SkillBindings({ packs, team, current }: { packs: SkillPack[]; te
               <option value="">不绑定</option>
               {versions.map((rev) => (
                 <option key={rev.revision} value={pack.id + "/" + rev.revision}>
-                  v{rev.revision} · {rev.revoked ? "已停用" : rev.description}
+                  v{rev.revision} · {rev.revoked ? "已停用" : rev.activationTerms?.length ? "按需装载 · " + rev.description : rev.description}
                 </option>
               ))}
             </select>

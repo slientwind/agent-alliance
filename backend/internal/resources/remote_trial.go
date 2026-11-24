@@ -70,6 +70,22 @@ func (c Catalog) saveTrial(ctx context.Context, id string, m Model, expected str
 			return err
 		}
 		discardFile := false
+		if callErr == nil && len(m.SkillRefs) != 0 {
+			var current bool
+			if err := tx.QueryRow(ctx, `select coalesce(bool_and(usable),false) from (
+                select s.revoked_at is null and exists(select from team_members mem join members u on u.id=mem.member_id and u.enabled
+                  where (mem.team_id,mem.member_id)=(p.team_id,v.actor)) as usable
+                from validation_skill_inputs used join validations v on v.id=used.trial_id
+                join skill_revisions s on (s.skill_id,s.revision)=(used.skill_id,used.skill_revision)
+                join skill_packs p on p.id=s.skill_id
+                where v.id=$1 for share of s
+            ) pinned`, id).Scan(&current); err != nil {
+				return err
+			}
+			if !current {
+				status, body, discardFile = "failed", "试运行采用的 Skill 已停用或超出授权范围，请核对修订后复验", true
+			}
+		}
 		if status == "passed" {
 			matches, err := builder.TrialMatches(ctx, tx, id)
 			if err != nil {

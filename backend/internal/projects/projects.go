@@ -379,6 +379,7 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
     'rules',count(*) filter(where d.kind='rule'),
     'parents',(select count(*) from run_working_parents p where (p.run_id,p.ordinal,p.attempt_no)=(i.run_id,i.ordinal,i.attempt_no)),
     'upstreamContext',case when run_working_set_usable(i.run_id,i.ordinal,i.attempt_no) then c.upstream_context end,
+    'loadedSkills',readable_run_skills(i.run_id,i.ordinal,i.attempt_no),
     'usable',run_working_set_usable(i.run_id,i.ordinal,i.attempt_no))
     from run_working_sets c left join run_working_inputs d using(run_id,ordinal,attempt_no)
     where (c.run_id,c.ordinal,c.attempt_no)=(i.run_id,i.ordinal,i.attempt_no)

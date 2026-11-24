@@ -42,6 +42,12 @@ type Step struct {
 
 const upstreamResultsLabel = "上一步成果供参考：\n"
 
+// Plan text is fixed at acceptance. For services the first user message is
+// the submitted task alone, separated from the reusable service instructions.
+const runSkillTaskSQL = `coalesce((select m.body from messages m
+   where r.service_id is not null and (m.project_id,m.author)=(r.project_id,r.actor) and m.kind='user'
+   order by m.seq limit 1),p.brief)`
+
 func runEnded(state string) bool {
 	return state == "completed" || state == "cancelled" || state == "failed"
 }
@@ -96,6 +102,7 @@ type contextData struct {
 	memberDraft                                            bool
 	routing                                                toolChoice
 	project, actor, agent, brief, prior, prompt            string
+	skillTask                                              string
 	revision, maximum                                      int
 	planVersion, controlRevision                           int
 	model                                                  resources.Model
@@ -145,7 +152,11 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		var selector, choice *int
 		var stepToolChoice bool
 		var boundedUpstream bool
-		err := tx.QueryRow(ctx, `select r.project_id,r.actor,n.agent_id,n.agent_revision,p.brief,r.status,r.max_calls,n.lookup_phase,r.await_calculation_receipt,r.await_lookup_receipt,exists(select from nodes next where n.lookup_phase='search' and (next.project_id,next.plan_version,next.ordinal)=(n.project_id,n.plan_version,n.ordinal+1) and next.lookup_phase='answer_calc'),exists(select from change_batches where run_id=r.id),n.selector,n.choice,r.plan_version,r.control_revision,r.service_id is null,r.step_tool_choice,r.bounded_upstream_context from runs r join plans p on(p.project_id,p.version)=(r.project_id,r.plan_version) join effective_run_nodes n on n.run_id=r.id where r.id=$1 and n.ordinal=$2 for update of r`, step.Run, step.Ordinal).Scan(&d.project, &d.actor, &d.agent, &d.revision, &d.brief, &runState, &d.maximum, &d.lookupPhase, &d.awaitReceipt, &d.awaitLookupReceipt, &d.searchForCalculation, &d.change, &selector, &choice, &d.planVersion, &d.controlRevision, &d.memberDraft, &stepToolChoice, &boundedUpstream)
+		err := tx.QueryRow(ctx, `select r.project_id,r.actor,n.agent_id,n.agent_revision,p.brief,r.status,r.max_calls,n.lookup_phase,r.await_calculation_receipt,r.await_lookup_receipt,
+            exists(select from nodes next where n.lookup_phase='search' and (next.project_id,next.plan_version,next.ordinal)=(n.project_id,n.plan_version,n.ordinal+1) and next.lookup_phase='answer_calc'),
+            exists(select from change_batches where run_id=r.id),n.selector,n.choice,r.plan_version,r.control_revision,r.service_id is null,r.step_tool_choice,r.bounded_upstream_context,`+runSkillTaskSQL+`
+            from runs r join plans p on(p.project_id,p.version)=(r.project_id,r.plan_version)
+            join effective_run_nodes n on n.run_id=r.id where r.id=$1 and n.ordinal=$2 for update of r`, step.Run, step.Ordinal).Scan(&d.project, &d.actor, &d.agent, &d.revision, &d.brief, &runState, &d.maximum, &d.lookupPhase, &d.awaitReceipt, &d.awaitLookupReceipt, &d.searchForCalculation, &d.change, &selector, &choice, &d.planVersion, &d.controlRevision, &d.memberDraft, &stepToolChoice, &boundedUpstream, &d.skillTask)
 		if err != nil {
 			return err
 		}
@@ -264,7 +275,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		if ok, err := checkAgentEvidence(ctx, tx, step, &result, d); !ok || err != nil {
 			return err
 		}
-		m, prompt, err := a.Catalog.ResolveRun(ctx, tx, d.project, d.actor, d.agent, d.revision)
+		m, prompt, err := a.Catalog.ResolveRunTask(ctx, tx, d.project, d.actor, d.agent, d.revision, d.skillTask)
 		if err != nil {
 			return blockUnavailableAgent(ctx, tx, step, d, &result, err)
 		}
@@ -582,6 +593,9 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		}
 		buildRef := memory.BuildRef{Agent: d.agent, Revision: d.revision, Digest: build.Digest}
 		workingKey := memory.Key{Run: step.Run, Step: step.Ordinal, Attempt: attempt}
+		for _, skill := range m.SkillRefs {
+			refs = append(refs, memory.Reference{Kind: "skill", ID: skill.ID, Revision: skill.Revision})
+		}
 		if err := memory.Capture(ctx, tx, workingKey, buildRef, refs); err != nil {
 			return err
 		}
@@ -843,7 +857,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		if ok, err := checkAgentEvidence(ctx, tx, step, &result, d); !ok || err != nil {
 			return err
 		}
-		if _, _, err := a.Catalog.ResolveRun(ctx, tx, d.project, d.actor, d.agent, d.revision); err != nil {
+		if _, _, err := a.Catalog.ResolveRunTask(ctx, tx, d.project, d.actor, d.agent, d.revision, d.skillTask); err != nil {
 			return blockUnavailableAgent(ctx, tx, step, d, &result, err)
 		}
 		if d.change {

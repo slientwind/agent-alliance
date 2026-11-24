@@ -2,6 +2,7 @@ package resources
 
 import (
 	"alliance/internal/knowledge"
+	"alliance/internal/skills"
 	"alliance/internal/web"
 	"bytes"
 	"context"
@@ -70,6 +71,7 @@ type Reply struct {
 	FinishReason string
 }
 type Model struct {
+	SkillRefs        []skills.Ref
 	ProjectGrant     string
 	OutputOperation  string
 	ResourceID       string

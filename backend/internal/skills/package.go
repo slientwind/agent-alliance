@@ -43,8 +43,9 @@ func (r Ref) valid() bool {
 }
 
 type manifest struct {
-	Dependencies []Ref    `json:"dependencies"`
-	ContextFiles []string `json:"contextFiles"`
+	Dependencies    []Ref    `json:"dependencies"`
+	ContextFiles    []string `json:"contextFiles"`
+	ActivationTerms []string `json:"activationTerms"`
 }
 
 type packageFile struct {
@@ -55,6 +56,7 @@ type packageFile struct {
 type skillPackage struct {
 	Name, Description, Digest string
 	Dependencies              []Ref
+	ActivationTerms           []string
 	Files                     []packageFile
 }
 
@@ -140,7 +142,12 @@ func readPackage(raw []byte) (skillPackage, error) {
 	if loaded > contextLimit {
 		return pack, errors.New("选中的 Skill 正文和参考文件总计最多 32 KiB")
 	}
+	terms, err := normalizeActivation(spec.ActivationTerms)
+	if err != nil {
+		return pack, err
+	}
 	pack.Dependencies = spec.Dependencies
+	pack.ActivationTerms = terms
 	for name, text := range files {
 		digest := sha256.Sum256([]byte(text))
 		pack.Files = append(pack.Files, packageFile{name, text, hex.EncodeToString(digest[:]), chosen[name]})

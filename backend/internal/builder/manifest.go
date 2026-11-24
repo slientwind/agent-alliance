@@ -80,6 +80,14 @@ func EvidenceFor(ctx context.Context, q Queryer, agent string, revision int, dig
           else jsonb_build_object('mode','standalone','passed',exists(select from standalone),
             'items',array(select jsonb_build_object('trial',id,'passed',true,'legacy',legacy) from standalone))
           end as snapshot
+        ), skill_coverage as materialized (
+          select * from agent_skill_activation_coverage($1,$2,$3)
+        ), skill_proof as (
+          select case when exists(select from skill_coverage) then snapshot || jsonb_build_object(
+            'passed',(snapshot->>'passed')::boolean and not exists(select from skill_coverage where proof is null),
+            'conditionalSkills',array(select jsonb_strip_nulls(jsonb_build_object(
+              'id',skill_id,'revision',skill_revision,'trial',proof,'passed',proof is not null))
+              from skill_coverage order by skill_id)) else snapshot end as snapshot from proof
         ), remote as (
           select coalesce(agent_released_remote_operation_evidence($1,$2),agent_remote_operation_evidence($1,$2,$3)) as operations
           from agent_revisions where (agent_id,revision)=($1,$2) and card is not null
@@ -87,7 +95,7 @@ func EvidenceFor(ctx context.Context, q Queryer, agent string, revision int, dig
           select case when operations is null then snapshot else snapshot || jsonb_build_object('remoteOperations',operations,
             'passed',(snapshot->>'passed')::boolean and remote_operation_ready(operations)) end as snapshot,
             remote_operation_availability(operations) as availability
-          from proof left join remote on true
+          from skill_proof left join remote on true
         ) select (snapshot->>'passed')::boolean,agent_build_digest(snapshot),snapshot,availability from combined`,
 		agent, revision, digest).Scan(&e.Passed, &e.Digest, &e.Snapshot, &e.RemoteOperations)
 	return e, err

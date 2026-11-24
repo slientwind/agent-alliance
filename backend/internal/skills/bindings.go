@@ -36,51 +36,57 @@ func Bind(ctx context.Context, tx pgx.Tx, team, agent string, revision int, sele
 }
 
 type Context struct {
+	Ref      Ref               `json:"-"`
 	Name     string            `json:"name"`
 	Revision int               `json:"revision"`
 	Files    map[string]string `json:"files"`
+}
+
+type pinnedSkill struct {
+	Ref          Ref
+	Name         string
+	Allowed      bool
+	Root         bool
+	Terms        []string
+	Dependencies []Ref
+	Files        []struct{ Path, Hash string }
 }
 
 // Load reads only the files selected by the immutable package manifest.
 // Locks on the revisions serialize this read with administrative revocation.
 func Load(ctx context.Context, q interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
-}, objects knowledge.Objects, agent string, revision int, actor string) ([]Context, error) {
-	type file struct{ Path, Hash string }
-	type pinned struct {
-		Name     string
-		Revision int
-		Allowed  bool
-		Files    []file
-	}
+}, objects knowledge.Objects, agent string, revision int, actor string, task *string) ([]Context, error) {
 	var raw []byte
 	err := q.QueryRow(ctx, `with locked as materialized (
-        select p.name,s.skill_id,s.revision,b.position,
+        select p.name,s.skill_id,s.revision,b.position,b.root,s.activation_terms,
           s.revoked_at is null and exists(select from team_members m join members u on u.id=m.member_id and u.enabled
              where m.team_id=p.team_id and m.member_id=$3) as allowed
         from agent_skill_bindings b join skill_revisions s on(s.skill_id,s.revision)=(b.skill_id,b.skill_revision)
         join skill_packs p on p.id=s.skill_id where (b.agent_id,b.revision)=($1,$2) for share of s
     )
-    select coalesce(jsonb_agg(jsonb_build_object('name',l.name,'revision',l.revision,'allowed',l.allowed,
+    select coalesce(jsonb_agg(jsonb_build_object('name',l.name,'ref',jsonb_build_object('id',l.skill_id,'revision',l.revision),'allowed',l.allowed,
+        'root',l.root,'terms',l.activation_terms,
+        'dependencies',array(select jsonb_build_object('id',d.needs_skill,'revision',d.needs_revision)
+           from skill_dependencies d where (d.skill_id,d.revision)=(l.skill_id,l.revision) order by d.position),
         'files',(select jsonb_agg(jsonb_build_object('path',f.path,'hash',f.object_hash) order by f.path)
                  from skill_files f where (f.skill_id,f.revision)=(l.skill_id,l.revision) and f.in_context))
         order by l.position),'[]'::jsonb) from locked l`, agent, revision, actor).Scan(&raw)
 	if err != nil {
 		return nil, err
 	}
-	var rows []pinned
+	var rows []pinnedSkill
 	if err = json.Unmarshal(raw, &rows); err != nil {
 		return nil, err
 	}
-	for _, skill := range rows {
-		if !skill.Allowed {
-			return nil, web.Fail(409, "绑定的 Skill 已停用或超出当前团队权限")
-		}
+	chosen, err := selectBindings(rows, task)
+	if err != nil {
+		return nil, err
 	}
 	var result []Context
 	total := 0
-	for _, skill := range rows {
-		selected := Context{Name: skill.Name, Revision: skill.Revision, Files: make(map[string]string, len(skill.Files))}
+	for _, skill := range chosen {
+		selected := Context{Ref: skill.Ref, Name: skill.Name, Revision: skill.Ref.Revision, Files: make(map[string]string, len(skill.Files))}
 		for _, file := range skill.Files {
 			body, err := readObject(objects, file.Hash)
 			if err != nil {

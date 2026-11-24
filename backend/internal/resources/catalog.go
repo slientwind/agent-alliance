@@ -374,10 +374,19 @@ type Query interface {
 }
 
 func (c Catalog) Resolve(ctx context.Context, q Query, actor, id string, rev int) (Model, string, error) {
-	return c.resolve(ctx, q, "", actor, id, rev, false)
+	return c.resolve(ctx, q, "", actor, id, rev, false, nil)
+}
+func (c Catalog) ResolveTask(ctx context.Context, q Query, actor, id string, rev int, task string) (Model, string, error) {
+	return c.resolve(ctx, q, "", actor, id, rev, false, &task)
 }
 func (c Catalog) ResolveRun(ctx context.Context, q Query, project, actor, id string, rev int) (Model, string, error) {
-	model, instructions, err := c.resolve(ctx, q, project, actor, id, rev, true)
+	return c.resolveRun(ctx, q, project, actor, id, rev, nil)
+}
+func (c Catalog) ResolveRunTask(ctx context.Context, q Query, project, actor, id string, rev int, task string) (Model, string, error) {
+	return c.resolveRun(ctx, q, project, actor, id, rev, &task)
+}
+func (c Catalog) resolveRun(ctx context.Context, q Query, project, actor, id string, rev int, task *string) (Model, string, error) {
+	model, instructions, err := c.resolve(ctx, q, project, actor, id, rev, true, task)
 	if err == nil {
 		err = builder.CheckPublished(ctx, q, id, rev)
 	}
@@ -386,7 +395,7 @@ func (c Catalog) ResolveRun(ctx context.Context, q Query, project, actor, id str
 	}
 	return model, instructions, err
 }
-func (c Catalog) resolve(ctx context.Context, q Query, project, actor, id string, rev int, accepted bool) (Model, string, error) {
+func (c Catalog) resolve(ctx context.Context, q Query, project, actor, id string, rev int, accepted bool, task *string) (Model, string, error) {
 	var m Model
 	var cardData, key, toolData, policy []byte
 	var hasSkills bool
@@ -456,11 +465,14 @@ func (c Catalog) resolve(ctx context.Context, q Query, project, actor, id string
 	if err != nil || !hasSkills {
 		return m, instructions, err
 	}
-	selected, err := skills.Load(ctx, q, knowledge.ConfiguredObjects(), id, rev, actor)
+	selected, err := skills.Load(ctx, q, knowledge.ConfiguredObjects(), id, rev, actor, task)
 	if err != nil {
 		return m, "", err
 	}
 	instructions, err = harness.WithSkills(instructions, selected)
+	for _, skill := range selected {
+		m.SkillRefs = append(m.SkillRefs, skill.Ref)
+	}
 	return m, instructions, err
 }
 func (c Catalog) validate(w http.ResponseWriter, r *http.Request, u identity.Member) error {
@@ -554,7 +566,7 @@ func (c Catalog) validate(w http.ResponseWriter, r *http.Request, u identity.Mem
 		if err != nil {
 			return err
 		}
-		m, prompt, err = c.Resolve(ctx, tx, u.ID, id, in.Revision)
+		m, prompt, err = c.ResolveTask(ctx, tx, u.ID, id, in.Revision, in.Input)
 		if err != nil {
 			return err
 		}
@@ -586,6 +598,16 @@ func (c Catalog) validate(w http.ResponseWriter, r *http.Request, u identity.Mem
 		}
 		if _, err := tx.Exec(ctx, "update validations set key_generation=nullif($2,0),build_digest=$3 where id=$1", evidence, m.KeyGeneration, build.Digest); err != nil {
 			return err
+		}
+		if len(m.SkillRefs) != 0 {
+			refs, err := json.Marshal(m.SkillRefs)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `insert into validation_skill_inputs(trial_id,skill_id,skill_revision)
+                select $1,id,revision from jsonb_to_recordset($2::jsonb) as loaded(id uuid,revision integer)`, evidence, refs); err != nil {
+				return err
+			}
 		}
 		return billing.Reserve(ctx, tx, billing.Operation{Key: "validation/" + evidence, Kind: "validation", Project: in.Project, Actor: u.ID, Team: m.Team, Resource: m.BudgetID, SourceRevision: m.SourceRevision, SourceName: m.Name, Estimate: m.Estimate, AllowUnknown: in.AuthorizeOneCall})
 	})

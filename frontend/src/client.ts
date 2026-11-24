@@ -567,6 +567,7 @@ export type Project = Summary & {
         rules: number;
         parents: number;
         usable: boolean;
+        loadedSkills?: { name: string; revision: number }[] | null;
         upstreamContext?: {
           step: number;
           originAttempt?: number;

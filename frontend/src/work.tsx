@@ -773,6 +773,9 @@ export function Work({
                     : "原上下文已失效"}
                 </p>
               )}
+              {a.workingSet?.usable && !!a.workingSet.loadedSkills?.length && (
+                <p>本次装载的 Skill · {a.workingSet.loadedSkills.map(skill => skill.name + " v" + skill.revision).join("、")}</p>
+              )}
               {excerpts.length > 0 && (
                 <details>
                   <summary>已摘录 {excerpts.length} 项上游结果</summary>

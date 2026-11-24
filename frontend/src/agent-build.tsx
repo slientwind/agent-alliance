@@ -26,7 +26,10 @@ type BuildSnapshot = {
   evidence: {
     passed: boolean;
     digest: string;
-    snapshot: { items: { passed: boolean; legacy: boolean }[] };
+    snapshot: {
+      items: { passed: boolean; legacy: boolean }[];
+      conditionalSkills?: { id: string; revision: number; passed: boolean }[];
+    };
     remoteOperations?: RemoteOperations;
   };
   review?: { id: string; stale: boolean; legacy: boolean };
@@ -97,6 +100,18 @@ export function BuildReview({
             {!!items.length && ` · ${items.filter(item => item.passed).length}/${items.length} 项`}
             {items.some(item => item.legacy) && " · 含升级前证据"}
           </p>
+          {!!snapshot.evidence.snapshot.conditionalSkills?.length && (
+            <section aria-label="按需 Skill 验收">
+              <strong>按需 Skill 验收</strong>
+              <ul>
+                {snapshot.evidence.snapshot.conditionalSkills.map(skill => (
+                  <li key={skill.id}>
+                    {definition.skills.find(binding => binding.id === skill.id)?.name} v{skill.revision} · {skill.passed ? "样例已通过" : "待试跑命中样例"}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {snapshot.evidence.remoteOperations && (
             <section aria-label="外部操作验收">
               <strong>{snapshot.publishedRemoteOperations ? "已发布的操作范围" : "此修订的操作验收"}</strong>
