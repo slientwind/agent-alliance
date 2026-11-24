@@ -72,7 +72,8 @@ func (s Server) traceGrant(w http.ResponseWriter, r *http.Request, u identity.Me
 const traceInputsAllowed = `not exists(select from change_batches cb join feedback f on f.id=cb.feedback_id where cb.run_id=r.id and not feedback_notes_readable(f,$3))
  and not exists(select from plan_sources ps join sources s on s.id=ps.source_id where(ps.project_id,ps.plan_version)=(r.project_id,r.plan_version) and (s.revoked_at is not null or s.project_id<>r.project_id))
  and not exists(select from plan_preferences pp join preferences pref on pref.id=pp.preference_id where(pp.project_id,pp.plan_version)=(r.project_id,r.plan_version) and (pref.member_id<>$3 or not pref.enabled or pref.deleted_at is not null or pref.revision<>pp.revision or pref.expires_at<=clock_timestamp()))
- and not exists(select from plan_rules pr join team_rules t on t.id=pr.rule_id where(pr.project_id,pr.plan_version)=(r.project_id,r.plan_version) and not rule_usable(pr.rule_id,pr.rule_revision,$3))`
+ and not exists(select from plan_rules pr join rule_versions v on(v.rule_id,v.revision)=(pr.rule_id,pr.rule_revision)
+ where(pr.project_id,pr.plan_version)=(r.project_id,r.plan_version) and cardinality(v.agent_scope)=0 and not rule_usable(pr.rule_id,pr.rule_revision,$3))`
 
 const traceAccessSQL = `select (p.owner=$3 or 'structure'=any(g.scopes)), 'content'=any(g.scopes) and (` + traceInputsAllowed + `), 'export'=any(g.scopes),
  (r.trace_expires_at is not null and r.trace_expires_at<=clock_timestamp())
@@ -97,6 +98,7 @@ const traceSpansSQL = `select jsonb_build_object('run',r.id,'traceId',replace(r.
 // system prompts or provider request bodies in the operational event stream.
 const traceContentSQL = `select pl.brief,v.body,i.remote_task,i.remote_context,
  (` + traceInputsAllowed + `) and run_working_set_usable(r.id,n.ordinal,coalesce(i.attempt_no,1))
+ and not exists(select from invalid_working_step_rules(r.id,n.ordinal,i.attempt_no,$3) where scoped)
  from runs r join plans pl on(pl.project_id,pl.version)=(r.project_id,r.plan_version)
  join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version) and n.ordinal=$2
  left join change_batches cb on cb.run_id=r.id

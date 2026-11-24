@@ -143,7 +143,7 @@ func (f Feishu) taskContent(ctx context.Context, tx pgx.Tx, reply, actor, projec
 		elements = append(elements, cardLine(clipped(name, 100)+" · "+stageName(stage)))
 		if stage == "blocked" || stage == "running" {
 			var progress string
-			progress, err = sourceWaitProgress(ctx, tx, actor, project)
+			progress, err = stepWaitProgress(ctx, tx, actor, project)
 			if err != nil {
 				return
 			}

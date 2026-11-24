@@ -142,7 +142,8 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		if err := tx.QueryRow(ctx, `select exists(select from calculation_requests
             where (run_id,ordinal)=($1,$2) and request_revision is not null
             union all select from lookup_index_waits
-            where (run_id,ordinal,plan_version)=($1,$2,$3) and active and step_wait_revision is not null)`,
+            where (run_id,ordinal,plan_version)=($1,$2,$3) and active and step_wait_revision is not null
+            union all select from step_rule_waits where (run_id,ordinal)=($1,$2))`,
 			step.Run, step.Ordinal, d.planVersion).Scan(&waitingForSource); err != nil {
 			return err
 		}
@@ -197,6 +198,9 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			}
 			if !usable {
 				result.Wait = true
+				if parked, err := parkRevokedWorkingRule(ctx, tx, step, d.project, attempt); parked || err != nil {
+					return err
+				}
 				return setState(ctx, tx, step, d.project, "blocked", "working_memory_invalidated", memory.Unavailable)
 			}
 		}
@@ -265,6 +269,10 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		}
 		sources, files, refs, err := knowledge.CapturedRunInputs(ctx, tx, step.Run, step.Ordinal, d.lookupPhase == "" && d.routing.target == 0)
 		if err != nil {
+			if parked, parkErr := parkInputRule(ctx, tx, step, d.project, err); parked || parkErr != nil {
+				result.Wait = true
+				return parkErr
+			}
 			var problem web.Problem
 			if !errors.As(err, &problem) {
 				return err
@@ -335,6 +343,9 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			var invalid web.Problem
 			if errors.As(err, &invalid) {
 				result.Wait = true
+				if parked, err := parkRevokedWorkingRule(ctx, tx, step, d.project, 0); parked || err != nil {
+					return err
+				}
 				return setState(ctx, tx, step, d.project, "blocked", "working_memory_invalidated", invalid.Message)
 			}
 			if err != nil {
@@ -699,6 +710,9 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			result.Stop = runEnded(status)
 			result.Wait = !result.Stop
 			if status == "running" || status == "reconcile" {
+				if parked, err := parkRevokedWorkingRule(ctx, tx, step, d.project, dispatchedAttempt); parked || err != nil {
+					return err
+				}
 				return setState(ctx, tx, step, d.project, "blocked", "working_memory_invalidated", memory.Unavailable)
 			}
 			return nil

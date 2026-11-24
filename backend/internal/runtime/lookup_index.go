@@ -251,6 +251,9 @@ func (a Activities) recheckLookupIndex(ctx context.Context, step Step, d context
 			return err
 		}
 		if _, _, err := knowledge.RunInputs(ctx, tx, step.Run, step.Ordinal, false); err != nil {
+			if parked, parkErr := parkInputRule(ctx, tx, step, d.project, err); parked || parkErr != nil {
+				return parkErr
+			}
 			var problem web.Problem
 			if !errors.As(err, &problem) {
 				return err

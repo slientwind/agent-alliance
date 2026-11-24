@@ -404,7 +404,7 @@ func (f Feishu) Notify(ctx context.Context) {
 								}
 							}
 							if kind == "progress" && (stage == "blocked" || stage == "running") {
-								progress, err := sourceWaitProgress(ctx, tx, *actor, *project)
+								progress, err := stepWaitProgress(ctx, tx, *actor, *project)
 								if err != nil {
 									return err
 								}

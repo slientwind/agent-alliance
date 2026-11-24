@@ -75,6 +75,12 @@ func (s Server) artifactAction(w http.ResponseWriter, r *http.Request, u identit
 			}
 		} else {
 			var pending bool
+			if err := tx.QueryRow(ctx, "select not artifact_rule_draft_readable($1,$2)", id, ver).Scan(&pending); err != nil {
+				return err
+			}
+			if pending {
+				return web.Fail(409, "此候选使用的团队规则已失效，请按当前规则重做后审核")
+			}
 			if err = tx.QueryRow(ctx, "select exists(select from feedback where artifact_id=$1 and "+activeFeedback+")", id).Scan(&pending); err != nil {
 				return err
 			}

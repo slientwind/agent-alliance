@@ -391,6 +391,9 @@ func (a Activities) applyRemoteOutcome(ctx context.Context, job remoteJob, reply
 		}
 		if !working {
 			if job.state == "running" || job.state == "reconcile" {
+				if parked, err := parkRevokedWorkingRule(ctx, tx, job.Step, job.project, job.attempt); parked || err != nil {
+					return err
+				}
 				return setState(ctx, tx, job.Step, job.project, "blocked", "working_memory_invalidated", memory.Unavailable)
 			}
 			return nil

@@ -536,6 +536,7 @@ export function Work({
                 {p.plan.rules.map((rule, i) => (
                   <li key={i}>
                     <strong>v{rule.revision}</strong> ·{" "}
+                    {rule.scoped && `步骤 ${rule.steps?.join("、")} · `}
                     {rule.available
                       ? rule.body
                       : "规则已到期、停用或当前无权查看"}
@@ -830,6 +831,31 @@ export function Work({
               { step: wait.step, expected: p.run!.controlRevision, waitRevision: wait.waitRevision },
               { "Idempotency-Key": crypto.randomUUID() },
             ))}>重新核对原资料</button>
+          )}
+        </section>
+      ))}
+      {p.run?.ruleWaits?.map(wait => (
+        <section className="card" key={wait.waitRevision} aria-label={`步骤 ${wait.step} 的团队规则`}>
+          <h2>步骤 {wait.step} · 团队规则待核对</h2>
+          <p>已采用的规则 v{wait.ruleRevision} 已失效。</p>
+          {wait.rebuildRequired ? (
+            <p>此步骤已使用过失效规则或受影响的上游结果。请按当前规则重新发起这部分工作。</p>
+          ) : (
+            p.owner === user.id && (wait.availableRevision ? (
+              <>
+                <details>
+                  <summary>查看可用的规则 v{wait.availableRevision}</summary>
+                  <p className="preserve">{wait.availableBody}</p>
+                </details>
+                <button disabled={busy} onClick={() => void perform(() => api(
+                  "runs/" + p.run!.id + "/rules/recheck", "POST",
+                  { step: wait.step, expected: p.run!.controlRevision, waitRevision: wait.waitRevision, ruleRevision: wait.availableRevision },
+                  { "Idempotency-Key": crypto.randomUUID() },
+                ))}>确认规则 v{wait.availableRevision} 并继续步骤</button>
+              </>
+            ) : (
+              <p>请联系规则维护人恢复原版本或发布适用新版本，随后刷新本任务。</p>
+            ))
           )}
         </section>
       ))}

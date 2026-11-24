@@ -281,6 +281,10 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef) (R
 			return err
 		}
 		if !usable {
+			if parked, err := parkRevokedWorkingRule(ctx, tx, step, d.project, action.Attempt); parked || err != nil {
+				result.Wait = true
+				return err
+			}
 			return invalid(memory.Unavailable)
 		}
 		// Source edits and revocations take the same project lock.

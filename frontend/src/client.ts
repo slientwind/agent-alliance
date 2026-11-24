@@ -479,7 +479,7 @@ export type Project = Summary & {
   };
   messages: { seq: number; kind: string; body: string }[];
   plan: null | {
-    rules: { revision: number; body: string | null; available: boolean }[];
+    rules: { revision: number; body: string | null; available: boolean; scoped?: boolean; steps?: number[] }[];
     brief: string;
     quote: {
       known: string;
@@ -525,6 +525,15 @@ export type Project = Summary & {
     receiptRequests?: SourceReceiptRequest[];
     indexWait?: { step: number; until: string; automatic: boolean } | null;
     indexWaits?: { step: number; until: string; automatic: boolean; waitRevision: number }[];
+    ruleWaits?: {
+      step: number;
+      rule: string;
+      ruleRevision: number;
+      waitRevision: number;
+      rebuildRequired: boolean;
+      availableRevision?: number;
+      availableBody?: string;
+    }[];
     lookupPending?: boolean;
     calculationPending?: boolean;
     draftAvailable?: boolean;

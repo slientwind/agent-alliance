@@ -42,6 +42,7 @@ const remoteInputTarget = ` from runs r join projects p on p.id=r.project_id
   where (p.owner=$1 or (r.actor=$1 and pm.can_review and exists(select from change_batches where run_id=r.id)))`
 
 const remoteInputAuthorized = `not j.cancel_attempted and not a.emergency and
+  run_working_set_usable(r.id,j.ordinal,i.attempt_no) and
   project_agent_access(r.project_id,n.agent_id,n.agent_revision,r.actor) and
   remote_operation_live(agent_released_remote_operation_evidence(n.agent_id,n.agent_revision),'supplement')`
 

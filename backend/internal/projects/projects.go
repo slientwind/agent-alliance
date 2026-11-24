@@ -115,6 +115,7 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 		"POST /api/runs/{id}/calls/{step}/review":                                      s.reviewCall,
 		"GET /api/runs/{id}/receipt-passages":                                          s.receiptPassages,
 		"POST /api/runs/{id}/lookup-index/recheck":                                     s.recheckSourceIndex,
+		"POST /api/runs/{id}/rules/recheck":                                            s.recheckStepRule,
 		"POST /api/runs/{id}/calculation-receipts":                                     s.calculationReceipt,
 		"POST /api/runs/{id}/lookup-receipts":                                          s.lookupReceipt,
 		"POST /api/runs/{id}/tool-choice":                                              s.confirmToolChoice,
@@ -297,8 +298,12 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
  'picture',case when source_is_picture(sv.media_type) then true end)) order by coalesce(ps.picture_order,ps.receipt_order,0),ps.source_id)
  from plan_sources ps join source_versions sv on (sv.source_id,sv.version)=(ps.source_id,ps.source_version)
  where ps.project_id=p.id and ps.plan_version=p.plan_version),'[]'),
- 'rules',array(select jsonb_build_object('revision',pr.rule_revision,'available',rule_usable(pr.rule_id,pr.rule_revision,$1),'body',case when rule_usable(pr.rule_id,pr.rule_revision,$1) then v.body end)
- from plan_rules pr join rule_versions v on(v.rule_id,v.revision)=(pr.rule_id,pr.rule_revision) where pr.project_id=p.id and pr.plan_version=p.plan_version order by pr.rule_id),
+ 'rules',array(select jsonb_build_object('revision',pr.rule_revision,'available',rule_usable(pr.rule_id,pr.rule_revision,$1),'body',case when rule_usable(pr.rule_id,pr.rule_revision,$1) then v.body end,'scoped',cardinality(v.agent_scope)>0,
+ 'steps',array(select n.ordinal from nodes n left join plan_tool_choices c using(project_id,plan_version,ordinal)
+ where (n.project_id,n.plan_version)=(pr.project_id,pr.plan_version) and (n.agent_id=any(v.agent_scope) or c.alternative=any(v.agent_scope)) order by n.ordinal))
+ from plan_rules pr join rule_versions v on(v.rule_id,v.revision)=(pr.rule_id,pr.rule_revision) where pr.project_id=p.id and pr.plan_version=p.plan_version
+ and (cardinality(v.agent_scope)=0 or exists(select from nodes n left join plan_tool_choices c using(project_id,plan_version,ordinal)
+ where (n.project_id,n.plan_version)=(pr.project_id,pr.plan_version) and (n.agent_id=any(v.agent_scope) or c.alternative=any(v.agent_scope)))) order by pr.rule_id),
  'preferences',coalesce((select jsonb_agg(jsonb_build_object('id',pp.preference_id,'revision',pp.revision) order by pp.preference_id) from plan_preferences pp join preferences f on f.id=pp.preference_id where pp.project_id=p.id and pp.plan_version=p.plan_version and f.member_id=$1),'[]'),
  'nodes',(select jsonb_agg(jsonb_build_object('agent',n.agent_id,'name',a.name,'revision',n.agent_revision,'operation',agent_output_operation(a),'vision',agent_uses_picture(a) and not agent_edits_picture(a),'editsImage',agent_edits_picture(a),'outline',coalesce(a.tool @> '{"operation":"pptx","contract":"pptx-outline-v1"}'::jsonb,false),'lookupPhase',n.lookup_phase,'toolChoice',
  (select jsonb_build_object('selector',c.selector,'agent',v.agent_id,'name',v.name,'revision',v.revision,'primaryConfig',aggregate_scope(a.tool),'config',aggregate_scope(v.tool),
@@ -334,6 +339,7 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
  'run',(select jsonb_build_object('id',r.id,'status',r.status,'controlRevision',r.control_revision,'canResolveToolChoice',p.owner=$1 or (r.app_id is not null and r.delegated_by is null and p.final_reviewer=$1 and m.can_review),
  'receiptRequests',`+SourceReceiptRequestsSQL+`,
  'indexWaits',`+StepIndexWaitsSQL+`,
+ 'ruleWaits',`+StepRuleWaitsSQL("$1")+`,
  'receiptRequest',(select jsonb_build_object('step',ordinal,'reason',reason,'kind',kind) from current_source_receipt_requests where run_id=r.id and request_revision is null order by ordinal limit 1),'indexWait',`+LookupIndexWaitSQL+`,
  'draftAvailable',r.actor=$1 and r.service_id is null and exists(select from effective_run_nodes en
      join agent_revisions ar on(ar.agent_id,ar.revision)=(en.agent_id,en.agent_revision)
@@ -528,7 +534,9 @@ func savePlan(ctx context.Context, tx pgx.Tx, project, actor string, in PlanInpu
 		var stored []byte
 		err := tx.QueryRow(ctx, `select q.result from current_planning_requests q where q.id=$1 and q.project_id=$2 and q.actor=$3 and q.current_status='ready' and q.project_revision=$4-1 and q.result->>'kind'='plan'
  and (q.input_sources is null or (q.input_sources @> $6::jsonb and q.input_sources <@ $6::jsonb))
- and q.rule_pins=(select coalesce(jsonb_agg(jsonb_build_object('id',rule_id,'rev',rule_revision) order by rule_id),'[]') from plan_rules where project_id=$2 and plan_version=$5)`, in.Suggestion, p.ID, actor, p.Revision, ver, append([]SourcePin{}, in.Sources...)).Scan(&stored)
+ and q.rule_pins=(select coalesce(jsonb_agg(jsonb_build_object('id',p.rule_id,'rev',p.rule_revision) order by p.rule_id),'[]')
+ from plan_rules p join rule_versions v on (v.rule_id,v.revision)=(p.rule_id,p.rule_revision)
+ where p.project_id=$2 and p.plan_version=$5 and cardinality(v.agent_scope)=0)`, in.Suggestion, p.ID, actor, p.Revision, ver, append([]SourcePin{}, in.Sources...)).Scan(&stored)
 		if err == pgx.ErrNoRows {
 			return web.Fail(409, "原建议、资料范围或团队规则已变化，请重新核对方案")
 		}
@@ -754,7 +762,8 @@ func CheckAdmission(ctx context.Context, tx pgx.Tx, project string, version int,
 	if missing {
 		return web.Fail(409, "已采用的个人偏好发生变化，请核对后重新保存方案")
 	}
-	if err := tx.QueryRow(ctx, `select exists(select from plan_rules where project_id=$1 and plan_version=$2 and not rule_usable(rule_id,rule_revision,$3))`, project, version, actor).Scan(&missing); err != nil {
+	if err := tx.QueryRow(ctx, `select exists(select from plan_rules p join rule_versions v on(v.rule_id,v.revision)=(p.rule_id,p.rule_revision)
+        where p.project_id=$1 and p.plan_version=$2 and cardinality(v.agent_scope)=0 and not rule_usable(p.rule_id,p.rule_revision,$3))`, project, version, actor).Scan(&missing); err != nil {
 		return err
 	}
 	if missing {

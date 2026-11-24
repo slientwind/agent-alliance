@@ -6,8 +6,10 @@ import (
 	"alliance/internal/maintenance"
 	"alliance/internal/web"
 	"encoding/json"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 )
@@ -26,6 +28,7 @@ func (s Server) rulesRoutes(m *http.ServeMux, g identity.Server) {
 func (s Server) rules(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	rows, err := s.DB.Query(r.Context(), `select jsonb_build_object('id',r.id,'revision',v.revision,'body',v.body,'expiresAt',v.expires_at,
  'published',coalesce(r.published_revision,0),'publishedBody',pv.body,'publishedExpiresAt',pv.expires_at,'reviewAt',pv.review_at,
+ 'agentScope',v.agent_scope,'publishedAgentScope',pv.agent_scope,
  'expired',coalesce(pv.expires_at<=statement_timestamp(),false),'due',coalesce(pv.review_at<=statement_timestamp(),false),
  'lifecycle',r.lifecycle,'disabled',r.disabled,'owner',o.display_name,'mine',r.maintainer=$1 and not r.maintenance_vacant,'creator',creator.display_name,'invited',coalesce(r.proposed_owner=$1,false),'maintenanceVersion',r.maintenance_version,'ownerAvailable',not r.maintenance_vacant and o.enabled and exists(select from team_members ot where (ot.team_id,ot.member_id)=(r.team_id,r.maintainer)))
  from team_rules r join members o on o.id=r.maintainer join members creator on creator.id=r.author join team_members tm on tm.team_id=r.team_id and tm.member_id=$1
@@ -42,9 +45,10 @@ func (s Server) rules(w http.ResponseWriter, r *http.Request, u identity.Member)
 }
 func (s Server) writeRule(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	var in struct {
-		ID, Body  string
-		Expected  int
-		ExpiresAt *time.Time
+		ID, Body   string
+		Expected   int
+		ExpiresAt  *time.Time
+		AgentScope *[]string
 	}
 	if err := web.Read(r, &in); err != nil {
 		return err
@@ -56,6 +60,18 @@ func (s Server) writeRule(w http.ResponseWriter, r *http.Request, u identity.Mem
 		return web.Fail(422, "规则正文限 4096 字节")
 	}
 	id, team := in.ID, r.PathValue("id")
+	scope := []string{}
+	if in.AgentScope != nil {
+		for _, target := range *in.AgentScope {
+			agent, err := uuid.Parse(target)
+			if err != nil {
+				return web.Fail(422, "请选择本团队的 Agent")
+			}
+			scope = append(scope, agent.String())
+		}
+		slices.Sort(scope)
+		scope = slices.Compact(scope)
+	}
 	ctx := r.Context()
 	revision := 0
 	err := database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {
@@ -72,18 +88,30 @@ func (s Server) writeRule(w http.ResponseWriter, r *http.Request, u identity.Mem
 			if err := tx.QueryRow(ctx, "select id from team_rules where id=$1 and team_id=$2 for update", id, team).Scan(&locked); err != nil {
 				return err
 			}
-			if err := tx.QueryRow(ctx, "select max(revision) from rule_versions where rule_id=$1", id).Scan(&revision); err != nil {
+			var current []string
+			if err := tx.QueryRow(ctx, "select revision,agent_scope::text[] from rule_versions where rule_id=$1 order by revision desc limit 1", id).Scan(&revision, &current); err != nil {
 				return err
+			}
+			if in.AgentScope == nil {
+				scope = current
 			}
 		}
 		if revision != in.Expected {
 			return web.Fail(409, "规则草稿已有新版本")
 		}
-		revision++
-		if _, err := tx.Exec(ctx, "insert into rule_versions(rule_id,revision,body,author,expires_at) values($1,$2,$3,$4,$5)", id, revision, in.Body, u.ID, in.ExpiresAt); err != nil {
+		var targetsAvailable bool
+		if err := tx.QueryRow(ctx, `select not exists(select from unnest($1::text[]) target
+      where not exists(select from agents a where a.id=target::uuid and a.team_id=$2))`, scope, team).Scan(&targetsAvailable); err != nil {
 			return err
 		}
-		return database.Audit(ctx, tx, u.ID, "rule.draft", id, map[string]int{"revision": revision})
+		if !targetsAvailable {
+			return web.Fail(422, "规则只能限定给本团队的 Agent")
+		}
+		revision++
+		if _, err := tx.Exec(ctx, "insert into rule_versions(rule_id,revision,body,author,expires_at,agent_scope) values($1,$2,$3,$4,$5,$6::text[]::uuid[])", id, revision, in.Body, u.ID, in.ExpiresAt, scope); err != nil {
+			return err
+		}
+		return database.Audit(ctx, tx, u.ID, "rule.draft", id, map[string]any{"revision": revision, "agentScope": scope})
 	})
 	if err != nil {
 		return err

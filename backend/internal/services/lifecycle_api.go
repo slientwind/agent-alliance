@@ -86,6 +86,7 @@ type apiAction struct {
 	Excerpt                                  string                       `json:"excerpt,omitempty"`
 	ReceiptRevision                          int                          `json:"receiptRevision,omitempty"`
 	WaitRevision                             int                          `json:"waitRevision,omitempty"`
+	RuleRevision                             int                          `json:"ruleRevision,omitempty"`
 	Action, Reason, Body, Artifact, Position string
 	Expected, Step, Version                  int
 }
@@ -105,8 +106,9 @@ func (s Server) action(w http.ResponseWriter, r *http.Request) error {
 	if in.Action != "submit_receipt" && in.Action != "submit_lookup_receipt" && (in.Attachment != nil || in.Excerpt != "" || in.ExcerptStart != nil || in.ReceiptRevision != 0) {
 		return web.Fail(422, "请使用补交原件动作提交附件")
 	}
-	if in.Action != "recheck_source_index" && in.WaitRevision != 0 {
-		return web.Fail(422, "索引待办修订仅用于重新核对原资料")
+	if (in.Action != "recheck_source_index" && in.Action != "recheck_step_rule" && in.WaitRevision != 0) ||
+		(in.Action != "recheck_step_rule" && in.RuleRevision != 0) {
+		return web.Fail(422, "请使用对应的待办核对动作")
 	}
 	if in.Action == "correct_columns" {
 		if !in.AuthorizeOneCall || len(in.InputMappings) == 0 {
@@ -148,6 +150,12 @@ func (s Server) action(w http.ResponseWriter, r *http.Request) error {
 		}
 		var out map[string]any
 		switch in.Action {
+		case "recheck_step_rule":
+			if err := projects.RecheckStepRule(ctx, tx, id, v.Actor, fmt.Sprintf("api/%s/%x", id, web.Hash(key)),
+				projects.RuleRecheckInput{Step: in.Step, Expected: in.Expected, WaitRevision: in.WaitRevision, RuleRevision: in.RuleRevision}); err != nil {
+				return err
+			}
+			out = map[string]any{"action": in.Action, "step": in.Step, "controlRevision": in.Expected}
 		case "recheck_source_index":
 			if err := projects.RecheckSourceIndex(ctx, tx, id, v.Actor, fmt.Sprintf("api/%s/%x", id, web.Hash(key)),
 				projects.IndexRecheckInput{Step: in.Step, Expected: in.Expected, WaitRevision: in.WaitRevision}); err != nil {
@@ -324,7 +332,7 @@ func (s Server) events(w http.ResponseWriter, r *http.Request) error {
 	}
 }
 
-const progressSQL = `select jsonb_build_object(
+var progressSQL = `select jsonb_build_object(
  'id',r.id,'project',p.id,'service',r.service_id,'version',r.service_version,'status',r.status,'stage',p.stage,'controlRevision',r.control_revision,'canConcludeFailure',run_failure_confirmable(r.id),
  'deliveries',array(select jsonb_build_object('edition',d.edition,'id',d.id,'isPartial',d.partial,'distribution',distribution_state(d.id),'deliveryUrl','/api/v1/runs/'||r.id||'/delivery?edition='||d.edition,'packageUrl','/api/v1/runs/'||r.id||'/delivery/package?edition='||d.edition) from deliveries d where d.project_id=p.id order by d.edition desc),
  'humanActionUrl','/#'||p.id::text,'deliveryUrl','/api/v1/runs/'||r.id||'/delivery'||urls.suffix,'packageUrl','/api/v1/runs/'||r.id||'/delivery/package'||urls.suffix,
@@ -334,6 +342,7 @@ const progressSQL = `select jsonb_build_object(
    then case when exists(select from review_actions a where a.project_id=p.id and a.kind='deliver') then 'confirm_delivery' else 'review_artifacts' end
  when p.stage='review' then case when exists(select from artifacts a where a.run_id=r.id and (source_check_needed(a.id) or takeover_review_needed(p.id,a.id,a.current_version) or not exists(select from reviews v where(v.artifact_id,v.version)=(a.id,a.current_version)) or exists(select from feedback f where f.artifact_id=a.id and f.state in ('required','investigate','verification')))) then 'review_artifacts' else 'confirm_delivery' end
  when r.status='blocked' and exists(select from run_tool_choices choice where choice.run_id=r.id and choice.choice=0 and choice.manual_choice is null) then 'select_tool'
+ when r.status='running' and exists(select from step_rule_waits w where w.run_id=r.id) then 'check_step_rule'
  when r.status='blocked' and exists(select from lookup_index_waits w where w.run_id=r.id and w.active and w.step_wait_revision is null) then
    (select case when w.deadline>clock_timestamp() then 'wait_source_index' else 'resume' end
       from lookup_index_waits w where w.run_id=r.id and w.active and w.step_wait_revision is null)
@@ -351,6 +360,7 @@ const progressSQL = `select jsonb_build_object(
  'receiptRequest',(select jsonb_strip_nulls(jsonb_build_object('step',cr.ordinal,'reason',cr.reason,'kind',cr.kind,'receiptRevision',cr.request_revision)) from current_source_receipt_requests cr where cr.run_id=r.id order by cr.ordinal limit 1),
  'indexWait',` + projects.LookupIndexWaitSQL + `,
  'indexWaits',` + projects.StepIndexWaitsSQL + `,
+ 'ruleWaits',` + projects.StepRuleWaitsSQL("$2") + `,
  'finalReviewer',reviewer.display_name,
  'steps',array(select jsonb_strip_nulls(jsonb_build_object('step',n.ordinal,'name',ar.name,'revision',n.agent_revision,'toolChoice',n.choice,'status',case when n.lookup_phase='synthesize' and evidence_follow_up_skipped(r.id,n.ordinal) then 'skipped' else coalesce(i.status,case when n.lookup_phase in ('answer','answer_calc') and a.id is not null then 'skipped' else 'pending' end) end,
  'canSupplement',r.status in('queued','running','blocked','paused') and i.run_id is null and a.id is null and ar.tool is null and (select count(*) from service_supplements x where(x.run_id,x.ordinal)=(r.id,n.ordinal))<8,
