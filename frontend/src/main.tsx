@@ -1383,7 +1383,7 @@ function App() {
             />
           )}
           {panel === "rules" && <TeamRules admin={user.role === "admin"} />}
-          {panel === "prefs" && <Preferences />}
+          {panel === "prefs" && <Preferences agents={agents} />}
           {panel === "library" && (
             <Library
               useAgent={!current.current && !hasPicks && !busy ? a => chooseAgents([a], a.team) : undefined}

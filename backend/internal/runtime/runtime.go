@@ -179,11 +179,13 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		var stepToolChoice bool
 		var boundedUpstream bool
 		var stepDispatchWait bool
+		var scopedPreferences bool
 		err := tx.QueryRow(ctx, `select r.project_id,r.actor,n.agent_id,n.agent_revision,p.brief,r.status,r.max_calls,n.lookup_phase,r.await_calculation_receipt,r.await_lookup_receipt,
             exists(select from nodes next where n.lookup_phase='search' and (next.project_id,next.plan_version,next.ordinal)=(n.project_id,n.plan_version,n.ordinal+1) and next.lookup_phase='answer_calc'),
-            exists(select from change_batches where run_id=r.id),n.selector,n.choice,r.plan_version,r.control_revision,r.service_id is null,r.step_tool_choice,r.bounded_upstream_context,r.step_dispatch_wait,`+runSkillTaskSQL+`
+            exists(select from change_batches where run_id=r.id),n.selector,n.choice,r.plan_version,r.control_revision,r.service_id is null,r.step_tool_choice,r.bounded_upstream_context,r.step_dispatch_wait,
+            exists(select from plan_scoped_preferences p where (p.project_id,p.plan_version)=(r.project_id,r.plan_version)),`+runSkillTaskSQL+`
             from runs r join plans p on(p.project_id,p.version)=(r.project_id,r.plan_version)
-            join effective_run_nodes n on n.run_id=r.id where r.id=$1 and n.ordinal=$2 for update of r`, step.Run, step.Ordinal).Scan(&d.project, &d.actor, &d.agent, &d.revision, &d.brief, &runState, &d.maximum, &d.lookupPhase, &d.awaitReceipt, &d.awaitLookupReceipt, &d.searchForCalculation, &d.change, &selector, &choice, &d.planVersion, &d.controlRevision, &d.memberDraft, &stepToolChoice, &boundedUpstream, &stepDispatchWait, &d.skillTask)
+            join effective_run_nodes n on n.run_id=r.id where r.id=$1 and n.ordinal=$2 for update of r`, step.Run, step.Ordinal).Scan(&d.project, &d.actor, &d.agent, &d.revision, &d.brief, &runState, &d.maximum, &d.lookupPhase, &d.awaitReceipt, &d.awaitLookupReceipt, &d.searchForCalculation, &d.change, &selector, &choice, &d.planVersion, &d.controlRevision, &d.memberDraft, &stepToolChoice, &boundedUpstream, &stepDispatchWait, &scopedPreferences, &d.skillTask)
 		if err != nil {
 			return err
 		}
@@ -637,6 +639,11 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		}
 		if stepDispatchWait {
 			if _, err := tx.Exec(ctx, "select set_config('alliance.step_dispatch_worker','true',true)"); err != nil {
+				return err
+			}
+		}
+		if scopedPreferences {
+			if _, err := tx.Exec(ctx, "select set_config('alliance.scoped_preference_worker','true',true)"); err != nil {
 				return err
 			}
 		}

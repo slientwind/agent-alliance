@@ -33,6 +33,7 @@ export type PlanAgent = Pick<
 > & Partial<Pick<Agent, "team">>;
 export type Agent = {
   draftPublished?: boolean;
+  acceptsPreferences?: boolean;
   release?: {
     id: string;
     state: "pending" | "published" | "returned" | "superseded";
@@ -506,7 +507,7 @@ export type Project = Summary & {
       grantShort: boolean;
     };
     sources: { id: string; version: number; picture?: boolean; receiptStep?:number }[];
-    preferences: { id: string; revision: number }[];
+    preferences: { id: string; revision: number; agent?: string; available?: boolean }[];
     nodes: {
       agent: string;
       name: string;

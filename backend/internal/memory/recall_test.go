@@ -33,3 +33,15 @@ func TestRecallFailsRatherThanDroppingRequiredMemory(t *testing.T) {
 		t.Fatalf("overlapping context escaped quota: %d bytes, %v", len(body), err)
 	}
 }
+
+func TestRecallKeepsScopedPreferenceOutWhenUnavailable(t *testing.T) {
+	body := "用列名标明采购单位"
+	out, err := formatRecall([]pinnedEntry{{Kind: "preference", Usable: true, Scoped: true, Body: &body}})
+	if err != nil || !strings.Contains(out, "当前 Agent 的个人偏好") || !strings.Contains(out, body) {
+		t.Fatalf("authorized scoped memory = %q, %v", out, err)
+	}
+	out, err = formatRecall([]pinnedEntry{{Kind: "preference", Usable: false, Scoped: true, Body: &body}})
+	if err != nil || out != "" {
+		t.Fatalf("unavailable scoped memory = %q, %v", out, err)
+	}
+}

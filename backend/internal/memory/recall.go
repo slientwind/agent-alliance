@@ -32,21 +32,40 @@ func (r *RuleUnavailable) Unwrap() error {
 // Recall reads only the run's explicitly pinned personal and team memory.
 // Project files and passages remain the responsibility of the knowledge store.
 func Recall(ctx context.Context, tx pgx.Tx, run string) (string, error) {
-	text, _, err := RecallWithReferences(ctx, tx, run, 0)
+	text, _, err := RecallWithReferences(ctx, tx, run, 0, false)
 	return text, err
 }
 
-// RecallWithReferences keeps the references paired with the selected text.
-func RecallWithReferences(ctx context.Context, tx pgx.Tx, run string, step int) (string, []Reference, error) {
-	rows, err := tx.Query(ctx, `select kind,id,revision,usable,case when usable then body end,scoped
+// RecallWithReferences locks scoped records only when preparing an inference.
+// Read-only projections recheck the already captured working set.
+func RecallWithReferences(ctx context.Context, tx pgx.Tx, run string, step int, capture bool) (string, []Reference, error) {
+	lockScoped := ""
+	if capture {
+		lockScoped = "for share of pref"
+	}
+	rows, err := tx.Query(ctx, `with scoped_preferences as materialized (
+        select 'preference'::text kind,p.preference_id as id,p.revision,pref.body,
+          p.revision=pref.revision and p.agent_scope is not distinct from pref.agent_scope and pref.enabled and pref.deleted_at is null
+            and not pref.departure_guard and pref.body is not null and pref.expires_at>statement_timestamp() usable,
+          true as scoped
+        from runs r join plan_scoped_preferences p on(p.project_id,p.plan_version)=(r.project_id,r.plan_version)
+        join effective_run_nodes n on(n.run_id,n.ordinal,n.agent_id)=(r.id,$2,p.agent_scope)
+        join agent_revisions a on(a.agent_id,a.revision)=(n.agent_id,n.agent_revision) and a.tool is null
+        join preferences pref on(pref.id,pref.member_id)=(p.preference_id,r.actor)
+        where r.id=$1 and run_memory_can_use_personal(r.id)
+        `+lockScoped+`
+      )
+      select kind,id,revision,usable,case when usable then body end,scoped
       from (
         select 'preference'::text kind,p.preference_id as id,p.revision,pref.body,
-            p.revision=pref.revision and pref.enabled and pref.deleted_at is null and not pref.departure_guard
+            p.revision=pref.revision and pref.agent_scope is null and pref.enabled and pref.deleted_at is null and not pref.departure_guard
               and pref.member_id=r.actor and pref.body is not null and pref.expires_at>statement_timestamp() usable,
             false as scoped
         from runs r join plan_preferences p on(p.project_id,p.plan_version)=(r.project_id,r.plan_version)
         join preferences pref on pref.id=p.preference_id
         where r.id=$1 and run_memory_can_use_personal(r.id)
+        union all
+        select * from scoped_preferences
         union all
         select 'rule'::text,p.rule_id,p.rule_revision,v.body,tr.team_id=project.team_id and rule_usable(p.rule_id,p.rule_revision,r.actor),false
         from runs r join plan_rules p on(p.project_id,p.plan_version)=(r.project_id,r.plan_version)
@@ -71,13 +90,15 @@ func RecallWithReferences(ctx context.Context, tx pgx.Tx, run string, step int) 
 	}
 	refs := make([]Reference, 0, len(items))
 	for _, entry := range items {
-		refs = append(refs, Reference{Kind: entry.Kind, ID: entry.ID, Revision: entry.Revision})
+		if entry.Usable && entry.Body != nil {
+			refs = append(refs, Reference{Kind: entry.Kind, ID: entry.ID, Revision: entry.Revision})
+		}
 	}
 	return text, refs, nil
 }
 
 func formatRecall(items []pinnedEntry) (string, error) {
-	var personal, team []string
+	var personal, forAgent, team []string
 	size := 0
 	for _, item := range items {
 		if !item.Usable || item.Body == nil {
@@ -87,6 +108,9 @@ func formatRecall(items []pinnedEntry) (string, error) {
 				}
 				return "", web.Fail(409, "已采用的团队规则到期、停用或授权撤销")
 			}
+			if item.Scoped {
+				continue
+			}
 			return "", web.Fail(409, "已采用的个人偏好发生变化")
 		}
 		size += len(*item.Body) + 1
@@ -95,6 +119,8 @@ func formatRecall(items []pinnedEntry) (string, error) {
 		}
 		if item.Kind == "rule" {
 			team = append(team, *item.Body)
+		} else if item.Scoped {
+			forAgent = append(forAgent, *item.Body)
 		} else {
 			personal = append(personal, *item.Body)
 		}
@@ -103,6 +129,10 @@ func formatRecall(items []pinnedEntry) (string, error) {
 	if len(personal) != 0 {
 		out.WriteString("\n用户明确采用的偏好\n")
 		out.WriteString(strings.Join(personal, "\n"))
+	}
+	if len(forAgent) != 0 {
+		out.WriteString("\n当前 Agent 的个人偏好（服从本次要求及团队规则。成果中无需复述偏好配置。）\n")
+		out.WriteString(strings.Join(forAgent, "\n"))
 	}
 	if len(team) != 0 {
 		out.WriteString("\n适用的已发布团队规则（优先于个人偏好）\n")

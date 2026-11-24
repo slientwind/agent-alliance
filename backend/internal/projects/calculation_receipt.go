@@ -251,6 +251,7 @@ func ApplySourceReceipt(ctx context.Context, tx pgx.Tx, run, actor, key string, 
 		"insert into node_edges select project_id,$3,ordinal,depends_on from node_edges where project_id=$1 and plan_version=$2",
 		"insert into plan_rules select project_id,$3,rule_id,rule_revision from plan_rules where project_id=$1 and plan_version=$2",
 		"insert into plan_preferences select project_id,$3,preference_id,revision from plan_preferences where project_id=$1 and plan_version=$2",
+		"insert into plan_scoped_preferences select project_id,$3,preference_id,revision,agent_scope from plan_scoped_preferences where project_id=$1 and plan_version=$2",
 		"insert into plan_sources select project_id,$3,source_id,source_version,receipt_step,receipt_order,excerpt_start,excerpt_end,receipt_kind,picture_order from plan_sources where project_id=$1 and plan_version=$2",
 	} {
 		if _, err = tx.Exec(ctx, q, project, version, next); err != nil {

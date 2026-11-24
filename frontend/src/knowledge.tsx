@@ -2,7 +2,7 @@ import { SourceSearch } from "./source-search";
 import { SourceHistory } from "./source-impact";
 import { useEffect, useState } from "react";
 import { FilePreview, canPreview } from "./file-preview";
-import { api } from "./client";
+import { api, type Agent } from "./client";
 export type Source = {
   id: string;
   name: string;
@@ -45,6 +45,8 @@ export type Preference = {
   purgeDue: string;
   lifecycle: number;
   state: "active" | "disabled" | "expired" | "deleted" | "departed";
+  agent?: string;
+  agentName?: string;
 };
 export async function upload(
   project: string,
@@ -265,7 +267,7 @@ const actionText = {
   purge: "立即清除正文",
 };
 type PreferenceAction = keyof typeof actionText;
-export function Preferences() {
+export function Preferences({ agents }: { agents: Agent[] }) {
   const [items, setItems] = useState<Preference[]>([]);
   const [bin, setBin] = useState<Preference[]>([]);
   const [edit, setEdit] = useState<Preference | null>(null);
@@ -275,6 +277,7 @@ export function Preferences() {
   } | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(true);
+  const published = agents.filter(agent => agent.acceptsPreferences);
   async function load() {
     const [available, recycled] = await Promise.all([
       api<Preference[]>("preferences"),
@@ -396,6 +399,7 @@ export function Preferences() {
             v{p.revision} · {p.enabled ? "启用" : "停用"} · 有效至{" "}
             {formatDate(p.expiresAt)}
           </small>
+          <small>{p.agent ? "仅适用于 " + (p.agentName || "原绑定 Agent") : "可在任意方案中采用"}</small>
           <small>
             {Date.parse(p.reviewAt) <= Date.now() ? (
               <strong>已到复查日</strong>
@@ -456,6 +460,7 @@ export function Preferences() {
                 body: f.get("body"),
                 enabled: edit?.enabled ?? true,
                 expected: edit?.revision || 0,
+                agent: f.get("agent"),
                 until: until
                   ? new Date(String(until)).toISOString()
                   : undefined,
@@ -468,6 +473,17 @@ export function Preferences() {
         <label>
           {edit ? "纠正偏好" : "新增显式偏好"}
           <textarea name="body" required defaultValue={edit?.body} />
+        </label>
+        <label>
+          适用 Agent
+          <select name="agent" aria-label="适用 Agent" defaultValue={edit?.agent || ""}>
+            <option value="">任意 Agent</option>
+            {edit?.agent && !published.some(agent => agent.id === edit.agent) &&
+              <option value={edit.agent}>{edit.agentName || "原绑定 Agent"} · 当前不可用</option>}
+            {published.map(agent => (
+              <option key={agent.id} value={agent.id}>{agent.publishedName || agent.name}</option>
+            ))}
+          </select>
         </label>
         {!edit && (
           <label>

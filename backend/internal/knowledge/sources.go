@@ -391,7 +391,7 @@ func runInputs(ctx context.Context, tx pgx.Tx, run string, step int, includeText
 	if err = rows.Err(); err != nil {
 		return "", nil, err
 	}
-	recalled, recalledRefs, err := memory.RecallWithReferences(ctx, tx, run, step)
+	recalled, recalledRefs, err := memory.RecallWithReferences(ctx, tx, run, step, refs != nil)
 	if err != nil {
 		return "", nil, err
 	}

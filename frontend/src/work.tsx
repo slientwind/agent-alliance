@@ -745,6 +745,10 @@ export function Work({
           )}
         </section>
       )}
+      {p.run && ["running", "paused", "blocked", "reconcile"].includes(p.run.status) &&
+        p.plan?.preferences.some(pref => pref.agent && pref.available === false) && (
+          <p role="status">此方案有已失效的限定偏好。尚未派发的步骤会省略它，已使用过它的成果须核对原依据。</p>
+        )}
       {p.run && (
         <Diagnostics
           project={p}

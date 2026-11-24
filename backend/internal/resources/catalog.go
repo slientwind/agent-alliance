@@ -208,6 +208,7 @@ type AgentInfo struct {
 	Validated             bool            `json:"validated"`
 	Skills                json.RawMessage `json:"skills,omitempty"`
 	DraftPublished        bool            `json:"draftPublished,omitempty"`
+	AcceptsPreferences    bool            `json:"acceptsPreferences,omitempty"`
 }
 
 func (c Catalog) listAgents(w http.ResponseWriter, r *http.Request, u identity.Member) error {
@@ -241,7 +242,8 @@ func (c Catalog) listAgents(w http.ResponseWriter, r *http.Request, u identity.M
  coalesce(a.published_revision,0),coalesce(r.resource_id::text,''),coalesce(r.resource_revision,0),agent_verified(a.id,r.revision),
  (select jsonb_agg(jsonb_build_object('id',b.skill_id,'revision',b.skill_revision) order by b.position)
     from agent_skill_bindings b where (b.agent_id,b.revision)=(a.id,r.revision) and b.root),
- exists(select from agent_publications p where (p.agent_id,p.revision)=(a.id,r.revision))
+ exists(select from agent_publications p where (p.agent_id,p.revision)=(a.id,r.revision)),
+ pub.agent_id is not null and pub.tool is null
  from agents a
  join team_members t on t.team_id=a.team_id and t.member_id=$1
  join teams team on team.id=a.team_id

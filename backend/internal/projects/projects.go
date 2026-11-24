@@ -313,7 +313,11 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
  from plan_rules pr join rule_versions v on(v.rule_id,v.revision)=(pr.rule_id,pr.rule_revision) where pr.project_id=p.id and pr.plan_version=p.plan_version
  and (cardinality(v.agent_scope)=0 or exists(select from nodes n left join plan_tool_choices c using(project_id,plan_version,ordinal)
  where (n.project_id,n.plan_version)=(pr.project_id,pr.plan_version) and (n.agent_id=any(v.agent_scope) or c.alternative=any(v.agent_scope)))) order by pr.rule_id),
- 'preferences',coalesce((select jsonb_agg(jsonb_build_object('id',pp.preference_id,'revision',pp.revision) order by pp.preference_id) from plan_preferences pp join preferences f on f.id=pp.preference_id where pp.project_id=p.id and pp.plan_version=p.plan_version and f.member_id=$1),'[]'),
+ 'preferences',coalesce((select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id',pp.preference_id,'revision',pp.revision,'agent',pp.agent_scope,
+   'available',case when pp.agent_scope is not null then f.enabled and not f.departure_guard and f.body is not null
+     and f.deleted_at is null and f.expires_at>statement_timestamp()
+     and (f.revision,f.agent_scope) is not distinct from (pp.revision,pp.agent_scope) end)) order by pp.preference_id)
+   from plan_bound_preferences pp join preferences f on f.id=pp.preference_id where pp.project_id=p.id and pp.plan_version=p.plan_version and f.member_id=$1),'[]'),
  'nodes',(select jsonb_agg(jsonb_build_object('agent',n.agent_id,'name',a.name,'revision',n.agent_revision,'operation',agent_output_operation(a),'vision',agent_uses_picture(a) and not agent_edits_picture(a),'editsImage',agent_edits_picture(a),'outline',coalesce(a.tool @> '{"operation":"pptx","contract":"pptx-outline-v1"}'::jsonb,false),'lookupPhase',n.lookup_phase,'toolChoice',
  (select jsonb_build_object('selector',c.selector,'agent',v.agent_id,'name',v.name,'revision',v.revision,'primaryConfig',aggregate_scope(a.tool),'config',aggregate_scope(v.tool),
    'primaryRemote',a.card is not null,'alternativeRemote',v.card is not null,
@@ -605,15 +609,6 @@ func savePlan(ctx context.Context, tx pgx.Tx, project, actor string, in PlanInpu
 			return web.Fail(409, "选定资料不可引用")
 		}
 	}
-	for _, pref := range in.Preferences {
-		tag, err := tx.Exec(ctx, `insert into plan_preferences select $1,$2,id,revision from preferences where id=$3 and member_id=$4 and revision=$5 and enabled and deleted_at is null and expires_at>now()`, p.ID, ver, pref.ID, actor, pref.Revision)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() != 1 {
-			return web.Fail(409, "个人偏好已失效")
-		}
-	}
 	nodes, err := executionNodes(in)
 	if err != nil {
 		return err
@@ -641,6 +636,11 @@ func savePlan(ctx context.Context, tx pgx.Tx, project, actor string, in PlanInpu
 	}
 	if err := saveToolChoices(ctx, tx, p.ID, ver, actor, nodes, in.ToolChoices); err != nil {
 		return err
+	}
+	for _, pref := range in.Preferences {
+		if err := bindPlanPreference(ctx, tx, p.ID, ver, actor, pref.ID, pref.Revision); err != nil {
+			return err
+		}
 	}
 	if err := bindWorkflowBuilds(ctx, tx, p.ID, ver, templateVersion); err != nil {
 		return err
@@ -798,8 +798,10 @@ func CheckAdmission(ctx context.Context, tx pgx.Tx, project string, version int,
 	if missing {
 		return web.Fail(409, "请为本次模板任务选择新的可读资料")
 	}
-	if err := tx.QueryRow(ctx, `select exists(select from plan_preferences pp join preferences pref on pref.id=pp.preference_id join members m on m.id=pref.member_id
- where pp.project_id=$1 and pp.plan_version=$2 and (pref.member_id<>$3 or not m.enabled or not pref.enabled or pref.revision<>pp.revision or pref.deleted_at is not null or pref.expires_at<=now()))`, project, version, actor).Scan(&missing); err != nil {
+	if err := tx.QueryRow(ctx, `select exists(select from plan_bound_preferences pp join preferences pref on pref.id=pp.preference_id join members m on m.id=pref.member_id
+ where pp.project_id=$1 and pp.plan_version=$2 and (pref.member_id<>$3 or not m.enabled or not pref.enabled or pref.revision<>pp.revision
+    or pref.agent_scope is distinct from pp.agent_scope or pref.departure_guard or pref.body is null
+    or pref.deleted_at is not null or pref.expires_at<=now()))`, project, version, actor).Scan(&missing); err != nil {
 		return err
 	}
 	if missing {

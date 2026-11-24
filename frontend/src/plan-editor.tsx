@@ -168,12 +168,13 @@ function DraftSummary({
         ))}
       {Object.entries(value.rules)
         .filter(([, v]) => v > 0)
-        .map(([id, v]) => (
-          <small key={id}>
-            偏好 · {preferences.find((s) => s.id === id)?.body || "原绑定偏好"}{" "}
-            · v{v}
-          </small>
-        ))}
+        .map(([id, v]) => {
+          const pref = preferences.find((s) => s.id === id && s.revision === v);
+          return <small key={id}>
+            偏好 · {pref?.body || "原绑定偏好"} · v{v}
+            {pref?.agent && " · 仅 " + (pref.agentName || "原绑定 Agent")}
+          </small>;
+        })}
     </>
   );
 }
@@ -269,6 +270,8 @@ export function PlanEditor({
   const latest = currentPlan(project);
   const value = draft ?? latest;
   const { steps, documents, rules } = value;
+  const selectedAgents = new Set(steps.flatMap(s => s.toolChoice ? [s.agent, s.toolChoice.agent] : [s.agent]));
+  const invalidPreferenceScope = preferences.some(pref => rules[pref.id] && pref.agent && !selectedAgents.has(pref.agent));
   const requiredItems = conditionItems(steps);
   const reviewDelivery = !!project.workflowTemplate && (
     ((!value.templateUpdate || !!project.plan) && !retainsConditions(latest.steps, steps)) ||
@@ -401,7 +404,7 @@ export function PlanEditor({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (stale || busy || !steps.length || needsPictureAgent || tooManyReferences || missingLookupSources || missingTemplateSources || invalidToolChoice || unavailableTemplateStep || invalidDeliveryContract || deliveryReviewPending) return;
+        if (stale || busy || !steps.length || needsPictureAgent || tooManyReferences || missingLookupSources || missingTemplateSources || invalidToolChoice || unavailableTemplateStep || invalidDeliveryContract || deliveryReviewPending || invalidPreferenceScope) return;
         void save({
           expected: value.baseRevision,
           ...(replacements.length > 0 && { replacements, replacementBase: value.baseVersion }),
@@ -804,11 +807,13 @@ export function PlanEditor({
         {ruleIds.map((id) => {
           const pref = preferences.find((f) => f.id === id),
             pinned = rules[id] || 0,
-            valid = pref?.enabled && Date.parse(pref.expiresAt) > Date.now();
-          if (!valid && !pinned) return null;
+            valid = pref?.enabled && Date.parse(pref.expiresAt) > Date.now(),
+            scoped = !!pref?.agent && !selectedAgents.has(pref.agent);
+          if ((!valid || scoped) && !pinned) return null;
           return (
             <label key={id}>
               个人偏好 · {pref?.body || "原绑定偏好"}
+              {pref?.agent && " · 仅 " + (pref.agentName || "原绑定 Agent")}
               <select
                 value={pinned}
                 onChange={(e) =>
@@ -816,10 +821,12 @@ export function PlanEditor({
                 }
               >
                 <option value={0}>不采用</option>
-                {pinned > 0 && (!valid || pref?.revision !== pinned) && (
-                  <option value={pinned}>原绑定 v{pinned} · 需重新选择</option>
+                {pinned > 0 && (!valid || scoped || pref?.revision !== pinned) && (
+                  <option value={pinned}>
+                    原绑定 v{pinned} · {scoped ? "目标 Agent 未纳入此方案" : "需重新选择"}
+                  </option>
                 )}
-                {valid && (
+                {valid && !scoped && (
                   <option value={pref.revision}>v{pref.revision}</option>
                 )}
               </select>
@@ -828,7 +835,8 @@ export function PlanEditor({
         })}
       </fieldset>
       <div className="actions">
-        <button disabled={busy || stale || !steps.length || needsPictureAgent || tooManyReferences || missingLookupSources || missingTemplateSources || invalidToolChoice || unavailableTemplateStep || invalidDeliveryContract || deliveryReviewPending}>
+        {invalidPreferenceScope && <p role="status">请移除已离开本方案范围的个人偏好，或恢复对应的 Agent。</p>}
+        <button disabled={busy || stale || !steps.length || needsPictureAgent || tooManyReferences || missingLookupSources || missingTemplateSources || invalidToolChoice || unavailableTemplateStep || invalidDeliveryContract || deliveryReviewPending || invalidPreferenceScope}>
           {value.templateUpdate ? "采用新版并保存待确认方案" : "保存待确认方案"}
         </button>
         {draft && (
