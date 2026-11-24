@@ -123,6 +123,10 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 				result = waitingTask("input-"+rpc.Params.Message.MessageID, "initial-question")
 			case strings.HasPrefix(input, "background"):
 				result = task("remote-"+rpc.Params.Message.MessageID, "working")
+			case strings.HasPrefix(input, "completed task"):
+				completed := task("direct-"+rpc.Params.Message.MessageID, "completed")
+				completed["artifacts"] = []map[string]any{{"parts": text}}
+				result = completed
 			default:
 				if strings.HasPrefix(input, "business-fail") {
 					text[0]["text"] = "NO EXPECTED RESULT"
@@ -267,6 +271,73 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 			t.Fatalf("execute %+v: %+v, %v", step, result, err)
 		}
 	}
+	expectReviewReceipt := func(step Step, project, way string, revision int) (artifact, task string) {
+		t.Helper()
+		var actualWay, storedTask string
+		var actualRevision, attempt int
+		if err := db.QueryRow(ctx, `select l.artifact_id,e.task,e.way,e.agent_revision,e.attempt_no,i.remote_task
+          from artifact_remote_receipts l join remote_completion_evidence e using(run_id,ordinal,attempt_no)
+          join invocations i using(run_id,ordinal,attempt_no) where l.run_id=$1 and l.version=1`, step.Run).
+			Scan(&artifact, &task, &actualWay, &actualRevision, &attempt, &storedTask); err != nil ||
+			task == "" || task != storedTask || actualWay != way || actualRevision != revision || attempt != 1 {
+			t.Fatalf("unexpected accepted receipt: %q %s/%d attempt %d, expected %s/%d: %v", task, actualWay, actualRevision, attempt, way, revision, err)
+		}
+		lookupTestSQL(t, ctx, db, "insert into plan_delivery_contracts values($1,1,false)", project)
+		lookupTestSQL(t, ctx, db, "insert into plan_delivery_requirements values($1,1,1,1,'核对第三方成果')", project)
+		raw := call("GET", "/api/projects/"+project, nil, 200)
+		if !strings.Contains(string(raw), `"remoteEvidence"`) || !strings.Contains(string(raw), task) {
+			t.Fatalf("receipt missing from reviewer coverage: %s", raw)
+		}
+		return artifact, task
+	}
+	recordReviewReceipt := func(project, artifact, run string, version int, use *bool, want int) {
+		t.Helper()
+		var revision int
+		if err := db.QueryRow(ctx, "select revision from projects where id=$1", project).Scan(&revision); err != nil {
+			t.Fatal(err)
+		}
+		payload := map[string]any{"expected": revision, "item": 1, "run": run, "artifact": artifact, "version": version,
+			"state": "covered", "reason": "审核人已核对外部返回的内容"}
+		if use != nil {
+			payload["remoteEvidence"] = *use
+		}
+		call("POST", "/api/projects/"+project+"/delivery/assessments", payload, want)
+	}
+	directRun, directProject := run(1, "completed task direct production")
+	dispatch(directRun, false)
+	directArtifact, directTask := expectReviewReceipt(directRun, directProject, "submit", 1)
+	useReceipt := true
+	recordReviewReceipt(directProject, directArtifact, directRun.Run, 1, &useReceipt, 204)
+	recordReviewReceipt(directProject, directArtifact, directRun.Run, 1, nil, 204)
+	if raw := call("GET", "/api/projects/"+directProject, nil, 200); !strings.Contains(string(raw), `"remoteEvidenceRecorded"`) {
+		t.Fatalf("review did not retain its selected receipt: %s", raw)
+	}
+	var sealedCoverage string
+	if err := db.QueryRow(ctx, "select project_delivery_coverage($1,1)::text", directProject).Scan(&sealedCoverage); err != nil ||
+		strings.Contains(sealedCoverage, directTask) || strings.Contains(sealedCoverage, "remoteEvidence") {
+		t.Fatalf("formal delivery would expose the remote identifier: %s %v", sealedCoverage, err)
+	}
+	reader := uuid.NewString()
+	lookupTestSQL(t, ctx, db, "insert into members(id,email,display_name,password_hash,role) values($1,$2,'旁观成员','unused','member')", reader, reader+"@example.invalid")
+	lookupTestSQL(t, ctx, db, "insert into project_memberships(project_id,member_id,can_review) values($1,$2,false)", directProject, reader)
+	readerToken := web.Token()
+	lookupTestSQL(t, ctx, db, "insert into sessions(token_hash,member_id,expires_at) values($1,$2,now()+interval '2 minutes')", web.Hash(readerToken), reader)
+	if raw := skillTestRequest(t, routes, readerToken, "GET", "/api/projects/"+directProject, nil, 200); strings.Contains(string(raw), directTask) {
+		t.Fatal("ordinary project member received the task ID")
+	}
+	call("POST", "/api/projects/"+directProject+"/artifacts/"+directArtifact+"/revise", map[string]any{
+		"version": 1, "body": "MATCH", "reason": "人工重新核对后提交同一正文",
+	}, 204)
+	recordReviewReceipt(directProject, directArtifact, directRun.Run, 2, &useReceipt, 409)
+	if raw := call("GET", "/api/projects/"+directProject, nil, 200); strings.Contains(string(raw), directTask) {
+		t.Fatal("manual edition inherited a prior remote receipt")
+	}
+	messageOnly, messageProject := run(1, "direct message without remote task")
+	dispatch(messageOnly, false)
+	var messageReceipt bool
+	if err := db.QueryRow(ctx, "select exists(select from artifact_remote_receipts where run_id=$1)", messageOnly.Run).Scan(&messageReceipt); err != nil || messageReceipt {
+		t.Fatalf("message-only candidate got a task receipt: %t %v (%s)", messageReceipt, err, messageProject)
+	}
 	controlRevision := func(step Step) int {
 		t.Helper()
 		var rev int
@@ -346,6 +417,13 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 		deliveredBody != "MATCH" || sent.Load() != sendsBefore+1 || queried.Load() != queriesBefore+1 {
 		t.Fatalf("remote receipt did not produce one candidate: %q sends=%d queries=%d %v", deliveredBody, sent.Load(), queried.Load(), err)
 	}
+	queryArtifact, queryTask := expectReviewReceipt(production, prodProject, "query", 2)
+	recordReviewReceipt(prodProject, queryArtifact, production.Run, 1, &useReceipt, 204)
+	lookupTestSQL(t, ctx, db, "update run_working_sets set invalidated_at=now() where run_id=$1", production.Run)
+	if raw := call("GET", "/api/projects/"+prodProject, nil, 200); strings.Contains(string(raw), queryTask) {
+		t.Fatal("invalidated working inputs left the remote receipt visible")
+	}
+	recordReviewReceipt(prodProject, queryArtifact, production.Run, 1, &useReceipt, 409)
 
 	cancelExample, _ := run(2, "background cancel")
 	dispatch(cancelExample, true)
@@ -353,6 +431,11 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 	cancelsBefore := canceled.Load()
 	if checked, err := worker.checkRemote(ctx); !checked || err != nil || canceled.Load() != cancelsBefore+1 {
 		t.Fatalf("approved cancellation did not reach original task: %t %v", checked, err)
+	}
+	var cancelledProof bool
+	if err := db.QueryRow(ctx, "select exists(select from remote_completion_evidence where run_id=$1)", cancelExample.Run).
+		Scan(&cancelledProof); err != nil || cancelledProof {
+		t.Fatalf("cancelled task produced a completion receipt: %t %v", cancelledProof, err)
 	}
 	call("POST", path+"/evidence/"+cancelProof+"/withdraw", map[string]string{"reason": "取消能力已撤回"}, 204)
 	revoked, _ := run(2, "background after cancellation withdrawal")
@@ -471,6 +554,8 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 		t.Fatalf("replay lost the original receipt: %+v", after)
 	}
 	dispatch(supplementRun, false)
+	supplementArtifact, _ := expectReviewReceipt(supplementRun, supplementProject, "supplement", 1)
+	recordReviewReceipt(supplementProject, supplementArtifact, supplementRun.Run, 1, &useReceipt, 204)
 	if err := db.QueryRow(ctx, "select count(*) from spend where run_id=$1 and kind='remote-input'", supplementRun.Run).Scan(&costCount); err != nil || costCount != 1 {
 		t.Fatalf("supplement accounting: %d, %v", costCount, err)
 	}

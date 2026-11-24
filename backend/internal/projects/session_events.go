@@ -106,7 +106,7 @@ func (s Server) sessionEvents(g identity.Server) web.Handler {
 }
 
 func readSessionBatch(ctx context.Context, tx pgx.Tx, project, actor string, cursor sessionCursor) (sessionBatch, error) {
-	var run, heldDrafts, reviewEvidence string
+	var run, heldDrafts, reviewEvidence, remoteEvidence string
 	var head, floor int64
 	var review, costs, owner bool
 	err := tx.QueryRow(ctx, `select coalesce(h.seq,0),coalesce(retained.seq-1,h.seq,0),
@@ -118,7 +118,10 @@ func readSessionBatch(ctx context.Context, tx pgx.Tx, project, actor string, cur
 			where a.project_id=p.id) end,''),
 		coalesce(case when m.can_review and p.stage in ('running','review') then (
 			select string_agg(e.artifact_id::text||'/'||e.version,',' order by e.artifact_id)
-			from visible_artifact_requirement_evidence(p.id,$2) e) end,'')
+			from visible_artifact_requirement_evidence(p.id,$2) e) end,''),
+		coalesce(case when m.can_review then (
+			select string_agg(e.artifact_id::text||'/'||e.version,',' order by e.artifact_id)
+			from visible_artifact_remote_receipts(p.id,$2) e) end,'')
 		from projects p join project_members m on (m.project_id,m.member_id)=(p.id,$2)
 		join members u on u.id=m.member_id and u.enabled
 		left join project_session_heads h on h.project_id=p.id
@@ -126,7 +129,7 @@ func readSessionBatch(ctx context.Context, tx pgx.Tx, project, actor string, cur
 			where project_id=p.id and created_at>now()-interval '1 hour' order by seq limit 1) retained on true
 		left join lateral (select r.id,r.actor,r.service_id,r.draft_seq,r.status from runs r where r.project_id=p.id
 			and not exists(select from change_batches c where c.run_id=r.id) order by r.created_at desc,r.id desc limit 1) current_run on true
-		where p.id=$1`, project, actor).Scan(&head, &floor, &review, &costs, &owner, &run, &heldDrafts, &reviewEvidence)
+		where p.id=$1`, project, actor).Scan(&head, &floor, &review, &costs, &owner, &run, &heldDrafts, &reviewEvidence, &remoteEvidence)
 	if err != nil {
 		return sessionBatch{}, err
 	}
@@ -141,7 +144,7 @@ func readSessionBatch(ctx context.Context, tx pgx.Tx, project, actor string, cur
 	if len(window.attempts) > 0 {
 		draftScope = run + "/" + window.scope
 	}
-	hash := sha256.Sum256([]byte(fmt.Sprintf("%s/%t/%t/%t/%s/%s/%s", actor, review, costs, owner, draftScope, heldDrafts, reviewEvidence)))
+	hash := sha256.Sum256([]byte(fmt.Sprintf("%s/%t/%t/%t/%s/%s/%s/%s", actor, review, costs, owner, draftScope, heldDrafts, reviewEvidence, remoteEvidence)))
 	scope := hex.EncodeToString(hash[:])
 	batch := sessionBatch{next: sessionCursor{Seq: head, Scope: scope}, activeDraft: len(window.attempts) > 0}
 	if cursor.Scope != scope || cursor.Seq < floor || cursor.Seq > head {

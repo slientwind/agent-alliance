@@ -274,10 +274,15 @@ func readTarget(ctx context.Context, tx pgx.Tx, run, actor string) (changeTarget
 	return t, err
 }
 
-func applyCandidate(ctx context.Context, tx pgx.Tx, run, actor, body, reason string, t changeTarget) error {
+func applyCandidate(ctx context.Context, tx pgx.Tx, run, actor, body, reason string, t changeTarget, adoptOriginal bool) error {
 	newVersion := t.current + 1
 	if _, err := tx.Exec(ctx, "insert into artifact_versions(artifact_id,version,body,reason) values($1,$2,$3,$4)", t.artifact, newVersion, body, reason); err != nil {
 		return err
+	}
+	if adoptOriginal {
+		if _, err := tx.Exec(ctx, "select bind_artifact_remote_receipt($1,$2,$3,$4)", t.artifact, newVersion, run, t.ordinal); err != nil {
+			return err
+		}
 	}
 	if _, err := tx.Exec(ctx, "insert into artifact_files select $1,$2,object_hash,filename,media_type from invocation_files where run_id=$3", t.artifact, newVersion, run); err != nil {
 		return err
@@ -323,7 +328,7 @@ func FinishChange(ctx context.Context, tx pgx.Tx, run, actor, body string) error
 		}
 		return database.Audit(ctx, tx, actor, "change.conflict", run, map[string]int{"base": t.base, "current": t.current})
 	}
-	return applyCandidate(ctx, tx, run, actor, body, "Agent 按反馈提交修订稿", t)
+	return applyCandidate(ctx, tx, run, actor, body, "Agent 按反馈提交修订稿", t, true)
 }
 
 func (s Server) decideChange(w http.ResponseWriter, r *http.Request, u identity.Member) error {
@@ -385,7 +390,7 @@ func (s Server) decideChange(w http.ResponseWriter, r *http.Request, u identity.
 			}
 			body = in.MergedBody
 		}
-		return applyCandidate(ctx, tx, run, u.ID, body, in.Reason, t)
+		return applyCandidate(ctx, tx, run, u.ID, body, in.Reason, t, in.Action == "apply")
 	})
 	if err != nil {
 		return err

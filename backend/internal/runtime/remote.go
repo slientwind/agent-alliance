@@ -355,6 +355,7 @@ func (a Activities) applyRemoteOutcome(ctx context.Context, job remoteJob, reply
 			}
 			return nil
 		}
+		var qualifiedRemote bool
 		if job.state != "cancelled" {
 			operations, err := resources.ReadRemoteOperations(ctx, tx, job.agent, job.revision)
 			if err != nil {
@@ -366,6 +367,7 @@ func (a Activities) applyRemoteOutcome(ctx context.Context, job remoteJob, reply
 				}
 				return closeUnverifiedRemoteOutput(ctx, tx, job.Step, job.project, job.state, receipt)
 			}
+			qualifiedRemote = operations != nil
 		}
 		var body any
 		working := true
@@ -375,8 +377,9 @@ func (a Activities) applyRemoteOutcome(ctx context.Context, job remoteJob, reply
 				return err
 			}
 		}
+		var excerpt string
 		if working && job.state != "cancelled" {
-			var excerpt, base string
+			var base string
 			err = tx.QueryRow(ctx, `select coalesce(cb.excerpt,''),case when coalesce(cb.excerpt,'')<>'' then av.body else '' end from runs r left join change_batches cb on cb.run_id=r.id left join artifact_versions av on(av.artifact_id,av.version)=(cb.artifact_id,cb.base_version) where r.id=$1`, job.Run).Scan(&excerpt, &base)
 			if err != nil {
 				return err
@@ -388,6 +391,15 @@ func (a Activities) applyRemoteOutcome(ctx context.Context, job remoteJob, reply
 		}
 		if _, err = tx.Exec(ctx, "update invocations set status='completed',result=$1,ended_at=now() where run_id=$2 and ordinal=$3", body, job.Run, job.Ordinal); err != nil {
 			return err
+		}
+		if working && qualifiedRemote && excerpt == "" && !runEnded(job.state) && !job.cancel {
+			way := "query"
+			if job.inputID != "" {
+				way = "supplement"
+			}
+			if err := recordRemoteCompletion(ctx, tx, job.Step, job.attempt, job.agent, job.revision, receipt, reply.Text, way, job.inputID); err != nil {
+				return err
+			}
 		}
 		if !working {
 			if job.state == "running" || job.state == "reconcile" {

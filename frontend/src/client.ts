@@ -316,6 +316,15 @@ export type DeliveryEdition = {
   handoff: Partial<Record<"purpose" | "instructions" | "limitations", string>>;
 };
 export type FileEvidenceExcerpt = { location: string; start: number; end: number; text: string };
+export type RemoteReviewEvidence = {
+  task: string;
+  way: "submit" | "query" | "supplement";
+  agent: string;
+  agentRevision: number;
+  step: number;
+  attempt: number;
+  completedAt: string;
+};
 export type CoverageItem = {
   item: number;
   step: number;
@@ -332,6 +341,8 @@ export type CoverageItem = {
   reviewedAt?: string;
   fileEvidenceAvailable?: boolean;
   fileEvidence?: FileEvidenceExcerpt & { name: string };
+  remoteEvidence?: RemoteReviewEvidence;
+  remoteEvidenceRecorded?: boolean;
   evidence?: {
     gap?: string;
     citations?: { name: string; version: number; start: number; end: number; text: string }[];

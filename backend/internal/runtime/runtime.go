@@ -850,6 +850,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			}
 			return setState(ctx, tx, step, d.project, "reconcile", "outcome_unknown", note)
 		}
+		var qualifiedRemote bool
 		if d.model.External && status != "cancelled" {
 			operations, err := resources.ReadRemoteOperations(ctx, tx, d.agent, d.revision)
 			if err != nil {
@@ -860,6 +861,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 				result.Wait = !result.Stop
 				return closeUnverifiedRemoteOutput(ctx, tx, step, d.project, status, reply.Receipt)
 			}
+			qualifiedRemote = operations != nil
 		}
 		working, err := memory.Usable(ctx, tx, workingKey)
 		if err != nil {
@@ -901,6 +903,11 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		}
 		if _, err := tx.Exec(ctx, "update invocations set status='completed',tokens=$1,result=$2,ended_at=now() where run_id=$3 and ordinal=$4", callTokens(d.model, reply), reply.Text, step.Run, step.Ordinal); err != nil {
 			return err
+		}
+		if qualifiedRemote && d.excerpt == "" && !runEnded(status) {
+			if err := recordRemoteCompletion(ctx, tx, step, dispatchedAttempt, d.agent, d.revision, reply.Receipt, reply.Text, "submit", ""); err != nil {
+				return err
+			}
 		}
 		if reply.File != nil {
 			hash, _, err := knowledge.ConfiguredObjects().Put(ctx, tx, bytes.NewReader(reply.File.Data), 6<<20)
@@ -1040,6 +1047,9 @@ func commitOutput(ctx context.Context, tx pgx.Tx, step Step, d contextData, text
 		return err
 	}
 	if err := storeRequirementEvidence(ctx, tx, step, d, id, 1); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, "select bind_artifact_remote_receipt($1,1,$2,$3)", id, step.Run, step.Ordinal); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, "insert into artifact_files select $1,1,object_hash,filename,media_type from invocation_files where run_id=$2 and ordinal=$3", id, step.Run, step.Ordinal); err != nil {

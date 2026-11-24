@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { CoverageItem, Project } from "./client";
+import type { CoverageItem, Project, RemoteReviewEvidence } from "./client";
 import { FileEvidencePicker } from "./delivery-file-evidence";
 
 export type Assessment = {
@@ -13,6 +13,7 @@ export type Assessment = {
   responsible?: string;
   continueWhen?: string;
   fileEvidence?: string;
+  remoteEvidence?: boolean;
 };
 
 function RequirementAssessment({
@@ -28,6 +29,7 @@ function RequirementAssessment({
   );
   const [responsible, setResponsible] = useState(item.responsibleActive ? item.responsible || "" : "");
   const [fileChoice, setFileChoice] = useState<(NonNullable<CoverageItem["fileEvidence"]> & { proof: string }) | null>();
+  const [remoteChoice, setRemoteChoice] = useState<boolean>();
   const fileEvidence = fileChoice === undefined ? item.fileEvidence : fileChoice;
   return (
     <details>
@@ -47,6 +49,7 @@ function RequirementAssessment({
           responsible: state === "missing" && responsible ? responsible : undefined,
           continueWhen: state === "missing" && responsible ? String(fields.get("continueWhen") || "").trim() : undefined,
           fileEvidence: item.fileEvidenceAvailable ? fileChoice?.proof ?? (fileChoice === null ? "" : undefined) : undefined,
+          remoteEvidence: item.remoteEvidence ? remoteChoice : undefined,
         });
       }}>
         <label>
@@ -71,6 +74,13 @@ function RequirementAssessment({
               </div>
             )}
           </>
+        )}
+        {item.remoteEvidence && (
+          <label>
+            <input type="checkbox" checked={remoteChoice ?? !!item.remoteEvidenceRecorded}
+              onChange={event => setRemoteChoice(event.target.checked)} />
+            将第三方回执记为本项依据
+          </label>
         )}
         <label>
           {state === "missing" ? "缺少什么" : "依据位置或说明"}
@@ -97,6 +107,19 @@ function RequirementAssessment({
   );
 }
 
+const remoteReturnWay = { submit: "提交时返回", query: "查询原任务后返回", supplement: "补件后返回" };
+
+function RemoteEvidenceDetails({ receipt, recorded, version }: { receipt: RemoteReviewEvidence; recorded?: boolean; version?: number }) {
+  return (
+    <details>
+      <summary>{recorded ? "已记录的第三方回执" : "查看第三方回执"} · 第三方任务已完成</summary>
+      <p>{receipt.agent} v{receipt.agentRevision} · 成果 v{version} · {remoteReturnWay[receipt.way]}</p>
+      <p className="preserve">原任务编号 <bdi>{receipt.task}</bdi></p>
+      <small>步骤 {receipt.step} · 第 {receipt.attempt} 次尝试 · 接收于 {new Date(receipt.completedAt).toLocaleString("zh-CN")}</small>
+    </details>
+  );
+}
+
 function RequirementEvidence({ evidence, reviewed }: { evidence: NonNullable<CoverageItem["evidence"]>; reviewed: boolean }) {
   if (evidence.gap) return <p className="preserve"><strong>建议补材料</strong> · {evidence.gap}</p>;
   return (
@@ -118,7 +141,7 @@ export function CoverageReview({ project, busy, save }: {
   save: (data: Assessment) => void;
 }) {
   const coverage = project.deliveryCoverage;
-  if (!coverage || project.stage === "delivered" && !coverage.items.some(item => item.fileEvidence)) return null;
+  if (!coverage || project.stage === "delivered" && !coverage.items.some(item => item.fileEvidence || item.remoteEvidenceRecorded)) return null;
   const blocked = new Set(project.artifacts.filter(a => a.draftBlock).map(a => a.id));
   const covered = coverage.items.filter(item => item.state === "covered" && !blocked.has(item.artifact ?? "")).length;
   const missing = coverage.items.filter(item => item.state === "missing");
@@ -146,6 +169,9 @@ export function CoverageReview({ project, busy, save }: {
                 <small>{item.fileEvidence.name} · v{item.version}</small>
                 <blockquote className="preserve">{item.fileEvidence.text}</blockquote>
               </details>
+            )}
+            {item.remoteEvidence && (project.stage !== "delivered" || item.remoteEvidenceRecorded) && (
+              <RemoteEvidenceDetails receipt={item.remoteEvidence} recorded={item.remoteEvidenceRecorded} version={item.version} />
             )}
             {item.state === "missing" && item.responsible && <p>
               {item.responsibleActive ? `接手人 ${item.responsibleName}` : "接手权限已失效"}

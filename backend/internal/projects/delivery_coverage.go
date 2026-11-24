@@ -161,6 +161,7 @@ type deliveryAssessment struct {
 	Responsible             string
 	ContinueWhen            string
 	FileEvidence            *string
+	RemoteEvidence          *bool
 }
 
 func (s Server) assessDeliveryItem(w http.ResponseWriter, r *http.Request, u identity.Member) error {
@@ -175,6 +176,7 @@ func (s Server) assessDeliveryItem(w http.ResponseWriter, r *http.Request, u ide
 		in.State == "covered" && (in.Artifact == "" || in.Responsible != "" || in.ContinueWhen != "") ||
 		(in.Responsible == "") != (in.ContinueWhen == "") ||
 		in.FileEvidence != nil && (*in.FileEvidence != "" && in.Artifact == "" || len(*in.FileEvidence) > 8192) ||
+		in.RemoteEvidence != nil && *in.RemoteEvidence && in.Artifact == "" ||
 		utf8.RuneCountInString(in.ContinueWhen) > 1000 || strings.ContainsRune(in.ContinueWhen, 0) {
 		return web.Fail(422, "请选择必交项并填写核对依据。指定接手人时请填写继续条件")
 	}
@@ -231,9 +233,13 @@ func (s Server) assessDeliveryItem(w http.ResponseWriter, r *http.Request, u ide
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `insert into delivery_item_assessments(project_id,plan_version,item,run_id,artifact_id,artifact_version,state,reason,responsible,continue_when,reviewer,file_evidence)
-          values($1,$2,$3,$4,nullif($5,'')::uuid,nullif($6,0),$7,$8,nullif($9,'')::uuid,$10,$11,$12)`,
-			p.ID, p.PlanVersion, in.Item, in.Run, in.Artifact, in.Version, in.State, in.Reason, in.Responsible, in.ContinueWhen, u.ID, evidence); err != nil {
+		remoteVersion, err := deliveryAssessmentRemoteReceipt(ctx, tx, p, u.ID, in, current)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `insert into delivery_item_assessments(project_id,plan_version,item,run_id,artifact_id,artifact_version,state,reason,responsible,continue_when,reviewer,file_evidence,remote_receipt_version)
+          values($1,$2,$3,$4,nullif($5,'')::uuid,nullif($6,0),$7,$8,nullif($9,'')::uuid,$10,$11,$12,$13)`,
+			p.ID, p.PlanVersion, in.Item, in.Run, in.Artifact, in.Version, in.State, in.Reason, in.Responsible, in.ContinueWhen, u.ID, evidence, remoteVersion); err != nil {
 			return err
 		}
 		return Touch(ctx, tx, p.ID, p.Stage)
@@ -243,4 +249,27 @@ func (s Server) assessDeliveryItem(w http.ResponseWriter, r *http.Request, u ide
 	}
 	w.WriteHeader(204)
 	return nil
+}
+
+func deliveryAssessmentRemoteReceipt(ctx context.Context, tx pgx.Tx, p Project, actor string, in deliveryAssessment, current coverageItem) (*int, error) {
+	if in.Artifact == "" || (in.RemoteEvidence != nil && !*in.RemoteEvidence) ||
+		(in.RemoteEvidence == nil && current.State == "unchecked") {
+		return nil, nil
+	}
+	var version int
+	err := tx.QueryRow(ctx, `select remote.version from visible_artifact_remote_receipts($1,$2) remote
+      where (remote.artifact_id,remote.version)=($3,$4) and coalesce($5::boolean,(
+        select (a.artifact_id,a.remote_receipt_version)=($3,$4) from delivery_item_assessments a
+        where (a.project_id,a.plan_version,a.item)=($1,$6,$7) order by a.id desc limit 1
+      ),false)`, p.ID, actor, in.Artifact, in.Version, in.RemoteEvidence, p.PlanVersion, in.Item).Scan(&version)
+	if err == pgx.ErrNoRows {
+		if in.RemoteEvidence != nil {
+			return nil, web.Fail(409, "当前成果的第三方回执已不可用，请重新核对")
+		}
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &version, nil
 }
