@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 782" width="1360" height="782" role="img" aria-labelledby="title desc"><title id="title">一次动作的权限、账本和回执边界</title><desc id="desc">三个泳道区分 Harness、受控 Runtime 和提供方。一个外部任务失联时，系统查询原号。</desc><defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7.2" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4 L0 8Z" fill="#4c7469"/></marker></defs><g font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, sans-serif">
+<rect x="0" y="0" width="1360" height="782" rx="0" fill="#f5f7f4" stroke="#f5f7f4" stroke-width="1.4"/>
+<text x="40" y="46" font-size="16" fill="#446359" font-weight="650" text-anchor="start">Agent Alliance  /  执行契约审查</text>
+<text x="40" y="94" font-size="36" fill="#142e24" font-weight="690" text-anchor="start">一次动作如何避免重复执行</text>
+<text x="40" y="127" font-size="17" fill="#28403a" font-weight="450" text-anchor="start">以异步远端 Agent 为例。报表选择已提取；跨能力的通用动作与观察契约是拟议接口。</text>
+<rect x="40" y="161" width="343" height="53" rx="11" fill="#e8efeb" stroke="#ccdbd5" stroke-width="1.4"/>
+<text x="55" y="184" font-size="17" fill="#193a2b" font-weight="650" text-anchor="start">决策 Harness</text>
+<text x="55" y="204" font-size="13" fill="#28403a" font-weight="450" text-anchor="start">只组织上下文并解释候选</text>
+<rect x="411" y="161" width="535" height="53" rx="11" fill="#e8efeb" stroke="#ccdbd5" stroke-width="1.4"/>
+<text x="426" y="184" font-size="17" fill="#193a2b" font-weight="650" text-anchor="start">受控 Runtime</text>
+<text x="426" y="204" font-size="13" fill="#28403a" font-weight="450" text-anchor="start">控制版本、授权、预算、账本</text>
+<rect x="974" y="161" width="346" height="53" rx="11" fill="#e8efeb" stroke="#ccdbd5" stroke-width="1.4"/>
+<text x="989" y="184" font-size="17" fill="#193a2b" font-weight="650" text-anchor="start">执行提供方 / 审核人</text>
+<text x="989" y="204" font-size="13" fill="#28403a" font-weight="450" text-anchor="start">执行与最终采纳各自留证</text>
+<rect x="40" y="254" width="343" height="67" rx="8" fill="#fbf7eb" stroke="#c4a46b" stroke-width="1.4" stroke-dasharray="6 4"/>
+<text x="54" y="277" font-size="17" fill="#18382c" font-weight="650" text-anchor="start">提出候选动作（提案）</text>
+<text x="54" y="301" font-size="14" fill="#28403a" font-weight="450" text-anchor="start">输入版本、允许操作、需处理的对象</text>
+<rect x="411" y="254" width="535" height="67" rx="8" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="425" y="277" font-size="17" fill="#18382c" font-weight="650" text-anchor="start">准备并提交业务事务</text>
+<text x="425" y="301" font-size="14" fill="#28403a" font-weight="450" text-anchor="start">复查委托与能力修订；预占预算，保存稳定操作键和尝试号</text>
+<rect x="974" y="254" width="346" height="67" rx="8" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="988" y="277" font-size="17" fill="#18382c" font-weight="650" text-anchor="start">执行该次调用</text>
+<text x="988" y="301" font-size="14" fill="#28403a" font-weight="450" text-anchor="start">供应商受理后可返回远端任务编号</text>
+<path d="M386 286 H405" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<path d="M949 286 H968" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="974" y="366" width="346" height="67" rx="8" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="988" y="389" font-size="17" fill="#18382c" font-weight="650" text-anchor="start">已受理 / 需补件 / 结果未知</text>
+<text x="988" y="413" font-size="14" fill="#28403a" font-weight="450" text-anchor="start">可查询时返回原任务状态或等待事件</text>
+<path d="M1145 324 V360" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="411" y="366" width="535" height="67" rx="8" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="425" y="389" font-size="17" fill="#18382c" font-weight="650" text-anchor="start">落账并选择恢复条件</text>
+<text x="425" y="413" font-size="14" fill="#28403a" font-weight="450" text-anchor="start">已知原号时核对原号；无可核查结果时保留未知并交人</text>
+<path d="M970 398 H952" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="411" y="478" width="535" height="67" rx="8" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="425" y="501" font-size="17" fill="#18382c" font-weight="650" text-anchor="start">匹配原任务后恢复</text>
+<text x="425" y="525" font-size="14" fill="#28403a" font-weight="450" text-anchor="start">复查当前访问权和尝试号；重复、迟到回执归原尝试</text>
+<path d="M678 436 V472" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="40" y="478" width="343" height="67" rx="8" fill="#fbf7eb" stroke="#c4a46b" stroke-width="1.4" stroke-dasharray="6 4"/>
+<text x="54" y="501" font-size="17" fill="#18382c" font-weight="650" text-anchor="start">解释新观察（通用契约待验）</text>
+<text x="54" y="525" font-size="14" fill="#28403a" font-weight="450" text-anchor="start">记录覆盖与缺项，决定补查或提交候选</text>
+<path d="M408 510 H390" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="411" y="602" width="535" height="67" rx="8" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="425" y="625" font-size="17" fill="#18382c" font-weight="650" text-anchor="start">保存候选版本与来源</text>
+<text x="425" y="649" font-size="14" fill="#28403a" font-weight="450" text-anchor="start">检查任务、授权及版本；缺项保留经办人与恢复条件</text>
+<path d="M211 548 V635 H405" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="974" y="602" width="346" height="67" rx="8" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="988" y="625" font-size="17" fill="#18382c" font-weight="650" text-anchor="start">审核与交付</text>
+<text x="988" y="649" font-size="14" fill="#28403a" font-weight="450" text-anchor="start">原委托允许部分交付时逐项接收并指派责任人</text>
+<path d="M949 635 H968" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<text x="40" y="730" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">远端受理、动作完成、版本审核和渠道送达分别记录。通知失败只重试投递；未知的业务调用保留核对路径。</text>
+</g></svg>

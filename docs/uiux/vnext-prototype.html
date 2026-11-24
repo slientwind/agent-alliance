@@ -1,0 +1,2390 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent Alliance vNext · 企业版 Personal Agent 交互原型</title>
+<style>
+:root, [data-theme="light"] {
+  color-scheme: light;
+  --bg-rail: #f6f7f4;
+  --bg-main: #ffffff;
+  --bg-canvas: #f1f4f0;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f4f6f3;
+  --bg-hover: #eaefea;
+  --bg-active: #e1ebe4;
+  --ink-primary: #1d2621;
+  --ink-secondary: #55615b;
+  --ink-muted: #7d8a83;
+  --border: #dde3de;
+  --border-strong: #c5d0c8;
+  --brand: #205a45;
+  --brand-hover: #174534;
+  --brand-soft: #e6f1eb;
+  --brand-ink: #1b4d3a;
+  --amber: #925715;
+  --amber-soft: #fbf3e4;
+  --amber-border: #e7cfa3;
+  --danger: #b83737;
+  --danger-soft: #fdecec;
+  --info: #255d87;
+  --info-soft: #eaf2f8;
+  --shadow-sm: 0 2px 8px rgba(21, 42, 25, 0.05);
+  --shadow-md: 0 6px 24px rgba(21, 42, 25, 0.08);
+  --shadow-lg: 0 20px 60px rgba(15, 31, 20, 0.16);
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-rail: #161a18;
+  --bg-main: #1c211e;
+  --bg-canvas: #141816;
+  --bg-surface: #232926;
+  --bg-subtle: #1e2421;
+  --bg-hover: #2a322e;
+  --bg-active: #23382e;
+  --ink-primary: #eef2ef;
+  --ink-secondary: #a2b0a8;
+  --ink-muted: #73827a;
+  --border: #2d3631;
+  --border-strong: #3e4c44;
+  --brand: #3ca37c;
+  --brand-hover: #49b88e;
+  --brand-soft: #1b342a;
+  --brand-ink: #6ed4ab;
+  --amber: #eab362;
+  --amber-soft: #332818;
+  --amber-border: #5c4624;
+  --danger: #f07474;
+  --danger-soft: #381f1f;
+  --info: #74b8e8;
+  --info-soft: #1a2d3d;
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 8px 28px rgba(0, 0, 0, 0.36);
+  --shadow-lg: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; background: var(--bg-main); color: var(--ink-primary); font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Inter", "Microsoft YaHei", system-ui, sans-serif; font-size: 14.5px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { border: 0; background: none; cursor: pointer; padding: 0; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+h1, h2, h3, h4, p { margin: 0; }
+svg { flex: none; display: block; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* App Shell */
+.app-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); height: 100vh; height: 100dvh; transition: grid-template-columns .18s ease; overflow: hidden; }
+.app-shell.collapsed { grid-template-columns: 56px minmax(0, 1fr); }
+
+/* Sidebar */
+.rail { background: var(--bg-rail); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; padding: 12px 10px; gap: 4px; user-select: none; overflow: hidden; }
+.rail-top { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 10px; gap: 8px; }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 650; font-size: 17px; letter-spacing: -.03em; color: var(--ink-primary); white-space: nowrap; overflow: hidden; }
+.brand-mark { width: 26px; height: 26px; border-radius: 8px; background: var(--brand); color: #fff; display: grid; place-items: center; flex: none; }
+.brand-mark svg { width: 15px; height: 15px; }
+.icon-btn { width: 32px; height: 32px; border-radius: 8px; display: inline-grid; place-items: center; color: var(--ink-secondary); flex: none; transition: background .12s, color .12s; }
+.icon-btn:hover { background: var(--bg-hover); color: var(--ink-primary); }
+.icon-btn.active { background: var(--bg-active); color: var(--brand-ink); }
+
+.rail-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 9px; font-size: 13.5px; color: var(--ink-primary); text-align: left; transition: background .12s; white-space: nowrap; overflow: hidden; }
+.rail-btn:hover { background: var(--bg-hover); }
+.rail-btn.active { background: var(--bg-active); color: var(--brand-ink); font-weight: 600; }
+.rail-btn.new-chat { background: var(--bg-surface); border: 1px solid var(--border); font-weight: 550; margin-bottom: 2px; box-shadow: var(--shadow-sm); }
+.rail-btn.new-chat:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.rail-btn .kbd { margin-left: auto; font-size: 11px; color: var(--ink-muted); padding: 1px 5px; border: 1px solid var(--border); border-radius: 5px; }
+.rail-btn .badge { margin-left: auto; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 999px; background: var(--amber-soft); color: var(--amber); }
+.rail-btn svg { width: 17px; height: 17px; color: var(--ink-secondary); }
+.rail-btn.active svg, .rail-btn.new-chat svg { color: var(--brand-ink); }
+
+.rail-section { font-size: 11.5px; color: var(--ink-muted); padding: 12px 10px 4px; font-weight: 500; white-space: nowrap; }
+.rail-scroll { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; padding-right: 2px; }
+.rail-scroll::-webkit-scrollbar { width: 4px; }
+.rail-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.thread-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--ink-secondary); width: 100%; text-align: left; white-space: nowrap; overflow: hidden; transition: background .12s; }
+.thread-item:hover { background: var(--bg-hover); color: var(--ink-primary); }
+.thread-item.active { background: var(--bg-active); color: var(--ink-primary); font-weight: 550; }
+.thread-item span { overflow: hidden; text-overflow: ellipsis; flex: 1; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.dot-green { background: #2d8a64; }
+.dot-amber { background: #d4882a; }
+.dot-red { background: #cf4a4a; }
+.dot-blue { background: #3b82b6; }
+.dot-muted { background: var(--ink-muted); }
+
+.rail-foot { border-top: 1px solid var(--border); padding-top: 8px; margin-top: 6px; display: flex; flex-direction: column; gap: 4px; position: relative; }
+.profile-btn { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 9px; width: 100%; text-align: left; }
+.profile-btn:hover { background: var(--bg-hover); }
+.avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--brand-soft); color: var(--brand-ink); font-weight: 650; font-size: 12.5px; display: grid; place-items: center; flex: none; }
+.profile-meta { min-width: 0; flex: 1; }
+.profile-meta strong { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.profile-meta small { display: block; font-size: 11px; color: var(--ink-muted); }
+
+.app-shell.collapsed .brand-text,
+.app-shell.collapsed .rail-btn span,
+.app-shell.collapsed .rail-btn .kbd,
+.app-shell.collapsed .rail-btn .badge,
+.app-shell.collapsed .rail-section,
+.app-shell.collapsed .rail-scroll,
+.app-shell.collapsed .profile-meta,
+.app-shell.collapsed .profile-caret { display: none; }
+.app-shell.collapsed .rail { align-items: center; padding: 12px 6px; }
+.app-shell.collapsed .rail-top { flex-direction: column; gap: 8px; padding: 2px 0 8px; }
+.app-shell.collapsed .rail-btn, .app-shell.collapsed .profile-btn { justify-content: center; width: 38px; height: 38px; padding: 0; }
+
+/* Main Container */
+.main-area { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg-main); position: relative; overflow: hidden; }
+.topbar { height: 52px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid transparent; gap: 12px; }
+.topbar.bordered { border-bottom-color: var(--border); }
+.topbar-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.topbar-title { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-right { display: flex; align-items: center; gap: 8px; flex: none; }
+
+/* Buttons & Badges */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 13px; border-radius: 9px; font-size: 13px; font-weight: 550; transition: background .12s, border-color .12s, color .12s; white-space: nowrap; }
+.btn svg { width: 15px; height: 15px; }
+.btn-primary { background: var(--brand); color: #fff; }
+.btn-primary:hover { background: var(--brand-hover); }
+.btn-secondary { background: var(--bg-surface); border: 1px solid var(--border); color: var(--ink-primary); }
+.btn-secondary:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+.btn-ghost { color: var(--ink-secondary); }
+.btn-ghost:hover { background: var(--bg-hover); color: var(--ink-primary); }
+.btn-sm { padding: 5px 10px; font-size: 12.5px; border-radius: 8px; }
+
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 550; white-space: nowrap; }
+.pill-green { background: var(--brand-soft); color: var(--brand-ink); }
+.pill-amber { background: var(--amber-soft); color: var(--amber); }
+.pill-blue { background: var(--info-soft); color: var(--info); }
+.pill-red { background: var(--danger-soft); color: var(--danger); }
+.pill-muted { background: var(--bg-subtle); color: var(--ink-secondary); border: 1px solid var(--border); }
+
+/* Toggle Switch */
+.toggle-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12.5px; border: 1px solid var(--border); color: var(--ink-secondary); background: var(--bg-surface); transition: all .14s; }
+.toggle-chip:hover { border-color: var(--border-strong); color: var(--ink-primary); }
+.toggle-chip.on { background: var(--brand-soft); border-color: transparent; color: var(--brand-ink); font-weight: 550; }
+.toggle-chip svg { width: 14px; height: 14px; }
+
+/* View 1: Start Screen */
+.start-screen { flex: 1; overflow-y: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 24px 64px; }
+.start-inner { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 20px; }
+.start-greeting { text-align: center; font-size: clamp(26px, 2.8vw, 33px); font-weight: 600; letter-spacing: -.03em; color: var(--ink-primary); margin-bottom: 4px; }
+.start-sub { text-align: center; font-size: 13.5px; color: var(--ink-secondary); margin-top: -14px; }
+
+/* Composer Card (ChatGPT / Claude style) */
+.composer-card { background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: 22px; padding: 14px 16px 10px; box-shadow: var(--shadow-md); transition: border-color .15s, box-shadow .15s; position: relative; }
+.composer-card:focus-within { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft), var(--shadow-md); }
+.composer-context { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.context-tag { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 8px; font-size: 12px; background: var(--brand-soft); color: var(--brand-ink); font-weight: 550; }
+.context-tag.file { background: var(--bg-subtle); color: var(--ink-primary); border: 1px solid var(--border); font-weight: 500; }
+.context-tag button { display: grid; place-items: center; opacity: .7; }
+.context-tag button:hover { opacity: 1; }
+.composer-card textarea { width: 100%; border: 0; background: transparent; resize: none; font-size: 15px; line-height: 1.6; min-height: 52px; max-height: 180px; outline: none; color: var(--ink-primary); }
+.composer-card textarea::placeholder { color: var(--ink-muted); }
+.composer-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.composer-left, .composer-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.send-btn { width: 34px; height: 34px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; transition: background .12s, transform .1s; }
+.send-btn:hover:not(:disabled) { background: var(--brand-hover); }
+.send-btn:disabled { background: var(--bg-hover); color: var(--ink-muted); opacity: 1; }
+.send-btn svg { width: 17px; height: 17px; }
+
+.starter-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.starter-chip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-surface); font-size: 13px; color: var(--ink-secondary); transition: all .14s; }
+.starter-chip:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--ink-primary); }
+.starter-chip svg { width: 15px; height: 15px; color: var(--brand-ink); }
+
+.recent-block { margin-top: 12px; }
+.recent-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--ink-muted); margin-bottom: 8px; padding: 0 2px; }
+.recent-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.recent-card { text-align: left; padding: 12px 13px; border-radius: 13px; border: 1px solid var(--border); background: var(--bg-surface); display: flex; flex-direction: column; gap: 6px; transition: all .14s; }
+.recent-card:hover { border-color: var(--border-strong); background: var(--bg-subtle); transform: translateY(-1px); }
+.recent-card-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.recent-card strong { font-size: 13px; font-weight: 600; color: var(--ink-primary); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recent-card small { font-size: 11.5px; color: var(--ink-muted); }
+
+/* View 2: Conversation + Dynamic Canvas */
+.chat-split { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.chat-split.has-canvas { grid-template-columns: minmax(360px, 0.92fr) minmax(420px, 1.08fr); }
+.chat-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.chat-stream { flex: 1; overflow-y: auto; padding: 20px clamp(18px, 3vw, 44px) 16px; }
+.chat-stream-inner { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.chat-composer-wrap { padding: 8px clamp(16px, 2.5vw, 36px) 16px; max-width: 820px; width: 100%; margin: 0 auto; }
+
+.msg-user { align-self: flex-end; max-width: 86%; background: var(--bg-subtle); border: 1px solid var(--border); padding: 11px 15px; border-radius: 18px 18px 4px 18px; font-size: 14.5px; line-height: 1.65; }
+.msg-files { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.msg-ai { display: flex; flex-direction: column; gap: 10px; }
+.ai-head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+.ai-badge-icon { width: 22px; height: 22px; border-radius: 6px; background: var(--brand); color: #fff; display: grid; place-items: center; }
+.ai-badge-icon.ext { background: var(--info); }
+.ai-badge-icon svg { width: 13px; height: 13px; }
+
+/* Thinking / Tool Accordion */
+.trace-box { border: 1px solid var(--border); border-radius: 11px; background: var(--bg-subtle); overflow: hidden; }
+.trace-toggle { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 12.5px; color: var(--ink-secondary); text-align: left; }
+.trace-toggle:hover { background: var(--bg-hover); color: var(--ink-primary); }
+.trace-toggle svg { width: 14px; height: 14px; }
+.trace-steps { border-top: 1px solid var(--border); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--ink-secondary); }
+.trace-step { display: flex; align-items: center; gap: 8px; }
+.trace-step .step-time { margin-left: auto; font-size: 11.5px; color: var(--ink-muted); }
+
+.ai-body { font-size: 15px; line-height: 1.72; color: var(--ink-primary); }
+.ai-body p + p { margin-top: 10px; }
+.ai-body ul { margin: 8px 0; padding-left: 20px; }
+.ai-body li { margin: 4px 0; }
+
+.artifact-card { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-surface); text-align: left; width: 100%; transition: all .14s; }
+.artifact-card:hover { border-color: var(--brand); background: var(--bg-subtle); }
+.artifact-icon { width: 36px; height: 36px; border-radius: 9px; background: var(--brand-soft); color: var(--brand-ink); display: grid; place-items: center; flex: none; }
+.artifact-card strong { display: block; font-size: 13.5px; font-weight: 600; }
+.artifact-card small { display: block; font-size: 12px; color: var(--ink-secondary); }
+
+.inline-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 2px; }
+.msg-toolbar { display: flex; align-items: center; gap: 2px; margin-top: 2px; }
+.msg-toolbar .icon-btn { width: 28px; height: 28px; }
+.msg-toolbar .tool-text { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 7px; font-size: 12px; color: var(--ink-muted); }
+.msg-toolbar .tool-text:hover { background: var(--bg-hover); color: var(--ink-primary); }
+.msg-toolbar .tool-text svg { width: 13px; height: 13px; }
+
+/* Right Canvas Workspace */
+.canvas-pane { background: var(--bg-canvas); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.canvas-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; border-bottom: 1px solid var(--border); background: var(--bg-rail); gap: 8px; flex-wrap: wrap; }
+.canvas-tabs { display: flex; align-items: center; gap: 4px; }
+.canvas-tab { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 8px; font-size: 13px; color: var(--ink-secondary); font-weight: 500; }
+.canvas-tab:hover { background: var(--bg-hover); color: var(--ink-primary); }
+.canvas-tab.active { background: var(--bg-surface); color: var(--brand-ink); font-weight: 600; box-shadow: var(--shadow-sm); }
+.canvas-tab svg { width: 14px; height: 14px; }
+.canvas-body { flex: 1; overflow-y: auto; padding: 18px 22px 26px; }
+.paper { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px 26px; box-shadow: var(--shadow-sm); max-width: 720px; margin: 0 auto; }
+.paper-meta { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--brand-ink); font-weight: 600; margin-bottom: 10px; }
+.paper h2 { font-size: 22px; font-weight: 650; letter-spacing: -.02em; margin-bottom: 6px; }
+.paper .paper-desc { font-size: 13.5px; color: var(--ink-secondary); margin-bottom: 18px; }
+.metric-strip { display: grid; grid-template-columns: repeat(2, 1fr); background: var(--bg-subtle); border-top: 2px solid var(--brand); border-radius: 6px; padding: 14px 0; margin-bottom: 20px; }
+.metric-strip > div { padding: 0 16px; }
+.metric-strip > div + div { border-left: 1px solid var(--border); }
+.metric-strip small { display: block; font-size: 11.5px; color: var(--ink-secondary); }
+.metric-strip b { display: block; font-size: 24px; font-weight: 650; color: var(--brand-ink); margin-top: 2px; }
+
+.data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.data-table th, .data-table td { text-align: left; padding: 11px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.data-table th { font-size: 12px; color: var(--ink-muted); font-weight: 550; }
+.data-table tr:hover td { background: var(--bg-subtle); }
+.data-table .right { text-align: right; }
+.row-edit-btn { opacity: 0; font-size: 11.5px; padding: 3px 7px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--ink-secondary); transition: opacity .12s; }
+.data-table tr:hover .row-edit-btn { opacity: 1; }
+.row-edit-btn:hover { border-color: var(--brand); color: var(--brand-ink); }
+
+.callout { padding: 11px 14px; border-radius: 9px; font-size: 13px; line-height: 1.6; margin-top: 16px; border-left: 3px solid var(--amber); background: var(--amber-soft); color: var(--ink-primary); }
+.callout.good { border-left-color: var(--brand); background: var(--brand-soft); }
+.callout.info { border-left-color: var(--info); background: var(--info-soft); }
+
+.collab-bar { margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--border-strong); display: flex; flex-direction: column; gap: 10px; }
+.checklist-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 8px 10px; border-radius: 8px; background: var(--bg-subtle); }
+.avatar-stack { display: inline-flex; align-items: center; }
+.avatar-stack .mini-av { width: 26px; height: 26px; border-radius: 50%; background: var(--brand-soft); color: var(--brand-ink); border: 2px solid var(--bg-main); font-size: 11px; font-weight: 650; display: grid; place-items: center; margin-left: -7px; position: relative; }
+.avatar-stack .mini-av:first-child { margin-left: 0; }
+.avatar-stack .mini-av.b2 { background: var(--info-soft); color: var(--info); }
+.avatar-stack .mini-av.b3 { background: var(--amber-soft); color: var(--amber); }
+.comment-card { padding: 10px 12px; border-radius: 10px; background: var(--bg-subtle); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
+.comment-card.resolved { opacity: .65; }
+.comment-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.eco-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-radius: 12px; background: var(--bg-subtle); border: 1px solid var(--border); font-size: 13px; }
+.meta-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* Full-page Workspace Views (Agents, Studio, Connect, Inbox, Automations) */
+.page-scroll { flex: 1; overflow-y: auto; padding: 24px clamp(20px, 3vw, 40px) 40px; }
+.page-inner { max-width: 1160px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.page-header h1 { font-size: 22px; font-weight: 650; letter-spacing: -.02em; }
+.page-header p { font-size: 13.5px; color: var(--ink-secondary); margin-top: 4px; }
+
+.filter-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.search-input { display: flex; align-items: center; gap: 8px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 9px; padding: 6px 11px; min-width: 240px; }
+.search-input input { border: 0; background: transparent; outline: none; font-size: 13.5px; width: 100%; }
+.search-input svg { width: 15px; height: 15px; color: var(--ink-muted); }
+.chip-tab { padding: 6px 12px; border-radius: 999px; font-size: 12.5px; color: var(--ink-secondary); border: 1px solid var(--border); background: var(--bg-surface); }
+.chip-tab:hover { background: var(--bg-hover); color: var(--ink-primary); }
+.chip-tab.active { background: var(--brand); color: #fff; border-color: var(--brand); font-weight: 550; }
+
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 14px; }
+.agent-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; transition: border-color .14s, box-shadow .14s; }
+.agent-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+.agent-card-top { display: flex; align-items: flex-start; gap: 12px; }
+.agent-tile { width: 40px; height: 40px; border-radius: 11px; background: var(--brand-soft); color: var(--brand-ink); display: grid; place-items: center; flex: none; }
+.agent-tile.ext { background: var(--info-soft); color: var(--info); }
+.agent-tile.personal { background: var(--amber-soft); color: var(--amber); }
+.agent-card h3 { font-size: 15px; font-weight: 600; }
+.agent-card .desc { font-size: 13px; color: var(--ink-secondary); line-height: 1.55; flex: 1; }
+.agent-card-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--border); gap: 8px; }
+
+/* View 4: Conversational Studio (50/50 split) */
+.studio-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.studio-split { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
+.studio-col { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.studio-col + .studio-col { border-left: 1px solid var(--border); background: var(--bg-canvas); }
+.studio-col-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--bg-rail); gap: 10px; }
+.studio-body { flex: 1; overflow-y: auto; padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; }
+.studio-foot { padding: 12px 22px; border-top: 1px solid var(--border); background: var(--bg-surface); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.dropzone { border: 1.5px dashed var(--border-strong); border-radius: 12px; padding: 14px 16px; background: var(--bg-subtle); display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; transition: border-color .14s, background .14s; }
+.dropzone:hover { border-color: var(--brand); background: var(--brand-soft); }
+.cap-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+.diff-box { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--bg-subtle); font-size: 12.5px; line-height: 1.6; }
+.diff-add { color: var(--brand-ink); background: var(--brand-soft); padding: 1px 4px; border-radius: 4px; font-weight: 550; }
+.refine-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.refine-block { padding: 10px 12px; border-radius: 8px; background: var(--bg-subtle); border: 1px solid transparent; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; transition: border-color .12s; }
+.refine-block:hover { border-color: var(--brand); }
+
+/* View 5: External Connect Wizard */
+.stepper { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.step-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-muted); font-weight: 500; }
+.step-item.active { color: var(--ink-primary); font-weight: 600; }
+.step-item.done { color: var(--brand-ink); }
+.step-num { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--border-strong); display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+.step-item.active .step-num { background: var(--brand); border-color: var(--brand); color: #fff; }
+.step-item.done .step-num { background: var(--brand-soft); border-color: var(--brand); color: var(--brand-ink); }
+.step-line { width: 32px; height: 1px; background: var(--border-strong); }
+.proto-card { text-align: left; padding: 16px; border: 1.5px solid var(--border); border-radius: 13px; background: var(--bg-surface); display: flex; flex-direction: column; gap: 7px; transition: all .14s; }
+.proto-card:hover { border-color: var(--border-strong); }
+.proto-card.selected { border-color: var(--brand); background: var(--brand-soft); }
+.form-panel { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; max-width: 780px; }
+.field-row { display: flex; flex-direction: column; gap: 6px; }
+.field-row label { font-size: 13px; font-weight: 600; color: var(--ink-primary); }
+.field-input, .field-select { width: 100%; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--border-strong); background: var(--bg-main); font-size: 13.5px; outline: none; }
+.field-input:focus, .field-select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+
+/* View 7: Fullscreen Enterprise Admin */
+.admin-shell { display: grid; grid-template-columns: 228px minmax(0, 1fr); height: 100vh; height: 100dvh; overflow: hidden; }
+.admin-rail { background: var(--bg-rail); border-right: 1px solid var(--border); padding: 14px 10px; display: flex; flex-direction: column; gap: 4px; }
+.admin-back { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--brand-ink); background: var(--brand-soft); margin-bottom: 12px; }
+.admin-back:hover { filter: brightness(0.96); }
+.kpi-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.kpi-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 13px; padding: 15px 16px; display: flex; flex-direction: column; gap: 6px; }
+.kpi-card small { font-size: 12px; color: var(--ink-secondary); display: flex; align-items: center; justify-content: space-between; }
+.kpi-card .kpi-val { font-size: 25px; font-weight: 650; letter-spacing: -.02em; color: var(--ink-primary); }
+.kpi-card .kpi-sub { font-size: 11.5px; color: var(--ink-muted); line-height: 1.45; }
+
+.chart-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 14px; }
+.panel-box { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.panel-head h3 { font-size: 15px; font-weight: 600; }
+
+.funnel-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.funnel-step { padding: 10px 12px; border-radius: 10px; background: var(--bg-subtle); border: 1px solid var(--border); }
+.funnel-step small { font-size: 11.5px; color: var(--ink-secondary); display: block; }
+.funnel-step strong { font-size: 18px; font-weight: 650; display: block; margin: 2px 0; }
+.funnel-bar { height: 5px; border-radius: 99px; background: var(--border); overflow: hidden; margin-top: 6px; }
+.funnel-bar i { display: block; height: 100%; background: var(--brand); border-radius: 99px; }
+
+.tier-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.tier-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 13px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.tier-route { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 9px; background: var(--bg-subtle); font-size: 12.5px; }
+.tier-route-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* Popovers, Modals, Drawers & Toast */
+.popover { position: absolute; z-index: 40; background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow-lg); padding: 6px; min-width: 220px; display: flex; flex-direction: column; gap: 2px; }
+.popover-item { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 8px; font-size: 13px; text-align: left; width: 100%; color: var(--ink-primary); }
+.popover-item:hover { background: var(--bg-hover); }
+.popover-item small { margin-left: auto; font-size: 11.5px; color: var(--ink-muted); }
+.popover-item svg { width: 15px; height: 15px; color: var(--ink-secondary); }
+.popover-sep { height: 1px; background: var(--border); margin: 4px 6px; }
+
+.backdrop { position: fixed; inset: 0; background: rgba(12, 22, 16, 0.45); backdrop-filter: blur(2px); z-index: 60; display: grid; place-items: center; padding: 20px; }
+.modal-card { width: min(560px, 100%); max-height: 84vh; overflow-y: auto; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-lg); padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+.drawer-wrap { position: fixed; inset: 0; background: rgba(12, 22, 16, 0.4); z-index: 60; display: flex; justify-content: flex-end; }
+.drawer-card { width: min(540px, 94vw); height: 100%; background: var(--bg-surface); border-left: 1px solid var(--border); box-shadow: var(--shadow-lg); padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+.span-row { display: grid; grid-template-columns: 140px 1fr 72px; align-items: center; gap: 10px; font-size: 12.5px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.span-track { height: 16px; background: var(--bg-subtle); border-radius: 5px; position: relative; overflow: hidden; }
+.span-bar { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; background: var(--brand); }
+.span-bar.ext { background: var(--info); }
+.span-bar.tool { background: #5a8c72; }
+
+.toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--ink-primary); color: var(--bg-main); padding: 9px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: var(--shadow-md); z-index: 90; pointer-events: none; opacity: 0; transition: opacity .18s; }
+.toast.show { opacity: 1; }
+
+@media (max-width: 1180px) {
+  .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tier-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .chart-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 960px) {
+  .chat-split.has-canvas { grid-template-columns: 1fr; }
+  .canvas-pane { border-left: 0; border-top: 1px solid var(--border); max-height: 50vh; }
+  .studio-split { grid-template-columns: 1fr; overflow-y: auto; }
+  .recent-grid { grid-template-columns: 1fr; }
+  .admin-shell { grid-template-columns: 60px minmax(0, 1fr); }
+  .admin-rail span { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+// Crisp inline Lucide icon library (ISC license)
+const ICONS = {
+  Sparkles: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/>',
+  PanelLeft: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>',
+  Plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  Search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  Bot: '<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+  Clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  Inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  Shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  BarChart: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  Cpu: '<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>',
+  Plug: '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
+  Users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  CheckCircle: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>',
+  Check: '<path d="M20 6 9 17l-5-5"/>',
+  ArrowUp: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+  ArrowLeft: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  Paperclip: '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+  Globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+  Brain: '<path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/>',
+  FileSpreadsheet: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/>',
+  FileText: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+  ChevronDown: '<path d="m6 9 6 6 6-6"/>',
+  ChevronRight: '<path d="m9 18 6-6-6-6"/>',
+  Copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  Refresh: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  ThumbsUp: '<path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/>',
+  ThumbsDown: '<path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/>',
+  Download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+  X: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  Sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+  Moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  Sliders: '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
+  Wand: '<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/>',
+  Upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  Bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  Activity: '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
+  Edit: '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+  PanelsRight: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>',
+  Alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>'
+};
+const ic = (name, size = 17) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const state = {
+  theme: 'light',
+  role: 'admin', // 'admin' | 'member'
+  collapsed: false,
+  route: 'chat-new', // chat-new | chat | agents | studio | connect | inbox | automations | admin
+  adminTab: 'monitor', // monitor | models | integrations | releases | members | governance
+  activeThreadId: 't-quote',
+  canvasOpen: true,
+  canvasTab: 0,
+  canvasVersion: 'v1',
+  collabMode: false,
+  quoteGapFixed: false,
+  quoteReviewed: [false, false],
+  quoteDelivered: false,
+  traceOpen: { 't-quote': false, 't-sales': false, 't-legal': false },
+  composerText: '',
+  composerAgent: 'general',
+  composerTier: 'auto',
+  deepThink: false,
+  webSearch: false,
+  composerFiles: [],
+  popover: null, // 'agent' | 'attach' | 'tier' | 'profile' | null
+  cmdOpen: false,
+  cmdQuery: '',
+  modal: null, // { type, data }
+  drawer: null, // { type, data }
+  agentFilter: 'all',
+  agentQuery: '',
+  // Studio state
+  studioTab: 'chat', // chat | config
+  studioName: '供应商报价核对助手',
+  studioSampleLoaded: false,
+  studioRefined: false,
+  studioCaps: { kb: true, sandbox: true, vision: false, web: false, extLegal: true },
+  studioTier: '默认通用',
+  studioScope: '草稿',
+  // Connect wizard state
+  connectStep: 1,
+  connectProto: 'openai',
+  connectName: '费用报销政策问答 Agent',
+  connectUrl: 'https://agent-finance.corp.internal/v1/chat/completions',
+  connectUsageOptIn: true,
+  connectTested: false,
+  // Admin monitor filters
+  monDays: '30',
+  monDept: 'all',
+  monSource: 'all',
+  monBottomTab: 'live',
+  // Admin model tiers
+  tiers: [
+    { id: 'default', name: '默认通用', primary: 'Qwen3-Max (百炼)', fallback: 'Doubao-1.5-Pro (方舟)', latency: '1.1s', health: '健康' },
+    { id: 'fast', name: '快速轻量', primary: 'Qwen3-Plus (百炼)', fallback: 'DeepSeek-V3', latency: '0.42s', health: '健康' },
+    { id: 'reasoning', name: '深度推理', primary: 'DeepSeek-R1', fallback: 'Qwen3-QwQ', latency: '2.8s', health: '健康' },
+    { id: 'vision', name: '视觉理解', primary: 'Qwen-VL-Max (百炼)', fallback: 'Doubao-Vision-Pro', latency: '1.6s', health: '健康' },
+    { id: 'image', name: '图像生成', primary: 'Wanx-2.1 (百炼)', fallback: 'Seedream-3.0', latency: '4.9s', health: '健康' },
+    { id: 'embedding', name: '向量检索', primary: 'BGE-M3 (本地)', fallback: 'text-embedding-v3', latency: '0.09s', health: '健康' },
+  ],
+  allowlist: ['agent-finance.corp.internal', 'legal-ai.corp.internal', 'api.manus.im'],
+  marketTab: 'enterprise', // enterprise | ecosystem
+  ecoFilter: 'all', // all | skill | agent | mcp | approved | loaded | discovered
+  ecoLastSync: '今日 06:00',
+  ecoSources: [
+    { id: 'src-1', name: 'Anthropic Official Skills 仓库', kind: 'Skill 规范库', schedule: '每日 06:00', count: 42, enabled: true, status: '正常' },
+    { id: 'src-2', name: 'MCP Official Registry', kind: 'MCP 工具目录', schedule: '每日 06:00', count: 128, enabled: true, status: '正常' },
+    { id: 'src-3', name: 'A2A Verified Directory', kind: '外部 Agent 目录', schedule: '每周一 06:00', count: 19, enabled: true, status: '正常' },
+    { id: 'src-4', name: '企业内网 Git Skill 仓库', kind: '企业私库', schedule: '每小时同步', count: 15, enabled: true, status: '正常' },
+  ],
+  ecosystemItems: [
+    { id: 'eco-1', name: '会议纪要转行动项 Skill', type: 'skill', typeLabel: 'Skill 技能包', source: 'Anthropic Official Skills', version: 'v1.4.2', license: 'MIT', security: '安全体检通过', status: 'approved', loaded: true, desc: '自动从会议录音转写或文字纪要中提取决定、负责人、截止日期与待确认分歧，直接生成任务清单。' },
+    { id: 'eco-2', name: 'Excel / PDF 财务深度校验 Skill', type: 'skill', typeLabel: 'Skill 技能包', source: '企业内网 Git Skill 仓库', version: 'v2.1.0', license: 'Apache-2.0', security: '安全体检通过', status: 'approved', loaded: false, desc: '内置表头容错、含税/未税换算与勾稽平衡校验规则，在隔离沙箱内输出可复算财务核对报告。' },
+    { id: 'eco-3', name: '飞书多维表格只读连接器', type: 'mcp', typeLabel: 'MCP 工具', source: 'MCP Official Registry', version: 'v0.9.4', license: 'MIT', security: '安全体检通过', status: 'approved', loaded: true, desc: '按员工本人飞书权限只读查询多维表格记录与视图，支持实时筛选与关联分析。' },
+    { id: 'eco-4', name: 'PPTX 企业级商务排版 Skill', type: 'skill', typeLabel: 'Skill 技能包', source: 'Anthropic Official Skills', version: 'v1.2.0', license: 'Apache-2.0', security: '安全体检通过', status: 'approved', loaded: false, desc: '自动按企业 VI 配色、留白与图表布局规范将长文档转为可编辑商务演示文稿。' },
+    { id: 'eco-5', name: '行业研报深度溯源 Agent', type: 'agent', typeLabel: '外部 Agent', source: 'A2A Verified Directory', version: 'v1.0.3', license: 'Apache-2.0', security: '需核对出站域名', status: 'discovered', loaded: false, requested: false, desc: '自动检索公开财报与行业白皮书并附带逐句出处链接（外部独立模型运行，不走平台 Key）。' },
+    { id: 'eco-6', name: '竞品社媒舆情监测 MCP', type: 'mcp', typeLabel: 'MCP 工具', source: 'GitHub 认证高星仓库', version: 'v0.8.1', license: '商业附加条款 ⚠', security: '需核对许可与外网', status: 'discovered', loaded: false, requested: false, desc: '定时拉取公开社媒与新闻评论情感倾向汇总，适合市场部竞品周报自动化。' },
+  ],
+  collaborators: [
+    { id: 'm-lin', name: '林予', short: '林', dept: '采购部', role: '发起 / 终审', cls: '' },
+    { id: 'm-zhou', name: '周宁', short: '周', dept: '市场部', role: '预算复核', cls: 'b2' },
+    { id: 'm-su', name: '苏敏', short: '苏', dept: '采购部', role: '补件经办', cls: 'b3' },
+  ],
+  collabComments: [
+    { id: 'cm-1', anchor: '供应商乙行', author: '周宁', to: '苏敏', body: '@苏敏 供应商乙单价最低（¥118），请今天下班前向对方补齐有效期 v2 报价单，我这边先核对 Q4 预算口径。', time: '14:32', resolved: false },
+  ],
+  commentDraft: '',
+  commentAnchor: '供应商乙行',
+  releases: [
+    { id: 'rel-1', name: '新品发布文案与素材检查助手', kind: '自建全企上架', owner: '林予 · 市场部', checks: '3/3 样例通过', status: 'pending' },
+    { id: 'rel-2', name: 'Manus 深度行业调研 Agent', kind: '外部第三方认证', owner: '陈默 · 研发部', checks: '异步/取消已验证', status: 'pending' },
+  ],
+  automations: [
+    { id: 'au-1', name: '每周五销售异常自动汇总并推飞书', schedule: '每周五 17:00', agent: '表格分析专家', lastRun: '上周五 · 成功', delivery: '飞书群已送达', enabled: true },
+    { id: 'au-2', name: '重点竞品价格与官网动态周报', schedule: '每周一 09:00', agent: '通用个人助手', lastRun: '昨日 09:02 · 成功', delivery: '邮件草稿已就绪', enabled: true },
+  ],
+  agents: [
+    { id: 'general', name: '通用个人助手', kind: 'builtin', scope: '官方内置', desc: '全能企业个人助手：自动检索资料、沙箱算表、出图表、写 Word/PPT 并按需委派外部专家。', owner: '平台内置', calls: 12480, execRate: 99.1, effRate: 91.6, collabRate: 94.8, p50: '2.4s', p95: '6.8s', tokens: '48.2M', cost: '¥1,420', disclosed: true, health: 'ok' },
+    { id: 'sheet', name: '表格与财务核算专家', kind: 'builtin', scope: '官方内置', desc: '处理多表合并、口径对齐、异常值排查与高可信财务汇总，自动输出可复算 Excel。', owner: '平台内置', calls: 5320, execRate: 99.5, effRate: 93.2, collabRate: 96.4, p50: '3.1s', p95: '7.5s', tokens: '19.6M', cost: '¥580', disclosed: true, health: 'ok' },
+    { id: 'quote', name: '采购报价核对助手', kind: 'team', scope: '团队共享', desc: '自动比对多家供应商单价、交期与有效期，高亮缺项并生成追问清单。', owner: '林予 · 采购部', calls: 1840, execRate: 98.4, effRate: 90.1, collabRate: 95.0, p50: '3.8s', p95: '9.2s', tokens: '8.4M', cost: '¥265', disclosed: true, health: 'ok' },
+    { id: 'legal-ext', name: '合同风险条款审查 Agent', kind: 'external-internal', scope: '外部 · 自研', desc: '法务与研发团队自研专业 Agent，独立运行法务大模型，快速定位付款、违约与知识产权风险。', owner: '法务研发组', calls: 1420, execRate: 96.8, effRate: 88.5, collabRate: 92.1, p50: '5.2s', p95: '13.4s', tokens: '6.1M (上报)', cost: '¥310 (上报)', disclosed: true, health: 'ok' },
+    { id: 'manus-ext', name: 'Manus 深度竞品调研', kind: 'external-3p', scope: '外部 · 第三方', desc: '第三方商业异步调研 Agent，擅长多站点并行深度收集并整理结构化研究报告。', owner: '市场部接入', calls: 390, execRate: 91.2, effRate: 84.0, collabRate: 89.5, p50: '42.0s', p95: '118s', tokens: '外部未披露', cost: '外部未披露', disclosed: false, health: 'warn' },
+    { id: 'weekly-me', name: '我的周五周报润色助手', kind: 'personal', scope: '个人私有', desc: '按我习惯的「结论先行 + 数据量化 + 下周风险」格式整理周报，零审批自用。', owner: '林予（本人）', calls: 64, execRate: 100, effRate: 96.8, collabRate: null, p50: '1.8s', p95: '3.9s', tokens: '0.28M', cost: '¥8.4', disclosed: true, health: 'ok' },
+  ],
+  threads: {
+    't-quote': {
+      id: 't-quote', group: '置顶', title: '供应商报价核对 · Q4 采购', dot: 'amber', agentId: 'quote',
+      extraTurns: [],
+      feedback: null
+    },
+    't-sales': {
+      id: 't-sales', group: '今天', title: '华东/华西 Q4 销售异常分析', dot: 'green', agentId: 'sheet',
+      extraTurns: [],
+      feedback: 'up'
+    },
+    't-legal': {
+      id: 't-legal', group: '昨天', title: '框架采购合同风险审查（外部）', dot: 'blue', agentId: 'legal-ext',
+      extraTurns: [],
+      feedback: null
+    }
+  }
+};
+
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+function setTheme(next) {
+  state.theme = next;
+  document.documentElement.setAttribute('data-theme', next);
+  render();
+  toast(next === 'dark' ? '已切换为深色主题' : '已切换为浅色主题');
+}
+
+function agentById(id) {
+  return state.agents.find(a => a.id === id) || state.agents[0];
+}
+
+function scopePill(agent) {
+  if (agent.kind === 'builtin') return `<span class="pill pill-green">${esc(agent.scope)}</span>`;
+  if (agent.kind === 'team') return `<span class="pill pill-muted">${esc(agent.scope)}</span>`;
+  if (agent.kind === 'personal') return `<span class="pill pill-amber">${esc(agent.scope)}</span>`;
+  return `<span class="pill pill-blue">${esc(agent.scope)}</span>`;
+}
+
+// Render Sidebar (Workspace mode)
+function renderSidebar() {
+  const pendingCount = (state.quoteGapFixed ? 0 : 1) + 1;
+  const groups = ['置顶', '今天', '昨天'];
+  return `
+  <aside class="rail" aria-label="主导航">
+    <div class="rail-top">
+      <button class="brand" data-act="go" data-to="chat-new" title="Agent Alliance">
+        <span class="brand-mark">${ic('Sparkles', 15)}</span>
+        <span class="brand-text">Alliance</span>
+      </button>
+      <button class="icon-btn" data-act="toggle-rail" title="${state.collapsed ? '展开侧栏 (⌘\\)' : '收起侧栏 (⌘\\)'}" aria-label="切换侧栏">${ic('PanelLeft', 17)}</button>
+    </div>
+
+    <button class="rail-btn new-chat" data-act="go" data-to="chat-new" title="新对话 (⌘N)">
+      ${ic('Plus', 16)}<span>新对话</span><span class="kbd">⌘N</span>
+    </button>
+    <button class="rail-btn" data-act="open-cmd" title="搜索 (⌘K)">
+      ${ic('Search', 16)}<span>搜索</span><span class="kbd">⌘K</span>
+    </button>
+
+    <div style="height:4px"></div>
+    <button class="rail-btn ${['agents','studio','connect'].includes(state.route)?'active':''}" data-act="go" data-to="agents" title="Agent 与 Skill 市场">
+      ${ic('Bot', 17)}<span>Agent 与 Skill 市场</span>
+    </button>
+    <button class="rail-btn ${state.route==='automations'?'active':''}" data-act="go" data-to="automations" title="后台与定时">
+      ${ic('Clock', 17)}<span>后台与定时</span>
+    </button>
+    <button class="rail-btn ${state.route==='inbox'?'active':''}" data-act="go" data-to="inbox" title="待办与审核">
+      ${ic('Inbox', 17)}<span>待办与审核</span>${pendingCount ? `<span class="badge num">${pendingCount}</span>` : ''}
+    </button>
+
+    <div class="rail-scroll">
+      ${groups.map(g => {
+        const items = Object.values(state.threads).filter(t => t.group === g);
+        if (!items.length) return '';
+        return `<div class="rail-section">${g}</div>` + items.map(t => `
+          <button class="thread-item ${state.route==='chat' && state.activeThreadId===t.id ? 'active' : ''}" data-act="open-thread" data-id="${t.id}">
+            <i class="status-dot dot-${t.id==='t-quote' && state.quoteGapFixed ? 'green' : t.dot}"></i>
+            <span>${esc(t.title)}</span>
+          </button>`).join('');
+      }).join('')}
+    </div>
+
+    <div class="rail-foot">
+      ${state.role === 'admin' ? `
+      <button class="rail-btn" data-act="go-admin" title="企业管理后台">
+        ${ic('Shield', 17)}<span>企业管理</span>
+      </button>` : ''}
+      <button class="profile-btn" data-act="toggle-pop" data-pop="profile" title="账号与外观设置">
+        <span class="avatar">林</span>
+        <span class="profile-meta">
+          <strong>林予</strong>
+          <small>${state.role === 'admin' ? '采购部 · 企业管理员' : '采购部 · 普通员工'}</small>
+        </span>
+        <span class="profile-caret">${ic('Sliders', 14)}</span>
+      </button>
+      ${state.popover === 'profile' ? `
+      <div class="popover" style="left:8px; bottom:54px; width:232px;">
+        <button class="popover-item" data-act="toggle-theme">
+          ${ic(state.theme === 'light' ? 'Moon' : 'Sun', 15)}
+          <span>${state.theme === 'light' ? '切换深色模式' : '切换浅色模式'}</span>
+        </button>
+        <button class="popover-item" data-act="toggle-role">
+          ${ic('Users', 15)}
+          <span>切换视角：${state.role === 'admin' ? '普通员工' : '企业管理员'}</span>
+        </button>
+        <div class="popover-sep"></div>
+        <button class="popover-item" data-act="toast" data-msg="个人偏好：金额保留两位小数 · 结论先行（随时可改）">
+          ${ic('Wand', 15)}<span>个人偏好设置</span><small>2 条</small>
+        </button>
+        <button class="popover-item" data-act="toast" data-msg="飞书账号已绑定，移动待办实时同步">
+          ${ic('Bell', 15)}<span>飞书 / 钉钉绑定</span><small>已连</small>
+        </button>
+      </div>` : ''}
+    </div>
+  </aside>`;
+}
+
+function renderComposer(placeholder, isThread = false) {
+  const activeAgent = agentById(isThread ? state.threads[state.activeThreadId].agentId : state.composerAgent);
+  const tierLabels = { auto: '自动', fast: '快速', reasoning: '深度' };
+  return `
+  <div class="composer-card">
+    ${(state.composerFiles.length || (!isThread && state.composerAgent !== 'general')) ? `
+    <div class="composer-context">
+      ${!isThread && state.composerAgent !== 'general' ? `
+      <span class="context-tag">
+        ${ic('Bot', 13)} @${esc(activeAgent.name)}
+        <button type="button" data-act="pick-agent" data-id="general" aria-label="移除助手">${ic('X', 12)}</button>
+      </span>` : ''}
+      ${state.composerFiles.map((f, i) => `
+      <span class="context-tag file">
+        ${ic('Paperclip', 12)} ${esc(f)}
+        <button type="button" data-act="rm-file" data-idx="${i}" aria-label="移除文件">${ic('X', 12)}</button>
+      </span>`).join('')}
+    </div>` : ''}
+    <textarea id="composerInput" placeholder="${esc(placeholder)}" rows="2">${esc(state.composerText)}</textarea>
+    <div class="composer-foot">
+      <div class="composer-left">
+        <div style="position:relative">
+          <button type="button" class="icon-btn" data-act="toggle-pop" data-pop="attach" title="上传文件或选用企业知识库">${ic('Plus', 18)}</button>
+          ${state.popover === 'attach' ? `
+          <div class="popover" style="bottom:38px; left:0;">
+            <button class="popover-item" data-act="add-file" data-name="2026Q4_供应商报价汇总.xlsx">${ic('Upload', 15)}<span>上传本地文件（模拟）</span></button>
+            <button class="popover-item" data-act="add-file" data-name="采购制度_2026版.pdf">${ic('FileText', 15)}<span>从企业知识库选取</span></button>
+            <button class="popover-item" data-act="add-file" data-name="竞品包装实拍.png">${ic('Paperclip', 15)}<span>上传图片进行识图</span></button>
+          </div>` : ''}
+        </div>
+        ${!isThread ? `
+        <div style="position:relative">
+          <button type="button" class="toggle-chip ${state.composerAgent!=='general'?'on':''}" data-act="toggle-pop" data-pop="agent">
+            ${ic('Bot', 14)}<span>@${esc(activeAgent.name)}</span>${ic('ChevronDown', 13)}
+          </button>
+          ${state.popover === 'agent' ? `
+          <div class="popover" style="bottom:38px; left:0; width:275px;">
+            <div style="padding:4px 8px; font-size:11.5px; color:var(--ink-muted)">选择助手（输入 @ 也可快速切换）</div>
+            ${state.agents.map(a => `
+            <button class="popover-item" data-act="pick-agent" data-id="${a.id}">
+              ${ic('Bot', 15)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.name)}</span>
+              <small>${esc(a.scope)}</small>
+            </button>`).join('')}
+            <div class="popover-sep"></div>
+            <button class="popover-item" data-act="go" data-to="studio" style="color:var(--brand-ink);font-weight:550">
+              ${ic('Wand', 15)}<span>用自然语言新建一个助手…</span>
+            </button>
+          </div>` : ''}
+        </div>` : ''}
+        <button type="button" class="toggle-chip ${state.deepThink?'on':''}" data-act="toggle-deep">
+          ${ic('Brain', 14)}<span>深度思考</span>
+        </button>
+        <button type="button" class="toggle-chip ${state.webSearch?'on':''}" data-act="toggle-web">
+          ${ic('Globe', 14)}<span>联网</span>
+        </button>
+      </div>
+      <div class="composer-right">
+        <div style="position:relative">
+          <button type="button" class="btn btn-ghost btn-sm" data-act="toggle-pop" data-pop="tier" title="企业全局模型池自动分配，无需了解底层型号">
+            <span>${tierLabels[state.composerTier]}</span>${ic('ChevronDown', 13)}
+          </button>
+          ${state.popover === 'tier' ? `
+          <div class="popover" style="bottom:36px; right:0; width:210px;">
+            <button class="popover-item" data-act="pick-tier" data-tier="auto"><span>自动（推荐）</span><small>按任务匹配</small></button>
+            <button class="popover-item" data-act="pick-tier" data-tier="fast"><span>快速轻量</span><small>响应最快</small></button>
+            <button class="popover-item" data-act="pick-tier" data-tier="reasoning"><span>深度推理</span><small>复杂分析</small></button>
+          </div>` : ''}
+        </div>
+        <button type="button" class="send-btn" data-act="${isThread ? 'send-thread' : 'send-new'}" aria-label="发送" ${!state.composerText.trim() && !state.composerFiles.length ? 'disabled' : ''}>
+          ${ic('ArrowUp', 17)}
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// View 1: Start Screen
+function renderStartView() {
+  return `
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="pill pill-green">个人助手 · 轻量直达</span>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" data-act="toggle-theme" title="切换浅/深色主题">${ic(state.theme==='light'?'Moon':'Sun', 17)}</button>
+    </div>
+  </header>
+  <div class="start-screen">
+    <div class="start-inner">
+      <h1 class="start-greeting">林予，今天想先处理什么？</h1>
+      <p class="start-sub">直接说出你的业务目标，或输入 <code>@</code> 调用团队与外部专业 Agent</p>
+
+      ${renderComposer('描述你想完成的工作，例如「把这三份报价整理成对照表并标出缺项」…', false)}
+
+      <div class="starter-row">
+        <button class="starter-chip" data-act="open-thread" data-id="t-quote">${ic('Users', 15)}团队协同核对报价</button>
+        <button class="starter-chip" data-act="open-thread" data-id="t-sales">${ic('BarChart', 15)}合并销售表并出图</button>
+        <button class="starter-chip" data-act="open-eco-market">${ic('Sparkles', 15)}生态市场加载 Skill</button>
+        <button class="starter-chip" data-act="go" data-to="studio">${ic('Wand', 15)}大白话建周报助手</button>
+      </div>
+
+      <div class="recent-block">
+        <div class="recent-head">
+          <span>最近产物与待办续接</span>
+          <button class="btn btn-ghost btn-sm" data-act="go" data-to="inbox">查看全部待办</button>
+        </div>
+        <div class="recent-grid">
+          <button class="recent-card" data-act="open-thread" data-id="t-quote">
+            <div class="recent-card-top">
+              <span class="pill ${state.quoteGapFixed ? 'pill-green' : 'pill-amber'}">${state.quoteGapFixed ? '待审核交付' : '1 项待补依据'}</span>
+              <small>10 分钟前</small>
+            </div>
+            <strong>供应商报价比较表.xlsx</strong>
+            <small>采购报价核对助手 · 3 家供应商</small>
+          </button>
+          <button class="recent-card" data-act="open-thread" data-id="t-sales">
+            <div class="recent-card-top">
+              <span class="pill pill-green">已就绪</span>
+              <small>今天 14:20</small>
+            </div>
+            <strong>华东/华西 Q4 销售分析.xlsx</strong>
+            <small>沙箱 Python 核算 · 含对比图表</small>
+          </button>
+          <button class="recent-card" data-act="open-thread" data-id="t-legal">
+            <div class="recent-card-top">
+              <span class="pill pill-blue">外部 Agent</span>
+              <small>昨天</small>
+            </div>
+            <strong>框架采购合同风险清单.docx</strong>
+            <small>合同风险审查 Agent（自研）</small>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// View 2: Active Thread + Dynamic Canvas
+function renderChatView() {
+  const th = state.threads[state.activeThreadId];
+  const ag = agentById(th.agentId);
+  const isQuote = th.id === 't-quote';
+  const isSales = th.id === 't-sales';
+  const isLegal = th.id === 't-legal';
+  const showCanvas = state.canvasOpen;
+
+  let messagesHtml = '';
+  let canvasHtml = '';
+
+  if (isQuote) {
+    const gap = !state.quoteGapFixed;
+    const revCount = state.quoteReviewed.filter(Boolean).length;
+    messagesHtml = `
+      <div class="msg-user">
+        <div class="msg-files">
+          <span class="context-tag file">${ic('Paperclip', 12)} 甲报价单_A11.pdf</span>
+          <span class="context-tag file">${ic('Paperclip', 12)} 乙报价单_B07.pdf</span>
+          <span class="context-tag file">${ic('Paperclip', 12)} 丙报价单_C11.pdf</span>
+        </div>
+        帮我比较甲、乙、丙三家的报价，整理一张对照表，再列出需要追问的问题。
+      </div>
+      <div class="msg-ai">
+        <div class="ai-head">
+          <span class="ai-badge-icon">${ic('Bot', 13)}</span>
+          <span>${esc(ag.name)}</span>
+          ${scopePill(ag)}
+        </div>
+        <div class="trace-box">
+          <button class="trace-toggle" data-act="toggle-trace" data-id="t-quote">
+            ${ic('CheckCircle', 14)}
+            <span>已完成 3 步操作 · 读取 3 份文件并完成沙箱比价 · <span class="num">3.8s</span></span>
+            <span style="margin-left:auto">${ic(state.traceOpen['t-quote'] ? 'ChevronDown' : 'ChevronRight', 14)}</span>
+          </button>
+          ${state.traceOpen['t-quote'] ? `
+          <div class="trace-steps">
+            <div class="trace-step">${ic('Check', 13)} <span>解析 3 份供应商报价 PDF，抽取单价、交期与有效期字段</span><span class="step-time num">1.1s</span></div>
+            <div class="trace-step">${ic('Check', 13)} <span>沙箱 Python 统一按「人民币/件」换算比价并生成比较表</span><span class="step-time num">1.5s</span></div>
+            <div class="trace-step">${ic('Check', 13)} <span>校验完整度：发现乙报价单 v1 缺少「有效期」，自动起草追问清单</span><span class="step-time num">1.2s</span></div>
+          </div>` : ''}
+        </div>
+        <div class="ai-body">
+          <p><strong>${gap ? '三份报价中，两份已核实有效期，乙的单价最低（¥118）但缺少有效期说明。' : (state.quoteDelivered ? '两份已确认的正式成果已完成交付，可直接下载。' : '三家报价有效期已全部核齐！甲、丙沿用了原有结果，仅重新核对了乙 v2。')}</strong></p>
+          <p>${gap ? '甲（¥120）和丙（¥126）的依据已在右侧对比表标明。点下方按钮补充乙的新版报价单即可补全，或直接下载当前版本。' : (state.collabMode ? `已开启协作审签模式，当前审核进度 ${revCount} / 2，可在右侧逐项核对原件依据后确认交付。` : '右侧已自动更新为最新版报价比较表与追问清单，可直接下载或在表格行点击「局部修改」。')}</p>
+        </div>
+        <button class="artifact-card" data-act="open-canvas" data-tab="0">
+          <span class="artifact-icon">${ic('FileSpreadsheet', 18)}</span>
+          <div style="flex:1;min-width:0">
+            <strong>供应商报价比较表.xlsx · ${gap ? '预览稿' : state.canvasVersion}</strong>
+            <small>3 家供应商 · ${gap ? '乙缺有效期（点击右侧高亮项查看依据）' : '有效期齐全 · 最低价 ¥118'}</small>
+          </div>
+          ${ic('ChevronRight', 16)}
+        </button>
+        <div class="inline-actions">
+          ${gap ? `<button class="btn btn-primary" data-act="open-supplement">${ic('Paperclip', 15)}补充乙的报价依据</button>` : ''}
+          ${!gap && state.collabMode && !state.quoteDelivered ? (revCount < 2
+            ? `<button class="btn btn-primary" data-act="open-canvas" data-tab="${state.quoteReviewed[0]?1:0}">${ic('Check', 15)}前往右侧审核（${revCount}/2）</button>`
+            : `<button class="btn btn-primary" data-act="deliver-quote">${ic('CheckCircle', 15)}确认正式交付</button>`) : ''}
+          <button class="btn btn-secondary" data-act="download-artifact">${ic('Download', 15)}下载 Excel</button>
+        </div>
+        <div class="msg-toolbar">
+          <button class="icon-btn" data-act="copy-reply" title="复制回复">${ic('Copy', 14)}</button>
+          <button class="icon-btn" data-act="toast" data-msg="已重新生成（仅重跑当前步骤）" title="重新生成">${ic('Refresh', 14)}</button>
+          <button class="icon-btn ${th.feedback==='up'?'active':''}" data-act="rate-thread" data-val="up" title="有帮助（计入有效完成率）">${ic('ThumbsUp', 14)}</button>
+          <button class="icon-btn ${th.feedback==='down'?'active':''}" data-act="rate-thread" data-val="down" title="待改进">${ic('ThumbsDown', 14)}</button>
+          <button class="tool-text" data-act="save-as-agent">${ic('Wand', 13)}存为我的 Agent</button>
+          <button class="tool-text" data-act="go" data-to="automations">${ic('Clock', 13)}设为定时任务</button>
+        </div>
+      </div>`;
+
+    const rows = [
+      ['供应商甲', '¥120', '2026-12-15', 'A-11 · v1 · 第 2 行', false],
+      ['供应商乙', '¥118', gap ? '待补依据' : '2026-12-20', gap ? 'B-07 · v1（缺有效期）' : 'B-07 · v2 · 第 4 行', gap],
+      ['供应商丙', '¥126', '2026-12-12', 'C-11 · v1 · 第 3 行', false],
+    ];
+    canvasHtml = `
+      <div class="canvas-head">
+        <div class="canvas-tabs">
+          <button class="canvas-tab ${state.canvasTab===0?'active':''}" data-act="canvas-tab" data-tab="0">${ic('FileSpreadsheet', 14)}报价比较表</button>
+          <button class="canvas-tab ${state.canvasTab===1?'active':''}" data-act="canvas-tab" data-tab="1">${ic('FileText', 14)}追问清单</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <select class="field-select" style="width:auto;padding:4px 8px;font-size:12px" data-act="canvas-ver">
+            <option value="v1" ${state.canvasVersion==='v1'?'selected':''}>${gap?'预览稿':'v1 (当前)'}</option>
+            ${!gap ? `<option value="v2" ${state.canvasVersion==='v2'?'selected':''}>v2 (含补件)</option>` : ''}
+          </select>
+          <button class="btn btn-secondary btn-sm" data-act="download-artifact">${ic('Download', 14)}下载</button>
+          <button class="icon-btn" data-act="toggle-canvas" title="收起右侧工作区">${ic('X', 16)}</button>
+        </div>
+      </div>
+      <div class="canvas-body">
+        <article class="paper">
+          <div class="paper-meta">
+            <span>${state.canvasTab===0 ? '数据对比表 · XLSX' : '沟通草稿 · DOCX'}</span>
+            <span class="pill ${state.quoteDelivered?'pill-green':(gap?'pill-amber':'pill-green')}">${state.quoteDelivered?'已正式交付':(gap?'1 项待补依据':'内容齐全')}</span>
+          </div>
+          <h2>${state.canvasTab===0 ? '供应商报价比较表' : '供应商追问清单'}</h2>
+          <p class="paper-desc">${state.canvasTab===0 ? '悬停表格任意行可点击「局部修改」，或点击有效期核对原件出处。' : '供采购经办人联络供应商时逐项核对，不自动对外发送。'}</p>
+          ${state.canvasTab===0 ? `
+          <div class="metric-strip">
+            <div><small>已核实有效期</small><b class="num">${gap ? '2 / 3' : '3 / 3'}</b></div>
+            <div><small>最低含税单价 · 人民币</small><b class="num">¥118</b></div>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>供应商</th><th class="right">单价 / 件</th><th>有效期 / 依据</th><th style="width:154px"></th></tr></thead>
+            <tbody>
+              ${rows.map(([n,p,d,src,isGap]) => `
+              <tr>
+                <td><strong>${n}</strong></td>
+                <td class="right num">${p}</td>
+                <td>
+                  <button class="pill ${isGap?'pill-amber':'pill-muted'}" data-act="show-source" data-title="${n}" data-src="${src}" data-gap="${isGap?'1':'0'}">${d}</button>
+                </td>
+                <td class="right" style="white-space:nowrap">
+                  <button class="row-edit-btn" data-act="inline-edit" data-target="${n}行">局部修改</button>
+                  <button class="row-edit-btn" data-act="comment-row" data-target="${n}行">评论/@</button>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+          <div class="callout ${gap?'':'good'}">
+            ${gap ? '乙的单价（¥118）已有原件依据，但报价单 v1 未注明有效期；建议补齐后再定标。' : '三家供应商的单价与有效期均已核齐并可追溯至原件行号。'}
+          </div>` : `
+          <ol style="padding-left:20px;line-height:1.9;font-size:14.5px;margin:12px 0">
+            ${gap ? '<li><strong>【高优】向供应商乙索取正式报价有效期</strong>，确认 ¥118/件 是否覆盖 Q4 全部批次。</li>' : '<li><span class="pill pill-green">已解决</span> 供应商乙已补充 v2 报价单，有效期至 2026-12-20。</li>'}
+            <li>请供应商乙确认首批 5,000 件的标准交货周期与延期违约条款。</li>
+            <li>与供应商甲确认是否支持 60 天账期及含税专票开具时间。</li>
+          </ol>
+          <div class="callout good">此清单仅为内部沟通草稿，未经人工确认不会自动发给供应商。</div>`}
+
+          ${state.collabMode ? `
+          <div class="collab-bar">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+              <strong style="font-size:13.5px">团队协同分工（${state.collaborators.length} 人共同推进）</strong>
+              <button class="btn btn-secondary btn-sm" data-act="open-collab-modal">${ic('Users', 13)}管理分工 / 拉人</button>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              ${state.collaborators.map(m => `<span class="pill pill-muted"><strong>${esc(m.name)}</strong> · ${esc(m.role)}</span>`).join('')}
+            </div>
+
+            <div style="font-size:13px;font-weight:600;margin-top:4px">行内评论与 @同事 派单（同步飞书待办）</div>
+            ${state.collabComments.map(c => `
+            <div class="comment-card ${c.resolved?'resolved':''}">
+              <div class="comment-head">
+                <span><strong>${esc(c.author)}</strong> · <span class="pill pill-muted">${esc(c.anchor)}</span> · <small style="color:var(--ink-muted)">${c.time}</small></span>
+                <button class="btn btn-ghost btn-sm" data-act="toggle-comment" data-id="${c.id}">${c.resolved?'已解决 ✓':'标为已解决'}</button>
+              </div>
+              <div style="line-height:1.55">${esc(c.body)}</div>
+            </div>`).join('')}
+            <div style="display:flex;gap:6px;align-items:center">
+              <input class="field-input" id="collabCommentInput" placeholder="在 [${esc(state.commentAnchor)}] 发评论，输入 @周宁 或 @苏敏 自动推待办…" value="${esc(state.commentDraft)}" style="padding:7px 11px;font-size:12.5px">
+              <button class="btn btn-secondary btn-sm" data-act="add-comment">发送评论</button>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
+              <strong style="font-size:13.5px">交付检查清单（已齐 ${gap?2:3}/3）</strong>
+              <span class="pill pill-muted">终审人：林予</span>
+            </div>
+            <div class="checklist-row"><span>1. 三家单价按同口径核算</span><span class="pill pill-green">已核对</span></div>
+            <div class="checklist-row"><span>2. 有效期与原件位置一致</span><span class="pill ${gap?'pill-amber':'pill-green'}">${gap?'待苏敏补件':'已核对'}</span></div>
+            <div style="display:flex;gap:8px;margin-top:4px">
+              ${!gap && !state.quoteDelivered && !state.quoteReviewed[state.canvasTab]
+                ? `<button class="btn btn-primary" data-act="approve-tab" data-tab="${state.canvasTab}">${ic('Check', 15)}审核通过此文件</button>`
+                : (state.quoteReviewed[state.canvasTab] ? `<span class="pill pill-green">${ic('Check', 13)}本文件已审核通过</span>` : `<span class="pill pill-amber">补齐缺项后可审核通过</span>`)}
+              ${!gap && !state.quoteDelivered && state.quoteReviewed.every(Boolean)
+                ? `<button class="btn btn-primary" data-act="deliver-quote">${ic('CheckCircle', 15)}确认最终交付</button>` : ''}
+            </div>
+          </div>` : ''}
+        </article>
+      </div>`;
+  } else if (isSales) {
+    messagesHtml = `
+      <div class="msg-user">
+        <div class="msg-files">
+          <span class="context-tag file">${ic('Paperclip', 12)} east_sales_q4.csv</span>
+          <span class="context-tag file">${ic('Paperclip', 12)} west_sales_q4.csv</span>
+        </div>
+        帮我合并华东和华西两份表，只保留已核准记录，按区域汇总金额并画一张对比图。
+      </div>
+      <div class="msg-ai">
+        <div class="ai-head"><span class="ai-badge-icon">${ic('Bot', 13)}</span><span>${esc(ag.name)}</span>${scopePill(ag)}</div>
+        <div class="trace-box">
+          <button class="trace-toggle" data-act="toggle-trace" data-id="t-sales">
+            ${ic('CheckCircle', 14)}<span>已完成 2 步操作 · 隔离沙箱 Python 合并校验并生成图表 · <span class="num">2.6s</span></span>
+            <span style="margin-left:auto">${ic(state.traceOpen['t-sales'] ? 'ChevronDown' : 'ChevronRight', 14)}</span>
+          </button>
+          ${state.traceOpen['t-sales'] ? `
+          <div class="trace-steps">
+            <div class="trace-step">${ic('Check', 13)} <span>识别两表表头差异（amount vs 核准金额），自动对齐并过滤 3 条待审记录</span><span class="step-time num">1.1s</span></div>
+            <div class="trace-step">${ic('Check', 13)} <span>高可信计算引擎独立复算合计 ¥90.30 万，输出可下载工作簿与对比图</span><span class="step-time num">1.5s</span></div>
+          </div>` : ''}
+        </div>
+        <div class="ai-body">
+          <p><strong>已合并两份 CSV 并排除 3 条未核准记录，Q4 核准销售总额为 ¥90.30 万</strong>（华东 ¥30.10 万，华西 ¥60.20 万，含负向冲红调整）。</p>
+          <p>L0 个人日常分析已免审批直达完成，右侧可直接预览图表与明细或一键下载。</p>
+        </div>
+        <div class="inline-actions">
+          <button class="btn btn-primary" data-act="download-artifact">${ic('Download', 15)}下载汇总工作簿.xlsx</button>
+        </div>
+        <div class="msg-toolbar">
+          <button class="icon-btn" data-act="copy-reply" title="复制">${ic('Copy', 14)}</button>
+          <button class="icon-btn ${th.feedback==='up'?'active':''}" data-act="rate-thread" data-val="up" title="有帮助">${ic('ThumbsUp', 14)}</button>
+          <button class="tool-text" data-act="save-as-agent">${ic('Wand', 13)}存为我的 Agent</button>
+        </div>
+      </div>`;
+    canvasHtml = `
+      <div class="canvas-head">
+        <div class="canvas-tabs"><button class="canvas-tab active">${ic('BarChart', 14)}销售汇总与图表</button></div>
+        <button class="icon-btn" data-act="toggle-canvas">${ic('X', 16)}</button>
+      </div>
+      <div class="canvas-body">
+        <article class="paper">
+          <div class="paper-meta"><span>隔离沙箱产出 · 独立复算校验通过</span><span class="pill pill-green">已覆盖 2/2 文件</span></div>
+          <h2>Q4 区域核准销售额对比</h2>
+          <p class="paper-desc">来源：east_sales_q4.csv (v1)、west_sales_q4.csv (v1) · 已剔除 pending 状态 3 条</p>
+          <div class="metric-strip">
+            <div><small>双区核准合计</small><b class="num">¥90.30 万</b></div>
+            <div><small>有效入账记录</small><b class="num">142 条</b></div>
+          </div>
+          <svg viewBox="0 0 460 150" style="width:100%;height:auto;margin:8px 0 14px">
+            <line x1="40" y1="120" x2="430" y2="120" stroke="var(--border-strong)" stroke-width="1"/>
+            <rect x="95" y="72" width="76" height="48" rx="6" fill="var(--brand)" opacity=".75"/>
+            <text x="133" y="64" text-anchor="middle" fill="var(--ink-primary)" font-size="13" font-weight="600">¥30.10万</text>
+            <text x="133" y="138" text-anchor="middle" fill="var(--ink-secondary)" font-size="12">华东区</text>
+            <rect x="265" y="24" width="76" height="96" rx="6" fill="var(--brand)"/>
+            <text x="303" y="16" text-anchor="middle" fill="var(--ink-primary)" font-size="13" font-weight="600">¥60.20万</text>
+            <text x="303" y="138" text-anchor="middle" fill="var(--ink-secondary)" font-size="12">华西区</text>
+          </svg>
+          <div class="callout good">下载或复制结果后，系统将静默记录本次轻量任务有效完成，无需额外点选审批。</div>
+        </article>
+      </div>`;
+  } else if (isLegal) {
+    messagesHtml = `
+      <div class="msg-user">
+        <div class="msg-files"><span class="context-tag file">${ic('Paperclip', 12)} 2026年度框架采购合同_初稿.docx</span></div>
+        @合同风险条款审查 Agent 帮我过一遍这份框架合同里的付款与违约风险。
+      </div>
+      <div class="msg-ai">
+        <div class="ai-head"><span class="ai-badge-icon ext">${ic('Plug', 13)}</span><span>${esc(ag.name)}</span>${scopePill(ag)}</div>
+        <div class="trace-box">
+          <button class="trace-toggle" data-act="toggle-trace" data-id="t-legal">
+            ${ic('Activity', 14)}<span>已通过外部自研接口调用完成 · 耗时 <span class="num">5.2s</span> · 外部独立运行模型（不消耗平台额度）</span>
+            <span style="margin-left:auto">${ic(state.traceOpen['t-legal'] ? 'ChevronDown' : 'ChevronRight', 14)}</span>
+          </button>
+          ${state.traceOpen['t-legal'] ? `
+          <div class="trace-steps">
+            <div class="trace-step">${ic('Check', 13)} <span>权限校验通过，调用白名单端点 <code>legal-ai.corp.internal</code></span><span class="step-time num">0.2s</span></div>
+            <div class="trace-step">${ic('Check', 13)} <span>外部 Agent 返回结构化审查清单及可选回传用量（4,280 tokens）</span><span class="step-time num">5.0s</span></div>
+          </div>` : ''}
+        </div>
+        <div class="ai-body">
+          <p><strong>共发现 2 处高风险条款、1 处中风险条款：</strong></p>
+          <ul>
+            <li><strong>第 7.2 条（高风险）</strong>：约定“验收后 15 日内未书面提出异议视为无条件付款”，缺少隐蔽瑕疵追责保留期。</li>
+            <li><strong>第 11.4 条（高风险）</strong>：违约金上限未对等（我方逾期每日千分之五，对方逾期仅千分之一）。</li>
+            <li><strong>第 14.1 条（中风险）</strong>：保密期限写为“永久”，建议改为合同终止后 3–5 年。</li>
+          </ul>
+        </div>
+        <div class="msg-toolbar">
+          <button class="icon-btn" data-act="copy-reply" title="复制">${ic('Copy', 14)}</button>
+          <button class="icon-btn ${th.feedback==='up'?'active':''}" data-act="rate-thread" data-val="up" title="有帮助">${ic('ThumbsUp', 14)}</button>
+          <button class="icon-btn ${th.feedback==='down'?'active':''}" data-act="rate-thread" data-val="down" title="待改进">${ic('ThumbsDown', 14)}</button>
+        </div>
+      </div>`;
+    canvasHtml = `
+      <div class="canvas-head">
+        <div class="canvas-tabs"><button class="canvas-tab active">${ic('Shield', 14)}合同风险批注</button></div>
+        <button class="icon-btn" data-act="toggle-canvas">${ic('X', 16)}</button>
+      </div>
+      <div class="canvas-body">
+        <article class="paper">
+          <div class="paper-meta"><span>外部自研 Agent 输出 · 已留存调用边界记录</span><span class="pill pill-blue">模型由外部独立托管</span></div>
+          <h2>框架采购合同风险审查清单</h2>
+          <p class="paper-desc">来源：2026年度框架采购合同_初稿.docx</p>
+          <table class="data-table">
+            <thead><tr><th>条款位置</th><th>风险级别</th><th>修改建议</th></tr></thead>
+            <tbody>
+              <tr><td><strong>第 7.2 条</strong></td><td><span class="pill pill-red">高风险</span></td><td>补充 90 天隐蔽质量瑕疵异议期</td></tr>
+              <tr><td><strong>第 11.4 条</strong></td><td><span class="pill pill-red">高风险</span></td><td>调整双方违约金比例至对等（每日 0.1%）</td></tr>
+              <tr><td><strong>第 14.1 条</strong></td><td><span class="pill pill-amber">中风险</span></td><td>将保密期明确为终止后 3 年</td></tr>
+            </tbody>
+          </table>
+        </article>
+      </div>`;
+  }
+
+  // Extra user-typed turns
+  const extraHtml = th.extraTurns.map(turn => `
+    <div class="msg-user">${esc(turn.q)}</div>
+    <div class="msg-ai">
+      <div class="ai-head"><span class="ai-badge-icon">${ic('Bot', 13)}</span><span>${esc(ag.name)}</span></div>
+      <div class="ai-body"><p>${esc(turn.a)}</p></div>
+    </div>`).join('');
+
+  return `
+  <header class="topbar bordered">
+    <div class="topbar-left">
+      <span class="topbar-title">${esc(th.title)}</span>
+      ${scopePill(ag)}
+    </div>
+    <div class="topbar-right">
+      <div class="avatar-stack" title="当前参与协同的团队成员">
+        ${state.collaborators.slice(0, 4).map(m => `<span class="mini-av ${m.cls}">${esc(m.short)}</span>`).join('')}
+      </div>
+      <button class="btn btn-secondary btn-sm" data-act="open-collab-modal" title="邀请同事加入当前任务并分配角色">
+        ${ic('Users', 14)}<span>拉同事协作</span>
+      </button>
+      ${isQuote ? `
+      <button class="toggle-chip ${state.collabMode?'on':''}" data-act="toggle-collab" title="展开/收起团队协同评论、分工与交付审签">
+        ${ic('CheckCircle', 14)}<span>${state.collabMode ? '团队协同：已开启' : '团队协同'}</span>
+      </button>` : ''}
+      <button class="icon-btn ${showCanvas?'active':''}" data-act="toggle-canvas" title="展开/收起右侧工作区 Canvas">${ic('PanelsRight', 17)}</button>
+      <button class="icon-btn" data-act="toggle-theme" title="切换浅/深色主题">${ic(state.theme==='light'?'Moon':'Sun', 17)}</button>
+    </div>
+  </header>
+  <div class="chat-split ${showCanvas ? 'has-canvas' : ''}">
+    <section class="chat-pane">
+      <div class="chat-stream" id="chatStream">
+        <div class="chat-stream-inner">
+          ${messagesHtml}
+          ${extraHtml}
+        </div>
+      </div>
+      <div class="chat-composer-wrap">
+        ${renderComposer('继续追问，或直接提出修改意见（Enter 发送）…', true)}
+      </div>
+    </section>
+    ${showCanvas ? `<aside class="canvas-pane" aria-label="动态工作区">${canvasHtml}</aside>` : ''}
+  </div>`;
+}
+
+// View 3: Agent & Skill Marketplace (Enterprise Directory + Regularly Scanned Ecosystem Market)
+function renderAgentsView() {
+  const filters = [
+    ['all', '全部'],
+    ['builtin', '官方内置'],
+    ['external', '外部接入'],
+    ['team', '团队共享'],
+    ['personal', '我的私有'],
+  ];
+  const ecoFilters = [
+    ['all', '全部'],
+    ['skill', 'Skill 技能包'],
+    ['agent', '外部 Agent'],
+    ['mcp', 'MCP 工具'],
+    ['approved', '企业已准入'],
+    ['loaded', '我已加载'],
+    ['discovered', '新发现候选'],
+  ];
+  const loadedCount = state.ecosystemItems.filter(x => x.loaded).length;
+  const filtered = state.agents.filter(a => {
+    const matchCat = state.agentFilter === 'all'
+      || (state.agentFilter === 'external' ? a.kind.startsWith('external') : a.kind === state.agentFilter);
+    const q = state.agentQuery.trim().toLowerCase();
+    const matchQ = !q || a.name.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q);
+    return matchCat && matchQ;
+  });
+  const filteredEco = state.ecosystemItems.filter(item => {
+    const q = state.agentQuery.trim().toLowerCase();
+    const matchQ = !q || item.name.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q) || item.source.toLowerCase().includes(q);
+    if (!matchQ) return false;
+    if (state.ecoFilter === 'all') return true;
+    if (['skill', 'agent', 'mcp'].includes(state.ecoFilter)) return item.type === state.ecoFilter;
+    if (state.ecoFilter === 'approved') return item.status === 'approved';
+    if (state.ecoFilter === 'loaded') return item.loaded;
+    if (state.ecoFilter === 'discovered') return item.status === 'discovered';
+    return true;
+  });
+
+  return `
+  <header class="topbar bordered">
+    <div class="topbar-left">
+      <div class="canvas-tabs">
+        <button class="canvas-tab ${state.marketTab==='enterprise'?'active':''}" data-act="market-tab" data-tab="enterprise">${ic('Bot', 14)}企业能力目录</button>
+        <button class="canvas-tab ${state.marketTab==='ecosystem'?'active':''}" data-act="market-tab" data-tab="ecosystem">${ic('Sparkles', 14)}生态发现市场（定期扫描） <span class="pill pill-green" style="margin-left:4px">已加载 ${loadedCount}</span></button>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-secondary btn-sm" data-act="go" data-to="connect">${ic('Plug', 14)}接入外部 Agent</button>
+      <button class="btn btn-primary btn-sm" data-act="go" data-to="studio">${ic('Wand', 14)}对话创建 Agent</button>
+    </div>
+  </header>
+  <div class="page-scroll">
+    <div class="page-inner">
+      ${state.marketTab === 'enterprise' ? `
+      <div class="page-header">
+        <div>
+          <h1>企业 Agent 能力目录</h1>
+          <p>个人私有助手免审批即用；外部自研与第三方 Agent 经接入向导验证即可在对话中通过 <code>@</code> 调用</p>
+        </div>
+      </div>
+      <div class="filter-bar">
+        <div class="search-input">${ic('Search', 15)}<input id="agentSearchInput" placeholder="搜索 Agent 名称或业务场景…" value="${esc(state.agentQuery)}"></div>
+        ${filters.map(([k, label]) => `<button class="chip-tab ${state.agentFilter===k?'active':''}" data-act="agent-filter" data-val="${k}">${label}</button>`).join('')}
+      </div>
+      <div class="card-grid">
+        ${filtered.map(a => `
+        <article class="agent-card">
+          <div class="agent-card-top">
+            <span class="agent-tile ${a.kind.startsWith('external')?'ext':(a.kind==='personal'?'personal':'')}">${ic(a.kind.startsWith('external')?'Plug':'Bot', 19)}</span>
+            <div style="min-width:0;flex:1">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <h3>${esc(a.name)}</h3>
+                ${scopePill(a)}
+              </div>
+              <small style="font-size:12px;color:var(--ink-muted)">${esc(a.owner)} · 近 30 天 <span class="num">${a.calls.toLocaleString()}</span> 次</small>
+            </div>
+          </div>
+          <p class="desc">${esc(a.desc)}</p>
+          <div class="agent-card-foot">
+            <span style="font-size:12px;color:var(--ink-secondary)">有效完成率 <strong class="num" style="color:var(--brand-ink)">${a.effRate}%</strong></span>
+            <div style="display:flex;gap:6px">
+              ${a.kind==='personal' || a.kind==='team' ? `<button class="btn btn-ghost btn-sm" data-act="go" data-to="studio">编辑</button>` : ''}
+              <button class="btn btn-secondary btn-sm" data-act="use-agent" data-id="${a.id}">立即对话</button>
+            </div>
+          </div>
+        </article>`).join('')}
+      </div>` : `
+      <div class="page-header">
+        <div>
+          <h1>Skill 与 Agent 生态发现市场</h1>
+          <p>平台定期自动扫描网上正规渠道（官方 MCP Registry、主流 Skill 库、A2A 认证目录与企业私库），并做许可证与安全静态体检；企业用户可自主选择加载</p>
+        </div>
+        ${state.role === 'admin' ? `<button class="btn btn-secondary btn-sm" data-act="scan-eco-now">${ic('Refresh', 14)}立即扫描正规渠道</button>` : ''}
+      </div>
+      <div class="eco-banner">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span class="pill pill-green"><i class="status-dot dot-green"></i>自动扫描正常</span>
+          <span>最近同步：<strong>${esc(state.ecoLastSync)}</strong> · 覆盖 ${state.ecoSources.filter(s=>s.enabled).length} 个正规渠道 · 当前已加载 <strong>${loadedCount}</strong> 项到个人助手</span>
+        </div>
+        <span style="font-size:12px;color:var(--ink-muted)">安全红线：已准入 Skill 按 SHA-256 冻结至企业私有库，运行于断网隔离沙箱</span>
+      </div>
+      <div class="filter-bar">
+        <div class="search-input">${ic('Search', 15)}<input id="agentSearchInput" placeholder="搜索 Skill、MCP 工具、Agent 或来源渠道…" value="${esc(state.agentQuery)}"></div>
+        ${ecoFilters.map(([k, label]) => `<button class="chip-tab ${state.ecoFilter===k?'active':''}" data-act="eco-filter" data-val="${k}">${label}</button>`).join('')}
+      </div>
+      <div class="card-grid">
+        ${filteredEco.map(item => `
+        <article class="agent-card">
+          <div class="agent-card-top">
+            <span class="agent-tile ${item.type==='agent'?'ext':(item.type==='mcp'?'personal':'')}">${ic(item.type==='agent'?'Plug':(item.type==='mcp'?'Cpu':'Sparkles'), 19)}</span>
+            <div style="min-width:0;flex:1">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <h3>${esc(item.name)}</h3>
+                <span class="pill ${item.status==='approved'?'pill-green':'pill-amber'}">${item.status==='approved'?'企业已准入':'新发现候选'}</span>
+              </div>
+              <small style="font-size:12px;color:var(--ink-muted)">来源：${esc(item.source)} · ${esc(item.version)}</small>
+            </div>
+          </div>
+          <p class="desc">${esc(item.desc)}</p>
+          <div class="meta-tags">
+            <span class="pill pill-muted">${esc(item.typeLabel)}</span>
+            <span class="pill ${item.license.includes('⚠')?'pill-amber':'pill-muted'}">${esc(item.license)}</span>
+            <span class="pill ${item.security.includes('通过')?'pill-green':'pill-amber'}">${esc(item.security)}</span>
+          </div>
+          <div class="agent-card-foot">
+            <span style="font-size:12px;color:var(--ink-secondary)">${item.loaded ? '✓ 已挂载至个人助手' : (item.status==='approved' ? '企业已缓存 · 可随时加载' : (item.requested ? '等待管理员安全审核' : '需管理员审核准入'))}</span>
+            ${item.status === 'approved'
+              ? `<button class="btn ${item.loaded?'btn-secondary':'btn-primary'} btn-sm" data-act="toggle-load-eco" data-id="${item.id}">${item.loaded ? '已加载 · 卸载' : '加载到我的助手'}</button>`
+              : `<button class="btn btn-secondary btn-sm" data-act="request-eco" data-id="${item.id}" ${item.requested?'disabled':''}>${item.requested ? '已提交准入申请' : '申请管理员准入'}</button>`}
+          </div>
+        </article>`).join('')}
+      </div>`}
+    </div>
+  </div>`;
+}
+
+// View 4: Left-Chat Right-Test Conversational Studio
+function renderStudioView() {
+  const capLabels = [
+    ['kb', '企业知识库'],
+    ['sandbox', '表格与文档沙箱'],
+    ['vision', '识图与生图'],
+    ['web', '联网搜索'],
+    ['extLegal', '外部：法务合同审查'],
+  ];
+  return `
+  <div class="studio-wrap">
+    <header class="topbar bordered">
+      <div class="topbar-left">
+        <button class="icon-btn" data-act="go" data-to="agents" title="返回广场">${ic('ArrowLeft', 17)}</button>
+        <span class="topbar-title">${esc(state.studioName)}</span>
+        <span class="pill pill-amber">${esc(state.studioScope)}</span>
+      </div>
+      <div class="topbar-right">
+        <span style="font-size:12px;color:var(--ink-muted)">模型由企业全局池提供 · 无需填写 API Key</span>
+        <button class="icon-btn" data-act="toggle-theme">${ic(state.theme==='light'?'Moon':'Sun', 17)}</button>
+      </div>
+    </header>
+    <div class="studio-split">
+      <section class="studio-col">
+        <div class="studio-col-head">
+          <div class="canvas-tabs">
+            <button class="canvas-tab ${state.studioTab==='chat'?'active':''}" data-act="studio-tab" data-tab="chat">${ic('Wand', 14)}对话构建</button>
+            <button class="canvas-tab ${state.studioTab==='config'?'active':''}" data-act="studio-tab" data-tab="config">${ic('Sliders', 14)}配置清单</button>
+          </div>
+          <select class="field-select" style="width:auto;padding:5px 9px;font-size:12.5px" data-act="studio-tier">
+            ${['默认通用','快速轻量','深度推理'].map(t => `<option ${state.studioTier===t?'selected':''}>${t}</option>`).join('')}
+          </select>
+        </div>
+        <div class="studio-body">
+          ${state.studioTab === 'chat' ? `
+          <div class="msg-user">我想做一个供应商报价核对助手，每次上传报价单就自动比价、标出缺有效期的项，并给我列出要追问供应商的问题。</div>
+          <div class="msg-ai">
+            <div class="ai-head"><span class="ai-badge-icon">${ic('Wand', 13)}</span><span>构建助手</span></div>
+            <div class="ai-body">
+              <p>已为你生成草稿！我自动开启了「表格与文档沙箱」「企业知识库」和「外部法务审查」能力，你也可以在下方随时点选增减。</p>
+            </div>
+          </div>
+          <button class="dropzone" data-act="studio-load-sample">
+            <div style="display:flex;align-items:center;gap:10px;text-align:left">
+              <span class="artifact-icon">${ic('Upload', 17)}</span>
+              <div>
+                <strong style="font-size:13.5px;display:block">${state.studioSampleLoaded ? '已提炼标杆规范：2026Q3_优秀比价表.xlsx' : '拖入 1–3 份过去做得最好的标杆文件（推荐）'}</strong>
+                <small style="font-size:12px;color:var(--ink-secondary)">${state.studioSampleLoaded ? '已自动提炼列顺序、含税换算口径与自检项，原始敏感数据已剥离' : '说不清规则没关系，丢一份标杆样表进来，我自动反推你的排版与口径'}</small>
+              </div>
+            </div>
+            <span class="pill ${state.studioSampleLoaded?'pill-green':'pill-muted'}">${state.studioSampleLoaded?'已提炼':'点击演示上传'}</span>
+          </button>
+          ${state.studioRefined ? `
+          <div class="diff-box">
+            <div style="font-weight:600;margin-bottom:4px">已根据右侧「指哪改哪」自动更新规则：</div>
+            <div>· 对比表保留单价、交期与有效期三列</div>
+            <div>· <span class="diff-add">+ 单价列统一换算为含税价并右对齐，超预算项自动标红提醒</span></div>
+          </div>` : ''}
+          <div>
+            <div style="font-size:12px;color:var(--ink-muted);margin-bottom:8px">已启用能力（点击业务开关即可增减，无需配置工具参数）</div>
+            <div class="cap-grid">
+              ${capLabels.map(([k, label]) => `
+              <button class="toggle-chip ${state.studioCaps[k]?'on':''}" data-act="studio-cap" data-cap="${k}">
+                ${ic(state.studioCaps[k]?'Check':'Plus', 13)}<span>${label}</span>
+              </button>`).join('')}
+            </div>
+          </div>` : `
+          <div class="field-row">
+            <label>助手名称</label>
+            <input class="field-input" id="studioNameInput" value="${esc(state.studioName)}">
+          </div>
+          <div class="field-row">
+            <label>自动生成的业务规则（普通员工无需手写）</label>
+            <textarea class="field-input" rows="6">1. 读取上传的多份报价单，提取供应商名称、单价、交期与报价有效期。
+2. 对缺失有效期的项用琥珀色高亮并列入追问清单首行。
+3. 涉及复杂条款时，按授权委派外部「法务合同审查 Agent」核对风险。${state.studioSampleLoaded?'\n4. 沿用标杆样表列顺序与汇总结构（已自动脱敏）。':''}${state.studioRefined?'\n5. 单价统一换算为含税价右对齐，超预算项标红。':''}</textarea>
+          </div>`}
+        </div>
+        ${state.studioTab === 'chat' ? `
+        <div style="padding:10px 20px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;background:var(--bg-main)">
+          <input class="field-input" id="studioChatInput" placeholder="继续告诉构建助手如何调整，例如「价格按含税价统一换算」…" style="border-radius:999px;padding:8px 14px">
+          <button class="send-btn" data-act="studio-refine" title="发送调整要求">${ic('ArrowUp', 16)}</button>
+        </div>` : ''}
+      </section>
+
+      <section class="studio-col">
+        <div class="studio-col-head">
+          <strong style="font-size:13.5px;display:flex;align-items:center;gap:7px">${ic('Sparkles', 15)}实时试聊沙盒（Live Playground）</strong>
+          <span class="pill pill-green">测试样例 1/1 通过</span>
+        </div>
+        <div class="studio-body">
+          <div class="msg-user">帮我核对这三份测试报价单</div>
+          <div class="refine-card">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <strong style="font-size:13.5px">${esc(state.studioName)} · 试跑预览</strong>
+              <span class="pill pill-muted">预计耗时 3.4s</span>
+            </div>
+            <div class="refine-block">
+              <div style="font-size:13.5px;line-height:1.65">
+                <strong>价格汇总：</strong>甲 ¥120 / 乙 ¥118（最低）/ 丙 ¥126${state.studioRefined ? ' <span class="pill pill-green">已换算含税右对齐 · 超预算标红</span>' : '（当前未标明是否含税）'}
+              </div>
+              <button class="btn btn-secondary btn-sm" data-act="studio-refine" ${state.studioRefined?'disabled':''}>${ic('Edit', 13)}${state.studioRefined?'已纠偏':'指哪改哪'}</button>
+            </div>
+            <div class="refine-block">
+              <div style="font-size:13.5px;line-height:1.65">
+                <strong>缺项提醒：</strong>供应商乙缺少有效期字段，已自动生成追问话术草稿。
+              </div>
+            </div>
+            ${state.studioSampleLoaded ? `<div class="callout good" style="margin-top:0">已应用标杆样表排版格式，导出表格可直接发部门评审会。</div>` : ''}
+          </div>
+        </div>
+        <div style="padding:10px 20px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;background:var(--bg-rail)">
+          <button class="icon-btn" data-act="toast" data-msg="已上传脱敏测试样例：Q4_测试报价.pdf" title="上传测试文件">${ic('Paperclip', 16)}</button>
+          <input class="field-input" placeholder="发送一句测试消息，实时验证当前草稿效果…" style="border-radius:999px;padding:8px 14px">
+          <button class="send-btn" data-act="toast" data-msg="试聊沙盒已按最新草稿重新生成预览" title="发送测试">${ic('ArrowUp', 16)}</button>
+        </div>
+      </section>
+    </div>
+    <footer class="studio-foot">
+      <div style="font-size:12.5px;color:var(--ink-secondary)">个人私有助手免审批立即生效；共享给团队或全企业上架时自动冻结版本</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" data-act="studio-publish" data-scope="personal">${ic('Check', 15)}立即自己使用（个人私有 · 免审批）</button>
+        <button class="btn btn-secondary" data-act="studio-publish" data-scope="team">共享给所属团队</button>
+        <button class="btn btn-secondary" data-act="studio-publish" data-scope="enterprise">申请全企业上架</button>
+      </div>
+    </footer>
+  </div>`;
+}
+
+// View 5: External Agent 3-Step Connect Wizard
+function renderConnectView() {
+  const protos = [
+    ['openai', 'OpenAI-Compatible API', '内部自研首选', '支持 FastAPI / 自研服务标准流式接口'],
+    ['dify', 'Dify App 一键模板', '国内常用', '填 App URL 与 API Key，自动适配会话流'],
+    ['coze', 'Coze（扣子）Bot 模板', '国内常用', '填 Bot ID 与 PAT，开箱支持流式调用'],
+    ['langgraph', 'LangGraph / FastGPT', '研发框架', '自动映射线程 ID 与结构化输出'],
+    ['a2a', '标准 A2A Agent Card', '标准协议', '支持异步长任务、查询、补件与取消'],
+    ['webhook', '通用异步 REST / MCP', '第三方商业', '适配 Manus 等异步任务接口或 MCP Server'],
+  ];
+  return `
+  <header class="topbar bordered">
+    <div class="topbar-left">
+      <button class="icon-btn" data-act="go" data-to="agents">${ic('ArrowLeft', 17)}</button>
+      <span class="topbar-title">接入外部 Agent</span>
+      <span class="pill pill-blue">第三方商业 / 企业内部自研</span>
+    </div>
+  </header>
+  <div class="page-scroll">
+    <div class="page-inner">
+      <div class="stepper">
+        <div class="step-item ${state.connectStep===1?'active':(state.connectStep>1?'done':'')}"><span class="step-num">1</span>选择协议与框架模板</div>
+        <div class="step-line"></div>
+        <div class="step-item ${state.connectStep===2?'active':(state.connectStep>2?'done':'')}"><span class="step-num">2</span>连接鉴权与边界观测</div>
+        <div class="step-line"></div>
+        <div class="step-item ${state.connectStep===3?'active':''}"><span class="step-num">3</span>发送测试消息并上线</div>
+      </div>
+
+      <div class="callout info" style="margin-top:0">
+        <strong>架构边界说明：</strong>所有外部接入的 Agent（含第三方与内部自研）均独立管理自身运行环境与大模型凭据，<strong>不使用也不消耗平台模型 API Key</strong>；平台在调用边界统一监控成功率、耗时与采纳率，并支持解析外部可选回传的 Token / Trace 字段。
+      </div>
+
+      ${state.connectStep === 1 ? `
+      <div class="card-grid">
+        ${protos.map(([id, title, tag, desc]) => `
+        <button class="proto-card ${state.connectProto===id?'selected':''}" data-act="connect-proto" data-val="${id}">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <strong style="font-size:14.5px">${title}</strong>
+            <span class="pill pill-muted">${tag}</span>
+          </div>
+          <span style="font-size:12.5px;color:var(--ink-secondary)">${desc}</span>
+        </button>`).join('')}
+      </div>
+      <div><button class="btn btn-primary" data-act="connect-step" data-step="2">下一步：配置连接与鉴权</button></div>` : ''}
+
+      ${state.connectStep === 2 ? `
+      <div class="form-panel">
+        <div class="field-row">
+          <label>Agent 显示名称</label>
+          <input class="field-input" id="connName" value="${esc(state.connectName)}">
+        </div>
+        <div class="field-row">
+          <label>服务端点地址（自动校验管理员配置的域名白名单）</label>
+          <input class="field-input" id="connUrl" value="${esc(state.connectUrl)}">
+          <small style="color:var(--brand-ink);font-size:12px">✓ 域名 <code>agent-finance.corp.internal</code> 已在企业出站白名单中</small>
+        </div>
+        <div class="field-row">
+          <label>鉴权凭据（由企业密钥库 AES-GCM 加密托管）</label>
+          <input class="field-input" type="password" value="sk-corp-internal-demo-key">
+        </div>
+        <label style="display:flex;align-items:center;gap:9px;font-size:13.5px;cursor:pointer">
+          <input type="checkbox" ${state.connectUsageOptIn?'checked':''} data-act="connect-usage-toggle">
+          <span>解析外部可选回传的用量与 Trace 字段（<code>usage</code> / <code>X-Alliance-Trace-Url</code>；未返回时如实标记「外部未披露」）</span>
+        </label>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-secondary" data-act="connect-step" data-step="1">上一步</button>
+          <button class="btn btn-primary" data-act="connect-step" data-step="3">下一步：发送测试消息</button>
+        </div>
+      </div>` : ''}
+
+      ${state.connectStep === 3 ? `
+      <div class="form-panel">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <strong>连通性与流式回包即时测试</strong>
+            <p style="font-size:12.5px;color:var(--ink-secondary);margin-top:2px">测试通过后即可先以「Beta 试用」上线给自己或测试团队</p>
+          </div>
+          <button class="btn btn-primary" data-act="connect-run-test">${ic('Activity', 15)}${state.connectTested?'重新发送测试':'发送一条测试消息'}</button>
+        </div>
+        ${state.connectTested ? `
+        <div class="callout good" style="margin-top:0">
+          <strong>✓ 连通测试通过（首字节 0.62s · 总耗时 1.94s）</strong><br>
+          模拟问答：“差旅住宿一线城市标准是多少？” → 外部返回：“一线城市住宿上限 650 元/晚，详见 2026 报销制度第 4 条。”<br>
+          边界观测：收到外部可选回传 <code>usage: 312 tokens</code>；未附带费用字段（大盘将标明「外部未披露」）。
+        </div>` : `<div class="callout" style="margin-top:0">点击右上角按钮发送一条模拟业务消息，核验协议解析与边界监控字段。</div>`}
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-secondary" data-act="connect-step" data-step="2">上一步</button>
+          <button class="btn btn-primary" data-act="connect-finish" data-mode="beta" ${!state.connectTested?'disabled':''}>以 Beta 试用立即上线</button>
+          <button class="btn btn-secondary" data-act="connect-finish" data-mode="verify" ${!state.connectTested?'disabled':''}>提交全企业认证审批</button>
+        </div>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+// View 6a: Automations
+function renderAutomationsView() {
+  return `
+  <header class="topbar bordered">
+    <div class="topbar-left"><span class="topbar-title">后台与定时任务</span></div>
+    <div class="topbar-right"><button class="btn btn-primary btn-sm" data-act="toast" data-msg="可在任意满意对话底部一键「设为定时任务」">${ic('Plus', 14)}新建定时委托</button></div>
+  </header>
+  <div class="page-scroll">
+    <div class="page-inner">
+      <div class="page-header"><div><h1>持续运行的后台委托</h1><p>基于 Temporal Schedule 持久调度；每次执行的运行结果与飞书/邮件投递回执分别记账</p></div></div>
+      <div class="panel-box">
+        <table class="data-table">
+          <thead><tr><th>任务名称</th><th>触发频率</th><th>执行 Agent</th><th>上次运行</th><th>通知投递</th><th class="right">状态</th></tr></thead>
+          <tbody>
+            ${state.automations.map(au => `
+            <tr>
+              <td><strong>${esc(au.name)}</strong></td>
+              <td>${esc(au.schedule)}</td>
+              <td><span class="pill pill-muted">${esc(au.agent)}</span></td>
+              <td>${esc(au.lastRun)}</td>
+              <td><span class="pill pill-green">${esc(au.delivery)}</span></td>
+              <td class="right"><button class="toggle-chip ${au.enabled?'on':''}" data-act="toggle-auto" data-id="${au.id}">${au.enabled?'已启用':'已暂停'}</button></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+
+// View 6b: Inbox
+function renderInboxView() {
+  return `
+  <header class="topbar bordered"><div class="topbar-left"><span class="topbar-title">待办与审核</span></div></header>
+  <div class="page-scroll">
+    <div class="page-inner">
+      <div class="page-header"><div><h1>需要你确认或处理的事项</h1><p>仅展示 L1 轻量确认、L2 正式审签与缺件补交事项，网页与飞书卡片共享同一决定</p></div></div>
+      <div class="panel-box">
+        <table class="data-table">
+          <thead><tr><th>事项</th><th>类型</th><th>来源任务</th><th class="right">操作</th></tr></thead>
+          <tbody>
+            ${!state.quoteGapFixed ? `
+            <tr>
+              <td><strong>补充供应商乙的报价有效期依据</strong></td>
+              <td><span class="pill pill-amber">缺件待补</span></td>
+              <td>供应商报价核对 · Q4 采购</td>
+              <td class="right"><button class="btn btn-primary btn-sm" data-act="open-thread" data-id="t-quote">回到原任务处理</button></td>
+            </tr>` : ''}
+            <tr>
+              <td><strong>批准外部付费调研（预估 30 家竞品并发）</strong></td>
+              <td><span class="pill pill-blue">L1 轻量确认</span></td>
+              <td>Q4 竞品调研 · Manus 外部 Agent</td>
+              <td class="right"><button class="btn btn-secondary btn-sm" data-act="toast" data-msg="已确认执行，后台开始异步调度">一键确认执行</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+
+// View 7: Fullscreen Enterprise Admin (/admin/*)
+function renderAdminShell() {
+  const navs = [
+    ['monitor', 'BarChart', '监控大盘'],
+    ['models', 'Cpu', '全局模型网关'],
+    ['integrations', 'Plug', '服务与连接器'],
+    ['releases', 'CheckCircle', '发布审核'],
+    ['members', 'Users', '组织与成员'],
+    ['governance', 'Shield', '预算与安全'],
+  ];
+  const pendingRel = state.releases.filter(r => r.status === 'pending').length;
+
+  let content = '';
+  if (state.adminTab === 'monitor') {
+    const mult = state.monDays === '7' ? 0.28 : (state.monDays === '90' ? 2.75 : 1);
+    const deptMult = state.monDept === 'all' ? 1 : 0.34;
+    const f = mult * deptMult;
+    const rows = state.agents.filter(a => {
+      if (state.monSource === 'all') return true;
+      if (state.monSource === 'external') return a.kind.startsWith('external');
+      if (state.monSource === 'custom') return a.kind === 'team' || a.kind === 'personal';
+      return a.kind === 'builtin';
+    });
+    const totalRuns = Math.round(rows.reduce((s, a) => s + a.calls, 0) * f);
+    const activeUsers = Math.max(12, Math.round(284 * deptMult));
+    const totalTokensM = (76.2 * f).toFixed(1);
+    const totalCost = Math.round(2273 * f).toLocaleString();
+    const undisclosedCalls = Math.round(390 * f);
+
+    content = `
+    <div class="page-header">
+      <div>
+        <h1>企业级运行监控大盘</h1>
+        <p>双轨质量口径：轻量个人任务结合隐式正向信号（下载/复制/👍）计算有效完成率；协作审签任务严格以人工确认交付为准</p>
+      </div>
+      <div class="filter-bar">
+        <select class="field-select" style="width:auto;padding:6px 10px" data-act="mon-filter" data-key="monDays">
+          <option value="7" ${state.monDays==='7'?'selected':''}>近 7 天</option>
+          <option value="30" ${state.monDays==='30'?'selected':''}>近 30 天</option>
+          <option value="90" ${state.monDays==='90'?'selected':''}>近 90 天</option>
+        </select>
+        <select class="field-select" style="width:auto;padding:6px 10px" data-act="mon-filter" data-key="monDept">
+          <option value="all" ${state.monDept==='all'?'selected':''}>全部部门</option>
+          <option value="proc" ${state.monDept==='proc'?'selected':''}>采购部</option>
+          <option value="mkt" ${state.monDept==='mkt'?'selected':''}>市场部</option>
+          <option value="rd" ${state.monDept==='rd'?'selected':''}>研发部</option>
+        </select>
+        <select class="field-select" style="width:auto;padding:6px 10px" data-act="mon-filter" data-key="monSource">
+          <option value="all" ${state.monSource==='all'?'selected':''}>全部来源</option>
+          <option value="builtin" ${state.monSource==='builtin'?'selected':''}>官方内置</option>
+          <option value="custom" ${state.monSource==='custom'?'selected':''}>员工自建</option>
+          <option value="external" ${state.monSource==='external'?'selected':''}>外部接入</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" data-act="toast" data-msg="已按脱敏授权策略生成监控报表 JSON/CSV">${ic('Download', 14)}导出报表</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <small>活跃成员数 <span class="pill pill-green">+12%</span></small>
+        <div class="kpi-val num">${activeUsers} <span style="font-size:13px;font-weight:500;color:var(--ink-muted)">/ 340</span></div>
+        <div class="kpi-sub">活跃渗透率 <strong class="num">${Math.round(activeUsers/3.4)}%</strong></div>
+      </div>
+      <div class="kpi-card">
+        <small>任务总调用量</small>
+        <div class="kpi-val num">${totalRuns.toLocaleString()}</div>
+        <div class="kpi-sub">轻量个人 81% · 协作审签 19%</div>
+      </div>
+      <div class="kpi-card">
+        <small>执行成功率（技术）</small>
+        <div class="kpi-val num" style="color:var(--brand-ink)">98.7%</div>
+        <div class="kpi-sub">失败 1.3%（外部超时占 68%）</div>
+      </div>
+      <div class="kpi-card">
+        <small>双轨业务达成率</small>
+        <div class="kpi-val num" style="font-size:20px;line-height:1.35">91.4% <span style="font-size:12px;color:var(--ink-muted);font-weight:500">轻量有效</span><br>94.6% <span style="font-size:12px;color:var(--ink-muted);font-weight:500">协作采纳</span></div>
+        <div class="kpi-sub">隐式信号与显式签收分列</div>
+      </div>
+      <div class="kpi-card">
+        <small>平台 Token 与模型费用</small>
+        <div class="kpi-val num">¥${totalCost}</div>
+        <div class="kpi-sub num">${totalTokensM}M tok (In 62% · Out 24% · Cache 14%)<br><span style="color:var(--amber)">另有 ${undisclosedCalls} 次外部未披露</span></div>
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <div class="panel-head"><h3>四阶任务质量漏斗</h3><span style="font-size:12px;color:var(--ink-muted)">区分“接口 200 成功”与“业务真正用起来”</span></div>
+      <div class="funnel-row">
+        <div class="funnel-step"><small>1. 任务发起</small><strong class="num">${totalRuns.toLocaleString()}</strong><small>100%</small><div class="funnel-bar"><i style="width:100%"></i></div></div>
+        <div class="funnel-step"><small>2. 执行无故障完成</small><strong class="num">${Math.round(totalRuns*0.987).toLocaleString()}</strong><small>98.7%</small><div class="funnel-bar"><i style="width:98.7%"></i></div></div>
+        <div class="funnel-step"><small>3. 结果达标 / 审核通过</small><strong class="num">${Math.round(totalRuns*0.935).toLocaleString()}</strong><small>93.5%</small><div class="funnel-bar"><i style="width:93.5%"></i></div></div>
+        <div class="funnel-step"><small>4. 有效采纳 / 正式交付</small><strong class="num">${Math.round(totalRuns*0.918).toLocaleString()}</strong><small>91.8%</small><div class="funnel-bar"><i style="width:91.8%"></i></div></div>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="panel-box">
+        <div class="panel-head"><h3>每日平台 Token 消耗趋势（百万 Tokens）</h3><span class="pill pill-muted">Input / Output / Cache</span></div>
+        <svg viewBox="0 0 460 155" style="width:100%;height:auto">
+          <line x1="30" y1="130" x2="445" y2="130" stroke="var(--border-strong)"/>
+          ${[2.1,2.6,3.1,2.8,3.9,1.8,1.5,3.4,4.2,3.8,4.6,4.1].map((v,i) => {
+            const h = v * 22; const x = 40 + i * 33;
+            return `<rect x="${x}" y="${130-h}" width="18" height="${h}" rx="4" fill="var(--brand)" opacity="${i===10?1:0.75}"/>
+                    <rect x="${x}" y="${130-h*0.32}" width="18" height="${h*0.32}" rx="2" fill="var(--brand-ink)"/>
+                    <text x="${x+9}" y="145" text-anchor="middle" fill="var(--ink-muted)" font-size="10">${i+1}日</text>`;
+          }).join('')}
+        </svg>
+      </div>
+      <div class="panel-box">
+        <div class="panel-head"><h3>每日有效完成率与执行成功率趋势</h3><span class="pill pill-green">稳步上升</span></div>
+        <svg viewBox="0 0 460 155" style="width:100%;height:auto">
+          <line x1="30" y1="130" x2="445" y2="130" stroke="var(--border-strong)"/>
+          <line x1="30" y1="30" x2="445" y2="30" stroke="var(--border)" stroke-dasharray="3 3"/>
+          <polyline fill="none" stroke="var(--brand)" stroke-width="2.5" points="45,38 82,36 119,40 156,34 193,35 230,33 267,37 304,32 341,31 378,33 415,30"/>
+          <polyline fill="none" stroke="var(--info)" stroke-width="2.5" points="45,68 82,62 119,65 156,58 193,55 230,52 267,56 304,49 341,47 378,45 415,44"/>
+          <text x="34" y="24" fill="var(--brand-ink)" font-size="11">— 执行成功率 (98.7%)</text>
+          <text x="175" y="24" fill="var(--info)" font-size="11">— 轻量有效完成率 (91.4%)</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <div class="panel-head">
+        <h3>Agent 运行效能与质量榜单</h3>
+        <span style="font-size:12px;color:var(--ink-muted)">外部 Agent 独立管理模型，未回传字段如实标明「外部未披露」</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Agent 与来源</th><th>归属</th><th class="right">调用量</th><th class="right">执行成功率</th><th class="right">轻量有效 / 协作采纳</th><th class="right">P50 / P95</th><th class="right">Token / 费用</th><th>健康</th><th class="right">诊断</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(a => `
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:7px"><strong>${esc(a.name)}</strong>${scopePill(a)}</div></td>
+              <td>${esc(a.owner)}</td>
+              <td class="right num">${Math.round(a.calls * f).toLocaleString()}</td>
+              <td class="right num">${a.execRate}%</td>
+              <td class="right num">${a.effRate}% / ${a.collabRate ? a.collabRate+'%' : '—'}</td>
+              <td class="right num">${a.p50} / ${a.p95}</td>
+              <td class="right num">${a.disclosed ? `${a.tokens} · ${a.cost}` : `<span class="pill pill-amber">外部未披露</span>`}</td>
+              <td><span style="display:inline-flex;align-items:center;gap:5px"><i class="status-dot dot-${a.health==='ok'?'green':'amber'}"></i>${a.health==='ok'?'正常':'慢响应'}</span></td>
+              <td class="right"><button class="btn btn-secondary btn-sm" data-act="open-trace" data-id="${a.id}">查看 Trace</button></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <div class="panel-head">
+        <div class="canvas-tabs">
+          <button class="canvas-tab ${state.monBottomTab==='live'?'active':''}" data-act="mon-btab" data-val="live">实时运行队列（3）</button>
+          <button class="canvas-tab ${state.monBottomTab==='alerts'?'active':''}" data-act="mon-btab" data-val="alerts">异常告警与飞书推送（2）</button>
+        </div>
+      </div>
+      ${state.monBottomTab === 'live' ? `
+      <table class="data-table">
+        <thead><tr><th>运行号</th><th>Agent</th><th>发起人</th><th>当前阶段</th><th class="right">已耗时</th></tr></thead>
+        <tbody>
+          <tr><td class="num">run_9821</td><td>通用个人助手</td><td>周宁 · 市场部</td><td><span class="pill pill-green">沙箱生成 PPT 中</span></td><td class="right num">4.2s</td></tr>
+          <tr><td class="num">run_9819</td><td>采购报价核对助手</td><td>林予 · 采购部</td><td><span class="pill pill-amber">等待补件（乙有效期）</span></td><td class="right num">12m</td></tr>
+          <tr><td class="num">run_9814</td><td>Manus 深度竞品调研</td><td>陈默 · 市场部</td><td><span class="pill pill-blue">外部异步执行中</span></td><td class="right num">38s</td></tr>
+        </tbody>
+      </table>` : `
+      <table class="data-table">
+        <thead><tr><th>告警规则</th><th>触发内容</th><th>推送渠道</th><th class="right">状态</th></tr></thead>
+        <tbody>
+          <tr><td><strong>外部 Agent 超时告警</strong></td><td>Manus 深度调研近 1 小时 P95 达到 118s</td><td>飞书运维告警群</td><td class="right"><span class="pill pill-amber">已通知</span></td></tr>
+          <tr><td><strong>月度预算 80% 软告警</strong></td><td>市场部本月模型消耗达 82%（¥1,640 / ¥2,000）</td><td>飞书管理员私聊</td><td class="right"><span class="pill pill-green">已确认</span></td></tr>
+        </tbody>
+      </table>`}
+    </div>`;
+  } else if (state.adminTab === 'models') {
+    content = `
+    <div class="page-header">
+      <div>
+        <h1>全局模型网关（Model Gateway）</h1>
+        <p>统一管理企业模型供应商、6 档逻辑能力路由、主备容灾与精确单价表；为平台内置助手与员工自建 Agent 提供无感模型支持</p>
+      </div>
+      <button class="btn btn-primary btn-sm" data-act="toast" data-msg="支持百炼 / 火山方舟 / DeepSeek / OpenAI / Anthropic / 本地 vLLM 一键接入">${ic('Plus', 14)}接入模型供应商</button>
+    </div>
+    <div class="callout info" style="margin-top:0">
+      <strong>职责边界：</strong>此全局模型资源池集中供给平台内置 Personal Agent、员工自然语言构建的 Agent 与规划推理。外部接入 Agent 独立管理自身模型凭据，不向外部签发平台代理 Key。
+    </div>
+    <div class="tier-grid">
+      ${state.tiers.map(t => `
+      <article class="tier-card">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <strong style="font-size:15px">${esc(t.name)}</strong>
+          <span class="pill pill-green"><i class="status-dot dot-green"></i>${t.health} · <span class="num">${t.latency}</span></span>
+        </div>
+        <div class="tier-route">
+          <div class="tier-route-line"><span style="color:var(--ink-muted)">主模型</span><strong>${esc(t.primary)}</strong></div>
+          <div class="tier-route-line"><span style="color:var(--ink-muted)">容灾备用</span><span>${esc(t.fallback)}</span></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end">
+          <button class="btn btn-secondary btn-sm" data-act="swap-tier" data-id="${t.id}">${ic('Refresh', 13)}切换主/备模型</button>
+        </div>
+      </article>`).join('')}
+    </div>
+    <div class="panel-box">
+      <div class="panel-head"><h3>已接入供应商与精确单价表（元 / 百万 Tokens）</h3></div>
+      <table class="data-table">
+        <thead><tr><th>供应商与模型</th><th class="right">Input 单价</th><th class="right">Output 单价</th><th class="right">Cached 单价</th><th class="right">限流 RPM</th><th class="right">操作</th></tr></thead>
+        <tbody>
+          <tr><td><strong>阿里百炼 · Qwen3-Max</strong></td><td class="right num">¥16.0</td><td class="right num">¥48.0</td><td class="right num">¥3.2</td><td class="right num">600</td><td class="right"><button class="btn btn-ghost btn-sm" data-act="toast" data-msg="连通测试通过：312ms">测试连通</button></td></tr>
+          <tr><td><strong>火山方舟 · Doubao-1.5-Pro</strong></td><td class="right num">¥8.0</td><td class="right num">¥24.0</td><td class="right num">¥1.6</td><td class="right num">800</td><td class="right"><button class="btn btn-ghost btn-sm" data-act="toast" data-msg="连通测试通过：285ms">测试连通</button></td></tr>
+          <tr><td><strong>DeepSeek · DeepSeek-R1</strong></td><td class="right num">¥4.0</td><td class="right num">¥16.0</td><td class="right num">¥1.0</td><td class="right num">400</td><td class="right"><button class="btn btn-ghost btn-sm" data-act="toast" data-msg="连通测试通过：410ms">测试连通</button></td></tr>
+          <tr><td><strong>企业私有 vLLM · BGE-M3</strong></td><td class="right num">¥0.0</td><td class="right num">¥0.0</td><td class="right num">¥0.0</td><td class="right num">不限</td><td class="right"><button class="btn btn-ghost btn-sm" data-act="toast" data-msg="内网推理节点健康：88ms">测试连通</button></td></tr>
+        </tbody>
+      </table>
+    </div>`;
+  } else if (state.adminTab === 'integrations') {
+    const hubs = [
+      ['代码与文档隔离沙箱池', 'Docker/gVisor 容器池 · 预热 6 实例 · 单任务 2C/2G · 默认断网隔离', '健康', 'pill-green'],
+      ['联网公开搜索服务', '博查企业搜索 API · 每日限额 10,000 次 · 已用 18%', '已配置', 'pill-green'],
+      ['企业知识源连接器', '飞书云文档（已同步 1,420 篇 · ACL 权限实时同步）、Confluence Wiki', '同步中', 'pill-green'],
+      ['企业 MCP Server 目录', '已登记 4 个受控 MCP：企业只读 BI 查询、工单检索、会议室查询、法务模板库', '4 个可用', 'pill-blue'],
+      ['IM 渠道机器人', '飞书企业自建应用（已启用卡片交互与告警推送）；钉钉 Stream（测试中）', '飞书已上线', 'pill-green'],
+    ];
+    content = `
+    <div class="page-header"><div><h1>服务与连接器中心（Service Hub）</h1><p>统一管理除大模型外的企业公共底座、MCP 工具目录、IM 渠道与外部出站域名白名单</p></div></div>
+    <div class="card-grid">
+      ${hubs.map(([t, d, st, cls]) => `
+      <article class="agent-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h3>${t}</h3><span class="pill ${cls}">${st}</span></div>
+        <p class="desc">${d}</p>
+        <div class="agent-card-foot"><small style="color:var(--ink-muted)">凭据由 AES-GCM 密钥库托管</small><button class="btn btn-secondary btn-sm" data-act="toast" data-msg="${t} 配置与连通状态正常">管理配置</button></div>
+      </article>`).join('')}
+    </div>
+    <div class="panel-box">
+      <div class="panel-head">
+        <h3>生态市场自动扫描源配置（定期抓取正规渠道 Skill 与 Agent）</h3>
+        <button class="btn btn-primary btn-sm" data-act="scan-eco-now">${ic('Refresh', 14)}立即扫描同步</button>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>正规渠道名称</th><th>内容类型</th><th>扫描频率</th><th class="right">已索引条目</th><th>最近同步</th><th class="right">状态</th></tr></thead>
+        <tbody>
+          ${state.ecoSources.map(s => `
+          <tr>
+            <td><strong>${esc(s.name)}</strong></td>
+            <td><span class="pill pill-muted">${esc(s.kind)}</span></td>
+            <td>${esc(s.schedule)}</td>
+            <td class="right num">${s.count}</td>
+            <td>${esc(state.ecoLastSync)}</td>
+            <td class="right"><button class="toggle-chip ${s.enabled?'on':''}" data-act="toggle-eco-src" data-id="${s.id}">${s.enabled?'自动扫描中':'已暂停'}</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="panel-box">
+      <div class="panel-head"><h3>外部 Agent 允许出站域名白名单（无需改环境变量重启）</h3></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${state.allowlist.map((h, i) => `<span class="context-tag file">${ic('Globe', 12)} ${esc(h)} <button data-act="rm-host" data-idx="${i}">${ic('X', 12)}</button></span>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;max-width:440px">
+        <input class="field-input" id="newHostInput" placeholder="输入允许域名，例如 dify.corp.internal">
+        <button class="btn btn-primary" data-act="add-host">添加域名</button>
+      </div>
+    </div>`;
+  } else if (state.adminTab === 'releases') {
+    content = `
+    <div class="page-header"><div><h1>能力发布与外部认证审核</h1><p>个人私有 Agent 零审批；仅全企业上架与外部 Agent 认证需管理员复核样例证据后批准</p></div></div>
+    <div class="panel-box">
+      <table class="data-table">
+        <thead><tr><th>申请名称</th><th>类型</th><th>提交人</th><th>验收证据</th><th class="right">操作</th></tr></thead>
+        <tbody>
+          ${state.releases.map(r => `
+          <tr>
+            <td><strong>${esc(r.name)}</strong></td>
+            <td><span class="pill pill-blue">${esc(r.kind)}</span></td>
+            <td>${esc(r.owner)}</td>
+            <td>${esc(r.checks)}</td>
+            <td class="right">
+              ${r.status === 'pending'
+                ? `<button class="btn btn-primary btn-sm" data-act="decide-rel" data-id="${r.id}" data-val="approved">批准上架</button>
+                   <button class="btn btn-secondary btn-sm" data-act="decide-rel" data-id="${r.id}" data-val="rejected">退回</button>`
+                : `<span class="pill ${r.status==='approved'?'pill-green':'pill-red'}">${r.status==='approved'?'已批准上架':'已退回'}</span>`}
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  } else if (state.adminTab === 'members') {
+    content = `
+    <div class="page-header"><div><h1>组织与成员管理</h1><p>支持 OIDC 企业单点登录与受控邀请；管理员默认不自动获得员工私聊正文读取权</p></div><button class="btn btn-primary btn-sm" data-act="toast" data-msg="已生成 7 天有效团队邀请链接">${ic('Plus', 14)}邀请新成员</button></div>
+    <div class="panel-box">
+      <table class="data-table">
+        <thead><tr><th>成员</th><th>部门</th><th>角色</th><th>近 30 天任务</th><th>IM 绑定</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr><td><strong>林予</strong></td><td>采购部</td><td><span class="pill pill-green">企业管理员</span></td><td class="num">186 次</td><td>飞书已绑</td><td>正常</td></tr>
+          <tr><td><strong>周宁</strong></td><td>市场部</td><td><span class="pill pill-blue">部门管理者</span></td><td class="num">240 次</td><td>飞书已绑</td><td>正常</td></tr>
+          <tr><td><strong>陈默</strong></td><td>研发部</td><td><span class="pill pill-muted">研发接入者</span></td><td class="num">95 次</td><td>飞书 / Slack</td><td>正常</td></tr>
+          <tr><td><strong>苏敏</strong></td><td>运营部</td><td><span class="pill pill-muted">普通员工</span></td><td class="num">152 次</td><td>飞书已绑</td><td>正常</td></tr>
+        </tbody>
+      </table>
+    </div>`;
+  } else {
+    content = `
+    <div class="page-header"><div><h1>预算限额与 L0–L2 自主策略</h1><p>日常 L0 在预算内静默放行，不打扰员工；超阈或高危外发强制进入确认门禁</p></div></div>
+    <div class="card-grid">
+      <div class="panel-box">
+        <h3>企业月度模型总预算</h3>
+        <div class="num" style="font-size:26px;font-weight:650">¥2,273 <span style="font-size:14px;color:var(--ink-muted);font-weight:400">/ ¥10,000</span></div>
+        <div class="funnel-bar"><i style="width:22.7%"></i></div>
+        <p style="font-size:12.5px;color:var(--ink-secondary)">达 80% 时自动推送飞书预警给企业管理员，不突然中断普通员工 L0 对话。</p>
+      </div>
+      <div class="panel-box">
+        <h3>风险自主等级策略</h3>
+        <div class="checklist-row"><span><strong>L0 自主直达</strong>（检索/沙箱/文件）</span><span class="pill pill-green">免审批静默放行</span></div>
+        <div class="checklist-row"><span><strong>L1 轻量确认</strong>（单次 > ¥5 / 外部付费）</span><span class="pill pill-amber">一键确认</span></div>
+        <div class="checklist-row"><span><strong>L2 强制门禁</strong>（对外发送 / 业务写入）</span><span class="pill pill-red">强制人工审批</span></div>
+      </div>
+    </div>`;
+  }
+
+  return `
+  <div class="admin-shell">
+    <aside class="admin-rail">
+      <button class="admin-back" data-act="go" data-to="chat-new">${ic('ArrowLeft', 15)}<span>返回工作区</span></button>
+      <div style="padding:4px 10px 8px;font-size:11.5px;color:var(--ink-muted);font-weight:600">企业管理后台</div>
+      ${navs.map(([id, iconName, label]) => `
+      <button class="rail-btn ${state.adminTab===id?'active':''}" data-act="admin-tab" data-tab="${id}">
+        ${ic(iconName, 17)}<span>${label}</span>
+        ${id==='releases' && pendingRel ? `<span class="badge num">${pendingRel}</span>` : ''}
+      </button>`).join('')}
+      <div class="rail-foot" style="margin-top:auto">
+        <button class="rail-btn" data-act="toggle-theme">${ic(state.theme==='light'?'Moon':'Sun', 16)}<span>${state.theme==='light'?'深色模式':'浅色模式'}</span></button>
+      </div>
+    </aside>
+    <main class="main-area">
+      <div class="page-scroll"><div class="page-inner">${content}</div></div>
+    </main>
+  </div>`;
+}
+
+// Overlays: Cmd+K, Modals, Trace Drawer
+function renderOverlays() {
+  let html = '';
+  if (state.cmdOpen) {
+    const q = state.cmdQuery.trim().toLowerCase();
+    const items = [
+      { icon: 'Plus', label: '发起新对话', meta: '工作区', act: 'go', to: 'chat-new' },
+      { icon: 'Wand', label: '用自然语言创建 Agent（左聊右测）', meta: 'Studio', act: 'go', to: 'studio' },
+      { icon: 'Plug', label: '接入外部 Agent（Dify/Coze/A2A/OpenAI）', meta: '向导', act: 'go', to: 'connect' },
+      ...(state.role==='admin' ? [
+        { icon: 'BarChart', label: '打开企业监控大盘（Token / 成功率 / 榜单）', meta: '管理后台', act: 'go-admin-tab', tab: 'monitor' },
+        { icon: 'Cpu', label: '配置全局模型网关与能力档位', meta: '管理后台', act: 'go-admin-tab', tab: 'models' },
+      ] : []),
+      { icon: state.theme==='light'?'Moon':'Sun', label: `切换为${state.theme==='light'?'深色':'浅色'}外观主题`, meta: '外观', act: 'toggle-theme' },
+      ...Object.values(state.threads).map(t => ({ icon: 'FileText', label: t.title, meta: '历史对话', act: 'open-thread', id: t.id }))
+    ].filter(i => !q || i.label.toLowerCase().includes(q));
+    html += `
+    <div class="backdrop" data-act="close-overlay">
+      <div class="modal-card" style="padding:14px">
+        <div class="search-input" style="border-color:var(--brand)">
+          ${ic('Search', 16)}<input id="cmdInput" placeholder="搜索对话、Agent、创建助手或跳转管理大盘…" value="${esc(state.cmdQuery)}" autofocus>
+          <span style="font-size:11px;color:var(--ink-muted)">ESC</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;max-height:340px;overflow-y:auto">
+          ${items.map(i => `<button class="popover-item" data-act="${i.act}" ${i.to?`data-to="${i.to}"`:''} ${i.id?`data-id="${i.id}"`:''} ${i.tab?`data-tab="${i.tab}"`:''}>${ic(i.icon, 15)}<span>${esc(i.label)}</span><small>${esc(i.meta)}</small></button>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+  if (state.modal) {
+    if (state.modal.type === 'supplement') {
+      html += `
+      <div class="backdrop" data-act="close-overlay">
+        <div class="modal-card">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <h2 style="font-size:18px">补充供应商乙的报价依据</h2>
+            <button class="icon-btn" data-act="close-overlay">${ic('X', 17)}</button>
+          </div>
+          <p style="font-size:13.5px;color:var(--ink-secondary)">仅重新核对乙的有效期字段，甲与丙已核实的结果将自动沿用，不重复消耗整轮预算。</p>
+          <div class="field-row">
+            <label>选择已授权的新版报价原件</label>
+            <select class="field-select" id="suppSelect">
+              <option value="v2">乙报价单_B07_v2.pdf（含有效期：2026-12-20）</option>
+              <option value="v1">乙报价单_B07_v1.pdf（缺少有效期）</option>
+            </select>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px">
+            <button class="btn btn-secondary" data-act="close-overlay">取消</button>
+            <button class="btn btn-primary" data-act="confirm-supplement">确认补件并局部重算</button>
+          </div>
+        </div>
+      </div>`;
+    } else if (state.modal.type === 'collab') {
+      html += `
+      <div class="backdrop" data-act="close-overlay">
+        <div class="modal-card">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <h2 style="font-size:18px">团队协同与任务分工</h2>
+            <button class="icon-btn" data-act="close-overlay">${ic('X', 17)}</button>
+          </div>
+          <p style="font-size:13px;color:var(--ink-secondary)">邀请多位同事共同参与当前任务，权限严格绑定本任务；移出成员时即时撤权，待办自动同步飞书。</p>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${state.collaborators.map((m, i) => `
+            <div class="checklist-row">
+              <div style="display:flex;align-items:center;gap:9px">
+                <span class="avatar" style="width:26px;height:26px;font-size:12px">${esc(m.short)}</span>
+                <div><strong>${esc(m.name)}</strong> <small style="color:var(--ink-muted)">· ${esc(m.dept)}</small></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="pill pill-green">${esc(m.role)}</span>
+                ${i > 0 ? `<button class="icon-btn" data-act="rm-collab-member" data-id="${m.id}" title="移出并即时撤权">${ic('X', 14)}</button>` : ''}
+              </div>
+            </div>`).join('')}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;padding-top:8px;border-top:1px solid var(--border)">
+            <select class="field-select" id="inviteMemberSel">
+              <option value="陈默|陈|研发部">陈默 · 研发部</option>
+              <option value="张越|张|财务部">张越 · 财务部</option>
+              <option value="王岚|王|法务部">王岚 · 法务部</option>
+            </select>
+            <select class="field-select" id="inviteRoleSel">
+              <option value="技术/法务审核">技术/法务审核</option>
+              <option value="财务口径复核">财务口径复核</option>
+              <option value="资料补件人">资料补件人</option>
+              <option value="最终交付确认人">最终交付确认人</option>
+            </select>
+            <button class="btn btn-primary" data-act="add-collab-member">邀请加入</button>
+          </div>
+        </div>
+      </div>`;
+    } else if (state.modal.type === 'source') {
+      html += `
+      <div class="backdrop" data-act="close-overlay">
+        <div class="modal-card">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <h2 style="font-size:18px">${esc(state.modal.title)} · 原件依据</h2>
+            <button class="icon-btn" data-act="close-overlay">${ic('X', 17)}</button>
+          </div>
+          <div class="callout ${state.modal.isGap?'':'good'}" style="margin-top:0">
+            <strong>定位出处：</strong>${esc(state.modal.src)}<br>
+            ${state.modal.isGap ? '该版本原件中未检索到报价有效期说明，请补充供应商新版报价单。' : '原文摘录：“本报价含 13% 增值税专用发票，有效期至标注截止日。”'}
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px">
+            ${state.modal.isGap ? `<button class="btn btn-primary" data-act="open-supplement">立即补充依据</button>` : ''}
+            <button class="btn btn-secondary" data-act="close-overlay">关闭</button>
+          </div>
+        </div>
+      </div>`;
+    }
+  }
+  if (state.drawer && state.drawer.type === 'trace') {
+    const ag = agentById(state.drawer.id);
+    const isExt = ag.kind.startsWith('external');
+    html += `
+    <div class="drawer-wrap" data-act="close-overlay">
+      <div class="drawer-card">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <h2 style="font-size:17px">Trace 时间轴瀑布流</h2>
+            <small style="color:var(--ink-secondary)">${esc(ag.name)} · run_9814 · 脱敏元视图</small>
+          </div>
+          <button class="icon-btn" data-act="close-overlay">${ic('X', 17)}</button>
+        </div>
+        <div class="callout info" style="margin-top:0">
+          ${isExt ? '<strong>外部调用边界视图：</strong>展示网关派发、等待与可选回传元数据；外部 Agent 内部节点不透明，正文严格遵循隐私策略隐藏。' : '<strong>平台内部调用链：</strong>完整记录规划、模型推理与隔离沙箱耗时，正文查看需独立授权。'}
+        </div>
+        <div>
+          <div class="span-row"><strong>1. 权限与策略校验</strong><div class="span-track"><div class="span-bar" style="left:0;width:8%"></div></div><span class="num right">0.12s</span></div>
+          ${isExt ? `
+          <div class="span-row"><strong>2. 外部边界派发</strong><div class="span-track"><div class="span-bar ext" style="left:8%;width:82%"></div></div><span class="num right">4.85s</span></div>
+          <div class="span-row"><strong>3. 回执与产物归档</strong><div class="span-track"><div class="span-bar" style="left:90%;width:10%"></div></div><span class="num right">0.23s</span></div>` : `
+          <div class="span-row"><strong>2. 知识检索 (BGE)</strong><div class="span-track"><div class="span-bar tool" style="left:8%;width:18%"></div></div><span class="num right">0.68s</span></div>
+          <div class="span-row"><strong>3. LLM 推理 (通用档)</strong><div class="span-track"><div class="span-bar" style="left:26%;width:38%"></div></div><span class="num right">1.45s</span></div>
+          <div class="span-row"><strong>4. 隔离沙箱 Python</strong><div class="span-track"><div class="span-bar tool" style="left:64%;width:28%"></div></div><span class="num right">1.12s</span></div>
+          <div class="span-row"><strong>5. 产物版本入库</strong><div class="span-track"><div class="span-bar" style="left:92%;width:8%"></div></div><span class="num right">0.31s</span></div>`}
+        </div>
+        <div class="panel-box" style="padding:12px 14px;gap:6px">
+          <div style="font-size:12.5px;display:flex;justify-content:space-between"><span>用量统计</span><strong class="num">${ag.disclosed ? 'In 2,410 · Out 840 · Cache 620' : '外部未披露'}</strong></div>
+          <div style="font-size:12.5px;display:flex;justify-content:space-between"><span>质量信号</span><strong style="color:var(--brand-ink)">用户已下载产物 + 点 👍（有效完成）</strong></div>
+        </div>
+      </div>
+    </div>`;
+  }
+  return html;
+}
+
+function render() {
+  const root = document.getElementById('root');
+  if (state.route === 'admin') {
+    root.innerHTML = renderAdminShell() + renderOverlays();
+  } else {
+    let main = '';
+    if (state.route === 'chat-new') main = renderStartView();
+    else if (state.route === 'chat') main = renderChatView();
+    else if (state.route === 'agents') main = renderAgentsView();
+    else if (state.route === 'studio') main = renderStudioView();
+    else if (state.route === 'connect') main = renderConnectView();
+    else if (state.route === 'automations') main = renderAutomationsView();
+    else if (state.route === 'inbox') main = renderInboxView();
+
+    root.innerHTML = `
+    <div class="app-shell ${state.collapsed ? 'collapsed' : ''}">
+      ${renderSidebar()}
+      <main class="main-area">${main}</main>
+    </div>${renderOverlays()}`;
+  }
+
+  // Bind live inputs without losing focus on simple actions
+  const ci = document.getElementById('composerInput');
+  if (ci) {
+    ci.oninput = e => {
+      state.composerText = e.target.value;
+      const sendBtn = document.querySelector('.send-btn');
+      if (sendBtn) sendBtn.disabled = !state.composerText.trim() && !state.composerFiles.length;
+    };
+    ci.onkeydown = e => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+        e.preventDefault();
+        if (state.composerText.trim() || state.composerFiles.length) {
+          handleAction(state.route === 'chat' ? 'send-thread' : 'send-new');
+        }
+      }
+    };
+  }
+  const as = document.getElementById('agentSearchInput');
+  if (as) as.oninput = e => { state.agentQuery = e.target.value; render(); document.getElementById('agentSearchInput')?.focus(); };
+  const cmd = document.getElementById('cmdInput');
+  if (cmd) cmd.oninput = e => { state.cmdQuery = e.target.value; render(); const el = document.getElementById('cmdInput'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } };
+}
+
+function handleAction(act, el) {
+  const d = el ? el.dataset : {};
+  switch (act) {
+    case 'toggle-rail': state.collapsed = !state.collapsed; state.popover = null; break;
+    case 'toggle-theme': setTheme(state.theme === 'light' ? 'dark' : 'light'); state.popover = null; state.cmdOpen = false; return;
+    case 'toggle-role':
+      state.role = state.role === 'admin' ? 'member' : 'admin';
+      state.popover = null;
+      if (state.role === 'member' && state.route === 'admin') state.route = 'chat-new';
+      toast(state.role === 'admin' ? '已切换为「企业管理员」视角（侧栏可见企业管理入口）' : '已切换为「普通业务员工」视角（已隐藏企业管理后台）');
+      break;
+    case 'go':
+      state.route = d.to; state.popover = null; state.cmdOpen = false;
+      if (d.to === 'chat-new') state.composerText = '';
+      break;
+    case 'go-admin': state.route = 'admin'; state.adminTab = 'monitor'; state.popover = null; state.cmdOpen = false; break;
+    case 'go-admin-tab': state.route = 'admin'; state.adminTab = d.tab; state.cmdOpen = false; break;
+    case 'admin-tab': state.adminTab = d.tab; break;
+    case 'open-thread':
+      state.activeThreadId = d.id; state.route = 'chat'; state.canvasOpen = true; state.canvasTab = 0; state.popover = null; state.cmdOpen = false; state.composerText = '';
+      break;
+    case 'toggle-pop': state.popover = state.popover === d.pop ? null : d.pop; break;
+    case 'add-file': state.composerFiles.push(d.name); state.popover = null; toast('已附加资料：' + d.name); break;
+    case 'rm-file': state.composerFiles.splice(Number(d.idx), 1); break;
+    case 'pick-agent': state.composerAgent = d.id; state.popover = null; break;
+    case 'pick-tier': state.composerTier = d.tier; state.popover = null; break;
+    case 'toggle-deep': state.deepThink = !state.deepThink; break;
+    case 'toggle-web': state.webSearch = !state.webSearch; break;
+    case 'send-new': {
+      const q = state.composerText.trim() || '请帮我处理刚刚上传的文件';
+      const id = 't-' + Date.now();
+      state.threads[id] = { id, group: '今天', title: q.slice(0, 18), dot: 'green', agentId: state.composerAgent, extraTurns: [{ q, a: `已由「${agentById(state.composerAgent).name}」按 L0 个人助手策略免审批直达处理完成。你可以继续追问修改，或点击底部将本次做法沉淀为个人私有 Agent。` }], feedback: null };
+      state.activeThreadId = id; state.route = 'chat'; state.canvasOpen = false; state.composerText = ''; state.composerFiles = [];
+      break;
+    }
+    case 'send-thread': {
+      const q = state.composerText.trim();
+      if (!q) return;
+      const th = state.threads[state.activeThreadId];
+      let a = '已收到你的补充要求并完成更新。右侧工作区与最新版本保持同步，如需局部修改可直接点对应行。';
+      if (q.includes('修改') || q.includes('局部')) a = '已按你的局部修改意见精准调整对应条目，其他已确认内容保持不变。';
+      th.extraTurns.push({ q, a });
+      state.composerText = '';
+      render();
+      const st = document.getElementById('chatStream');
+      if (st) st.scrollTop = st.scrollHeight;
+      return;
+    }
+    case 'toggle-trace': state.traceOpen[d.id] = !state.traceOpen[d.id]; break;
+    case 'toggle-canvas': state.canvasOpen = !state.canvasOpen; break;
+    case 'open-canvas': state.canvasOpen = true; state.canvasTab = Number(d.tab || 0); break;
+    case 'canvas-tab': state.canvasTab = Number(d.tab); break;
+    case 'toggle-collab':
+      state.collabMode = !state.collabMode;
+      toast(state.collabMode ? '已开启协作审签模式：右侧展示交付清单与按版本审核' : '已切回轻量个人助手态');
+      break;
+    case 'open-supplement': state.modal = { type: 'supplement' }; break;
+    case 'confirm-supplement': {
+      const v = document.getElementById('suppSelect')?.value;
+      if (v !== 'v2') { toast('v1 仍缺少有效期，请选择 v2 原件'); return; }
+      state.quoteGapFixed = true; state.canvasVersion = 'v2'; state.modal = null;
+      toast('已局部重算乙报价 v2，甲、丙结果已沿用');
+      break;
+    }
+    case 'show-source':
+      state.modal = { type: 'source', title: d.title, src: d.src, isGap: d.gap === '1' };
+      break;
+    case 'inline-edit':
+      state.composerText = `[局部修改 · ${d.target}] 请帮我调整这里的表述和口径：`;
+      render();
+      document.getElementById('composerInput')?.focus();
+      toast('已将定位上下文带入左侧输入框');
+      return;
+    case 'approve-tab':
+      state.quoteReviewed[Number(d.tab)] = true;
+      toast('已审核通过当前文件版本');
+      break;
+    case 'deliver-quote':
+      state.quoteDelivered = true;
+      toast('两份已审核成果已完成正式交付，已计入协作采纳率');
+      break;
+    case 'download-artifact': toast('已下载成果文件（同时静默记入轻量任务有效完成信号）'); break;
+    case 'copy-reply': toast('已复制回复正文（计入隐式正向信号）'); break;
+    case 'rate-thread':
+      state.threads[state.activeThreadId].feedback = d.val;
+      toast(d.val === 'up' ? '感谢反馈 👍（已计入有效完成率）' : '已记录待改进反馈 👎');
+      break;
+    case 'save-as-agent': state.route = 'studio'; state.studioScope = '从成功对话自动沉淀'; toast('已剥离私有附件并生成可复用 Agent 草稿'); break;
+    case 'agent-filter': state.agentFilter = d.val; break;
+    case 'market-tab': state.marketTab = d.tab; break;
+    case 'eco-filter': state.ecoFilter = d.val; break;
+    case 'open-eco-market': state.route = 'agents'; state.marketTab = 'ecosystem'; break;
+    case 'toggle-load-eco': {
+      const item = state.ecosystemItems.find(x => x.id === d.id);
+      if (item && item.status === 'approved') {
+        item.loaded = !item.loaded;
+        toast(item.loaded ? `已将「${item.name}」加载到你的个人助手（沙箱隔离运行）` : `已从个人助手卸载「${item.name}」`);
+      }
+      break;
+    }
+    case 'request-eco': {
+      const item = state.ecosystemItems.find(x => x.id === d.id);
+      if (item && !item.requested) {
+        item.requested = true;
+        state.releases.unshift({ id: 'rel-eco-' + item.id, ecoId: item.id, name: item.name, kind: '生态市场加载准入', owner: '林予 · 采购部', checks: `${item.license} · ${item.security}`, status: 'pending' });
+        toast(`已向管理员提交「${item.name}」准入加载申请`);
+      }
+      break;
+    }
+    case 'scan-eco-now': {
+      state.ecoLastSync = '刚刚（手动触发）';
+      if (!state.ecosystemItems.some(x => x.id === 'eco-new')) {
+        state.ecosystemItems.unshift({ id: 'eco-new', name: '法务条款中英双语比对 Skill', type: 'skill', typeLabel: 'Skill 技能包', source: 'Anthropic Official Skills', version: 'v1.0.0', license: 'MIT', security: '安全体检通过', status: 'discovered', loaded: false, requested: false, desc: '新扫描发现：自动逐条对照中英文合同版本差异，标注实质性法律含义偏移。' });
+        state.ecoSources[0].count += 1;
+      }
+      toast('已完成 4 个正规渠道扫描，发现 1 项最新 Skill 候选');
+      break;
+    }
+    case 'toggle-eco-src': {
+      const s = state.ecoSources.find(x => x.id === d.id);
+      if (s) { s.enabled = !s.enabled; toast(s.enabled ? `已启用「${s.name}」定期扫描` : `已暂停「${s.name}」扫描`); }
+      break;
+    }
+    case 'open-collab-modal': state.modal = { type: 'collab' }; break;
+    case 'add-collab-member': {
+      const raw = document.getElementById('inviteMemberSel')?.value || '';
+      const role = document.getElementById('inviteRoleSel')?.value || '协作成员';
+      const [name, short, dept] = raw.split('|');
+      if (name && !state.collaborators.some(c => c.name === name)) {
+        state.collaborators.push({ id: 'm-' + Date.now(), name, short, dept, role, cls: 'b2' });
+        state.collabMode = true;
+        toast(`已邀请 ${name}（${role}）加入当前协同任务，飞书待办已同步`);
+      } else {
+        toast(`${name} 已在当前协同成员列表中`);
+      }
+      break;
+    }
+    case 'rm-collab-member':
+      state.collaborators = state.collaborators.filter(c => c.id !== d.id);
+      toast('已移出该协作成员并即时撤销其任务访问权');
+      break;
+    case 'comment-row':
+      state.collabMode = true;
+      state.commentAnchor = d.target;
+      render();
+      document.getElementById('collabCommentInput')?.focus();
+      toast(`已在 [${d.target}] 打开行内协同评论`);
+      return;
+    case 'add-comment': {
+      const input = document.getElementById('collabCommentInput');
+      const txt = (input?.value || state.commentDraft || '').trim();
+      if (!txt) { toast('请输入评论内容，可使用 @同事 派单'); return; }
+      state.collabComments.unshift({ id: 'cm-' + Date.now(), anchor: state.commentAnchor, author: '林予', to: '', body: txt, time: '刚刚', resolved: false });
+      state.commentDraft = '';
+      toast('协同评论已发布，已自动通知被 @ 的同事');
+      break;
+    }
+    case 'toggle-comment': {
+      const c = state.collabComments.find(x => x.id === d.id);
+      if (c) { c.resolved = !c.resolved; toast(c.resolved ? '评论已标为解决' : '已重新打开该评论'); }
+      break;
+    }
+    case 'use-agent': state.composerAgent = d.id; state.route = 'chat-new'; toast(`已选中 @${agentById(d.id).name}，直接输入需求即可开始`); break;
+    case 'studio-tab': state.studioTab = d.tab; break;
+    case 'studio-cap': state.studioCaps[d.cap] = !state.studioCaps[d.cap]; break;
+    case 'studio-load-sample': state.studioSampleLoaded = true; toast('已从标杆文件反向提炼格式与口径规范'); break;
+    case 'studio-refine': state.studioRefined = true; toast('已根据右侧指哪改哪自动更新左侧规则 Diff'); break;
+    case 'studio-publish': {
+      if (d.scope === 'personal') {
+        state.studioScope = '个人私有已启用';
+        if (!state.agents.some(a => a.id === 'custom-new')) {
+          state.agents.unshift({ id: 'custom-new', name: state.studioName + '（我的）', kind: 'personal', scope: '个人私有', desc: '通过左聊右测构建并免审批立即启用的个人工作助手。', owner: '林予（本人）', calls: 1, execRate: 100, effRate: 100, collabRate: null, p50: '2.1s', p95: '3.2s', tokens: '0.01M', cost: '¥0.3', disclosed: true, health: 'ok' });
+        }
+        toast('已保存为个人私有 Agent，免审批立即可在对话中 @ 调用！');
+      } else if (d.scope === 'team') {
+        state.studioScope = '团队已共享 (v1)';
+        toast('样例检查通过，已共享给采购部全部成员');
+      } else {
+        state.studioScope = '全企上架待审批';
+        state.releases.unshift({ id: 'rel-' + Date.now(), name: state.studioName, kind: '自建全企上架', owner: '林予 · 采购部', checks: '1/1 样例通过', status: 'pending' });
+        toast('已提交至「企业管理 → 发布审核」队列');
+      }
+      break;
+    }
+    case 'connect-proto': state.connectProto = d.val; break;
+    case 'connect-step': state.connectStep = Number(d.step); break;
+    case 'connect-run-test': state.connectTested = true; toast('外部端点连通与边界回包验证通过'); break;
+    case 'connect-finish': {
+      const name = state.connectName || '外部自研 Agent';
+      if (!state.agents.some(a => a.name === name)) {
+        state.agents.push({ id: 'ext-' + Date.now(), name, kind: 'external-internal', scope: d.mode==='beta' ? '外部 · Beta' : '外部 · 认证中', desc: '通过多协议向导接入的外部 Agent，独立运行模型并接受平台边界观测。', owner: '林予接入', calls: 1, execRate: 100, effRate: 100, collabRate: null, p50: '1.9s', p95: '2.4s', tokens: '外部未披露', cost: '外部未披露', disclosed: false, health: 'ok' });
+      }
+      state.route = 'agents'; state.agentFilter = 'external'; state.connectStep = 1; state.connectTested = false;
+      toast(d.mode === 'beta' ? `「${name}」已以 Beta 试用上线，可立即对话验证` : `「${name}」已提交全企业认证审核`);
+      break;
+    }
+    case 'toggle-auto': {
+      const au = state.automations.find(x => x.id === d.id);
+      if (au) { au.enabled = !au.enabled; toast(au.enabled ? '已恢复定时运行' : '已暂停该定时任务'); }
+      break;
+    }
+    case 'mon-btab': state.monBottomTab = d.val; break;
+    case 'open-trace': state.drawer = { type: 'trace', id: d.id }; break;
+    case 'swap-tier': {
+      const t = state.tiers.find(x => x.id === d.id);
+      if (t) { const tmp = t.primary; t.primary = t.fallback; t.fallback = tmp; toast(`已将「${t.name}」主模型切换为 ${t.primary}（平台内全部 Agent 无感生效）`); }
+      break;
+    }
+    case 'add-host': {
+      const v = document.getElementById('newHostInput')?.value.trim();
+      if (v) { state.allowlist.push(v); toast(`已将 ${v} 加入出站白名单（实时生效，无需重启）`); }
+      break;
+    }
+    case 'rm-host': state.allowlist.splice(Number(d.idx), 1); toast('已从白名单移除'); break;
+    case 'decide-rel': {
+      const r = state.releases.find(x => x.id === d.id);
+      if (r) {
+        r.status = d.val;
+        if (d.val === 'approved' && r.ecoId) {
+          const eco = state.ecosystemItems.find(x => x.id === r.ecoId);
+          if (eco) eco.status = 'approved';
+          toast(`已批准「${r.name}」并固化缓存至企业库，员工现可一键加载`);
+        } else {
+          toast(d.val === 'approved' ? `已批准「${r.name}」全企业上架` : `已退回「${r.name}」`);
+        }
+      }
+      break;
+    }
+    case 'open-cmd': state.cmdOpen = true; state.cmdQuery = ''; state.popover = null; break;
+    case 'close-overlay': state.cmdOpen = false; state.modal = null; state.drawer = null; break;
+    case 'toast': toast(d.msg); state.popover = null; break;
+  }
+  render();
+}
+
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-act]');
+  if (btn) {
+    if (btn.tagName === 'SELECT' || btn.tagName === 'INPUT') return;
+    if (btn.dataset.act === 'close-overlay' && (btn.classList.contains('backdrop') || btn.classList.contains('drawer-wrap')) && e.target !== btn) return;
+    handleAction(btn.dataset.act, btn);
+    return;
+  }
+  if (state.popover && !e.target.closest('.popover')) {
+    state.popover = null;
+    render();
+  }
+});
+
+document.addEventListener('change', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const act = el.dataset.act;
+  if (act === 'mon-filter') { state[el.dataset.key] = el.value; render(); }
+  else if (act === 'canvas-ver') { state.canvasVersion = el.value; render(); }
+  else if (act === 'studio-tier') { state.studioTier = el.value; toast('已切换逻辑能力档位：' + el.value); render(); }
+  else if (act === 'connect-usage-toggle') { state.connectUsageOptIn = el.checked; }
+});
+
+document.addEventListener('input', e => {
+  if (e.target.id === 'studioNameInput') state.studioName = e.target.value;
+  if (e.target.id === 'connName') state.connectName = e.target.value;
+  if (e.target.id === 'connUrl') state.connectUrl = e.target.value;
+  if (e.target.id === 'collabCommentInput') state.commentDraft = e.target.value;
+});
+
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); state.cmdOpen = !state.cmdOpen; state.cmdQuery = ''; render(); }
+  else if ((e.metaKey || e.ctrlKey) && e.key === '\\') { e.preventDefault(); state.collapsed = !state.collapsed; render(); }
+  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') { e.preventDefault(); state.route = 'chat-new'; state.composerText = ''; render(); }
+  else if (e.key === 'Escape') { state.cmdOpen = false; state.modal = null; state.drawer = null; state.popover = null; render(); }
+});
+
+render();
+</script>
+</body>
+</html>

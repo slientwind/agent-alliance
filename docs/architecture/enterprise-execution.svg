@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 844" width="1360" height="844" role="img" aria-labelledby="title desc"><title id="title">Alliance 企业执行架构</title><desc id="desc">从桌面网页和渠道到 API、业务数据库、调度和执行；下方给出部署和责任边界。</desc><defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7.2" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4 L0 8Z" fill="#4c7469"/></marker></defs><g font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, sans-serif">
+<rect x="0" y="0" width="1360" height="844" rx="0" fill="#f5f7f4" stroke="#f5f7f4" stroke-width="1.4"/>
+<text x="40" y="44" font-size="16" fill="#446359" font-weight="650" text-anchor="start">Agent Alliance  /  工程架构审查</text>
+<text x="40" y="93" font-size="36" fill="#142e24" font-weight="690" text-anchor="start">从企业委托到可审核的成果</text>
+<text x="40" y="124" font-size="17" fill="#28403a" font-weight="450" text-anchor="start">一家企业独立部署一个实例。箭头表示工作推进方向；Worker 中的投递、活动和调用适配共用一个进程。</text>
+<rect x="40" y="163" width="284" height="140" rx="11" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="56" y="186" font-size="12" fill="#526c61" font-weight="650" text-anchor="start">用户与应用</text>
+<text x="56" y="217" font-size="22" fill="#173a2d" font-weight="680" text-anchor="start">委托入口</text>
+<text x="56" y="243" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">桌面网页对话、Open API</text>
+<text x="56" y="265" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">移动经飞书；Slack / 钉钉待接入</text>
+<rect x="372" y="163" width="284" height="140" rx="11" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="388" y="186" font-size="12" fill="#526c61" font-weight="650" text-anchor="start">Go API</text>
+<text x="388" y="217" font-size="22" fill="#173a2d" font-weight="680" text-anchor="start">命令受理</text>
+<text x="388" y="243" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">身份映射、项目权限、固定修订</text>
+<text x="388" y="265" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">同事务保存业务决定与发件记录</text>
+<rect x="704" y="163" width="284" height="140" rx="11" fill="#eaf0ee" stroke="#b4c7be" stroke-width="1.4"/>
+<text x="720" y="186" font-size="12" fill="#526c61" font-weight="650" text-anchor="start">PostgreSQL</text>
+<text x="720" y="217" font-size="22" fill="#173a2d" font-weight="680" text-anchor="start">业务事实</text>
+<text x="720" y="243" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">任务与调用账本、授权及预算</text>
+<text x="720" y="265" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">成果版本、审核、待办、outbox</text>
+<rect x="1036" y="163" width="284" height="140" rx="11" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="1052" y="186" font-size="12" fill="#526c61" font-weight="650" text-anchor="start">Go Worker · 后台投递</text>
+<text x="1052" y="217" font-size="22" fill="#173a2d" font-weight="680" text-anchor="start">调度命令</text>
+<text x="1052" y="243" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">读取未投递命令</text>
+<text x="1052" y="265" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">按稳定 run ID 启动或唤醒</text>
+<path d="M327 232 H367" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<path d="M659 232 H699" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<path d="M991 232 H1031" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="1036" y="382" width="284" height="137" rx="11" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="1052" y="405" font-size="12" fill="#526c61" font-weight="650" text-anchor="start">Temporal</text>
+<text x="1052" y="436" font-size="22" fill="#173a2d" font-weight="680" text-anchor="start">持久化调度</text>
+<text x="1052" y="462" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">工作流历史、DAG 依赖和信号</text>
+<text x="1052" y="484" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">通过任务队列调度活动</text>
+<path d="M1178 306 V375" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="704" y="382" width="284" height="137" rx="11" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="720" y="405" font-size="12" fill="#526c61" font-weight="650" text-anchor="start">Go Worker · Activity</text>
+<text x="720" y="436" font-size="22" fill="#173a2d" font-weight="680" text-anchor="start">受控 Runtime</text>
+<text x="720" y="462" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">调用 Harness、核权与预占预算</text>
+<text x="720" y="484" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">登记调用、核对回执与恢复</text>
+<path d="M1033 451 H994" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<path d="M882 380 V309" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<text x="896" y="351" font-size="13" fill="#28403a" font-weight="450" text-anchor="start">核权 / 落账</text>
+<rect x="372" y="382" width="284" height="137" rx="11" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="388" y="405" font-size="12" fill="#526c61" font-weight="650" text-anchor="start">Go Worker · resources / Eino</text>
+<text x="388" y="436" font-size="22" fill="#173a2d" font-weight="680" text-anchor="start">调用适配</text>
+<text x="388" y="462" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">按已绑定修订选择实际执行端</text>
+<text x="388" y="484" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">模型、内置工具、远端 A2A</text>
+<path d="M701 451 H662" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<rect x="40" y="382" width="284" height="137" rx="11" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="56" y="405" font-size="12" fill="#526c61" font-weight="650" text-anchor="start">受控连接与外部服务</text>
+<text x="56" y="436" font-size="22" fill="#173a2d" font-weight="680" text-anchor="start">执行提供方</text>
+<text x="56" y="462" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">企业配置的模型、Python 工具</text>
+<text x="56" y="484" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">合作方 Agent；按原远端号核对</text>
+<path d="M369 451 H330" fill="none" stroke="#4c7469" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+<text x="40" y="564" font-size="19" fill="#173a2d" font-weight="680" text-anchor="start">进程内职责与数据边界</text>
+<rect x="40" y="588" width="402" height="146" rx="11" fill="#dff2e9" stroke="#78ac92" stroke-width="1.4"/>
+<text x="56" y="611" font-size="12" fill="#526c61" font-weight="650" text-anchor="start">本轮已提取 · Worker 内 Go 包</text>
+<text x="56" y="642" font-size="22" fill="#173a2d" font-weight="680" text-anchor="start">决策 Harness</text>
+<text x="56" y="668" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">报表选择只接收模型上下文与候选修订，</text>
+<text x="56" y="690" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">解析回包；实际派发和记账归 Runtime。</text>
+<rect x="474" y="588" width="402" height="146" rx="11" fill="#fff" stroke="#c8d5cf" stroke-width="1.4"/>
+<text x="490" y="611" font-size="12" fill="#526c61" font-weight="650" text-anchor="start">已有部署 · 附属数据路径</text>
+<text x="490" y="642" font-size="22" fill="#173a2d" font-weight="680" text-anchor="start">文件与检索</text>
+<text x="490" y="668" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">API / Worker 共用内容寻址对象卷。</text>
+<text x="490" y="690" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">预览独立隔离；本地语义检索按需启用。</text>
+<rect x="908" y="588" width="412" height="146" rx="11" fill="#fdf8ed" stroke="#c4a46b" stroke-width="1.4" stroke-dasharray="6 4"/>
+<text x="924" y="611" font-size="12" fill="#526c61" font-weight="650" text-anchor="start">提案 · 后续逐修订验证</text>
+<text x="924" y="642" font-size="22" fill="#173a2d" font-weight="680" text-anchor="start">动作与结果校验</text>
+<text x="924" y="668" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">将证据覆盖、缺项与有效进展结构化。</text>
+<text x="924" y="690" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">按对象校验，再进入成果审核与交付。</text>
+<text x="40" y="787" font-size="15" fill="#28403a" font-weight="450" text-anchor="start">图中“业务事实”涵盖 API 与 Worker 的事务。文件字节存对象卷，Temporal 保存调度历史，业务审核由当前责任人完成。</text>
+</g></svg>

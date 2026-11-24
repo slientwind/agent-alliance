@@ -1,52 +1,152 @@
 <div align="center">
 
+<br />
+
 # Agent Alliance
 
-**从一句业务需求，到可审核、可交付的成果。**
+### 面向企业自部署的开源 Personal Agent 与团队协同平台
 
-面向企业自部署的开源 Agent 工作空间
+*让不懂 AI 的业务员工像用 ChatGPT / Claude 一样顺手完成工作，让企业统一掌控团队协同、外部 Agent、生态市场与可观测治理。*
 
-[![Version 0.1.2](https://img.shields.io/badge/version-0.1.2-20262e?style=flat-square)](https://github.com/slientwind/agent-alliance/releases/tag/v0.1.2)
-[![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-424b57?style=flat-square)](LICENSE)
-[![Deployment](https://img.shields.io/badge/deployment-self--hosted-586370?style=flat-square)](#快速开始)
+<br />
 
-[快速开始](#快速开始) · [使用手册](docs/USER-GUIDE.md) · [Open API](backend/internal/services/openapi.json) · [产品与技术文档](#文档)
+[![Version](https://img.shields.io/badge/release-v0.1.2-205a45?style=flat-square)](https://github.com/slientwind/agent-alliance/releases/tag/v0.1.2)
+[![Roadmap](https://img.shields.io/badge/architecture-vNext_Ready-2e7d5e?style=flat-square)](docs/22-vnext-roadmap-todo.md)
+[![License](https://img.shields.io/badge/license-Apache--2.0-3f4a45?style=flat-square)](LICENSE)
+[![Deployment](https://img.shields.io/badge/deploy-Self--Hosted_Docker-526059?style=flat-square)](#快速开始)
+[![Stack](https://img.shields.io/badge/stack-Go_1.26_%7C_React_19_%7C_Temporal_%7C_PG-34495e?style=flat-square)](#系统架构)
+
+<br />
+
+[核心能力](#核心能力) · [界面预览](#界面预览) · [系统架构](#系统架构) · [快速开始](#快速开始) · [演进路线](#当前版本与演进路线) · [文档体系](#文档体系)
+
+<br />
+
+<img src="docs/uiux/previews/vnext/09-team-collab-canvas.png" alt="Agent Alliance vNext 对话工作区、动态分栏 Canvas 与团队多人协同" width="960" />
+
+<sub>vNext 交互设计实屏 · 对标 ChatGPT / Claude / Gemini 的桌面工作台：可折叠思维链、动态分栏 Canvas、团队拉人分工与行内 <code>@同事</code> 协同</sub>
 
 </div>
 
-给团队一个对话入口，用自己的模型和资料完成工作。成员可以复用一个 Agent，也可以把多个 Agent 组装成协作方案。平台记录资料、Agent 和成果版本，让人能核对依据、处理反馈并确认交付。
+<br />
 
-**描述需求 → 选用或创建 Agent → 确认方案 → 执行 → 审核与交付**
+---
+
+## 为什么选择 Agent Alliance？
+
+大多数开源 Agent 框架面向开发者，而企业内部真正每天处理报价、报表、合同、周报与跨部门交付的，是**不懂 AI 也不懂技术的业务员工**。
+
+**Agent Alliance** 将 **Personal Agent 的顺手体感** 与 **企业级团队协同、外部开放接入及全局监控治理** 融合在一套可自部署实例中：
+
+> **个人助手轻量直达（L0 免审批） ⇄ 一键拉同事多人协同审签 ⇄ 非研发大白话构建助手 ⇄ 外部 Agent 与生态市场统一治理**
+
+---
+
+## 核心能力
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>1. 对标 Personal Agent 的通用执行力</h3>
+      日常问答、表格核算、图表绘制与 Word/Excel/PPT 生成遵循 <b>L0 轻量直达</b>，免立项免打扰；底层以通用 Agent Loop + Docker Compose <b>断网隔离沙箱</b> + 标准 MCP 工具支撑，并支持基于 Temporal Schedule 的后台定时委托。
+    </td>
+    <td width="50%" valign="top">
+      <h3>2. 团队多人协同完成同一项任务</h3>
+      企业工作很少由单人闭环。任意对话顶部可一键<b>拉同事协作</b>并明确分工（补件 / 审核 / 终审），多人同屏共看右侧 Canvas，支持表格/文档<b>行内评论与 <code>@同事</code> 派单</b>、飞书待办实时同步及按版本审签打包交付。
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>3. 面向非研发的自然语言构建器</h3>
+      采用<b>「左聊右测」</b>对话式构建，支持拖入 1–3 份过去做得最好的<b>标杆文件</b>反推规范，试聊不满意直接<b>「指哪改哪」</b>自动更新规则。<b>个人私有助手零审批保存即用</b>，团队共享与全企上架按需分层治理。
+    </td>
+    <td width="50%" valign="top">
+      <h3>4. 开放的外部 Agent 多协议接入</h3>
+      内置 <b>OpenAI-Compatible（Dify / Coze / FastGPT / LangGraph）</b>、<b>A2A Agent Card</b> 与通用异步 Webhook 模板，3 步向导 1 分钟上线 Beta。外部 Agent 独立管理自身模型凭据、<b>不走平台 Key</b>，平台在边界提供耗时/状态监控与可选用量回传。
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>5. Skill &amp; Agent 正规生态定期扫描市场</h3>
+      定期自动扫描官方 MCP Registry、主流正规 <code>SKILL.md</code> 仓库、A2A 目录与企业内网私库，自动体检<b>开源许可与安全风险</b>；企业管理员准入后按 <b>SHA-256 固化到私有库</b>，员工可自主一键加载到个人助手或发起准入申请。
+    </td>
+    <td width="50%" valign="top">
+      <h3>6. 企业级全局模型网关与监控大盘</h3>
+      独立全屏 <code>/admin</code> 后台集中管理 6 档逻辑模型路由、主备容灾与精确微元单价；监控大盘提供<b>双轨质量口径</b>（轻量隐式有效完成率 vs 协作审签采纳率）、Token 趋势、Agent 效能榜单、OTel Trace 瀑布流与飞书告警。
+    </td>
+  </tr>
+</table>
+
+---
+
+## 界面预览
+
+> 视觉与交互规范全面对标 **ChatGPT / Claude / Gemini**，采用暖灰白纸面 + 深墨绿强调色，原生支持 **浅色 / 深色双主题** 与 `⌘K` 全局快捷检索。可直接下载或打开零依赖单文件原型体验完整交互：[打开 vNext 离线交互原型 (vnext-prototype.html)](docs/uiux/vnext-prototype.html)。
+
+<table align="center">
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/uiux/previews/vnext/01-start-light.png" alt="新对话首屏" />
+      <br />
+      <sub><b>新对话首屏</b> · 常驻折叠侧栏、<code>@</code> 呼出 Agent、快捷场景与最近产物续接</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/uiux/previews/vnext/04-studio-builder.png" alt="左聊右测对话式 Agent 构建器" />
+      <br />
+      <sub><b>非研发构建器 Studio</b> · 左聊右测、标杆文件反推规范、指哪改哪与个人私有免审批</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/uiux/previews/vnext/10-ecosystem-market.png" alt="Skill 与 Agent 生态发现市场" />
+      <br />
+      <sub><b>Skill &amp; Agent 生态市场</b> · 定期扫描正规渠道、许可安全体检与员工自主一键加载</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/uiux/previews/vnext/05-external-connect.png" alt="外部 Agent 3 步多协议接入向导" />
+      <br />
+      <sub><b>外部 Agent 接入向导</b> · 一键模板适配自研与第三方 Agent，运行完全解耦</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/uiux/previews/vnext/06-admin-monitor-light.png" alt="独立全屏企业监控大盘" />
+      <br />
+      <sub><b>企业级监控大盘</b> · 双轨有效完成率、四阶漏斗、Token 趋势与 Agent 效能榜单</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/uiux/previews/vnext/07-admin-models-dark.png" alt="全局模型网关深色模式" />
+      <br />
+      <sub><b>全局模型网关（深色模式）</b> · 6 档能力路由主备切换与 Input/Output/Cache 精准单价</sub>
+    </td>
+  </tr>
+</table>
+
+---
+
+## 系统架构
+
+单企业独立部署一套完整实例，所有业务数据、模型凭据与运行账本均留在企业自有基础设施内：
 
 <p align="center">
-  <img src="docs/uiux/previews/plan.png" alt="交互原型中逐项审核新品发布素材" width="860" />
+  <img src="docs/architecture/vnext-architecture.png" alt="Agent Alliance vNext 五层系统架构图" width="960" />
   <br />
-  <sub>交互原型 · 新品发布素材的逐项审核</sub>
+  <sub><a href="docs/architecture/vnext-architecture.svg">查看高清矢量图 (SVG)</a> · <a href="docs/architecture/platform/enterprise-platform.html">历史工程全景详图</a> · <a href="docs/20-vnext-technical-architecture.md">完整架构规格书</a></sub>
 </p>
 
-## 能做什么
+| 分层 | 核心技术栈 | 关键职责与边界 |
+| :--- | :--- | :--- |
+| **前端工作区** | React 19 · TypeScript · Vite · Lucide | 常驻折叠侧栏 + 动态分栏 Canvas + 团队协同工作台 + 独立全屏 `/admin` 后台，浅/深双主题 |
+| **控制面 & 协同** | Go 1.26 · HTTP/SSE · OIDC | 身份认证与 L0–L2 门禁、**冷热分离 SSE 网关**（`HotStreamBus` + 冷事实 PG 游标）、团队多人协同与锚点评论 |
+| **编排与执行内核** | Temporal · Go Worker · Eino | 持久工作流与 Schedule 定时委托、通用 Agent Loop / Harness、内部 6 档位 LLM Gateway、生态定期扫描器 |
+| **隔离沙箱与外部接入** | Docker Compose · MCP · A2A / OpenAI-Compat | 断网隔离沙箱池（`sandbox-internal`）、多线程高可信财务/预览容器、标准 MCP Client、外部 Agent 完全解耦适配层 |
+| **数据与可观测** | PostgreSQL + pgvector · 对象卷 · OTLP | 业务事实、不可变版本与幂等账本、SHA-256 固化 Skill 对象卷、小时预聚合监控表与 OTel Trace（兼容 Langfuse） |
 
-| 从这里开始 | 可以完成的事 |
-| --- | --- |
-| **Agent 能力库** | 根据任务推荐已发布 Agent。用自然语言创建草稿，试运行、验收后发布。已有外部 Agent 可通过 A2A Agent Card 接入。 |
-| **资料与工具** | 固定资料版本，做原文检索和带出处的问答。用 CSV 受控计算、识图、生图和文档工具制作 Word、Excel、PowerPoint 或 PNG。 |
-| **多人协作** | 配置步骤依赖，核对执行范围。成果可按版本审核、分配修改、局部重跑并打包交付。 |
-| **可复用服务** | 将单个 Agent 或协作方案发布成独立网页对话和 Open API。飞书可进入服务和待办。 |
-| **运行与治理** | 查看进度、阻塞、调用费用和 Trace。管理员配置模型、管理成员和查看用量。密钥由部署企业管理。 |
-
-例如，上传照片和设备说明，让识图 Agent 核对标签，再由文档 Agent 将结果排成 Word。审核人可以对照原件、提出修改，并下载已确认的交付包。
-
-<p align="center">
-  <img src="docs/evidence/rebuild-multiple-files/planning-deliverables-fixture-proposal.png" alt="移动端协作方案，包含 Word 和 Excel 两项交付" width="240" />
-  &nbsp;
-  <img src="docs/evidence/rebuild-course-deck/course-review-mobile.png" alt="移动端预览和审核 PowerPoint 成果" width="240" />
-  <br />
-  <sub>浏览器集成演示 · 确认方案与审核成果</sub>
-</p>
+---
 
 ## 快速开始
 
-本地体验需要 Docker、Docker Compose、Make 和 OpenSSL。首次构建需拉取基础镜像和锁定的依赖。
+本地体验仅需 **Docker**、**Docker Compose**、**Make** 与 **OpenSSL**：
 
 ```bash
 git clone --branch v0.1.2 https://github.com/slientwind/agent-alliance.git
@@ -56,26 +156,42 @@ docker compose --env-file .env.local \
   -f deploy/compose.yaml -f deploy/application.yaml up -d --build
 ```
 
-1. 打开 [http://127.0.0.1:18485](http://127.0.0.1:18485)，用本机 `.env.local` 中的 `BOOTSTRAP_TOKEN` 创建首位管理员。
-2. 在「我的工作区 → 企业管理」接入团队可用的模型，验证连通。需要邀请同事时，从用户管理创建限时邀请。
-3. 打开新对话，描述任务并选择 Agent。遇到能力缺口时，可用样例创建、验证和发布一个新 Agent。
+1. 浏览器访问 [http://127.0.0.1:18485](http://127.0.0.1:18485)，使用 `.env.local` 中的 `BOOTSTRAP_TOKEN` 初始化首位企业管理员。
+2. 进入「企业管理」接入企业可用模型并验证连通，按需通过限时邀请链接或 OIDC 接入同事。
+3. 打开新对话，直接用大白话描述任务，或进入 Agent 市场体验自建助手与外部 Agent 接入。
 
-开发模式使用 **Go 1.27、Node.js 22 和 Docker Compose**。分进程启动、模型配置、HTTPS、备份恢复和企业登录见[使用手册](docs/USER-GUIDE.md)及[企业备份与恢复](docs/17-enterprise-recovery.md)。
+> 开发环境使用 **Go 1.26+、Node.js 22 与 Docker Compose**。分进程调试、HTTPS、OIDC、飞书/钉钉/Slack 渠道接入及备份恢复演练请查阅 [操作手册](docs/USER-GUIDE.md) 与 [企业备份与恢复](docs/17-enterprise-recovery.md)。
 
-## 架构
+---
 
-前端采用 **React、TypeScript 和 Node.js**。**Go API** 负责身份、权限、版本和账本，独立 **Worker** 执行任务。**Temporal** 保存持久化的协作流程，**Eino** 组织模型与工具调用，**PostgreSQL** 管理业务状态。文件保存在实例的私有对象目录，受控计算和 Office 处理由独立工具进程承担。
+## 当前版本与演进路线
 
-## 文档
+> **项目透明声明**：当前代码基线为早期演进版本（已实现身份权限、撤权、版本审签、A2A 接入、受控财务汇总、Office/图像生成与 OTLP 导出等企业底座；部分集成验收使用合成数据与本地替身，真实供应商账号质量与计费需在目标环境实测）。vNext 架构设计与高保真交互原型已全部定版，正按以下 4 阶段平滑演进：
 
-- [操作手册](docs/USER-GUIDE.md) · Agent、模型、渠道、部署和验收
-- [产品方案](docs/10-product-blueprint.md) · 对话、协作、审核与交付
-- [技术方案](docs/11-technical-blueprint.md) · 模块、数据、执行与恢复
-- [重建与验证记录](docs/15-rebuild.md) · 合成数据走查、已实现范围和待验证项
-- [版本记录](CHANGELOG.md) · 各版本的变更与验证范围
+| 阶段 | 核心演进目标 | 详细清单 |
+| :--- | :--- | :--- |
+| **Phase 1** | **底座换血**：内部 6 档位模型网关、原生 Tool Calling、小时预聚合监控大盘、双轨有效率与多线程连接器修复 | [查看 Phase 1 任务](docs/22-vnext-roadmap-todo.md) |
+| **Phase 2** | **前端重构与团队协同**：拆除 `<dialog>` 后台、落地仿三巨头外壳与双主题、团队拉人分工与 Canvas 行内 `@同事` 评论、全屏 `/admin` 监控 | [查看 Phase 2 任务](docs/22-vnext-roadmap-todo.md) |
+| **Phase 3** | **通用执行与构建器**：通用 Agent Loop + L0–L2 门禁、Docker Compose 断网隔离沙箱、MCP Client、冷热分离 SSE、左聊右测构建器 | [查看 Phase 3 任务](docs/22-vnext-roadmap-todo.md) |
+| **Phase 4** | **开放生态与自动化**：多协议外部 Agent 接入向导（Dify/Coze/LangGraph/A2A）、正规渠道 Skill/Agent 定期扫描与自主加载市场、后台定时委托 | [查看 Phase 4 任务](docs/22-vnext-roadmap-todo.md) |
 
-**当前处于早期版本。** 浏览器、集成和交付样例使用合成资料。参考图编辑与选区修改已通过本地协议和浏览器验证，真实供应商账号、模型质量及计费需在目标环境验证。
+---
+
+## 文档体系
+
+项目已建立以 **vNext 活文档** 为单一真源的完整文档体系（全部文档入口见 **[文档总索引](docs/README.md)**）：
+
+| 文档 | 内容说明 |
+| :--- | :--- |
+| **[vNext 产品方案与信息架构](docs/18-vnext-product-ia.md)** | 企业版 Personal Agent 五大核心支柱、L0–L2 自主分级、团队协同、生态市场与信息架构 |
+| **[vNext 专项调研增补](docs/19-vnext-research-addendum.md)** | 非研发构建器、企业模型网关、团队 AI 协同、生态市场对照及 7 场景非技术员工可用性测试方案 |
+| **[vNext 技术架构演进规格](docs/20-vnext-technical-architecture.md)** | 通用 Loop、Docker Compose 断网沙箱、冷热分离 SSE、模型网关、外部适配与预聚合监控设计 |
+| **[vNext 交互与视觉设计规范](docs/21-vnext-uiux-spec.md)** | 双主题 Design Tokens、Lucide 图标规范、三巨头逐帧对照与[统一交互原型](docs/uiux/vnext-prototype.html) |
+| **[代码 Review 与研发 TODO List](docs/22-vnext-roadmap-todo.md)** | 全栈代码瓶颈诊断、历史未闭环项、vNext 新增模块、逐文件重构清单与 4 阶段排期 |
+| **[操作手册](docs/USER-GUIDE.md) · [Open API](backend/internal/services/openapi.json) · [版本记录](CHANGELOG.md)** | 自部署运维手册、API 契约与各版本迭代详情 |
+
+---
 
 ## 开源许可
 
-项目原创代码与文档按 [Apache License 2.0](LICENSE) 授权。上游研究快照和第三方组件各自保留原作者的版权和许可，详见 [NOTICE](NOTICE)。
+本项目原创代码与文档遵循 [Apache License 2.0](LICENSE) 开源许可。上游调研快照与第三方组件各自保留原作者版权与许可协议，详见 [NOTICE](NOTICE)。
