@@ -185,7 +185,7 @@ func (s Server) create(w http.ResponseWriter, r *http.Request, u identity.Member
 	ctx := r.Context()
 	err := database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {
 		var err error
-		id, err = createProjectDraft(ctx, tx, u.ID, in.Team, goal)
+		id, err = CreateProjectDraft(ctx, tx, u.ID, in.Team, goal)
 		if err != nil || in.Agents == nil {
 			return err
 		}
@@ -197,7 +197,7 @@ func (s Server) create(w http.ResponseWriter, r *http.Request, u identity.Member
 	return web.JSON(w, 201, map[string]string{"id": id})
 }
 
-func createProjectDraft(ctx context.Context, tx pgx.Tx, actor, team, goal string) (string, error) {
+func CreateProjectDraft(ctx context.Context, tx pgx.Tx, actor, team, goal string) (string, error) {
 	title := []rune(goal)
 	if len(title) > 55 {
 		title = title[:55]
@@ -423,20 +423,24 @@ func (s Server) message(w http.ResponseWriter, r *http.Request, u identity.Membe
 	}
 	ctx := r.Context()
 	err := database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {
-		p, err := lock(ctx, tx, r.PathValue("id"), u.ID)
-		if err != nil {
-			return err
-		}
-		if err = Note(ctx, tx, p.ID, "user", in.Body, u.ID); err != nil {
-			return err
-		}
-		return Touch(ctx, tx, p.ID, p.Stage)
+		return AppendProjectMessage(ctx, tx, r.PathValue("id"), u.ID, in.Body)
 	})
 	if err != nil {
 		return err
 	}
 	w.WriteHeader(204)
 	return nil
+}
+
+func AppendProjectMessage(ctx context.Context, tx pgx.Tx, project, actor, body string) error {
+	p, err := lock(ctx, tx, project, actor)
+	if err != nil {
+		return err
+	}
+	if err = Note(ctx, tx, p.ID, "user", body, actor); err != nil {
+		return err
+	}
+	return Touch(ctx, tx, p.ID, p.Stage)
 }
 func (s Server) participant(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	var in struct {

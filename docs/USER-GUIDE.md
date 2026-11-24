@@ -341,6 +341,12 @@
 
 文件按调用发生时间筛选，记录发起人、承担团队、调用时的部门、记账资源、已知 token 和本次调用的各笔入账。金额保留十进制精度，以生成文件时的平台账本为准。金额未知、缺少归属与待结算均有独立表示。每份文件最多一万次调用，可在表单缩短时间范围。文件在原授权期限内最长有效一小时。
 
+### Slack 单聊入口
+
+管理员在 Slack 安装企业应用，启用 App Home 的 Messages，开通 `im:history` 和 `chat:write`，订阅 bot event `message.im`。为 API 配置 `PUBLIC_BASE_URL`、`SLACK_APP_ID`、`SLACK_TEAM_ID`、`SLACK_SIGNING_SECRET` 和 `SLACK_BOT_TOKEN`。Events API 使用企业 HTTPS 地址下的 `/api/channels/slack/events`。一个实例连接一个配置的 Slack 工作区及应用。[Slack HTTP 事件设置](https://docs.slack.dev/apis/events-api/using-http-request-urls/) · [单聊事件](https://docs.slack.dev/reference/events/message.im/) · [回复消息](https://docs.slack.dev/reference/methods/chat.postmessage/)
+
+成员在「我的工作区 → 账号设置 → Slack 账号绑定」领取十分钟有效的绑定指令，在企业机器人的单聊中发送。发送「新建 工作目标」建立项目对话，或用「切换 项目ID」接续已有项目。在同一 Slack 线程中回复「进度」「待办」或「补充 内容」。需要复查执行条件时，有权处理的成员可复制「待办」当前给出的指令。指令已过期时重新查询。附件、正式补件、成果审核和交付从链接进入原项目处理。解除绑定会清除原线程关联。
+
 ### 飞书任务入口
 
 为 API 配置企业实例的 HTTPS 外部地址 `PUBLIC_BASE_URL`，以及 `FEISHU_APP_ID`、`FEISHU_APP_SECRET`、`FEISHU_ENCRYPT_KEY`、`FEISHU_VERIFICATION_TOKEN`、`FEISHU_TENANT_KEY`。群内定向消息另需机器人的 `FEISHU_BOT_OPEN_ID`。企业自建应用须开通机器人、接收指定范围的消息和回复消息的权限，并发布到试用成员可用的范围。把加密事件订阅地址设成企业实例的 `/api/channels/feishu/events`，订阅 `im.message.receive_v1`。[接收消息事件](https://open.feishu.cn/document/server-docs/im-v1/message/events/receive) · [回复消息](https://open.feishu.cn/document/server-docs/im-v1/message/reply)

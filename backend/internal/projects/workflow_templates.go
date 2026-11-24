@@ -323,7 +323,7 @@ func (s Server) useWorkflowTemplate(w http.ResponseWriter, r *http.Request, u id
 		if t.archived || (t.published != in.Version && (t.owner != u.ID || t.current != in.Version)) {
 			return web.Fail(409, "该模板修订当前不可复用，请重新查看目录")
 		}
-		project, err = createProjectDraft(ctx, tx, u.ID, t.team, in.Goal)
+		project, err = CreateProjectDraft(ctx, tx, u.ID, t.team, in.Goal)
 		if err != nil {
 			return err
 		}

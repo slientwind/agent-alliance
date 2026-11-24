@@ -113,6 +113,11 @@ func stepWaitProgress(ctx context.Context, tx pgx.Tx, actor, project string) (st
 	if len(waiting) != 0 {
 		notes = append(notes, receiptInstructions(waiting))
 	}
+	notes, err = appendStepWaitNotes(ctx, tx, actor, project, notes)
+	return strings.Join(notes, "\n"), err
+}
+
+func appendStepWaitNotes(ctx context.Context, tx pgx.Tx, actor, project string, notes []string) ([]string, error) {
 	rows, err := tx.Query(ctx, `select w.ordinal,w.deadline>statement_timestamp(),'index'
         from lookup_index_waits w join runs r on (r.id,r.plan_version)=(w.run_id,w.plan_version)
         join projects p on (p.id,p.plan_version)=(r.project_id,r.plan_version)
@@ -143,7 +148,7 @@ func stepWaitProgress(ctx context.Context, tx pgx.Tx, actor, project string) (st
         join project_members pm on(pm.project_id,pm.member_id)=(p.id,$1)
         where p.id=$2 and r.actor=$1 and not q.usable order by 1`, actor, project)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -151,7 +156,7 @@ func stepWaitProgress(ctx context.Context, tx pgx.Tx, actor, project string) (st
 		var resumable bool
 		var kind string
 		if err := rows.Scan(&step, &resumable, &kind); err != nil {
-			return "", err
+			return nil, err
 		}
 		switch {
 		case kind == "receipt_changed":
@@ -178,7 +183,7 @@ func stepWaitProgress(ctx context.Context, tx pgx.Tx, actor, project string) (st
 			notes = append(notes, fmt.Sprintf("步骤 %d 的自动等待已结束。打开原项目重新核对资料。", step))
 		}
 	}
-	return strings.Join(notes, "\n"), rows.Err()
+	return notes, rows.Err()
 }
 
 func (f Feishu) proposeRunReceipt(ctx context.Context, tx pgx.Tx, actor string, msg channelMessage, text string) (channelReply, error) {

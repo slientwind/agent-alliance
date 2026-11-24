@@ -28,7 +28,7 @@ import { TeamSetup } from "./team-setup";
 import { TeamRules } from "./team-rules";
 import { ProjectRecovery } from "./project-recovery";
 import { ResponsibilityQueue } from "./reviewer-handoffs";
-import { FeishuIdentity } from "./organization";
+import { FeishuIdentity, SlackIdentity } from "./organization";
 import { EnterpriseWorkspace } from "./enterprise-workspace";
 import { createRoot } from "react-dom/client";
 import {
@@ -1340,6 +1340,7 @@ function App() {
                 <summary>账号设置</summary>
                 {state.sso && <LoginBinding />}
                 <FeishuIdentity />
+                <SlackIdentity />
               </details>
               {user.role === "admin" && (
                 <button onClick={admin}>企业管理</button>

@@ -28,6 +28,10 @@ services:
       FEISHU_VERIFICATION_TOKEN: ${FEISHU_VERIFICATION_TOKEN:-}
       FEISHU_TENANT_KEY: ${FEISHU_TENANT_KEY:-}
       FEISHU_BOT_OPEN_ID: ${FEISHU_BOT_OPEN_ID:-}
+      SLACK_APP_ID: ${SLACK_APP_ID:-}
+      SLACK_TEAM_ID: ${SLACK_TEAM_ID:-}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:-}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
     volumes: [objects:/data/objects]
     ports: ["127.0.0.1:18485:8080"]
     depends_on:

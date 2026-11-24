@@ -10,13 +10,22 @@ export function Organization({members}:{members:Member[]}){
  <form onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{await api('admin/teams/'+f.get('team')+'/members/'+f.get('member'),'PUT',{joined:f.get('action')==='join',reason:f.get('reason')});setMessage('团队成员已更新。')}catch(e){setMessage((e as Error).message)}}}><label>团队<select name="team">{teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label><label>成员<select name="member">{members.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label><select name="action"><option value="join">加入团队</option><option value="remove">移出团队</option></select><label>原因<input name="reason" required/></label><button>更新成员范围</button></form><p role="status">{message}</p></details>
 }
 export function FeishuIdentity() {
+  return <ChannelIdentity channel="feishu" name="飞书" />;
+}
+
+export function SlackIdentity() {
+  return <ChannelIdentity channel="slack" name="Slack" />;
+}
+
+function ChannelIdentity({ channel, name }: { channel: "feishu" | "slack"; name: string }) {
   const [state, setState] = useState<{ configured: boolean; bound: boolean }>();
   const [command, setCommand] = useState("");
   const [message, setMessage] = useState("");
+  const endpoint = `channels/${channel}/bind`;
   async function refresh() {
     try {
       const value = await api<{ configured: boolean; bound: boolean }>(
-        "channels/feishu/bind",
+        endpoint,
       );
       setState(value);
       if (value.bound) setCommand("");
@@ -32,15 +41,15 @@ export function FeishuIdentity() {
         else setCommand("");
       }}
     >
-      <summary>飞书账号绑定</summary>
+      <summary>{name}账号绑定</summary>
       {state && (
         <p>
           {state.bound ? (
-            <strong>已绑定飞书身份</strong>
+            <strong>已绑定{name}身份</strong>
           ) : state.configured ? (
             "在与企业机器人的单聊中发送一次性绑定指令。"
           ) : (
-            "企业尚未配置飞书机器人。"
+            `企业尚未配置${name}机器人。`
           )}
         </p>
       )}
@@ -49,7 +58,7 @@ export function FeishuIdentity() {
           onClick={async () => {
             try {
               setCommand(
-                (await api<{ command: string }>("channels/feishu/bind", "POST"))
+                (await api<{ command: string }>(endpoint, "POST"))
                   .command,
               );
               setMessage("");
@@ -64,15 +73,17 @@ export function FeishuIdentity() {
       {command && <p className="preserve">{command}</p>}
       {state?.bound && (
         <>
-          <FeishuReminders key={String(state.bound)} />
+          {channel === "feishu" ? <>
+            <FeishuReminders key={String(state.bound)} />
           <p>
             单聊发送「服务」或「服务
             关键词」查找团队服务。发起后可在同一单聊附一份兼容资料，核对文件名、服务版本、调用次数与费用承担方再确认。发送「进度」查询状态，发送「待办」打开任务卡。
           </p>
+          </> : <p>在 Slack 单聊发送「新建 工作目标」或「切换 项目ID」。在同一线程回复「进度」「待办」或「补充 内容」。</p>}
           <button
             onClick={async () => {
               try {
-                await api("channels/feishu/bind", "DELETE");
+                await api(endpoint, "DELETE");
                 await refresh();
               } catch (e) {
                 setMessage((e as Error).message);
