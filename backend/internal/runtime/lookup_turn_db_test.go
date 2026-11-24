@@ -425,6 +425,7 @@ func TestLookupTurnPostgresRecovery(t *testing.T) {
 		env.RegisterActivity(a.ExecuteStep)
 		env.RegisterActivity(a.AdvanceBatchedLookup)
 		env.RegisterActivity(a.AdvanceEvidenceStep)
+		env.RegisterActivity(a.AdvanceFocusedEvidence)
 		env.RegisterActivity(a.CommitEvidenceReply)
 		env.RegisterActivity(a.ExecuteEvidenceAction)
 		env.RegisterActivity(a.CommitEvidenceObservation)

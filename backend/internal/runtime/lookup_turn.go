@@ -31,8 +31,9 @@ type lookupTurnInput struct {
 	SearchBatches  [][]string                   `json:",omitempty"`
 	Calculation    *harness.CalculationDecision `json:",omitempty"`
 	Citations      []indexCitation
-	AlreadyKnown   []indexCitation      `json:",omitempty"`
-	FrozenEvidence *lookupReplyEvidence `json:",omitempty"`
+	AlreadyKnown   []indexCitation          `json:",omitempty"`
+	FrozenEvidence *lookupReplyEvidence     `json:",omitempty"`
+	FocusedActions []harness.EvidenceAction `json:",omitempty"`
 }
 
 type ActionKind string
@@ -418,12 +419,19 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 		if len(known) > 0 {
 			prior = append(append([]lookupHit{}, first...), known...)
 		}
-		progress := lookupBatchProgress{count: actionCount}
+		focused := len(input.FocusedActions) != 0
+		progress := lookupBatchProgress{count: actionCount, focused: focused}
+		if focused && (len(input.FocusedActions) != actionCount || input.FrozenEvidence == nil || !input.FrozenEvidence.Focused ||
+			!observe || kind != refineLookupAction || len(input.SearchBatches) != 0) {
+			return invalid("补查操作与已确认的资料范围不一致，请重新核对。")
+		}
 		if action.Round > 0 {
-			if len(input.SearchBatches) != actionCount || len(input.SearchBatches[action.Round-1]) == 0 {
-				return invalid("补查计划的分组已变化，请重新核对。")
+			if !focused {
+				if len(input.SearchBatches) != actionCount || len(input.SearchBatches[action.Round-1]) == 0 {
+					return invalid("补查计划的分组已变化，请重新核对。")
+				}
+				input.Terms = input.SearchBatches[action.Round-1]
 			}
-			input.Terms = input.SearchBatches[action.Round-1]
 			if len(accumulated) != 0 {
 				if err := json.Unmarshal(accumulated, &progress.evidence); err != nil {
 					return invalid("已补查的依据无法读取，请重新核对。")
@@ -452,7 +460,7 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 				}
 				return invalid(memory.Unavailable)
 			}
-			observation, err = a.resolveLocalObservation(ctx, tx, action, commit, input, prior, files, &result)
+			observation, err = a.resolveLocalObservation(ctx, tx, action, commit, input, first, prior, files, &result)
 		} else {
 			observation, err = observeLocalAction(kind, input, first, files)
 		}
@@ -462,7 +470,7 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 		if err != nil || result.Observation != nil || result.RevisitTurn {
 			return err
 		}
-		if action.Round > 0 {
+		if action.Round > 0 || focused {
 			observation, err = progress.consume(ctx, tx, action, observation, first, files, &result)
 			if errors.As(err, &problem) {
 				return invalid(problem.Message)
@@ -470,6 +478,16 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 			if err != nil || result.Action != nil {
 				return err
 			}
+		}
+		if focused {
+			summary, err := describeFocusedObservations(ctx, tx, action, input.FocusedActions, first, files)
+			if errors.As(err, &problem) {
+				return invalid(problem.Message)
+			}
+			if err != nil {
+				return err
+			}
+			observation.Body += "\n核对记录" + summary
 		}
 		var evidence []byte
 		if len(observation.Refinement) > 0 {

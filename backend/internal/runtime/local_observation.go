@@ -43,7 +43,7 @@ func observeLocalAction(kind ActionKind, input lookupTurnInput, first []lookupHi
 // The caller holds the run and pending decision locks. A retry returns the
 // original observation handle, and publication consumes it in the same
 // transaction as the candidate and dependent-ready result.
-func (a Activities) resolveLocalObservation(ctx context.Context, tx pgx.Tx, action ActionRef, commit bool, input lookupTurnInput, first []lookupHit, files []knowledge.InputSource, result *Result) (localObservation, error) {
+func (a Activities) resolveLocalObservation(ctx context.Context, tx pgx.Tx, action ActionRef, commit bool, input lookupTurnInput, first, prior []lookupHit, files []knowledge.InputSource, result *Result) (localObservation, error) {
 	var observation localObservation
 	scope := action.scope() + "/observation"
 	if action.Round > 0 {
@@ -59,10 +59,13 @@ func (a Activities) resolveLocalObservation(ctx context.Context, tx pgx.Tx, acti
 			result.RevisitTurn = true
 			return observation, nil
 		}
-		if action.Round > 0 {
-			observation, err = observeLookupBatch(input.Terms, first, files)
-		} else {
-			observation, err = observeLocalAction(action.Kind, input, first, files)
+		switch {
+		case len(input.FocusedActions) != 0:
+			observation, err = observeFocusedEvidence(input.FocusedActions[round-1], first, prior, files)
+		case action.Round > 0:
+			observation, err = observeLookupBatch(input.Terms, prior, files)
+		default:
+			observation, err = observeLocalAction(action.Kind, input, prior, files)
 		}
 		if err != nil {
 			return observation, err
@@ -96,7 +99,8 @@ func (a Activities) resolveLocalObservation(ctx context.Context, tx pgx.Tx, acti
 		return observation, nil
 	}
 	data, err := a.Catalog.Vault.Open(sealed, scope)
-	if err != nil || json.Unmarshal([]byte(data), &observation) != nil || (action.Round == 0 && observation.Body == "") || observation.Outcome != outcome {
+	if err != nil || json.Unmarshal([]byte(data), &observation) != nil ||
+		(action.Round == 0 && len(input.FocusedActions) == 0 && observation.Body == "") || observation.Outcome != outcome {
 		return observation, web.Fail(409, "已记录的观察无法验证，请核对后重新执行。")
 	}
 	if len(observation.Refinement) > 0 {

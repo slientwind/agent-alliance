@@ -20,8 +20,12 @@ type LookupDecision struct {
 // IsReceiptQuestion bounds the visible input request separately from the
 // existing answer contract.
 func IsReceiptQuestion(question string) bool {
-	size := utf8.RuneCountInString(question)
-	return size > 0 && size <= 320 && !strings.ContainsFunc(question, func(r rune) bool {
+	return boundedEvidenceLine(question, 320)
+}
+
+func boundedEvidenceLine(text string, limit int) bool {
+	size := utf8.RuneCountInString(text)
+	return size > 0 && size <= limit && !strings.ContainsFunc(text, func(r rune) bool {
 		return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) || r == '\u2028' || r == '\u2029'
 	})
 }

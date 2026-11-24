@@ -77,6 +77,40 @@ func TestDAGEvidenceQuestionActivityVersion(t *testing.T) {
 	}
 }
 
+func TestDAGFocusedEvidenceRequiresCommittedObservation(t *testing.T) {
+	step := Step{"run", 1}
+	next := Step{"run", 2}
+	ref := TextReplyRef{Step: step, Attempt: 1}
+	action := ActionRef{Step: step, Attempt: 1, Kind: refineLookupAction}
+	for _, version := range []workflow.Version{workflow.DefaultVersion, 1} {
+		env, a := dagTestEnvironment([]Node{{Ordinal: 1, CheckpointEvidence: true, LookupAnswer: true},
+			{Ordinal: 2, Dependencies: []int{1}}})
+		env.OnGetVersion("focused-evidence-actions", workflow.DefaultVersion, 1).Return(version).Once()
+		if version == workflow.DefaultVersion {
+			env.RegisterActivity(a.AdvanceEvidenceStep)
+			env.RegisterActivity(a.CommitEvidenceReply)
+			begin := env.OnActivity(a.AdvanceEvidenceStep, mock.Anything, step).Return(Result{TextReply: &ref}, nil).Once()
+			done := env.OnActivity(a.CommitEvidenceReply, mock.Anything, ref).NotBefore(begin).Return(Result{}, nil).Once()
+			env.OnActivity(a.ExecuteStep, mock.Anything, next).NotBefore(done).Return(Result{}, nil).Once()
+		} else {
+			env.RegisterActivity(a.AdvanceFocusedEvidence)
+			begin := env.OnActivity(a.AdvanceFocusedEvidence, mock.Anything, FocusedEvidenceTurn{Step: step}).Return(Result{TextReply: &ref}, nil).Once()
+			decide := env.OnActivity(a.AdvanceFocusedEvidence, mock.Anything, FocusedEvidenceTurn{Step: step, Reply: &ref}).
+				NotBefore(begin).Return(Result{Action: &action}, nil).Once()
+			observe := env.OnActivity(a.AdvanceFocusedEvidence, mock.Anything, FocusedEvidenceTurn{Step: step, Action: &action}).
+				NotBefore(decide).Return(Result{Observation: &action}, nil).Once()
+			done := env.OnActivity(a.AdvanceFocusedEvidence, mock.Anything, FocusedEvidenceTurn{Step: step, Action: &action, ConsumeObservation: true}).
+				NotBefore(observe).Return(Result{}, nil).Once()
+			env.OnActivity(a.ExecuteStep, mock.Anything, next).NotBefore(done).Return(Result{}, nil).Once()
+		}
+		env.ExecuteWorkflow(Collaborate, "run")
+		if err := env.GetWorkflowError(); err != nil {
+			t.Fatalf("workflow version %d: %v", version, err)
+		}
+		env.AssertExpectations(t)
+	}
+}
+
 func TestDAGStartsReadySuccessorBeforeUnrelatedActivityFinishes(t *testing.T) {
 	for _, legacy := range []bool{false, true} {
 		name := "independent scheduling"

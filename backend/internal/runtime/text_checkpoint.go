@@ -246,6 +246,9 @@ func (a Activities) commitModelReply(ctx context.Context, ref TextReplyRef, mode
 }
 
 func (a Activities) adoptLookupReply(ctx context.Context, tx pgx.Tx, ref TextReplyRef, d contextData, reply checkpointedReply, files []knowledge.InputSource, status string, mode turnMode, result *Result) error {
+	if reply.Evidence != nil && reply.Evidence.Focused && !mode.focusesLookup() {
+		return errors.New("recorded reply requires the focused evidence activity")
+	}
 	if reply.Evidence == nil || !reply.Evidence.restore(&d, files) {
 		result.Wait = true
 		if err := retireTextReply(ctx, tx, ref, "discarded"); err != nil {
@@ -265,7 +268,7 @@ func (a Activities) adoptLookupReply(ctx context.Context, tx pgx.Tx, ref TextRep
 		return saveLookupDecision(ctx, tx, ref.Step, d, ref.Attempt, d.controlRevision, status, interpreted.kind,
 			interpreted.decision, true, interpreted.groups, result)
 	}
-	if mode == checkpointedLookupQuestion && interpreted.outcome == "lookup_ask" {
+	if mode.allowsLookupQuestion() && interpreted.outcome == "lookup_ask" {
 		ask, err := harness.DecodeLookup(reply.Text, len(d.hits))
 		if err == nil {
 			if staged, err := stageLookupQuestion(ctx, tx, ref, d, ask.Question); staged || err != nil {

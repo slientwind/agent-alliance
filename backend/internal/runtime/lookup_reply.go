@@ -28,6 +28,7 @@ type lookupReplyEvidence struct {
 	Offered      []lookupReplyCitation
 	AlreadyKnown []lookupReplyCitation
 	Amounts      string `json:",omitempty"`
+	Focused      bool   `json:",omitempty"`
 }
 
 type lookupFilePin struct {
@@ -81,7 +82,7 @@ func amountDigest(amounts []moneyOperand) string {
 
 func captureLookupReply(d contextData) *lookupReplyEvidence {
 	pin := &lookupReplyEvidence{
-		Phase: d.lookupPhase, Files: lookupFilePins(d.lookupFiles),
+		Phase: d.lookupPhase, Files: lookupFilePins(d.lookupFiles), Focused: d.focusedLookup,
 		Offered: replyCitations(d.hits), AlreadyKnown: replyCitations(d.knownLookupEvidence),
 	}
 	if d.lookupPhase == "answer_calc" {
@@ -162,6 +163,14 @@ func (a Activities) interpretLookupReply(ref TextReplyRef, d contextData, reply 
 			result.text, result.outcome = calculationAnswer(reply.Text, d.hits, d.lookupFiles, d.operands)
 		}
 	case "answer", "review_evidence":
+		if mode.focusesLookup() && local {
+			result.decision, result.groups, err = a.prepareFocusedEvidence(ref, d, text)
+			if result.decision != nil || err != nil {
+				result.kind = refineLookupAction
+				return result, err
+			}
+			result.groups = 1
+		}
 		if mode.batchesLookup() && local {
 			result.kind = refineLookupAction
 			result.decision, result.groups, err = a.prepareBatchedRefinement(ref.Step, ref.Attempt, d, text)

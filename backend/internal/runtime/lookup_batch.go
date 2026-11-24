@@ -15,6 +15,7 @@ const lookupBatchEvidenceLimit = 6
 type lookupBatchProgress struct {
 	count    int
 	evidence []indexCitation
+	focused  bool
 }
 
 func observeLookupBatch(terms []string, prior []lookupHit, files []knowledge.InputSource) (localObservation, error) {
@@ -30,7 +31,7 @@ func observeLookupBatch(terms []string, prior []lookupHit, files []knowledge.Inp
 func (p lookupBatchProgress) consume(ctx context.Context, tx pgx.Tx, action ActionRef, observation localObservation, first []lookupHit, files []knowledge.InputSource, result *Result) (localObservation, error) {
 	evidence := append(p.evidence, observation.Refinement...)
 	evidence = evidence[:min(len(evidence), lookupBatchEvidenceLimit)]
-	if action.Round < p.count && len(evidence) < lookupBatchEvidenceLimit {
+	if max(1, action.Round) < p.count && len(evidence) < lookupBatchEvidenceLimit {
 		data, err := json.Marshal(evidence)
 		if err != nil {
 			return observation, err
@@ -46,9 +47,13 @@ func (p lookupBatchProgress) consume(ctx context.Context, tx pgx.Tx, action Acti
 		result.Action = &action
 		return observation, nil
 	}
+	label := "分组补查"
+	if p.focused {
+		label = "指定资料和原句核对"
+	}
 	if len(evidence) == 0 {
 		return localObservation{
-			Body:    "分组补查未取得新依据。请核对已有原文，并补充缺少的资料。\n" + lookupContext(first, files),
+			Body:    label + "未取得新依据。请核对已有原文，并补充缺少的资料。\n" + lookupContext(first, files),
 			Outcome: "lookup_no_progress",
 		}, nil
 	}
@@ -59,7 +64,7 @@ func (p lookupBatchProgress) consume(ctx context.Context, tx pgx.Tx, action Acti
 	hits := append(found, first...)
 	hits = hits[:min(len(hits), lookupBatchEvidenceLimit)]
 	return localObservation{
-		Body:       "已完成分组补查，以下原文供核对。\n" + lookupContext(hits, files),
+		Body:       "已完成" + label + "，以下原文供核对。\n" + lookupContext(hits, files),
 		Outcome:    "lookup_refined",
 		Refinement: lookupCitationRefs(hits, files),
 	}, nil

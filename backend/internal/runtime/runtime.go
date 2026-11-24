@@ -100,14 +100,24 @@ const (
 	checkpointedTextReply
 	checkpointedLookupReply
 	checkpointedLookupQuestion
+	focusedLookupReply
+	focusedLookupQuestion
 )
 
 func (mode turnMode) checkpointsReply() bool {
-	return mode == checkpointedTextReply || mode == checkpointedLookupReply || mode == checkpointedLookupQuestion
+	return mode >= checkpointedTextReply
 }
 
 func (mode turnMode) batchesLookup() bool {
-	return mode == batchedLookupActions || mode == checkpointedLookupReply || mode == checkpointedLookupQuestion
+	return mode >= batchedLookupActions && mode != checkpointedTextReply
+}
+
+func (mode turnMode) allowsLookupQuestion() bool {
+	return mode == checkpointedLookupQuestion || mode == focusedLookupQuestion
+}
+
+func (mode turnMode) focusesLookup() bool {
+	return mode == focusedLookupReply || mode == focusedLookupQuestion
 }
 
 type contextData struct {
@@ -126,6 +136,7 @@ type contextData struct {
 	operands                                               []moneyOperand
 	hits                                                   []lookupHit
 	knownLookupEvidence                                    []lookupHit
+	focusedLookup                                          bool
 	frozenLookup                                           *lookupReplyEvidence
 	change                                                 bool
 	replacement, excerpt, baseBody                         string
@@ -465,7 +476,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			d.lookupFiles = files
 			review := d.lookupPhase == "review_evidence"
 			var fromQuestion bool
-			if mode == checkpointedLookupQuestion && !d.change {
+			if mode.allowsLookupQuestion() && !d.change {
 				d.hits, fromQuestion, err = lookupQuestionEvidence(ctx, tx, step, files)
 			}
 			if !fromQuestion && err == nil {
@@ -497,6 +508,9 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 				d.prompt += "\n" + evidenceReviewInstructions + "\n" + answerInstructions
 				if mode.batchesLookup() && !d.change && !m.External && m.Tool == nil && m.OutputOperation == "text" {
 					d.prompt += "\n" + batchedLookupInstructions
+					if mode.focusesLookup() {
+						d.offerFocusedEvidence()
+					}
 				}
 			} else {
 				d.prompt += "\n" + synthesisInstructions
@@ -566,6 +580,9 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			d.prompt += "\n" + answerInstructions
 			if mode.batchesLookup() && d.lookupPhase == "answer" && !d.change && d.routing.target == 0 && !m.External && m.Tool == nil && m.OutputOperation == "text" {
 				d.prompt += "\n" + batchedLookupInstructions
+				if mode.focusesLookup() {
+					d.offerFocusedEvidence()
+				}
 			}
 			if semantic {
 				d.prompt += "\n" + answerSemanticInstructions
@@ -1168,6 +1185,7 @@ type Node struct {
 	CheckpointText      bool
 	CheckpointEvidence  bool
 	EvidenceQuestions   bool
+	focusedEvidence     bool
 	observeLocalActions bool
 	batchLookupActions  bool
 }
@@ -1245,6 +1263,12 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 		if parallel && workflow.GetVersion(ctx, "step-dispatch-waits", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
 			if err := workflow.ExecuteActivity(ctx, "EnableStepDispatchWaits", run).Get(ctx, nil); err != nil {
 				return err
+			}
+		}
+		if slices.ContainsFunc(nodes, func(node Node) bool { return node.CheckpointEvidence && node.LookupAnswer }) &&
+			workflow.GetVersion(ctx, "focused-evidence-actions", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+			for i := range nodes {
+				nodes[i].focusedEvidence = nodes[i].CheckpointEvidence && nodes[i].LookupAnswer
 			}
 		}
 		return scheduleIndependentSteps(ctx, run, nodes, lookupTurns, localActions)
