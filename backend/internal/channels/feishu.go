@@ -4,6 +4,7 @@ import (
 	"alliance/internal/database"
 	"alliance/internal/identity"
 	"alliance/internal/projects"
+	"alliance/internal/resources"
 	"alliance/internal/web"
 	"bytes"
 	"context"
@@ -29,11 +30,15 @@ import (
 
 type Feishu struct {
 	DB                                                *pgxpool.Pool
+	Vault                                             resources.Vault
 	App, Secret, Encrypt, Verify, Tenant, Bot, Public string
 }
 
-func NewFeishu(db *pgxpool.Pool) Feishu {
-	return Feishu{db, os.Getenv("FEISHU_APP_ID"), os.Getenv("FEISHU_APP_SECRET"), os.Getenv("FEISHU_ENCRYPT_KEY"), os.Getenv("FEISHU_VERIFICATION_TOKEN"), os.Getenv("FEISHU_TENANT_KEY"), os.Getenv("FEISHU_BOT_OPEN_ID"), strings.TrimRight(os.Getenv("PUBLIC_BASE_URL"), "/")}
+func NewFeishu(db *pgxpool.Pool, vault resources.Vault) Feishu {
+	return Feishu{DB: db, Vault: vault, App: os.Getenv("FEISHU_APP_ID"), Secret: os.Getenv("FEISHU_APP_SECRET"),
+		Encrypt: os.Getenv("FEISHU_ENCRYPT_KEY"), Verify: os.Getenv("FEISHU_VERIFICATION_TOKEN"),
+		Tenant: os.Getenv("FEISHU_TENANT_KEY"), Bot: os.Getenv("FEISHU_BOT_OPEN_ID"),
+		Public: strings.TrimRight(os.Getenv("PUBLIC_BASE_URL"), "/")}
 }
 func (f Feishu) enabled() bool {
 	return f.App != "" && f.Secret != "" && f.Encrypt != "" && f.Verify != "" && f.Tenant != "" && strings.HasPrefix(f.Public, "https://")
@@ -330,6 +335,9 @@ func (f Feishu) Notify(ctx context.Context) {
 				if _, err := tx.Exec(ctx, "delete from channel_proposals where expires_at<=now()"); err != nil {
 					return err
 				}
+				if _, err := tx.Exec(ctx, "delete from channel_remote_input_proposals where tenant=$1 and expires_at<=now()", f.Tenant); err != nil {
+					return err
+				}
 				if _, err := tx.Exec(ctx, "delete from channel_card_actions where expires_at<=now()"); err != nil {
 					return err
 				}
@@ -369,6 +377,12 @@ func (f Feishu) Notify(ctx context.Context) {
 						return err
 					}
 				}
+				if private && actor != nil && binding != nil && kind == remoteInputPreview {
+					note, err = f.remoteInputPreviewMessage(ctx, tx, *actor, *binding, chat, arg)
+					if err != nil {
+						return err
+					}
+				}
 				if project != nil && actor != nil {
 					var stage string
 					var total, reviewed, takeover int
@@ -396,6 +410,15 @@ func (f Feishu) Notify(ctx context.Context) {
 								}
 								if len(waiting) > 0 {
 									note = receiptInstructions(waiting)
+								}
+							}
+							if kind == "progress" && (stage == "reconcile" || stage == "review") {
+								remote, err := f.remoteInputProgress(ctx, tx, *actor, *project)
+								if err != nil {
+									return err
+								}
+								if remote != "" {
+									note = remote
 								}
 							}
 							if takeover > 0 {
@@ -429,6 +452,8 @@ func stageName(stage string) string {
 		return "已采纳"
 	case "blocked":
 		return "需处理阻塞"
+	case "reconcile":
+		return "等待核对"
 	case "failed":
 		return "执行失败"
 	case "cancelled":

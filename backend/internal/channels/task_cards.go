@@ -151,6 +151,16 @@ func (f Feishu) taskContent(ctx context.Context, tx pgx.Tx, reply, actor, projec
 				elements = append(elements, cardLine("切换到此任务后，可在本单聊提交资料。"+receiptInstructions(waiting)))
 			}
 		}
+		if stage == "reconcile" || stage == "review" {
+			var progress string
+			progress, err = f.remoteInputProgress(ctx, tx, actor, project)
+			if err != nil {
+				return
+			}
+			if progress != "" {
+				elements = append(elements, cardLine(progress))
+			}
+		}
 		if stage == "brief" || stage == "plan" {
 			var answer *cardElement
 			answer, ticket, err = simpleAnswer(ctx, tx, reply, actor, project)

@@ -27,20 +27,22 @@ func (a Activities) sendRemoteInput(ctx context.Context) (bool, error) {
 			return err
 		}
 		var state, operator string
-		var matches bool
+		var matches, bound bool
 		var sealed []byte
 		err := tx.QueryRow(ctx, `select q.id,q.ordinal,q.state,q.actor,q.encrypted_body,n.agent_id,n.agent_revision,i.attempt_no,
               coalesce(i.remote_task,''),coalesce(i.remote_context,''),j.phase='manual' and r.status='reconcile'
                 and i.remote_status='input-required' and not j.cancel_attempted
                 and (r.control_revision,j.input_revision,i.attempt_no,i.remote_task,i.remote_context)=
                     (q.control_revision,q.input_revision,q.attempt_no,q.task_id,q.context_id)
-                and q.created_at+make_interval(secs=>j.check_window_seconds)>now()
+                and q.created_at+make_interval(secs=>j.check_window_seconds)>now(),
+              q.channel_binding_id is null or exists(select from channel_links l
+                  where (l.member_id,l.binding_id)=(q.actor,q.channel_binding_id))
             from remote_task_inputs q join remote_jobs j using(run_id,ordinal)
             join runs r on r.id=q.run_id join invocations i on(i.run_id,i.ordinal)=(q.run_id,q.ordinal)
             join effective_run_nodes n on(n.run_id,n.ordinal)=(q.run_id,q.ordinal)
             where q.run_id=$1 and (q.state='queued' or (q.state='submitted' and q.claim_until<=now()))
             order by q.created_at,q.id limit 1 for update of q,j`, job.Run).Scan(&job.inputID, &job.Ordinal, &state, &operator, &sealed,
-			&job.agent, &job.revision, &job.attempt, &job.receipt.Task, &job.receipt.Context, &matches)
+			&job.agent, &job.revision, &job.attempt, &job.receipt.Task, &job.receipt.Context, &matches, &bound)
 		if err != nil {
 			return err
 		}
@@ -55,6 +57,9 @@ func (a Activities) sendRemoteInput(ctx context.Context) (bool, error) {
 		}
 		if !matches {
 			return finishRemoteInput(ctx, tx, job.inputID, "rejected", "question_changed")
+		}
+		if !bound {
+			return finishRemoteInput(ctx, tx, job.inputID, "rejected", "scope_changed")
 		}
 		if err := a.prepareRemoteInput(ctx, tx, &job, operator); err != nil {
 			var denied web.Problem

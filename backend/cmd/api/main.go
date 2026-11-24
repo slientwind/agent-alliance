@@ -40,7 +40,7 @@ func main() {
 	}
 	mux := http.NewServeMux()
 	s.Routes(mux)
-	feishu := channels.NewFeishu(c.DB)
+	feishu := channels.NewFeishu(c.DB, c.Vault)
 	feishu.Routes(mux, s)
 	go feishu.Notify(ctx)
 	go feishu.ImportAttachments(ctx)

@@ -21,10 +21,14 @@ func (f Feishu) handleCommand(ctx context.Context, tx pgx.Tx, actor, binding, ev
 	chat, private := msg.Chat, msg.Type == "p2p"
 	verb, value, _ := strings.Cut(text, " ")
 	value = strings.TrimSpace(value)
-	if !private && (verb == "服务" || verb == "发起" || verb == "确认" || verb == "反馈" || verb == "补件" || verb == "绑定") {
+	if !private && (verb == "服务" || verb == "发起" || verb == "确认" || verb == "反馈" || verb == "补件" || verb == "远端补件" || verb == "确认远端补件" || verb == "绑定") {
 		return channelReply{note: "请在与机器人的单聊中查看服务、授权费用或绑定身份。"}, nil
 	}
 	switch verb {
+	case "远端补件":
+		return f.proposeRemoteInput(ctx, tx, actor, binding, msg, value)
+	case "确认远端补件":
+		return f.confirmRemoteInput(ctx, tx, actor, binding, chat, value)
 	case "补件":
 		return f.proposeRunReceipt(ctx, tx, actor, msg, value)
 	case "反馈":

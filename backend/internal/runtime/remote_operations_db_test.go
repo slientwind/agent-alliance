@@ -1,19 +1,28 @@
 package runtime
 
 import (
+	"alliance/internal/channels"
 	"alliance/internal/database"
 	"alliance/internal/identity"
 	"alliance/internal/projects"
 	"alliance/internal/resources"
 	"alliance/internal/web"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -45,7 +54,7 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 	}
 	var sent, queried, canceled atomic.Int32
 	var supplements atomic.Int32
-	supplementIDs := make(chan string, 8)
+	supplementIDs := make(chan string, 16)
 	var wrongTask atomic.Bool
 	provider := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var rpc struct {
@@ -149,6 +158,10 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 	routes := http.NewServeMux()
 	worker.Catalog.Routes(routes, auth)
 	projects.Server{DB: db, Vault: vault}.Routes(routes, auth)
+	feishu := channels.Feishu{DB: db, Vault: vault, App: "fixture-app", Secret: "fixture-secret",
+		Encrypt: "fixture-encryption", Verify: "fixture-verification", Tenant: "fixture-remote-inputs",
+		Bot: "ou_fixture_bot", Public: "https://workspace.example"}
+	feishu.Routes(routes, auth)
 	seed, _ := seedLookupTurn(t, ctx, worker, provider.URL)
 	var actor, team string
 	if err := db.QueryRow(ctx, "select actor,charge_team from runs where id=$1", seed.Run).Scan(&actor, &team); err != nil {
@@ -526,6 +539,139 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 		t.Fatalf("cancelled input left pending data: %s, %v", storedState, err)
 	}
 
+	const openID = "ou_fixture_remote_operator"
+	lookupTestSQL(t, ctx, db, "insert into channel_links(tenant,open_id,member_id) values($1,$2,$3)", feishu.Tenant, openID, actor)
+	chat := "oc_original_conversation"
+	sendFeishu := func(chatID, text string) (note, kind, arg string) {
+		t.Helper()
+		event := "event-" + uuid.NewString()
+		request := signedRemoteInputFeishuEvent(t, feishu, openID, chatID, text, event)
+		response := httptest.NewRecorder()
+		routes.ServeHTTP(response, request)
+		if response.Code != 200 {
+			t.Fatalf("Feishu event: %d %s", response.Code, response.Body)
+		}
+		if err := db.QueryRow(ctx, "select note,reply_kind,argument from channel_replies where event_id=$1", event).
+			Scan(&note, &kind, &arg); err != nil {
+			t.Fatal(err)
+		}
+		return note, kind, arg
+	}
+	proposeFeishu := func(text string) string {
+		t.Helper()
+		note, kind, arg := sendFeishu(chat, "远端补件 #1 "+text)
+		if kind != "remote_input_preview" || arg == "" || strings.Contains(note, text) {
+			t.Fatalf("invalid Feishu preview: %q %q %q", note, kind, arg)
+		}
+		return arg
+	}
+	webFirst, projectForWeb := run(1, "needs-input web confirms first")
+	dispatch(webFirst, true)
+	sendFeishu(chat, "切换 "+projectForWeb)
+	webFirstPreview := proposeFeishu("准备在飞书发送")
+	verifyFeishuRemoteInputPreview(t, ctx, feishu, webFirstPreview, projectForWeb)
+	enqueue(webFirst, web.Token(), controlRevision(webFirst), "在网页确认本次补件", true, 202)
+	if note, _, _ := sendFeishu(chat, "确认远端补件 "+webFirstPreview); !strings.Contains(note, "补件状态") {
+		t.Fatalf("Feishu failed to reject the stale web-confirmed question: %q", note)
+	}
+	if !sendInput() || sendInput() {
+		t.Fatal("web and Feishu produced duplicate work")
+	}
+	dispatch(webFirst, false)
+
+	feishuFirst, projectForFeishu := run(1, "needs-input feishu confirms first")
+	dispatch(feishuFirst, true)
+	sendFeishu(chat, "切换 "+projectForFeishu)
+	stalePreview := proposeFeishu("旧会话补件")
+	sendFeishu(chat, "切换 "+projectForWeb)
+	sendFeishu(chat, "切换 "+projectForFeishu)
+	if note, _, _ := sendFeishu(chat, "确认远端补件 "+stalePreview); !strings.Contains(note, "预览已失效") {
+		t.Fatalf("leaving and returning to the project restored a stale confirmation: %q", note)
+	}
+	sensitive := "已经和合作方确认，本月底为有效期"
+	preview := proposeFeishu(sensitive)
+	if note, _, _ := sendFeishu("oc_other_chat", "确认远端补件 "+preview); !strings.Contains(note, "预览已失效") {
+		t.Fatalf("confirmation escaped its private chat: %q", note)
+	}
+	if err := db.QueryRow(ctx, "select encrypted_body from channel_remote_input_proposals where id=$1", preview).Scan(&sealed); err != nil || len(sealed) == 0 || strings.Contains(string(sealed), sensitive) {
+		t.Fatalf("Feishu preview stored readable request text: %v", err)
+	}
+	beforeConfirm := controlRevision(feishuFirst)
+	sendsBefore = sent.Load()
+	for range 2 {
+		if note, _, _ := sendFeishu(chat, "确认远端补件 "+preview); !strings.Contains(note, "已受理") {
+			t.Fatalf("Feishu did not return the same accepted state: %q", note)
+		}
+	}
+	enqueue(feishuFirst, web.Token(), beforeConfirm, "试图重发", true, 409)
+	if sent.Load() != sendsBefore || controlRevision(feishuFirst) != beforeConfirm+1 {
+		t.Fatal("duplicate confirmation dispatched early or changed the control revision")
+	}
+	if err := db.QueryRow(ctx, "select encrypted_body from channel_remote_input_proposals where id=$1", preview).
+		Scan(&sealed); err != nil || sealed != nil {
+		t.Fatalf("confirmation retained the preview body: %v", err)
+	}
+	if !sendInput() || sendInput() || sent.Load() != sendsBefore+1 {
+		t.Fatal("channel input did not dispatch exactly once")
+	}
+	dispatch(feishuFirst, false)
+	if note, _, _ := sendFeishu(chat, "确认远端补件 "+preview); !strings.Contains(note, "回执已记录") {
+		t.Fatalf("repeat confirmation lost the receipt: %q", note)
+	}
+
+	competing, projectCompeting := run(1, "needs-input simultaneous channels")
+	dispatch(competing, true)
+	sendFeishu(chat, "切换 "+projectCompeting)
+	competingPreview := proposeFeishu("飞书与网页同时确认")
+	body, err := json.Marshal(map[string]any{"expected": controlRevision(competing), "inputRevision": 1,
+		"input": "确认网页版补件", "authorizeOneCall": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	webRequest := httptest.NewRequest("POST", "/api/runs/"+competing.Run+"/remote/1/inputs", strings.NewReader(string(body)))
+	webRequest.AddCookie(&http.Cookie{Name: "aa_session", Value: token})
+	webRequest.Header.Set("Idempotency-Key", web.Token())
+	feishuRequest := signedRemoteInputFeishuEvent(t, feishu, openID, chat, "确认远端补件 "+competingPreview, "event-"+uuid.NewString())
+	codes := make(chan int, 2)
+	for _, request := range []*http.Request{webRequest, feishuRequest} {
+		go func() {
+			recorder := httptest.NewRecorder()
+			routes.ServeHTTP(recorder, request)
+			codes <- recorder.Code
+		}()
+	}
+	codeA, codeB := <-codes, <-codes
+	if codeA != 200 {
+		codeA, codeB = codeB, codeA
+	}
+	if codeA != 200 || (codeB != 202 && codeB != 409) {
+		t.Fatalf("competing confirmations failed: %d %d", codeA, codeB)
+	}
+	var queued int
+	if err := db.QueryRow(ctx, "select count(*) from remote_task_inputs where run_id=$1", competing.Run).
+		Scan(&queued); err != nil || queued != 1 {
+		t.Fatalf("competing confirmations produced %d commands: %v", queued, err)
+	}
+	if !sendInput() || sendInput() {
+		t.Fatal("competing confirmations did not consume exactly one command")
+	}
+	dispatch(competing, false)
+
+	unlinked, projectUnlinked := run(1, "needs-input Feishu unlinked during queue")
+	dispatch(unlinked, true)
+	sendFeishu(chat, "切换 "+projectUnlinked)
+	unlinkedPreview := proposeFeishu("解绑前已确认")
+	sendFeishu(chat, "确认远端补件 "+unlinkedPreview)
+	call("DELETE", "/api/channels/feishu/bind", nil, 204)
+	sendsBefore = sent.Load()
+	if !sendInput() || sendInput() || sent.Load() != sendsBefore {
+		t.Fatal("removed Feishu binding permitted dispatch")
+	}
+	if err := db.QueryRow(ctx, "select state,encrypted_body from remote_task_inputs where run_id=$1", unlinked.Run).
+		Scan(&storedState, &sealed); err != nil || storedState != "rejected" || sealed != nil {
+		t.Fatalf("removed Feishu binding left protected input pending: %s, %v", storedState, err)
+	}
+
 	revoke, _ := run(1, "needs-input before proof withdrawal")
 	dispatch(revoke, true)
 	waitingInput := enqueue(revoke, web.Token(), controlRevision(revoke), "之前已授权的补件", true, 202)
@@ -538,4 +684,109 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 		Scan(&storedState, &sealed); err != nil || storedState != "rejected" || sealed != nil {
 		t.Fatalf("withdrawn authorization left pending data: %s, %v", storedState, err)
 	}
+}
+
+type feishuFixtureTransport func(*http.Request) (*http.Response, error)
+
+func (transport feishuFixtureTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	return transport(r)
+}
+
+func verifyFeishuRemoteInputPreview(t *testing.T, ctx context.Context, f channels.Feishu, preview, project string) {
+	t.Helper()
+	seen := make(chan string, 8)
+	original := http.DefaultTransport
+	http.DefaultTransport = feishuFixtureTransport(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host != "open.feishu.cn" {
+			return original.RoundTrip(r)
+		}
+		response := `{"code":0,"tenant_access_token":"fixture-token"}`
+		if strings.HasSuffix(r.URL.Path, "/reply") {
+			var payload map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				return nil, err
+			}
+			var content map[string]string
+			if err := json.Unmarshal([]byte(payload["content"]), &content); err != nil {
+				return nil, err
+			}
+			select {
+			case seen <- content["text"]:
+			case <-r.Context().Done():
+				return nil, r.Context().Err()
+			}
+		}
+		return &http.Response{StatusCode: 200, Header: make(http.Header),
+			Body: io.NopCloser(strings.NewReader(response)), Request: r}, nil
+	})
+	notifyCtx, stop := context.WithTimeout(ctx, 8*time.Second)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		f.Notify(notifyCtx)
+	}()
+	defer func() {
+		stop()
+		<-done
+		http.DefaultTransport = original
+	}()
+	for {
+		select {
+		case text := <-seen:
+			if !strings.Contains(text, "确认远端补件 "+preview) {
+				continue
+			}
+			if !strings.Contains(text, "第三方材料核对") || !strings.Contains(text, "费用待核算") ||
+				!strings.Contains(text, "/#"+project) || strings.Contains(text, "准备在飞书发送") ||
+				strings.Contains(text, "请补充供应商的报价有效期") {
+				t.Fatalf("unexpected preview delivered to Feishu: %q", text)
+			}
+			return
+		case <-notifyCtx.Done():
+			t.Fatal("Feishu notifier did not deliver the scoped confirmation preview")
+		}
+	}
+}
+
+func signedRemoteInputFeishuEvent(t *testing.T, f channels.Feishu, actor, chat, text, event string) *http.Request {
+	t.Helper()
+	marshal := func(value any) []byte {
+		raw, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return raw
+	}
+	now := time.Now()
+	payload := marshal(map[string]any{
+		"header": map[string]string{"app_id": f.App, "tenant_key": f.Tenant, "event_id": event, "token": f.Verify, "event_type": "im.message.receive_v1"},
+		"event": map[string]any{
+			"sender": map[string]any{"sender_type": "user", "sender_id": map[string]string{"open_id": actor}},
+			"message": map[string]string{"message_id": "message-" + event, "chat_id": chat, "chat_type": "p2p", "message_type": "text",
+				"content": string(marshal(map[string]string{"text": text})), "create_time": strconv.FormatInt(now.UnixMilli(), 10)},
+		},
+	})
+	key := sha256.Sum256([]byte(f.Encrypt))
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := aes.BlockSize
+	encrypted := make([]byte, n+len(payload)+(n-len(payload)%n))
+	if _, err := rand.Read(encrypted[:n]); err != nil {
+		t.Fatal(err)
+	}
+	copy(encrypted[n:], payload)
+	for at := n + len(payload); at < len(encrypted); at++ {
+		encrypted[at] = byte(len(encrypted) - n - len(payload))
+	}
+	cipher.NewCBCEncrypter(block, encrypted[:n]).CryptBlocks(encrypted[n:], encrypted[n:])
+	raw := marshal(map[string]string{"encrypt": base64.StdEncoding.EncodeToString(encrypted)})
+	ts, nonce := strconv.FormatInt(now.Unix(), 10), uuid.NewString()
+	signature := sha256.Sum256(append([]byte(ts+nonce+f.Encrypt), raw...))
+	req := httptest.NewRequest("POST", "/api/channels/feishu/events", strings.NewReader(string(raw)))
+	req.Header.Set("X-Lark-Request-Timestamp", ts)
+	req.Header.Set("X-Lark-Request-Nonce", nonce)
+	req.Header.Set("X-Lark-Signature", hex.EncodeToString(signature[:]))
+	return req
 }
