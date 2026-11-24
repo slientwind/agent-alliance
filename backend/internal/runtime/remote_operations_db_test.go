@@ -54,9 +54,13 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 	}
 	var sent, queried, canceled atomic.Int32
 	var supplements atomic.Int32
-	supplementIDs := make(chan string, 16)
+	supplementIDs := make(chan string, 32)
 	var wrongTask atomic.Bool
 	provider := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/chat/completions") {
+			_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"独立步骤成果"},"finish_reason":"stop"}],"usage":{"total_tokens":4}}`)
+			return
+		}
 		var rpc struct {
 			ID, Method string
 			Params     struct {
@@ -113,6 +117,8 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 				completed := task(rpc.Params.Message.TaskID, "completed")
 				completed["artifacts"] = []map[string]any{{"parts": text}}
 				result = completed
+			case strings.HasPrefix(input, "needs-auth-then-input"):
+				result = task("input-after-check-"+rpc.Params.Message.MessageID, "auth-required")
 			case strings.HasPrefix(input, "needs-input"):
 				result = waitingTask("input-"+rpc.Params.Message.MessageID, "initial-question")
 			case strings.HasPrefix(input, "background"):
@@ -126,6 +132,10 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 		case "tasks/get":
 			queried.Add(1)
 			id := rpc.Params.ID
+			if strings.HasPrefix(id, "input-after-check-") {
+				result = waitingTask(id, "question-after-auth")
+				break
+			}
 			if wrongTask.Load() {
 				id += "-wrong"
 			}
@@ -402,7 +412,7 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req := httptest.NewRequest("POST", "/api/runs/"+step.Run+"/remote/1/inputs", strings.NewReader(string(body)))
+		req := httptest.NewRequest("POST", "/api/runs/"+step.Run+"/remote/"+strconv.Itoa(step.Ordinal)+"/inputs", strings.NewReader(string(body)))
 		req.AddCookie(&http.Cookie{Name: "aa_session", Value: token})
 		req.Header.Set("Idempotency-Key", key)
 		response := httptest.NewRecorder()
@@ -504,6 +514,9 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 	}
 
 	interrupted, _ := run(1, "needs-input interrupted worker")
+	if err := worker.EnableStepRemoteInput(ctx, interrupted.Run); err != nil {
+		t.Fatal(err)
+	}
 	dispatch(interrupted, true)
 	submittedInput := enqueue(interrupted, web.Token(), controlRevision(interrupted), "等待另一执行进程", true, 202)
 	// Simulate a worker exit after the committed claim, before a receipt can be saved.
@@ -524,6 +537,10 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 	}
 	if phase, detail := remoteStatus(interrupted); phase != "manual" || detail != "remote_input_unconfirmed" {
 		t.Fatalf("expired input was not left for reconciliation: %s %s", phase, detail)
+	}
+	var interruptedStatus string
+	if err := db.QueryRow(ctx, "select status from runs where id=$1", interrupted.Run).Scan(&interruptedStatus); err != nil || interruptedStatus != "reconcile" {
+		t.Fatalf("a lost step-level claim did not trigger reconciliation: %s %v", interruptedStatus, err)
 	}
 
 	cancelledInput, _ := run(1, "needs-input cancelled worker")
@@ -656,6 +673,162 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 		t.Fatal("competing confirmations did not consume exactly one command")
 	}
 	dispatch(competing, false)
+
+	t.Run("step-scoped input and independent work", func(t *testing.T) {
+		first, project := run(1, "needs-input two independent questions")
+		second, independent := Step{first.Run, 2}, Step{first.Run, 3}
+		model, textAgent := uuid.NewString(), uuid.NewString()
+		key, err := vault.Seal("fixture", "model/"+model+"/1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		lookupTestSQL(t, ctx, db, `insert into model_resources(id,name,team_id,created_by) values($1,'Local text',$2,$3)`, model, team, actor)
+		lookupTestSQL(t, ctx, db, `insert into model_revisions(resource_id,revision,endpoint,model,encrypted_key,estimate_cny) values($1,1,$2,'fixture',$3,0.1)`, model, provider.URL+"/v1", key)
+		lookupTestSQL(t, ctx, db, `insert into agents(id,owner,team_id) values($1,$2,$3)`, textAgent, actor, team)
+		lookupTestSQL(t, ctx, db, `insert into agent_revisions(agent_id,revision,name,instructions,resource_id,resource_revision,created_by) values($1,1,'档案整理','整理本期档案',$2,1,$3)`, textAgent, model, actor)
+		lookupTestSQL(t, ctx, db, `insert into validations(agent_id,revision,actor,status) values($1,1,$2,'passed')`, textAgent, actor)
+		lookupTestSQL(t, ctx, db, `insert into nodes(project_id,plan_version,ordinal,agent_id,agent_revision) values($1,1,2,$2,1),($1,1,3,$3,1)`, project, agent.ID, textAgent)
+		lookupTestSQL(t, ctx, db, `update runs set max_calls=3 where id=$1`, first.Run)
+		if err := worker.EnableStepRemoteInput(ctx, first.Run); err != nil {
+			t.Fatal(err)
+		}
+		dispatch(first, true)
+		dispatch(second, true)
+		var snapshot struct {
+			Run struct {
+				Status   string
+				Attempts []struct {
+					Remote struct {
+						Detail        string
+						CanSupplement bool
+					}
+				}
+			}
+		}
+		decode(call("GET", "/api/projects/"+project, nil, 200), &snapshot)
+		if snapshot.Run.Status != "running" || len(snapshot.Run.Attempts) != 2 {
+			t.Fatalf("known questions blocked the run: %+v", snapshot.Run)
+		}
+		for _, attempt := range snapshot.Run.Attempts {
+			if attempt.Remote.Detail != stepRemoteInput || !attempt.Remote.CanSupplement {
+				t.Fatalf("known question unavailable on desktop: %+v", attempt.Remote)
+			}
+		}
+		dispatch(independent, false)
+		var independentBody string
+		if err := db.QueryRow(ctx, `select result from invocations where (run_id,ordinal)=($1,3)`, first.Run).Scan(&independentBody); err != nil || independentBody != "独立步骤成果" {
+			t.Fatalf("independent business step did not finish: %q %v", independentBody, err)
+		}
+		sendFeishu(chat, "切换 "+project)
+		note, _, preview2 := sendFeishu(chat, "远端补件 #2 第二条材料")
+		if preview2 == "" {
+			t.Fatalf("second question unavailable from Feishu: %s", note)
+		}
+		revision := controlRevision(first)
+		firstInput := enqueue(first, web.Token(), revision, "第一条材料", true, 202)
+		if note, _, _ := sendFeishu(chat, "确认远端补件 "+preview2); !strings.Contains(note, "已受理") {
+			t.Fatalf("first answer invalidated another question: %s", note)
+		}
+		enqueue(second, web.Token(), revision, "重复第二条材料", true, 409)
+		if controlRevision(first) != revision {
+			t.Fatal("scope-specific decisions changed the run control revision")
+		}
+		before := supplements.Load()
+		if firstInput.ID == "" || !sendInput() || !sendInput() || sendInput() || supplements.Load() != before+2 {
+			t.Fatal("two questions did not consume exactly two authorized inputs")
+		}
+		dispatch(first, false)
+		dispatch(second, false)
+		var status string
+		var artifacts, charged int
+		err = db.QueryRow(ctx, `select status,(select count(*) from artifacts where run_id=$1),
+          (select count(*) from spend where run_id=$1 and kind='remote-input') from runs where id=$1`, first.Run).
+			Scan(&status, &artifacts, &charged)
+		if err != nil || status != "completed" || artifacts != 3 || charged != 2 {
+			t.Fatalf("after scoped supplements: status=%s, artifacts=%d, charges=%d, err=%v", status, artifacts, charged, err)
+		}
+	})
+
+	t.Run("unknown input returns to run-level reconciliation", func(t *testing.T) {
+		first, project := run(1, "needs-input unknown in one branch")
+		second := Step{first.Run, 2}
+		lookupTestSQL(t, ctx, db, `insert into nodes(project_id,plan_version,ordinal,agent_id,agent_revision) values($1,1,2,$2,1)`, project, agent.ID)
+		lookupTestSQL(t, ctx, db, `update runs set max_calls=2,step_remote_input=true where id=$1`, first.Run)
+		dispatch(first, true)
+		dispatch(second, true)
+		enqueue(first, web.Token(), controlRevision(first), "fixture lost response", true, 202)
+		if !sendInput() {
+			t.Fatal("the uncertain fixture was not sent")
+		}
+		var status string
+		state := func() string {
+			t.Helper()
+			if err := db.QueryRow(ctx, "select status from runs where id=$1", first.Run).Scan(&status); err != nil {
+				t.Fatal(err)
+			}
+			return status
+		}
+		if state() != "reconcile" {
+			t.Fatal("an unknown response escaped run-level reconciliation")
+		}
+		enqueue(second, web.Token(), controlRevision(second), "全局核对期间暂不可补件", true, 409)
+		call("POST", "/api/runs/"+first.Run+"/remote/1/check", map[string]any{"expected": controlRevision(first), "reason": "核对未知回执"}, 202)
+		// Other cases may have left a cancellation to acknowledge. Process the
+		// committed queue until this run's original task has been checked.
+		for i := 0; i < 8 && state() == "reconcile"; i++ {
+			if _, err := worker.checkRemote(ctx); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if state() != "running" {
+			t.Fatal("a known question prevented recovery from a separate unknown call")
+		}
+		dispatch(first, false)
+		enqueue(second, web.Token(), controlRevision(second), "核对后继续第二步", true, 202)
+		if !sendInput() {
+			t.Fatal("second step could not continue after reconciliation")
+		}
+		dispatch(second, false)
+	})
+
+	t.Run("verified question releases an earlier run-level hold", func(t *testing.T) {
+		step, _ := run(1, "needs-auth-then-input")
+		if err := worker.EnableStepRemoteInput(ctx, step.Run); err != nil {
+			t.Fatal(err)
+		}
+		dispatch(step, true)
+		call("POST", "/api/runs/"+step.Run+"/remote/1/check", map[string]any{"expected": controlRevision(step), "reason": "已在合作方恢复授权"}, 202)
+		var state, detail string
+		for i := 0; i < 8; i++ {
+			if _, err := worker.checkRemote(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if err := db.QueryRow(ctx, `select r.status,j.detail from runs r join remote_jobs j on j.run_id=r.id where r.id=$1`, step.Run).Scan(&state, &detail); err != nil {
+				t.Fatal(err)
+			}
+			if detail == stepRemoteInput {
+				break
+			}
+		}
+		if state != "running" || detail != stepRemoteInput {
+			t.Fatalf("a verified question remained run-scoped: %s %s", state, detail)
+		}
+		revision := controlRevision(step)
+		checkPath := "/api/runs/" + step.Run + "/remote/1/check"
+		call("POST", checkPath, map[string]any{"expected": revision, "inputRevision": 2, "reason": "过期的确认卡"}, 409)
+		call("POST", checkPath, map[string]any{"expected": revision, "inputRevision": 1, "reason": "核对本步骤原任务"}, 202)
+		if controlRevision(step) != revision {
+			t.Fatal("checking a scoped question changed the run control revision")
+		}
+		if checked, err := worker.checkRemote(ctx); !checked || err != nil {
+			t.Fatalf("scoped query did not run: %t %v", checked, err)
+		}
+		enqueue(step, web.Token(), controlRevision(step), "授权后首次补件", true, 202)
+		if !sendInput() {
+			t.Fatal("the step did not accept the verified question")
+		}
+		dispatch(step, false)
+	})
 
 	unlinked, projectUnlinked := run(1, "needs-input Feishu unlinked during queue")
 	dispatch(unlinked, true)

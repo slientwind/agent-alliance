@@ -19,6 +19,27 @@ import (
 	"go.temporal.io/sdk/client"
 )
 
+const stepRemoteInput = "remote_step_input"
+
+// EnableStepRemoteInput is recorded before dispatch by the new scheduler.
+// Older histories retain the original run-level remote input behavior.
+func (a Activities) EnableStepRemoteInput(ctx context.Context, run string) error {
+	_, err := a.Catalog.DB.Exec(ctx, `update runs set step_remote_input=true where id=$1 and not step_remote_input`, run)
+	return err
+}
+
+func stepRemoteInputAllowed(ctx context.Context, tx pgx.Tx, step Step, receipt *resources.RemoteWait) (bool, error) {
+	if receipt.State != "input-required" || receipt.Task == "" || receipt.Context == "" {
+		return false, nil
+	}
+	var allowed bool
+	err := tx.QueryRow(ctx, `select r.step_remote_input and remote_operation_live(p.proof,'supplement') and remote_operation_ready(p.proof)
+    from runs r join effective_run_nodes n on n.run_id=r.id
+    cross join lateral (select agent_released_remote_operation_evidence(n.agent_id,n.agent_revision) proof) p
+    where r.id=$1 and n.ordinal=$2`, step.Run, step.Ordinal).Scan(&allowed)
+	return allowed, err
+}
+
 type remoteJob struct {
 	Step
 	project, actor, agent, state, lease string
@@ -58,6 +79,8 @@ func remoteNote(code string) string {
 		return "远端需要补充资料，在原任务补齐后可核对回执。"
 	case "remote_input_unconfirmed":
 		return "补件响应待核对，请查原任务回执。"
+	case "remote_question_unchanged":
+		return "远端仍在等待同一个问题的答复，请核对原任务回执。"
 	case "remote_no_text":
 		return "远端已完成，此操作没有可读取的文本成果。"
 	case "remote_failed", "remote_canceled", "remote_rejected":
@@ -79,7 +102,11 @@ func remoteNote(code string) string {
 func beginRemote(ctx context.Context, tx pgx.Tx, step Step, project, state string, r *resources.RemoteWait, model resources.Model) error {
 	phase, detail := remoteDisposition(r)
 	terminal := phase == "finished"
-	_, err := tx.Exec(ctx, `update invocations set status=case when $6 then 'remote_closed' else 'remote' end,remote_task=$1,remote_context=$2,remote_status=$3,ended_at=case when $6 then now() end where run_id=$4 and ordinal=$5`, r.Task, r.Context, r.State, step.Run, step.Ordinal, terminal)
+	isolated, err := stepRemoteInputAllowed(ctx, tx, step, r)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `update invocations set status=case when $6 then 'remote_closed' else 'remote' end,remote_task=$1,remote_context=$2,remote_status=$3,ended_at=case when $6 then now() end where run_id=$4 and ordinal=$5`, r.Task, r.Context, r.State, step.Run, step.Ordinal, terminal)
 	if err != nil {
 		return err
 	}
@@ -89,6 +116,8 @@ func beginRemote(ctx context.Context, tx pgx.Tx, step Step, project, state strin
 			phase = "checking"
 		case state == "cancelled":
 			phase, detail = "manual", "remote_cancel_unverified"
+		case isolated:
+			detail = stepRemoteInput
 		case !model.RemoteOperations.CanFollow(false):
 			phase, detail = "manual", "remote_query_unverified"
 		}
@@ -99,7 +128,7 @@ func beginRemote(ctx context.Context, tx pgx.Tx, step Step, project, state strin
 	if err != nil {
 		return err
 	}
-	if phase != "checking" && state == "running" {
+	if phase != "checking" && detail != stepRemoteInput && state == "running" {
 		return setState(ctx, tx, step, project, "reconcile", detail, remoteNote(detail))
 	}
 	return nil
@@ -272,6 +301,15 @@ func (a Activities) applyRemoteOutcome(ctx context.Context, job remoteJob, reply
 		if job.state == "cancelled" && phase == "manual" && (!cancelSent || job.cancel) {
 			phase = "checking"
 		}
+		if job.state != "cancelled" && code == "remote_input" {
+			isolated, err := stepRemoteInputAllowed(ctx, tx, job.Step, receipt)
+			if err != nil {
+				return err
+			}
+			if isolated {
+				code = stepRemoteInput
+			}
+		}
 		if _, err = tx.Exec(ctx, `update remote_jobs j set phase=$1,detail=$2,lease=null,lease_until=null,consecutive_errors=0,next_at=now()+$3*interval '1 second',
               input_revision=j.input_revision+q.fresh::int,
               input_prompt=case when q.fresh then $7 else j.input_prompt end,
@@ -287,6 +325,23 @@ func (a Activities) applyRemoteOutcome(ctx context.Context, job remoteJob, reply
 		}
 		if phase == "checking" {
 			return nil
+		}
+		if code == stepRemoteInput {
+			// A repeated question does not grant a second send for a revision
+			// that already has a non-rejected input receipt.
+			var canSupply bool
+			if err := tx.QueryRow(ctx, `select not exists(select from remote_task_inputs q join remote_jobs j using(run_id,ordinal)
+                where (q.run_id,q.ordinal,q.input_revision)=(j.run_id,j.ordinal,j.input_revision)
+                  and (j.run_id,j.ordinal)=($1,$2) and q.state<>'rejected')`, job.Run, job.Ordinal).Scan(&canSupply); err != nil {
+				return err
+			}
+			if canSupply {
+				if job.state == "reconcile" {
+					return resumeReturnedSubmission(ctx, tx, job.Run, job.project)
+				}
+				return nil
+			}
+			return parkRemote(ctx, tx, job, "remote_question_unchanged")
 		}
 		if receipt.State != "completed" || receipt.NoText {
 			if phase == "finished" {

@@ -17,6 +17,7 @@ func dagTestEnvironment(nodes []Node) (*testsuite.TestWorkflowEnvironment, Activ
 	env.RegisterActivity(a.Topology)
 	env.RegisterActivity(a.ExecuteStep)
 	env.OnActivity(a.Topology, mock.Anything, "run").Return(nodes, nil).Once()
+	env.OnGetVersion("step-remote-input", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion).Maybe()
 	return env, a
 }
 
@@ -109,6 +110,25 @@ func TestDAGRunControlWakesAllWaitingBranches(t *testing.T) {
 		env.OnActivity(a.ExecuteStep, mock.Anything, step).NotBefore(waiting).Return(Result{}, nil).Once()
 	}
 	env.RegisterDelayedCallback(func() { env.SignalWorkflow("control", "confirmed-run-resume") }, time.Second)
+	env.ExecuteWorkflow(Collaborate, "run")
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+	env.AssertExpectations(t)
+}
+
+func TestDAGEnablesStepRemoteInputBeforeDispatch(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	var a Activities
+	env.RegisterActivity(a.Topology)
+	env.RegisterActivity(a.EnableStepRemoteInput)
+	env.RegisterActivity(a.ExecuteStep)
+	env.OnActivity(a.Topology, mock.Anything, "run").Return([]Node{{Ordinal: 1}, {Ordinal: 2}}, nil).Once()
+	enabled := env.OnActivity(a.EnableStepRemoteInput, mock.Anything, "run").Return(nil).Once()
+	for ordinal := 1; ordinal <= 2; ordinal++ {
+		env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", ordinal}).NotBefore(enabled).Return(Result{}, nil).Once()
+	}
 	env.ExecuteWorkflow(Collaborate, "run")
 	if err := env.GetWorkflowError(); err != nil {
 		t.Fatal(err)

@@ -119,6 +119,7 @@ func TestIndependentDAGDispatchPostgres(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetTestTimeout(20 * time.Second)
 	env.RegisterActivity(a.Topology)
+	env.RegisterActivity(a.EnableStepRemoteInput)
 	env.RegisterActivity(a.ExecuteStep)
 	env.ExecuteWorkflow(Collaborate, run)
 	if err := env.GetWorkflowError(); err != nil {
@@ -126,9 +127,10 @@ func TestIndependentDAGDispatchPostgres(t *testing.T) {
 	}
 	var status string
 	var spend, artifacts int
+	var enabled bool
 	err = db.QueryRow(ctx, `select status,(select count(*) from spend where run_id=$1),
-    (select count(*) from artifacts where run_id=$1) from runs where id=$1`, run).Scan(&status, &spend, &artifacts)
-	if err != nil || status != "completed" || spend != 4 || artifacts != 4 || calls.Load() != 4 {
+		(select count(*) from artifacts where run_id=$1),step_remote_input from runs where id=$1`, run).Scan(&status, &spend, &artifacts, &enabled)
+	if err != nil || status != "completed" || spend != 4 || artifacts != 4 || calls.Load() != 4 || !enabled {
 		t.Fatalf("parallel execution did not complete once per step: status=%s spend=%d artifacts=%d calls=%d err=%v", status, spend, artifacts, calls.Load(), err)
 	}
 	if !slowReleasedByDependent.Load() || !dependentReadOnlyItsParent.Load() || !joined.Load() {

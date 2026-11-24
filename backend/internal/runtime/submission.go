@@ -69,7 +69,8 @@ func resumeReturnedSubmission(ctx context.Context, tx pgx.Tx, run, project strin
 	}
 	tag, err := tx.Exec(ctx, `update runs r set status='running' where id=$1 and status='reconcile'
      and not exists(select from invocations i left join remote_jobs j using(run_id,ordinal) where i.run_id=r.id
-         and (i.status in('submitted','unknown','remote_closed','input_rejected') or j.phase='manual'))`, run)
+         and (i.status in('submitted','unknown','remote_closed','input_rejected') or
+           (j.phase='manual' and not remote_step_input_parked(j.run_id,j.ordinal,j.phase,j.detail))))`, run)
 	if err != nil || tag.RowsAffected() == 0 {
 		return err
 	}

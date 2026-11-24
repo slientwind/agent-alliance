@@ -47,7 +47,7 @@ const remoteInputAuthorized = `not j.cancel_attempted and not a.emergency and
 
 func AvailableRemoteInputs(ctx context.Context, tx pgx.Tx, actor, project string) ([]RemoteInputTarget, error) {
 	rows, err := tx.Query(ctx, `select r.id,j.ordinal,r.control_revision,j.input_revision,ar.name`+
-		remoteInputTarget+` and p.id=$2 and r.status='reconcile' and j.phase='manual'
+		remoteInputTarget+` and p.id=$2 and remote_input_window_open(r.status,j.phase,j.detail)
 		and i.remote_status='input-required' and i.remote_task<>'' and i.remote_context<>'' and j.input_revision>0
 		and `+remoteInputAuthorized+`
 		and not exists(select from remote_task_inputs q where (q.run_id,q.ordinal,q.input_revision)=(r.id,j.ordinal,j.input_revision)
@@ -116,13 +116,14 @@ func QueueRemoteInput(ctx context.Context, tx pgx.Tx, vault resources.Vault, act
 		signature = web.Hash(fmt.Sprintf("%x/feishu/%s", signature, binding))
 	}
 
-	var project, runState, phase, remoteState, task, correlation string
+	var project, remoteState, task, correlation string
 	var current, requestRevision, attempt int
-	var allowed bool
-	if err := tx.QueryRow(ctx, `select p.id,r.status,r.control_revision,j.phase,j.input_revision,i.attempt_no,i.remote_status,
+	var allowed, open, stepScoped bool
+	if err := tx.QueryRow(ctx, `select p.id,r.control_revision,j.input_revision,i.attempt_no,i.remote_status,
+		remote_input_window_open(r.status,j.phase,j.detail),j.detail='remote_step_input',
 		coalesce(i.remote_task,''),coalesce(i.remote_context,''),`+remoteInputAuthorized+remoteInputTarget+
 		` and r.id=$2 and j.ordinal=$3 for update of r,j`, actor, run, step).
-		Scan(&project, &runState, &current, &phase, &requestRevision, &attempt, &remoteState, &task, &correlation, &allowed); err != nil {
+		Scan(&project, &current, &requestRevision, &attempt, &remoteState, &open, &stepScoped, &task, &correlation, &allowed); err != nil {
 		return result, err
 	}
 	var same bool
@@ -137,7 +138,7 @@ func QueueRemoteInput(ctx context.Context, tx pgx.Tx, vault resources.Vault, act
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return result, err
 	}
-	if current != in.Expected || requestRevision != in.InputRevision || runState != "reconcile" || phase != "manual" ||
+	if current != in.Expected || requestRevision != in.InputRevision || !open ||
 		remoteState != "input-required" || task == "" || correlation == "" {
 		return result, web.Fail(409, "远端已离开本轮补件状态，请刷新并核对原任务")
 	}
@@ -148,7 +149,11 @@ func QueueRemoteInput(ctx context.Context, tx pgx.Tx, vault resources.Vault, act
 	if !allowed || !permitted {
 		return result, web.Fail(409, "当前授权或发布修订的远端补件证据已失效")
 	}
-	result = RemoteInputReceipt{ID: uuid.NewString(), Status: "queued", ControlRevision: current + 1}
+	revision := current
+	if !stepScoped {
+		revision++
+	}
+	result = RemoteInputReceipt{ID: uuid.NewString(), Status: "queued", ControlRevision: revision}
 	body, err := vault.Seal(input, "remote-input/"+result.ID)
 	if err != nil {
 		return result, err
@@ -163,8 +168,10 @@ func QueueRemoteInput(ctx context.Context, tx pgx.Tx, vault resources.Vault, act
 	if tag.RowsAffected() == 0 {
 		return result, web.Fail(409, "本轮补件已提交，请核对原任务")
 	}
-	if _, err := tx.Exec(ctx, "update runs set control_revision=$2 where id=$1", run, result.ControlRevision); err != nil {
-		return result, err
+	if !stepScoped {
+		if _, err := tx.Exec(ctx, "update runs set control_revision=$2 where id=$1", run, revision); err != nil {
+			return result, err
+		}
 	}
 	if _, err := tx.Exec(ctx, "update projects set revision=revision+1,updated_at=now() where id=$1", project); err != nil {
 		return result, err

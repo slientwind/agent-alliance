@@ -30,7 +30,7 @@ func (a Activities) sendRemoteInput(ctx context.Context) (bool, error) {
 		var matches, bound bool
 		var sealed []byte
 		err := tx.QueryRow(ctx, `select q.id,q.ordinal,q.state,q.actor,q.encrypted_body,n.agent_id,n.agent_revision,i.attempt_no,
-              coalesce(i.remote_task,''),coalesce(i.remote_context,''),j.phase='manual' and r.status='reconcile'
+              coalesce(i.remote_task,''),coalesce(i.remote_context,''),remote_input_window_open(r.status,j.phase,j.detail)
                 and i.remote_status='input-required' and not j.cancel_attempted
                 and (r.control_revision,j.input_revision,i.attempt_no,i.remote_task,i.remote_context)=
                     (q.control_revision,q.input_revision,q.attempt_no,q.task_id,q.context_id)
@@ -50,10 +50,13 @@ func (a Activities) sendRemoteInput(ctx context.Context) (bool, error) {
 			if err := finishRemoteInput(ctx, tx, job.inputID, "uncertain", "receipt_unconfirmed"); err != nil {
 				return err
 			}
-			_, err = tx.Exec(ctx, `update remote_jobs set lease=null,lease_until=null,
+			tag, err := tx.Exec(ctx, `update remote_jobs set lease=null,lease_until=null,
                 detail=case when $4='cancelled' then detail else 'remote_input_unconfirmed' end
                 where (run_id,ordinal)=($1,$2) and lease=$3`, job.Run, job.Ordinal, job.inputID, job.state)
-			return err
+			if err != nil || tag.RowsAffected() == 0 || job.state != "running" {
+				return err
+			}
+			return setState(ctx, tx, job.Step, job.project, "reconcile", "remote_input_unconfirmed", remoteNote("remote_input_unconfirmed"))
 		}
 		if !matches {
 			return finishRemoteInput(ctx, tx, job.inputID, "rejected", "question_changed")

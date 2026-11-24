@@ -48,13 +48,15 @@ const callReviewSummarySQL = `case when i.run_id is not null and (i.status in ('
  from (select case when i.status='input_rejected' then visible_column_issues(i.run_id,$1,i.input_issue) end as list) issue) end`
 
 const remoteSummarySQL = `(select jsonb_build_object('step',j.ordinal,'state',i.remote_status,'phase',j.phase,'detail',j.detail,'deadline',j.deadline,'checks',j.checks,'cancelRequested',j.cancel_attempted,
- 'canQuery',coalesce((scope.operations->>'query')::boolean,true) and not coalesce(last_input.state in ('queued','submitted'),false),
+ 'canQuery',coalesce((scope.operations->>'query')::boolean,true) and not coalesce(last_input.state in ('queued','submitted'),false)
+    and exists(select from runs current_run where current_run.id=j.run_id and current_run.status not in ('paused','blocked')),
  'canSupplement',coalesce((scope.operations->>'supplement')::boolean,false) and j.phase='manual'
     and i.remote_status='input-required' and i.remote_context<>'' and j.input_revision>0
-    and exists(select from runs current_run where current_run.id=j.run_id and current_run.status='reconcile')
+    and exists(select from runs current_run where current_run.id=j.run_id and remote_input_window_open(current_run.status,j.phase,j.detail))
     and not j.cancel_attempted and (last_input.state is null or last_input.state='rejected' or last_input.input_revision<>j.input_revision),
  'inputRevision',j.input_revision,'inputPrompt',case when i.remote_status='input-required' and run_review_notes_readable(i.run_id,$1) then j.input_prompt end,
- 'inputState',last_input.state,'inputDetail',last_input.detail,'destination',a.name)
+ 'inputState',case when last_input.input_revision=j.input_revision then last_input.state end,
+ 'inputDetail',case when last_input.input_revision=j.input_revision then last_input.detail end,'destination',a.name)
  from remote_jobs j join effective_run_nodes n on(n.run_id,n.ordinal)=(j.run_id,j.ordinal)
  join agent_revisions a on(a.agent_id,a.revision)=(n.agent_id,n.agent_revision)
  cross join lateral (select remote_operation_availability(agent_released_remote_operation_evidence(n.agent_id,n.agent_revision)) operations) scope

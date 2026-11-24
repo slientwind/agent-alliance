@@ -62,6 +62,7 @@ func TestLookupTurnWorkflowSchedulesLocalEffectBeforeDependents(t *testing.T) {
 	env.RegisterActivity(a.ExecuteLookupAction)
 	env.RegisterActivity(a.ExecuteStep)
 	env.OnGetVersion("durable-local-actions", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	env.OnGetVersion("step-remote-input", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
 	env.OnActivity(a.Topology, mock.Anything, "run").Return([]Node{
 		{Ordinal: 1, LookupAnswer: true}, {Ordinal: 2, Dependencies: []int{1}},
 	}, nil).Once()
@@ -104,6 +105,7 @@ func TestDurableLocalActionRevisitsStaleControlBeforeContinuing(t *testing.T) {
 	env.RegisterActivity(a.AdvanceExecutionTurn)
 	env.RegisterActivity(a.ExecuteAction)
 	env.RegisterActivity(a.ExecuteStep)
+	env.OnGetVersion("step-remote-input", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
 	env.OnActivity(a.Topology, mock.Anything, "run").Return([]Node{
 		{Ordinal: 1, Calculation: true}, {Ordinal: 2, Dependencies: []int{1}},
 	}, nil).Once()

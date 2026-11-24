@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { api } from "./client";
 import { RemoteInputForm } from "./remote-input-form";
 export type Remote = {
@@ -39,6 +40,8 @@ const reasons: Record<string, string> = {
   remote_cancel_unverified: "未验证远端取消，由连接负责人核对原任务",
   remote_text_unverified: "收到完成回执，成果路径待验收",
   remote_input_unconfirmed: "补件响应待核对",
+  remote_question_unchanged: "远端仍在等待同一问题，请核对原任务",
+  remote_step_input: "此步骤待补件",
 };
 const inputStates: Record<string, string> = {
   queued: "补件已受理，等待发送",
@@ -60,6 +63,7 @@ export function RemoteReceipt({
   canCheck: boolean;
   perform: (action: () => Promise<unknown>) => Promise<void>;
 }) {
+  const recheck = useRef<{ body: string; key: string } | undefined>(undefined);
   return (
     <section>
       <strong>
@@ -104,12 +108,14 @@ export function RemoteReceipt({
           onSubmit={(e) => {
             e.preventDefault();
             const reason = new FormData(e.currentTarget).get("reason");
-            void perform(() =>
-              api("runs/" + run + "/remote/" + remote.step + "/check", "POST", {
-                reason,
-                expected: revision,
-              }),
-            );
+            const body = { reason, expected: revision, inputRevision: remote.inputRevision };
+            const serialized = JSON.stringify(body);
+            if (recheck.current?.body !== serialized) recheck.current = { body: serialized, key: crypto.randomUUID() };
+            const key = recheck.current.key;
+            void perform(async () => {
+              await api("runs/" + run + "/remote/" + remote.step + "/check", "POST", body, { "Idempotency-Key": key });
+              recheck.current = undefined;
+            });
           }}
         >
           <label>

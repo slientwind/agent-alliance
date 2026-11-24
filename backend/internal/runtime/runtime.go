@@ -979,6 +979,11 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 	lookupTurns := workflow.GetVersion(ctx, "read-only-lookup-turns", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	localActions := workflow.GetVersion(ctx, "durable-local-actions", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	if workflow.GetVersion(ctx, "independent-dag-dispatch", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+		if len(nodes) > 1 && workflow.GetVersion(ctx, "step-remote-input", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+			if err := workflow.ExecuteActivity(ctx, "EnableStepRemoteInput", run).Get(ctx, nil); err != nil {
+				return err
+			}
+		}
 		return scheduleIndependentSteps(ctx, run, nodes, lookupTurns, localActions)
 	}
 	done := map[int]bool{}

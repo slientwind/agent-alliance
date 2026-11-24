@@ -225,7 +225,9 @@ func ReviewCallTx(ctx context.Context, tx pgx.Tx, run, actor, key string, ordina
 func ReleaseReviewedCalls(ctx context.Context, tx pgx.Tx, run string) error {
 	var project string
 	err := tx.QueryRow(ctx, `update runs r set status='running' where r.id=$1 and r.status='reconcile' and exists(select from invocations i join active_call_redos v using(run_id,ordinal,attempt_no) where i.run_id=r.id and (v.input_mapping is null or v.authority_current) and i.status in ('unknown','input_rejected')) and not exists(
-     select from invocations i where i.run_id=r.id and i.status in ('unknown','submitted','remote','remote_closed','input_rejected') and not exists(
+     select from invocations i left join remote_jobs j using(run_id,ordinal)
+     where i.run_id=r.id and i.status in ('unknown','submitted','remote','remote_closed','input_rejected')
+       and not (i.status='remote' and remote_step_input_parked(j.run_id,j.ordinal,j.phase,j.detail)) and not exists(
        select from active_call_redos v where(v.run_id,v.ordinal,v.attempt_no)=(i.run_id,i.ordinal,i.attempt_no) and (v.input_mapping is null or v.authority_current))) returning project_id`, run).Scan(&project)
 	if err == pgx.ErrNoRows {
 		return nil

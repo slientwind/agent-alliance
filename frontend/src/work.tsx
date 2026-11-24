@@ -726,7 +726,7 @@ export function Work({
         <details
           className="card"
           open={
-            p.run.attempts.some((a) => a.callReview?.inputIssues?.length || a.callReview?.inputIssue) || undefined
+            p.run.attempts.some((a) => a.callReview?.inputIssues?.length || a.callReview?.inputIssue || a.remote?.detail === "remote_step_input") || undefined
           }
         >
           <summary>
@@ -788,7 +788,7 @@ export function Work({
             (a) =>
               a.remote && (
                 <RemoteReceipt
-                  key={a.step}
+                  key={p.run!.id + "/" + a.step}
                   remote={a.remote}
                   run={p.run!.id}
                   revision={p.run!.controlRevision}

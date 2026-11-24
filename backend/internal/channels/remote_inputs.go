@@ -210,7 +210,7 @@ func (f Feishu) remoteInputProgress(ctx context.Context, tx pgx.Tx, actor, proje
 	}
 	var state string
 	err = tx.QueryRow(ctx, `select q.state from remote_task_inputs q join runs r on r.id=q.run_id
-		where r.project_id=$1 and q.actor=$2 and r.status='reconcile'
+		where r.project_id=$1 and q.actor=$2 and r.status in ('running','reconcile')
 		order by q.created_at desc,q.id desc limit 1`, project, actor).Scan(&state)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", nil
