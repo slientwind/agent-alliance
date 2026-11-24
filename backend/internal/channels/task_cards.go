@@ -141,14 +141,14 @@ func (f Feishu) taskContent(ctx context.Context, tx pgx.Tx, reply, actor, projec
 		}
 		title = "任务卡"
 		elements = append(elements, cardLine(clipped(name, 100)+" · "+stageName(stage)))
-		if stage == "blocked" {
-			var waiting []runReceipt
-			waiting, err = waitingReceipts(ctx, tx, actor, project)
+		if stage == "blocked" || stage == "running" {
+			var progress string
+			progress, err = sourceWaitProgress(ctx, tx, actor, project)
 			if err != nil {
 				return
 			}
-			if len(waiting) > 0 {
-				elements = append(elements, cardLine("切换到此任务后，可在本单聊提交资料。"+receiptInstructions(waiting)))
+			if progress != "" {
+				elements = append(elements, cardLine(progress))
 			}
 		}
 		if stage == "reconcile" || stage == "review" {

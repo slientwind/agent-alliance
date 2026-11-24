@@ -114,6 +114,7 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 		"GET /api/runs/{id}/calls/{step}/attempts/{attempt}/late-receipt":              s.lateReceipt,
 		"POST /api/runs/{id}/calls/{step}/review":                                      s.reviewCall,
 		"GET /api/runs/{id}/receipt-passages":                                          s.receiptPassages,
+		"POST /api/runs/{id}/lookup-index/recheck":                                     s.recheckSourceIndex,
 		"POST /api/runs/{id}/calculation-receipts":                                     s.calculationReceipt,
 		"POST /api/runs/{id}/lookup-receipts":                                          s.lookupReceipt,
 		"POST /api/runs/{id}/tool-choice":                                              s.confirmToolChoice,
@@ -332,6 +333,7 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
     'events',(select jsonb_agg(jsonb_build_object('action',action,'reason',case when f.notes_readable then ev.reason end,'version',artifact_version,'actor',m.display_name) order by ev.revision) from feedback_events ev join members m on m.id=ev.actor where ev.feedback_id=f.id)) order by f.created_at) from feedback_access f where f.artifact_id=a.id),'[]'),'file',(select filename from artifact_files where artifact_id=a.id and version=v.version and distribution_readable(a.id,v.version,$1))) order by a.ordinal) from artifacts a join artifact_access rights on rights.id=a.id join artifact_versions v on(v.artifact_id,v.version)=(a.id,a.current_version) left join reviews e on (e.artifact_id,e.version)=(a.id,a.current_version) where a.project_id=p.id),'[]'),
  'run',(select jsonb_build_object('id',r.id,'status',r.status,'controlRevision',r.control_revision,'canResolveToolChoice',p.owner=$1 or (r.app_id is not null and r.delegated_by is null and p.final_reviewer=$1 and m.can_review),
  'receiptRequests',`+SourceReceiptRequestsSQL+`,
+ 'indexWaits',`+StepIndexWaitsSQL+`,
  'receiptRequest',(select jsonb_build_object('step',ordinal,'reason',reason,'kind',kind) from current_source_receipt_requests where run_id=r.id and request_revision is null order by ordinal limit 1),'indexWait',`+LookupIndexWaitSQL+`,
  'draftAvailable',r.actor=$1 and r.service_id is null and exists(select from effective_run_nodes en
      join agent_revisions ar on(ar.agent_id,ar.revision)=(en.agent_id,en.agent_revision)

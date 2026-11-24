@@ -292,6 +292,9 @@ func applyStepSourceReceipt(ctx context.Context, tx pgx.Tx, run, project, actor,
 	if _, err := tx.Exec(ctx, "delete from calculation_requests where run_id=$1 and ordinal=$2", run, in.Step); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, "delete from lookup_index_waits where run_id=$1 and ordinal=$2 and step_wait_revision is not null", run, in.Step); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, `insert into controls(run_id,actor,request_key,signature,action,reason,revision,wake_ordinal)
         values($1,$2,$3,$4,$5,$6,$7,$8)`, run, actor, key, sign, action, note, revision, in.Step); err != nil {
 		return err

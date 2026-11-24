@@ -140,7 +140,10 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		}
 		var waitingForSource bool
 		if err := tx.QueryRow(ctx, `select exists(select from calculation_requests
-            where (run_id,ordinal)=($1,$2) and request_revision is not null)`, step.Run, step.Ordinal).Scan(&waitingForSource); err != nil {
+            where (run_id,ordinal)=($1,$2) and request_revision is not null
+            union all select from lookup_index_waits
+            where (run_id,ordinal,plan_version)=($1,$2,$3) and active and step_wait_revision is not null)`,
+			step.Run, step.Ordinal, d.planVersion).Scan(&waitingForSource); err != nil {
 			return err
 		}
 		if waitingForSource {
@@ -389,7 +392,9 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 				}
 				if len(d.hits) == 0 && !d.change && invocationStatus == "" && strings.Contains(d.prior, "\n"+semanticIndexPending+"\n") {
 					var observation *string
-					err := tx.QueryRow(ctx, "select observation from lookup_index_waits where run_id=$1 and ordinal=$2 and plan_version=$3", step.Run, step.Ordinal, d.planVersion).Scan(&observation)
+					var waitRevision int
+					err := tx.QueryRow(ctx, "select observation,coalesce(step_wait_revision,0) from lookup_index_waits where run_id=$1 and ordinal=$2 and plan_version=$3",
+						step.Run, step.Ordinal, d.planVersion).Scan(&observation, &waitRevision)
 					if err == pgx.ErrNoRows {
 						result.Wait = true
 						return parkLookupIndex(ctx, tx, step, d, true)
@@ -398,7 +403,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 						return err
 					}
 					if observation == nil {
-						indexProbe = &indexRecheck{d.planVersion, d.controlRevision, planBrief}
+						indexProbe = &indexRecheck{Plan: d.planVersion, Control: d.controlRevision, WaitRevision: waitRevision, Goal: planBrief}
 						return nil
 					}
 					d.hits, err = reopenIndexCitations(*observation, files)
@@ -515,7 +520,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		return err
 	})
 	if err == nil && indexProbe != nil {
-		return a.recheckLookupIndex(ctx, step, d, *indexProbe)
+		return a.recheckLookupIndex(ctx, step, d, mode, *indexProbe)
 	}
 	if err != nil || !invoke {
 		return result, err
@@ -925,6 +930,9 @@ func (a Activities) Dispatch(ctx context.Context, c client.Client) {
 		case <-ticker.C:
 			if err := a.wakeIndexedLookup(ctx); err != nil && ctx.Err() == nil {
 				slog.Warn("lookup index wake pending")
+			}
+			if err := a.signalIndexedLookup(ctx, c); err != nil && ctx.Err() == nil {
+				slog.Warn("step index signal pending")
 			}
 			if err := a.checkSubmissions(ctx); err != nil && ctx.Err() == nil {
 				slog.Warn("submission deadline check pending")

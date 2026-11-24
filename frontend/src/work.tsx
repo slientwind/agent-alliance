@@ -819,6 +819,20 @@ export function Work({
           )}
         </section>
       )}
+      {p.run?.indexWaits?.map(wait => (
+        <section className="card" key={wait.step} aria-label={`步骤 ${wait.step} 的资料索引进度`}>
+          <p role="status">{wait.automatic
+            ? `步骤 ${wait.step} 正在等待资料索引，其他就绪步骤继续。`
+            : `步骤 ${wait.step} 的自动等待已结束，可重新核对原资料。`}</p>
+          {p.owner === user.id && (
+            <button disabled={busy} onClick={() => void perform(() => api(
+              "runs/" + p.run!.id + "/lookup-index/recheck", "POST",
+              { step: wait.step, expected: p.run!.controlRevision, waitRevision: wait.waitRevision },
+              { "Idempotency-Key": crypto.randomUUID() },
+            ))}>重新核对原资料</button>
+          )}
+        </section>
+      ))}
       {p.run && p.owner===user.id && (p.run.receiptRequests ?? (p.run.receiptRequest ? [p.run.receiptRequest] : [])).map(request => (
         <SourceReceipt key={`${p.run?.id}:${p.run?.controlRevision}:${request.step}:${request.receiptRevision ?? 0}`}
           project={p} request={request} sources={sources} busy={busy} perform={perform} reloadSources={reloadSources}/>

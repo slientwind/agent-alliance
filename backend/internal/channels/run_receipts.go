@@ -103,6 +103,40 @@ func receiptInstructions(waiting []runReceipt) string {
 	return "待补件：" + strings.Join(lines, "、") + "。发送“" + command + "”并上传原件。多段资料请在指令后加空格并附上要引用的原句。"
 }
 
+func sourceWaitProgress(ctx context.Context, tx pgx.Tx, actor, project string) (string, error) {
+	waiting, err := waitingReceipts(ctx, tx, actor, project)
+	if err != nil {
+		return "", err
+	}
+	var notes []string
+	if len(waiting) != 0 {
+		notes = append(notes, receiptInstructions(waiting))
+	}
+	rows, err := tx.Query(ctx, `select w.ordinal,w.deadline>statement_timestamp()
+        from lookup_index_waits w join runs r on (r.id,r.plan_version)=(w.run_id,w.plan_version)
+        join projects p on (p.id,p.plan_version)=(r.project_id,r.plan_version)
+        join project_members pm on (pm.project_id,pm.member_id)=(r.project_id,$1)
+        where r.project_id=$2 and r.status='running' and w.active and w.step_wait_revision is not null
+        order by w.ordinal`, actor, project)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var step int
+		var automatic bool
+		if err := rows.Scan(&step, &automatic); err != nil {
+			return "", err
+		}
+		if automatic {
+			notes = append(notes, fmt.Sprintf("步骤 %d 正在等待资料索引，其他就绪步骤继续。", step))
+		} else {
+			notes = append(notes, fmt.Sprintf("步骤 %d 的自动等待已结束。打开原项目重新核对资料。", step))
+		}
+	}
+	return strings.Join(notes, "\n"), rows.Err()
+}
+
 func (f Feishu) proposeRunReceipt(ctx context.Context, tx pgx.Tx, actor string, msg channelMessage, text string) (channelReply, error) {
 	step := 0
 	if strings.HasPrefix(text, "#") {

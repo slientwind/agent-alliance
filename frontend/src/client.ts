@@ -524,6 +524,7 @@ export type Project = Summary & {
     receiptRequest?: SourceReceiptRequest | null;
     receiptRequests?: SourceReceiptRequest[];
     indexWait?: { step: number; until: string; automatic: boolean } | null;
+    indexWaits?: { step: number; until: string; automatic: boolean; waitRevision: number }[];
     lookupPending?: boolean;
     calculationPending?: boolean;
     draftAvailable?: boolean;

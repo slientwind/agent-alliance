@@ -403,13 +403,13 @@ func (f Feishu) Notify(ctx context.Context) {
 									note += "\n发送“反馈 成果ID v版本号 具体意见”提出修改建议。"
 								}
 							}
-							if kind == "progress" && stage == "blocked" {
-								waiting, err := waitingReceipts(ctx, tx, *actor, *project)
+							if kind == "progress" && (stage == "blocked" || stage == "running") {
+								progress, err := sourceWaitProgress(ctx, tx, *actor, *project)
 								if err != nil {
 									return err
 								}
-								if len(waiting) > 0 {
-									note = receiptInstructions(waiting)
+								if progress != "" {
+									note = progress
 								}
 							}
 							if kind == "progress" && (stage == "reconcile" || stage == "review") {

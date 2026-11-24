@@ -11,7 +11,7 @@ import (
 )
 
 const LookupIndexWaitSQL = `(select jsonb_build_object('step',w.ordinal,'until',w.deadline,'automatic',w.deadline>clock_timestamp())
- from lookup_index_waits w where w.run_id=r.id and w.active and r.status='blocked')`
+ from lookup_index_waits w where w.run_id=r.id and w.active and w.step_wait_revision is null and r.status='blocked')`
 
 func (s Server) control(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	var in struct {
@@ -129,6 +129,13 @@ func controlTx(ctx context.Context, tx pgx.Tx, id, actor, key, action string, ex
 		}
 	}
 	if target == "cancelled" || target == "failed" {
+		if _, err := tx.Exec(ctx, `with stopped as (
+            update lookup_index_waits set active=false,wake_pending=false
+            where run_id=$1 and step_wait_revision is not null and (active or wake_pending) returning ordinal
+          ) delete from calculation_requests q using stopped s
+          where (q.run_id,q.ordinal,q.kind)=($1,s.ordinal,'lookup') and q.request_revision is not null`, id); err != nil {
+			return 0, err
+		}
 		if _, err := tx.Exec(ctx, "update change_batches set disposition='discarded' where run_id=$1 and disposition='pending'", id); err != nil {
 			return 0, err
 		}
@@ -143,7 +150,7 @@ func controlTx(ctx context.Context, tx pgx.Tx, id, actor, key, action string, ex
 // Only the optional receipt belonging to that index wait is withdrawn.
 func ClearLookupIndexGate(ctx context.Context, tx pgx.Tx, run string) error {
 	_, err := tx.Exec(ctx, `with cleared as (
- update lookup_index_waits set active=false where run_id=$1 and active returning run_id,ordinal
+ update lookup_index_waits set active=false where run_id=$1 and active and step_wait_revision is null returning run_id,ordinal
 ) delete from calculation_requests cr using cleared w where (cr.run_id,cr.ordinal)=(w.run_id,w.ordinal) and cr.kind='lookup'`, run)
 	return err
 }
