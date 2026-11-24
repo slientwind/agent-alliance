@@ -906,6 +906,15 @@
                 "canSupplement": {
                   "type": "boolean"
                 },
+                "lookupBatch": {
+                  "type": "object",
+                  "description": "当前正在检索或核对的分组及本次计划组数。该进度不代表候选已生成。",
+                  "properties": {
+                    "current": { "type": "integer", "minimum": 1, "maximum": 3 },
+                    "total": { "type": "integer", "minimum": 2, "maximum": 3 }
+                  },
+                  "required": ["current", "total"]
+                },
                 "artifact": {
                   "type": "string",
                   "format": "uuid"
@@ -1427,7 +1436,7 @@
         }
       },
       "Event": {
-        "description": "step/checking_observation 表示补查或核算观察已记录，正在复核使用权限和依据。成果可用以 artifact/ready 为准。",
+        "description": "step/refining_evidence 表示开始一组补查，step/checking_observation 表示补查或核算观察已记录并待核对，step/lookup_batches_finished 表示分组补查结束。组数通过运行进度查询。成果可用以 artifact/ready 为准。",
         "type": "object",
         "properties": {
           "seq": {

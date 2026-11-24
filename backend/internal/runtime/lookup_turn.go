@@ -27,9 +27,10 @@ func (a lookupAction) scope() string {
 }
 
 type lookupTurnInput struct {
-	Terms       []string
-	Calculation *harness.CalculationDecision `json:",omitempty"`
-	Citations   []indexCitation
+	Terms         []string
+	SearchBatches [][]string                   `json:",omitempty"`
+	Calculation   *harness.CalculationDecision `json:",omitempty"`
+	Citations     []indexCitation
 }
 
 type ActionKind string
@@ -44,6 +45,7 @@ type ActionRef struct {
 	Attempt         int
 	Kind            ActionKind
 	ControlRevision int
+	Round           int `json:",omitempty"`
 }
 
 func (a ActionRef) scope() string {
@@ -69,6 +71,16 @@ func (a Activities) prepareRefinement(action ActionRef, d contextData, reply str
 		return nil, nil
 	}
 	return a.sealLookupAction(action, d, lookupTurnInput{Terms: terms})
+}
+
+func (a Activities) prepareBatchedRefinement(step Step, attempt int, d contextData, reply string) ([]byte, int, error) {
+	action := ActionRef{Step: step, Attempt: attempt, Kind: refineLookupAction}
+	if batches, err := harness.DecodeLookupBatches(reply); err == nil && len(d.hits) > 0 {
+		body, err := a.sealLookupAction(action, d, lookupTurnInput{SearchBatches: batches})
+		return body, len(batches), err
+	}
+	body, err := a.prepareRefinement(action, d, reply)
+	return body, 1, err
 }
 
 func (a Activities) prepareLocalAction(step Step, attempt int, d contextData, reply string) (ActionKind, []byte, error) {
@@ -97,7 +109,7 @@ func (a Activities) sealLookupAction(action ActionRef, d contextData, input look
 	return a.Catalog.Vault.Seal(string(encoded), action.scope())
 }
 
-func saveLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, attempt, control int, status string, kind ActionKind, decision []byte, reply resources.Reply, observe bool, result *Result) error {
+func saveLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, attempt, control int, status string, kind ActionKind, decision []byte, reply resources.Reply, observe bool, actionCount int, result *Result) error {
 	if _, err := tx.Exec(ctx, `update invocations set status='completed',tokens=$3,result=null,ended_at=now()
         where run_id=$1 and ordinal=$2`, step.Run, step.Ordinal, callTokens(d.model, reply)); err != nil {
 		return err
@@ -125,13 +137,18 @@ func saveLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, at
 		agent, revision, decidedControl = d.agent, d.revision, d.controlRevision
 	}
 	if _, err := tx.Exec(ctx, `insert into lookup_turns(run_id,ordinal,attempt_no,plan_version,decision,outcome,
-		  action_kind,agent_id,agent_revision,decided_control_revision,observe_before_commit)
-		values($1,$2,$3,$4,$5,$6,nullif($7,''),$8,$9,$10,$11) on conflict do nothing`, step.Run, step.Ordinal, attempt,
-		d.planVersion, decision, disposition, kind, agent, revision, decidedControl, observe); err != nil {
+		  action_kind,agent_id,agent_revision,decided_control_revision,observe_before_commit,action_count)
+		values($1,$2,$3,$4,$5,$6,nullif($7,''),$8,$9,$10,$11,$12) on conflict do nothing`, step.Run, step.Ordinal, attempt,
+		d.planVersion, decision, disposition, kind, agent, revision, decidedControl, observe, actionCount); err != nil {
 		return err
 	}
+	if actionCount > 1 && !revoked {
+		if _, err := tx.Exec(ctx, "select record_service_event($1,'step','refining_evidence',$2)", step.Run, step.Ordinal); err != nil {
+			return err
+		}
+	}
 	if status == "running" {
-		setLocalActionResult(step, attempt, control, kind, result)
+		setLocalActionResult(step, attempt, control, kind, lookupActionRound(actionCount, 1), result)
 		return nil
 	}
 	result.Wait = true
@@ -143,10 +160,12 @@ func saveLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, at
 
 func resumeLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, attempt int, result *Result) (bool, error) {
 	var pending, observed bool
+	var rounds, cursor int
 	var kind ActionKind
-	err := tx.QueryRow(ctx, `select t.decision is not null,coalesce(t.action_kind,''),o.payload is not null
-        from lookup_turns t left join local_action_observations o using(run_id,ordinal,attempt_no)
-        where t.run_id=$1 and t.ordinal=$2 and t.attempt_no=$3`, step.Run, step.Ordinal, attempt).Scan(&pending, &kind, &observed)
+	err := tx.QueryRow(ctx, `select t.decision is not null,coalesce(t.action_kind,''),o.payload is not null,t.action_count,t.action_cursor
+		from lookup_turns t left join local_action_observations o on
+		(o.run_id,o.ordinal,o.attempt_no,o.action_round)=(t.run_id,t.ordinal,t.attempt_no,t.action_cursor)
+		where t.run_id=$1 and t.ordinal=$2 and t.attempt_no=$3`, step.Run, step.Ordinal, attempt).Scan(&pending, &kind, &observed, &rounds, &cursor)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -154,10 +173,11 @@ func resumeLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, 
 		return false, err
 	}
 	if pending {
+		round := lookupActionRound(rounds, cursor)
 		if observed {
-			result.Observation = &ActionRef{Step: step, Attempt: attempt, Kind: kind, ControlRevision: d.controlRevision}
+			result.Observation = &ActionRef{Step: step, Attempt: attempt, Kind: kind, ControlRevision: d.controlRevision, Round: round}
 		} else {
-			setLocalActionResult(step, attempt, d.controlRevision, kind, result)
+			setLocalActionResult(step, attempt, d.controlRevision, kind, round, result)
 		}
 		return true, nil
 	}
@@ -165,12 +185,19 @@ func resumeLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, 
 	return true, setState(ctx, tx, step, d.project, "blocked", "lookup_turn_invalidated", "续查依据已失效，请核对后重新发起。")
 }
 
-func setLocalActionResult(step Step, attempt, control int, kind ActionKind, result *Result) {
+func lookupActionRound(count, cursor int) int {
+	if count == 1 {
+		return 0
+	}
+	return cursor
+}
+
+func setLocalActionResult(step Step, attempt, control int, kind ActionKind, round int, result *Result) {
 	if kind == "" {
 		result.LookupAttempt = attempt
 		return
 	}
-	result.Action = &ActionRef{Step: step, Attempt: attempt, Kind: kind, ControlRevision: control}
+	result.Action = &ActionRef{Step: step, Attempt: attempt, Kind: kind, ControlRevision: control, Round: round}
 }
 
 func reopenLookupTurn(citations []indexCitation, files []knowledge.InputSource) ([]lookupHit, bool) {
@@ -231,9 +258,10 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 		var d contextData
 		var status, invocationStatus string
 		var savedPlan, attempt, control, savedRevision, decidedControl int
+		var actionCount, actionCursor int
 		var savedAgent string
 		var kind ActionKind
-		var sealed []byte
+		var sealed, accumulated []byte
 		var recorded, observe bool
 		if err := tx.QueryRow(ctx, `select project_id,actor,status,plan_version,max_calls,control_revision from runs
             where id=$1 for update`, step.Run).Scan(&d.project, &d.actor, &status, &d.planVersion, &d.maximum, &control); err != nil {
@@ -249,12 +277,13 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 		// commit is visible even when the run itself stays in "running".
 		err := tx.QueryRow(ctx, `select n.agent_id,n.agent_revision,n.lookup_phase,i.attempt_no,i.status,
           i.result is not null,t.plan_version,t.decision,coalesce(t.action_kind,''),coalesce(t.agent_id::text,''),
-		  coalesce(t.agent_revision,0),coalesce(t.decided_control_revision,0),t.observe_before_commit
+		  coalesce(t.agent_revision,0),coalesce(t.decided_control_revision,0),t.observe_before_commit,
+		  t.action_count,t.action_cursor,t.refinement_evidence
           from effective_run_nodes n join invocations i on(i.run_id,i.ordinal)=(n.run_id,n.ordinal)
           join lookup_turns t on(t.run_id,t.ordinal)=(n.run_id,n.ordinal) and t.attempt_no=$3
           where n.run_id=$1 and n.ordinal=$2`, step.Run, step.Ordinal, action.Attempt).Scan(
 			&d.agent, &d.revision, &d.lookupPhase, &attempt, &invocationStatus, &recorded, &savedPlan, &sealed,
-			&kind, &savedAgent, &savedRevision, &decidedControl, &observe)
+			&kind, &savedAgent, &savedRevision, &decidedControl, &observe, &actionCount, &actionCursor, &accumulated)
 		if err != nil {
 			return err
 		}
@@ -268,13 +297,13 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 		if commit && !observe {
 			return errors.New("local action does not use the observation protocol")
 		}
-		if kind != "" && control != action.ControlRevision {
+		if kind != "" && (control != action.ControlRevision || action.Round != lookupActionRound(actionCount, actionCursor)) {
 			result.RevisitTurn = true
 			return nil
 		}
 		invalid := func(reason string) error {
 			result.Wait = true
-			if _, err := tx.Exec(ctx, `update lookup_turns set decision=null,outcome='invalidated'
+			if _, err := tx.Exec(ctx, `update lookup_turns set decision=null,outcome='invalidated',refinement_evidence=null
                 where run_id=$1 and ordinal=$2 and attempt_no=$3`, step.Run, step.Ordinal, action.Attempt); err != nil {
 				return err
 			}
@@ -345,6 +374,26 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 		if !ok {
 			return invalid("首轮引文的资料位置或版本已变化，请核对后重新发起。")
 		}
+		prior := first
+		progress := lookupBatchProgress{count: actionCount}
+		if action.Round > 0 {
+			if len(input.SearchBatches) != actionCount || len(input.SearchBatches[action.Round-1]) == 0 {
+				return invalid("补查计划的分组已变化，请重新核对。")
+			}
+			input.Terms = input.SearchBatches[action.Round-1]
+			if len(accumulated) != 0 {
+				if err := json.Unmarshal(accumulated, &progress.evidence); err != nil {
+					return invalid("已补查的依据无法读取，请重新核对。")
+				}
+				if len(progress.evidence) > 0 {
+					found, ok := reopenLookupTurn(progress.evidence, files)
+					if !ok {
+						return invalid("此前补查的原文已变化，请重新核对。")
+					}
+					prior = append(append([]lookupHit{}, first...), found...)
+				}
+			}
+		}
 		var observation localObservation
 		if observe {
 			// Serialize the publication check with invalidation of this decision.
@@ -360,7 +409,7 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 				}
 				return invalid(memory.Unavailable)
 			}
-			observation, err = a.resolveLocalObservation(ctx, tx, action, commit, input, first, files, &result)
+			observation, err = a.resolveLocalObservation(ctx, tx, action, commit, input, prior, files, &result)
 		} else {
 			observation, err = observeLocalAction(kind, input, first, files)
 		}
@@ -369,6 +418,15 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 		}
 		if err != nil || result.Observation != nil || result.RevisitTurn {
 			return err
+		}
+		if action.Round > 0 {
+			observation, err = progress.consume(ctx, tx, action, observation, first, files, &result)
+			if errors.As(err, &problem) {
+				return invalid(problem.Message)
+			}
+			if err != nil || result.Action != nil {
+				return err
+			}
 		}
 		var evidence []byte
 		if len(observation.Refinement) > 0 {
@@ -386,6 +444,11 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 		}
 		if _, err := tx.Exec(ctx, "insert into trace_events(run_id,ordinal,kind,code) values($1,$2,'checkpoint',$3)", step.Run, step.Ordinal, observation.Outcome); err != nil {
 			return err
+		}
+		if action.Round > 0 {
+			if _, err := tx.Exec(ctx, "select record_service_event($1,'step','lookup_batches_finished',$2)", step.Run, step.Ordinal); err != nil {
+				return err
+			}
 		}
 		return commitOutput(ctx, tx, step, d, observation.Body, &result)
 	})

@@ -69,6 +69,11 @@ func TestEvidenceFollowUpPostgres(t *testing.T) {
 			body = `{"terms":["报价表"]}`
 		case scenario == "answered":
 			body = `{"answer":"报价表仅用于采购。","references":[1]}`
+		case strings.Contains(prompt, batchedLookupInstructions):
+			body = `{"searchBatches":[["报价表"],["备用单"]]}`
+			if scenario == "batch fresh" {
+				body = `{"searchBatches":[["报价表"],["质保单"]]}`
+			}
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"choices": []map[string]any{{"finish_reason": "stop", "message": map[string]string{"content": body}}},
@@ -97,7 +102,7 @@ func TestEvidenceFollowUpPostgres(t *testing.T) {
 	auth := identity.Server{DB: db}
 	projects.Server{DB: db, Vault: vault}.Routes(routes, auth)
 	services.Server{DB: db}.Routes(routes, auth)
-	for _, scenario := range []string{"fresh", "repeat", "answered", "again", "unknown", "revoked", "changed"} {
+	for _, scenario := range []string{"fresh", "repeat", "answered", "again", "unknown", "revoked", "changed", "batch fresh", "batch repeat"} {
 		t.Run(scenario, func(t *testing.T) {
 			mode.Store(scenario)
 			sentCheckedEvidence.Store(false)
@@ -164,11 +169,30 @@ func TestEvidenceFollowUpPostgres(t *testing.T) {
 			if result, err := worker.ExecuteStep(ctx, Step{run, 1}); err != nil || result.Wait {
 				t.Fatalf("search failed: %+v %v", result, err)
 			}
-			answer, err := worker.AdvanceExecutionTurn(ctx, Step{run, 2})
+			advance := worker.AdvanceExecutionTurn
+			batched := strings.HasPrefix(scenario, "batch ")
+			if batched {
+				advance = worker.AdvanceBatchedLookup
+			}
+			answer, err := advance(ctx, Step{run, 2})
 			if err != nil || answer.Wait || ((answer.Action == nil) != (scenario == "answered")) {
 				t.Fatalf("answer step did not record the expected decision: %+v %v", answer, err)
 			}
-			if answer.Action != nil {
+			if batched {
+				for round := 1; round <= 2; round++ {
+					if answer.Action == nil || answer.Action.Round != round {
+						t.Fatalf("expected batch %d, got %+v", round, answer)
+					}
+					observation, err := worker.ExecuteAction(ctx, *answer.Action)
+					if err != nil || observation.Wait || observation.Observation == nil {
+						t.Fatalf("observe batch %d: %+v %v", round, observation, err)
+					}
+					answer, err = worker.CommitLocalObservation(ctx, *observation.Observation)
+					if err != nil || answer.Wait {
+						t.Fatalf("commit batch %d: %+v %v", round, answer, err)
+					}
+				}
+			} else if answer.Action != nil {
 				if result, err := worker.ExecuteAction(ctx, *answer.Action); err != nil || result.Wait {
 					t.Fatalf("read-only refinement failed: %+v %v", result, err)
 				}
@@ -187,7 +211,7 @@ func TestEvidenceFollowUpPostgres(t *testing.T) {
 					t.Fatalf("unexpected follow-up disposition: %+v %v", result, err)
 				}
 			}
-			extra := scenario == "fresh" || scenario == "again" || scenario == "unknown"
+			extra := scenario == "fresh" || scenario == "again" || scenario == "unknown" || scenario == "batch fresh"
 			wantCalls := int32(2)
 			wantExtra := int32(0)
 			if extra {
@@ -215,7 +239,8 @@ func TestEvidenceFollowUpPostgres(t *testing.T) {
 				return
 			}
 			wanted := map[string]string{"fresh": "质保单必须在周五前签收。", "repeat": "追加检索未取得新依据",
-				"answered": "报价表仅用于采购。", "again": "本次补查已结束"}[scenario]
+				"answered": "报价表仅用于采购。", "again": "本次补查已结束", "batch fresh": "质保单必须在周五前签收。",
+				"batch repeat": "分组补查未取得新依据"}[scenario]
 			if state != "completed" || artifacts != 2 || candidate == nil || !strings.Contains(*candidate, wanted) {
 				t.Fatalf("did not produce exactly the expected final candidate: %q %d %v", state, artifacts, candidate)
 			}

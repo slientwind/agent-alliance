@@ -547,6 +547,7 @@ export type Project = Summary & {
     lookupPending?: boolean;
     calculationPending?: boolean;
     localObservations?: { step: number; kind: "refine_lookup" | "calculate_amounts" }[];
+    lookupBatches?: { step: number; current: number; total: number; checking: boolean }[];
     draftAvailable?: boolean;
     canResolveToolChoice?: boolean;
     canConcludeFailure?: boolean;

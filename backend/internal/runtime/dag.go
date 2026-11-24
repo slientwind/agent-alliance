@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"alliance/internal/harness"
 	"alliance/internal/resources"
 	"errors"
 	"slices"
@@ -125,7 +126,7 @@ func scheduleIndependentSteps(ctx workflow.Context, run string, nodes []Node, lo
 		}
 		switch {
 		case outcome.Action != nil || outcome.Observation != nil || outcome.RevisitTurn:
-			if step.localCalls == 4 {
+			if step.localCalls == localTransitionLimit(nodes[readyIndex]) {
 				step.waiting = true
 				continue
 			}
@@ -170,10 +171,20 @@ func startDAGStep(ctx workflow.Context, run string, node Node, lookupTurns, loca
 }
 
 func localTurnActivity(node Node) string {
+	if node.batchLookupActions {
+		return "AdvanceBatchedLookup"
+	}
 	if node.observeLocalActions {
 		return "AdvanceObservedTurn"
 	}
 	return "AdvanceExecutionTurn"
+}
+
+func localTransitionLimit(node Node) int {
+	if node.batchLookupActions {
+		return 2*harness.MaxLookupBatches + 4
+	}
+	return 4
 }
 
 func advanceLocalActivity(ctx workflow.Context, run string, node Node, outcome Result) workflow.Future {

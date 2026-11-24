@@ -21,6 +21,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.temporal.io/sdk/testsuite"
+	"go.temporal.io/sdk/workflow"
 )
 
 func TestLookupTurnPostgresRecovery(t *testing.T) {
@@ -395,6 +396,7 @@ func TestLookupTurnPostgresRecovery(t *testing.T) {
 		env.RegisterActivity(a.AdvanceObservedTurn)
 		env.RegisterActivity(a.ExecuteAction)
 		env.RegisterActivity(a.CommitLocalObservation)
+		env.OnGetVersion("batched-lookup-actions", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
 		env.ExecuteWorkflow(Collaborate, step.Run)
 		if err := env.GetWorkflowError(); err != nil {
 			t.Fatal(err)
@@ -408,6 +410,145 @@ func TestLookupTurnPostgresRecovery(t *testing.T) {
 			t.Fatalf("workflow did not publish a single observed result: %s/%s %d %v", state, stage, published, err)
 		}
 	})
+	t.Run("workflow advances bounded batches and keeps one model receipt", func(t *testing.T) {
+		content.Store(`{"searchBatches":[["报价表"],["质保单"],["延期申请"]]}`)
+		step, source := seedLookupTurn(t, ctx, a, provider.URL)
+		lookupTestSQL(t, ctx, db, "update source_versions set extracted=extracted||$2 where source_id=$1", source, "\n延期申请须经采购经理确认。")
+		lookupTestSQL(t, ctx, db, "update runs set max_calls=2 where id=$1", step.Run)
+		before := calls.Load()
+		var suite testsuite.WorkflowTestSuite
+		env := suite.NewTestWorkflowEnvironment()
+		env.SetTestTimeout(15 * time.Second)
+		env.RegisterActivity(a.Topology)
+		env.RegisterActivity(a.EnableStepRemoteInput)
+		env.RegisterActivity(a.ExecuteStep)
+		env.RegisterActivity(a.AdvanceBatchedLookup)
+		env.RegisterActivity(a.ExecuteAction)
+		env.RegisterActivity(a.CommitLocalObservation)
+		env.ExecuteWorkflow(Collaborate, step.Run)
+		if err := env.GetWorkflowError(); err != nil {
+			t.Fatal(err)
+		}
+		var status, body string
+		var observed []string
+		var budget, candidates int
+		if err := db.QueryRow(ctx, `select r.status,i.result,
+            array(select o.outcome from local_action_observations o where o.run_id=r.id and o.consumed_at is not null and o.payload is null order by o.action_round),
+            (select count(*) from spend where run_id=r.id),
+            (select count(*) from artifact_versions v join artifacts a on a.id=v.artifact_id where a.run_id=r.id and a.ordinal=$2)
+            from runs r join invocations i on (i.run_id,i.ordinal)=(r.id,$2) where r.id=$1`, step.Run, step.Ordinal).
+			Scan(&status, &body, &observed, &budget, &candidates); err != nil || status != "completed" ||
+			!strings.Contains(body, "周五前签收") || !strings.Contains(body, "采购经理确认") ||
+			strings.Join(observed, ",") != "lookup_no_progress,lookup_refined,lookup_refined" || budget != 1 || candidates != 1 || calls.Load() != before+1 {
+			t.Fatalf("workflow did not complete the grouped search once: %s %#v %q spend=%d candidates=%d %v", status, observed, body, budget, candidates, err)
+		}
+	})
+	for _, scenario := range []string{"restart", "withdraw", "evidence cap", "invalid reply"} {
+		t.Run("batch checkpoint "+scenario, func(t *testing.T) {
+			const grouped = `{"searchBatches":[["质保单"],["延期申请"],["失效条款"]]}`
+			content.Store(grouped)
+			if scenario == "invalid reply" {
+				content.Store(`{"searchBatches":[["质保单"],["质保单"]]}`)
+			}
+			step, source := seedLookupTurn(t, ctx, a, provider.URL)
+			more := "\n延期申请须经采购经理确认。"
+			if scenario == "evidence cap" {
+				more = "\n质保单须提供甲方签字。\n质保单须提供乙方盖章。\n质保单须包含第三方责任说明。\n质保单须备注设备序列号。\n质保单须写明维修截止时间。\n质保单须在下周更新。"
+			}
+			lookupTestSQL(t, ctx, db, "update source_versions set extracted=extracted||$2 where source_id=$1", source, more)
+			before := calls.Load()
+			planned, err := a.AdvanceBatchedLookup(ctx, step)
+			if scenario == "invalid reply" {
+				var observations int
+				if err != nil || planned.Action != nil || planned.Observation != nil || calls.Load() != before+1 {
+					t.Fatalf("invalid reply became an action: %+v %v", planned, err)
+				}
+				if err := db.QueryRow(ctx, "select count(*) from lookup_turns where run_id=$1", step.Run).Scan(&observations); err != nil || observations != 0 {
+					t.Fatalf("invalid plan was persisted: %d %v", observations, err)
+				}
+				return
+			}
+			if err != nil || planned.Action == nil || planned.Action.Round != 1 {
+				t.Fatalf("batch did not start at the first action: %+v %v", planned, err)
+			}
+			first := *planned.Action
+			future := first
+			future.Round = 2
+			if out, err := a.ExecuteAction(ctx, future); err != nil || !out.RevisitTurn || out.Observation != nil {
+				t.Fatalf("future action bypassed the current round: %+v %v", out, err)
+			}
+			observed, err := a.ExecuteAction(ctx, first)
+			if err != nil || observed.Observation == nil || *observed.Observation != first {
+				t.Fatalf("first observation: %+v %v", observed, err)
+			}
+			next, err := a.CommitLocalObservation(ctx, first)
+			if scenario == "evidence cap" {
+				var matches, rounds int
+				if err != nil || next.Action != nil || next.Wait {
+					t.Fatalf("evidence cap did not end the search: %+v %v", next, err)
+				}
+				if err := db.QueryRow(ctx, `select jsonb_array_length(refinement_evidence),action_cursor from lookup_turns where run_id=$1`, step.Run).
+					Scan(&matches, &rounds); err != nil || matches != 6 || rounds != 1 {
+					t.Fatalf("bounded search: matches=%d round=%d %v", matches, rounds, err)
+				}
+				return
+			}
+			if err != nil || next.Action == nil || *next.Action != future || next.Wait {
+				t.Fatalf("first group failed to advance: %+v %v", next, err)
+			}
+			var unpublished bool
+			if err := db.QueryRow(ctx, "select result is null from invocations where (run_id,ordinal)=($1,$2)", step.Run, step.Ordinal).
+				Scan(&unpublished); err != nil || !unpublished {
+				t.Fatalf("intermediate observations became a published result: %v %v", unpublished, err)
+			}
+			if old, err := a.CommitLocalObservation(ctx, first); err != nil || !old.RevisitTurn || old.Action != nil {
+				t.Fatalf("stale group could advance the cursor: %+v %v", old, err)
+			}
+			second, err := a.ExecuteAction(ctx, future)
+			if err != nil || second.Observation == nil {
+				t.Fatalf("second observation: %+v %v", second, err)
+			}
+			if scenario == "withdraw" {
+				lookupTestSQL(t, ctx, db, "update sources set revoked_at=now() where id=$1", source)
+				if out, err := a.CommitLocalObservation(ctx, future); err != nil || !out.Wait || out.Action != nil {
+					t.Fatalf("withdrawal could not stop the remaining groups: %+v %v", out, err)
+				}
+				var revoked bool
+				if err := db.QueryRow(ctx, `select t.refinement_evidence is null and t.decision is null and o.payload is null
+                    and o.discarded_at is not null and i.result is null
+                    from lookup_turns t join local_action_observations o using(run_id,ordinal,attempt_no)
+                    join invocations i using(run_id,ordinal,attempt_no) where t.run_id=$1 and o.action_round=2`, step.Run).
+					Scan(&revoked); err != nil || !revoked {
+					t.Fatalf("withdrawal left consumable evidence: %v %v", revoked, err)
+				}
+				return
+			}
+			lookupTestSQL(t, ctx, db, "update runs set control_revision=control_revision+1 where id=$1", step.Run)
+			if stale, err := a.CommitLocalObservation(ctx, future); err != nil || !stale.RevisitTurn {
+				t.Fatalf("stale control consumed group two: %+v %v", stale, err)
+			}
+			pool, err := pgxpool.New(ctx, dsn)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer pool.Close()
+			restarted := Activities{Catalog: resources.Catalog{DB: pool, Vault: vault}}
+			resumed, err := restarted.AdvanceBatchedLookup(ctx, step)
+			if err != nil || resumed.Observation == nil || resumed.Observation.Round != 2 || resumed.Observation.ControlRevision != future.ControlRevision+1 || calls.Load() != before+1 {
+				t.Fatalf("restart did not reuse group two: %+v %v", resumed, err)
+			}
+			third, err := restarted.CommitLocalObservation(ctx, *resumed.Observation)
+			if err != nil || third.Action == nil || third.Action.Round != 3 {
+				t.Fatalf("restart did not advance to group three: %+v %v", third, err)
+			}
+			if observed, err := restarted.ExecuteAction(ctx, *third.Action); err != nil || observed.Observation == nil {
+				t.Fatalf("third group was not observed once: %+v %v", observed, err)
+			}
+			if done, err := restarted.CommitLocalObservation(ctx, *third.Action); err != nil || done.Action != nil || done.Wait || calls.Load() != before+1 {
+				t.Fatalf("restart did not finish the grouped plan: %+v %v", done, err)
+			}
+		})
+	}
 }
 
 type lookupTurnProjection struct {

@@ -22,6 +22,8 @@ select jsonb_build_array(p.revision,p.stage,m.can_review,m.can_view_costs,
  (select max(seq) from messages where project_id=p.id),
  (select jsonb_agg(jsonb_build_array(r.id,r.status,r.control_revision,
    exists(select from lookup_turns t where t.run_id=r.id and t.decision is not null),
+   (select jsonb_agg(jsonb_build_array(t.ordinal,t.action_cursor) order by t.ordinal) from lookup_turns t
+      where t.run_id=r.id and t.decision is not null and t.action_count>1),
    (select array_agg(o.ordinal order by o.ordinal) from local_action_observations o where o.run_id=r.id and o.payload is not null),
    exists(select from run_working_sets c where c.run_id=r.id and c.invalidated_at is not null),
    (select jsonb_agg(jsonb_build_array(i.ordinal,i.status,i.attempt_no,i.remote_status,i.result is not null,

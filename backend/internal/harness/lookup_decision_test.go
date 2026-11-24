@@ -43,6 +43,30 @@ func TestLookupDecisionRejectsUnusableReplies(t *testing.T) {
 	}
 }
 
+func TestLookupBatchPlan(t *testing.T) {
+	want := [][]string{{"报价有效期"}, {"sku", "延期"}, {"到期日"}}
+	plan, err := DecodeLookupBatches(`{"searchBatches":[[" 报价有效期 "],["SKU","延期"],["到期日"]]}`)
+	if err != nil || !reflect.DeepEqual(plan, want) {
+		t.Fatalf("unexpected normalized plan: %#v %v", plan, err)
+	}
+	for _, raw := range []string{
+		`{"searchBatches":[["期限"]]}`,
+		`{"searchBatches":[["一"],["二"],["三"],["四"]]}`,
+		`{"searchBatches":[[],["延期"]]}`,
+		`{"searchBatches":[["A"],[" a "]]}`,
+		`{"searchBatches":[["一","二","三","四","五","六"],["七"]]}`,
+		`{"searchBatches":[["一"],["二\n三"]]}`,
+		`{"searchBatches":[["期限"],["延期"]],"question":"是否延期"}`,
+		`{"searchBatches":[["期限"],["延期"]],"operation":"delegate"}`,
+		`{"searchBatches":[["期限"],["延期"]],"searchBatches":[["一"],["二"]]}`,
+		`{"searchBatches":[["期限"],["延期"]]`,
+	} {
+		if plan, err := DecodeLookupBatches(raw); !errors.Is(err, ErrLookupDecision) || plan != nil {
+			t.Fatalf("accepted invalid plan %s: %#v %v", raw, plan, err)
+		}
+	}
+}
+
 func TestCalculationDecisionAllowsOnlyNumberedOperands(t *testing.T) {
 	valid := `{"calculation":{"operation":"difference","operands":[2,1]}}`
 	formula, err := DecodeCalculation(valid, 2)

@@ -35,6 +35,7 @@ func main() {
 	w.RegisterActivity(a.ExecuteLookupAction)
 	w.RegisterActivity(a.AdvanceExecutionTurn)
 	w.RegisterActivity(a.AdvanceObservedTurn)
+	w.RegisterActivity(a.AdvanceBatchedLookup)
 	w.RegisterActivity(a.ExecuteAction)
 	w.RegisterActivity(a.CommitLocalObservation)
 	w.RegisterActivity(a.Topology)

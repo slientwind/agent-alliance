@@ -812,6 +812,11 @@ export function Work({
           步骤 {observation.step} 已完成{observation.kind === "calculate_amounts" ? "核算" : "补查"}，正在核对依据。
         </p>
       ))}
+      {p.run?.lookupBatches?.map(batch => (
+        <p key={batch.step} className="card" role="status">
+          步骤 {batch.step} 正在{batch.checking ? "核对" : "补查"}第 {batch.current} 组依据，共 {batch.total} 组。
+        </p>
+      ))}
       {p.run?.indexWait && (
         <section className="card" aria-label="资料索引进度">
           <p role="status">{p.run.indexWait.automatic

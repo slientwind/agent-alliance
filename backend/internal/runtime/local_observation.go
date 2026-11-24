@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 
 	"alliance/internal/knowledge"
 	"alliance/internal/web"
@@ -45,16 +46,24 @@ func observeLocalAction(kind ActionKind, input lookupTurnInput, first []lookupHi
 func (a Activities) resolveLocalObservation(ctx context.Context, tx pgx.Tx, action ActionRef, commit bool, input lookupTurnInput, first []lookupHit, files []knowledge.InputSource, result *Result) (localObservation, error) {
 	var observation localObservation
 	scope := action.scope() + "/observation"
+	if action.Round > 0 {
+		scope += "/" + strconv.Itoa(action.Round)
+	}
+	round := max(1, action.Round)
 	var sealed []byte
 	var outcome string
 	err := tx.QueryRow(ctx, `select payload,outcome from local_action_observations
-        where (run_id,ordinal,attempt_no)=($1,$2,$3)`, action.Step.Run, action.Step.Ordinal, action.Attempt).Scan(&sealed, &outcome)
+		where (run_id,ordinal,attempt_no,action_round)=($1,$2,$3,$4)`, action.Step.Run, action.Step.Ordinal, action.Attempt, round).Scan(&sealed, &outcome)
 	if errors.Is(err, pgx.ErrNoRows) {
 		if commit {
 			result.RevisitTurn = true
 			return observation, nil
 		}
-		observation, err := observeLocalAction(action.Kind, input, first, files)
+		if action.Round > 0 {
+			observation, err = observeLookupBatch(input.Terms, first, files)
+		} else {
+			observation, err = observeLocalAction(action.Kind, input, first, files)
+		}
 		if err != nil {
 			return observation, err
 		}
@@ -66,8 +75,8 @@ func (a Activities) resolveLocalObservation(ctx context.Context, tx pgx.Tx, acti
 		if err != nil {
 			return observation, err
 		}
-		if _, err := tx.Exec(ctx, `insert into local_action_observations(run_id,ordinal,attempt_no,control_revision,payload,outcome)
-                values($1,$2,$3,$4,$5,$6)`, action.Step.Run, action.Step.Ordinal, action.Attempt, action.ControlRevision, sealed, observation.Outcome); err != nil {
+		if _, err := tx.Exec(ctx, `insert into local_action_observations(run_id,ordinal,attempt_no,control_revision,payload,outcome,action_round)
+				values($1,$2,$3,$4,$5,$6,$7)`, action.Step.Run, action.Step.Ordinal, action.Attempt, action.ControlRevision, sealed, observation.Outcome, round); err != nil {
 			return observation, err
 		}
 		if _, err := tx.Exec(ctx, "select record_service_event($1,'step','checking_observation',$2)", action.Step.Run, action.Step.Ordinal); err != nil {
@@ -87,7 +96,7 @@ func (a Activities) resolveLocalObservation(ctx context.Context, tx pgx.Tx, acti
 		return observation, nil
 	}
 	data, err := a.Catalog.Vault.Open(sealed, scope)
-	if err != nil || json.Unmarshal([]byte(data), &observation) != nil || observation.Body == "" || observation.Outcome != outcome {
+	if err != nil || json.Unmarshal([]byte(data), &observation) != nil || (action.Round == 0 && observation.Body == "") || observation.Outcome != outcome {
 		return observation, web.Fail(409, "已记录的观察无法验证，请核对后重新执行。")
 	}
 	if len(observation.Refinement) > 0 {
@@ -96,6 +105,6 @@ func (a Activities) resolveLocalObservation(ctx context.Context, tx pgx.Tx, acti
 		}
 	}
 	_, err = tx.Exec(ctx, `update local_action_observations set consumed_at=now(),payload=NULL
-        where (run_id,ordinal,attempt_no)=($1,$2,$3)`, action.Step.Run, action.Step.Ordinal, action.Attempt)
+		where (run_id,ordinal,attempt_no,action_round)=($1,$2,$3,$4)`, action.Step.Run, action.Step.Ordinal, action.Attempt, round)
 	return observation, err
 }

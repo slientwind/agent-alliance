@@ -86,6 +86,7 @@ const (
 	legacyLookupTurn
 	durableLocalActions
 	observedLocalActions
+	batchedLookupActions
 )
 
 type contextData struct {
@@ -122,6 +123,10 @@ func (a Activities) AdvanceExecutionTurn(ctx context.Context, step Step) (Result
 
 func (a Activities) AdvanceObservedTurn(ctx context.Context, step Step) (Result, error) {
 	return a.executeStep(ctx, step, observedLocalActions)
+}
+
+func (a Activities) AdvanceBatchedLookup(ctx context.Context, step Step) (Result, error) {
+	return a.executeStep(ctx, step, batchedLookupActions)
 }
 
 func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (Result, error) {
@@ -459,6 +464,9 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			semantic := d.lookupPhase == "answer" && strings.Contains(d.prior, "\n"+semanticEvidence+"\n")
 			d.prior = lookupContext(d.hits, files)
 			d.prompt += "\n" + answerInstructions
+			if mode == batchedLookupActions && d.lookupPhase == "answer" && !d.change && d.routing.target == 0 && !m.External && m.Tool == nil && m.OutputOperation == "text" {
+				d.prompt += "\n" + batchedLookupInstructions
+			}
 			if semantic {
 				d.prompt += "\n" + answerSemanticInstructions
 			}
@@ -572,6 +580,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 	var lookupOutcome string
 	var lookupDecision []byte
 	var actionKind ActionKind
+	lookupActionCount := 1
 	if callErr == nil {
 		localText := !d.change && d.routing.target == 0 && !d.model.External && d.model.Tool == nil &&
 			d.model.OutputOperation == "text" && reply.File == nil && reply.Receipt == nil
@@ -608,7 +617,10 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 				reply.Text = ""
 			}
 			if mode != fixedStep && localText {
-				if mode >= durableLocalActions {
+				if mode == batchedLookupActions {
+					actionKind = refineLookupAction
+					lookupDecision, lookupActionCount, err = a.prepareBatchedRefinement(step, dispatchedAttempt, d, reply.Text)
+				} else if mode >= durableLocalActions {
 					actionKind, lookupDecision, err = a.prepareLocalAction(step, dispatchedAttempt, d, reply.Text)
 				} else {
 					lookupDecision, err = a.prepareLookupTurn(step, dispatchedAttempt, d, reply.Text)
@@ -732,7 +744,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			return nil
 		}
 		if lookupDecision != nil {
-			return saveLookupTurn(ctx, tx, step, d, dispatchedAttempt, currentControl, status, actionKind, lookupDecision, reply, mode == observedLocalActions, &result)
+			return saveLookupTurn(ctx, tx, step, d, dispatchedAttempt, currentControl, status, actionKind, lookupDecision, reply, mode >= observedLocalActions, lookupActionCount, &result)
 		}
 		if d.routing.target > 0 {
 			if err := d.routing.record(ctx, tx, step, selectedTool); err != nil {
@@ -1045,6 +1057,7 @@ type Node struct {
 	LookupAnswer        bool
 	Calculation         bool
 	observeLocalActions bool
+	batchLookupActions  bool
 }
 
 func (a Activities) Topology(ctx context.Context, run string) ([]Node, error) {
@@ -1071,9 +1084,11 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 	lookupTurns := workflow.GetVersion(ctx, "read-only-lookup-turns", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	localActions := workflow.GetVersion(ctx, "durable-local-actions", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	observedActions := workflow.GetVersion(ctx, "observed-local-actions", workflow.DefaultVersion, 1) != workflow.DefaultVersion
+	batchedActions := workflow.GetVersion(ctx, "batched-lookup-actions", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	if localActions && observedActions {
 		for i := range nodes {
 			nodes[i].observeLocalActions = nodes[i].LookupAnswer || nodes[i].Calculation
+			nodes[i].batchLookupActions = batchedActions && nodes[i].LookupAnswer
 		}
 	}
 	if workflow.GetVersion(ctx, "independent-dag-dispatch", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
@@ -1123,7 +1138,7 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 			}
 			if outcome.Action != nil || outcome.Observation != nil {
 				for retries := 0; outcome.Action != nil || outcome.Observation != nil || outcome.RevisitTurn; retries++ {
-					if retries == 4 {
+					if retries == localTransitionLimit(item.node) {
 						outcome = Result{Wait: true}
 						break
 					}
