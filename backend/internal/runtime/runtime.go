@@ -3,6 +3,7 @@ package runtime
 import (
 	"alliance/internal/billing"
 	"alliance/internal/database"
+	"alliance/internal/harness"
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
 	"alliance/internal/projects"
@@ -345,7 +346,7 @@ func (a Activities) ExecuteStep(ctx context.Context, step Step) (Result, error) 
 			}
 		}
 		if d.routing.target > 0 {
-			d.prompt += "\n" + toolChoiceInstructions
+			d.prompt += "\n" + harness.ReportChoiceInstructions
 			d.brief = d.routing.input(d.brief, files)
 			d.prior = ""
 		}
@@ -444,7 +445,7 @@ func (a Activities) ExecuteStep(ctx context.Context, step Step) (Result, error) 
 	}
 	selectedTool := 0
 	if callErr == nil && d.routing.target > 0 {
-		selectedTool, reply.Text = d.routing.accept(reply.Text)
+		selectedTool, reply.Text = d.routing.options.Accept(reply.Text)
 	}
 	if callErr == nil && d.excerpt != "" {
 		reply.Text = strings.Replace(d.baseBody, d.excerpt, reply.Text, 1)
