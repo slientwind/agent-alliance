@@ -328,6 +328,10 @@ export type CoverageItem = {
   responsibleName?: string;
   responsibleActive: boolean;
   continueWhen?: string;
+  evidence?: {
+    gap?: string;
+    citations?: { name: string; version: number; start: number; end: number; text: string }[];
+  };
 };
 export type DeliveryCoverage = {
   planVersion: number;

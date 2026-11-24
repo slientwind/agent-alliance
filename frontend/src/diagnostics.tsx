@@ -81,6 +81,7 @@ const labels: Record<string, string> = {
   lookup_calculated: "已从引用原文取数并完成本地金额核算",
   lookup_calculation_rejected: "金额或币种无法核对，已停止计算",
   lookup_answer: "已核对回答所引用的原文",
+  lookup_requirement_evidence: "已整理必交项的原文依据与待补提示",
   lookup_quantity_mismatch: "回答中的数值与所引原文无法对应",
   lookup_unverified: "回答格式或引用有误，保留原文供审核",
   lookup_ask: "证据不足，需要补充资料",

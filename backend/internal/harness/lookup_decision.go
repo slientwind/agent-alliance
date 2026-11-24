@@ -89,17 +89,27 @@ func DecodeLookup(reply string, offered int) (LookupDecision, error) {
 	case len(seen) == 1 && seen["question"] && result.Question != "":
 		return result, nil
 	case len(seen) == 2 && seen["answer"] && seen["references"] && result.Answer != "" && len(result.References) > 0:
-		referenced := make(map[int]bool, offered)
-		for _, index := range result.References {
-			if index <= 0 || index > offered || referenced[index] {
-				return LookupDecision{}, ErrLookupReferences
-			}
-			referenced[index] = true
+		if !validLookupReferences(result.References, offered) {
+			return LookupDecision{}, ErrLookupReferences
 		}
 		return result, nil
 	default:
 		return LookupDecision{}, ErrLookupDecision
 	}
+}
+
+func validLookupReferences(references []int, offered int) bool {
+	if len(references) == 0 || len(references) > offered {
+		return false
+	}
+	seen := make(map[int]bool, len(references))
+	for _, ref := range references {
+		if ref < 1 || ref > offered || seen[ref] {
+			return false
+		}
+		seen[ref] = true
+	}
+	return true
 }
 
 // DecodeLookupBatches accepts distinct, bounded groups of read-only lookup

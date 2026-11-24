@@ -35,6 +35,7 @@ func main() {
 	w.RegisterActivity(a.AdvanceEvidenceStep)
 	w.RegisterActivity(a.AdvanceEvidenceQuestion)
 	w.RegisterActivity(a.AdvanceFocusedEvidence)
+	w.RegisterActivity(a.AdvanceRequirementEvidence)
 	w.RegisterActivity(a.CommitTextReply)
 	w.RegisterActivity(a.CommitEvidenceReply)
 	w.RegisterActivity(a.CommitEvidenceQuestion)

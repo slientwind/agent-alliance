@@ -43,6 +43,9 @@ func commitRuleBranchOutput(ctx context.Context, tx pgx.Tx, step Step, d context
 		if _, err := tx.Exec(ctx, "insert into artifact_versions(artifact_id,version,body,reason) values($1,$2,$3,'按当前有效依据重做')", *artifact, version, text); err != nil {
 			return true, err
 		}
+		if err := storeRequirementEvidence(ctx, tx, step, d, *artifact, version); err != nil {
+			return true, err
+		}
 		if _, err := tx.Exec(ctx, `insert into artifact_files select $1,$2,object_hash,filename,media_type
             from invocation_files where (run_id,ordinal)=($3,$4)`, *artifact, version, step.Run, step.Ordinal); err != nil {
 			return true, err

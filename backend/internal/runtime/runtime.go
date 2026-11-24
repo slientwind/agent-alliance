@@ -102,6 +102,8 @@ const (
 	checkpointedLookupQuestion
 	focusedLookupReply
 	focusedLookupQuestion
+	requirementEvidenceReply
+	requirementEvidenceQuestion
 )
 
 func (mode turnMode) checkpointsReply() bool {
@@ -113,11 +115,15 @@ func (mode turnMode) batchesLookup() bool {
 }
 
 func (mode turnMode) allowsLookupQuestion() bool {
-	return mode == checkpointedLookupQuestion || mode == focusedLookupQuestion
+	return mode == checkpointedLookupQuestion || mode == focusedLookupQuestion || mode == requirementEvidenceQuestion
 }
 
 func (mode turnMode) focusesLookup() bool {
-	return mode == focusedLookupReply || mode == focusedLookupQuestion
+	return mode == focusedLookupReply || mode == focusedLookupQuestion || mode.requiresEvidence()
+}
+
+func (mode turnMode) requiresEvidence() bool {
+	return mode == requirementEvidenceReply || mode == requirementEvidenceQuestion
 }
 
 type contextData struct {
@@ -138,6 +144,9 @@ type contextData struct {
 	knownLookupEvidence                                    []lookupHit
 	focusedLookup                                          bool
 	frozenLookup                                           *lookupReplyEvidence
+	requirements                                           []evidenceRequirement
+	requirementFindings                                    []requirementFinding
+	requirementAttempt                                     int
 	change                                                 bool
 	replacement, excerpt, baseBody                         string
 	changeArtifact                                         string
@@ -395,15 +404,19 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			}
 		}
 		planBrief := d.brief
+		var requirements []evidenceRequirement
 		if m.Tool == nil {
-			var requirements string
-			if err := tx.QueryRow(ctx, `select coalesce(string_agg('- '||label,E'\n' order by item),'')
-               from plan_delivery_requirements where (project_id,plan_version,ordinal)=($1,$2,$3)`,
-				d.project, d.planVersion, step.Ordinal).Scan(&requirements); err != nil {
+			requirements, err = readEvidenceRequirements(ctx, tx, step, d)
+			if err != nil {
 				return err
 			}
-			if requirements != "" {
-				d.brief += "\n本步骤的必交项。缺少可核对依据时，请说明缺项。\n" + requirements
+			if len(requirements) > 0 {
+				var list strings.Builder
+				list.WriteString("\n本步骤的必交项。缺少可核对依据时，请说明缺项。")
+				for _, item := range requirements {
+					list.WriteString("\n- " + item.Label)
+				}
+				d.brief += list.String()
 			}
 		}
 		if sources != "" {
@@ -598,6 +611,10 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 				d.prior += calculationContext(d.operands)
 				d.prompt += "\n" + calculateInstructions
 			}
+		}
+		if mode.requiresEvidence() && !d.change && d.routing.target == 0 && m.Tool == nil && !m.External &&
+			m.OutputOperation == "text" && (d.lookupPhase == "answer" || d.lookupPhase == "synthesize") {
+			d.offerRequirementEvidence(requirements)
 		}
 		if d.routing.target > 0 {
 			d.prompt += "\n" + d.routing.instructions()
@@ -1022,6 +1039,9 @@ func commitOutput(ctx context.Context, tx pgx.Tx, step Step, d contextData, text
 	if _, err := tx.Exec(ctx, "insert into artifact_versions(artifact_id,version,body,reason) values($1,1,$2,'初稿')", id, text); err != nil {
 		return err
 	}
+	if err := storeRequirementEvidence(ctx, tx, step, d, id, 1); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, "insert into artifact_files select $1,1,object_hash,filename,media_type from invocation_files where run_id=$2 and ordinal=$3", id, step.Run, step.Ordinal); err != nil {
 		return err
 	}
@@ -1185,7 +1205,9 @@ type Node struct {
 	CheckpointText      bool
 	CheckpointEvidence  bool
 	EvidenceQuestions   bool
+	RequirementEvidence bool
 	focusedEvidence     bool
+	requirementEvidence bool
 	observeLocalActions bool
 	batchLookupActions  bool
 }
@@ -1199,7 +1221,9 @@ func (a Activities) Topology(ctx context.Context, run string) ([]Node, error) {
         cb.run_id is null and n.lookup_phase='' and ar.resource_id is not null and ar.tool is null and ar.card is null and agent_output_operation(ar)='text',
         cb.run_id is null and n.lookup_phase in ('answer','answer_calc','review_evidence','synthesize')
         and ar.resource_id is not null and ar.tool is null and ar.card is null and agent_output_operation(ar)='text',
-        r.await_lookup_receipt and n.lookup_phase in ('answer','review_evidence','synthesize')
+        r.await_lookup_receipt and n.lookup_phase in ('answer','review_evidence','synthesize'),
+        n.lookup_phase in ('answer','synthesize') and exists(
+            select from plan_delivery_requirements q where (q.project_id,q.plan_version,q.ordinal)=(n.project_id,n.plan_version,n.ordinal))
         from runs r left join change_batches cb on cb.run_id=r.id left join artifacts target on target.id=cb.artifact_id
         join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version)
         join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision)
@@ -1269,6 +1293,12 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 			workflow.GetVersion(ctx, "focused-evidence-actions", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
 			for i := range nodes {
 				nodes[i].focusedEvidence = nodes[i].CheckpointEvidence && nodes[i].LookupAnswer
+			}
+		}
+		if slices.ContainsFunc(nodes, func(node Node) bool { return node.CheckpointEvidence && node.RequirementEvidence }) &&
+			workflow.GetVersion(ctx, "requirement-evidence", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+			for i := range nodes {
+				nodes[i].requirementEvidence = nodes[i].CheckpointEvidence && nodes[i].RequirementEvidence
 			}
 		}
 		return scheduleIndependentSteps(ctx, run, nodes, lookupTurns, localActions)

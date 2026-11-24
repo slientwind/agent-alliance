@@ -30,6 +30,18 @@ func (a Activities) AdvanceFocusedEvidence(ctx context.Context, next FocusedEvid
 	if next.Questions {
 		mode = focusedLookupQuestion
 	}
+	return a.advanceEvidenceTurn(ctx, next, mode)
+}
+
+func (a Activities) AdvanceRequirementEvidence(ctx context.Context, next FocusedEvidenceTurn) (Result, error) {
+	mode := requirementEvidenceReply
+	if next.Questions {
+		mode = requirementEvidenceQuestion
+	}
+	return a.advanceEvidenceTurn(ctx, next, mode)
+}
+
+func (a Activities) advanceEvidenceTurn(ctx context.Context, next FocusedEvidenceTurn, mode turnMode) (Result, error) {
 	switch {
 	case next.Reply != nil:
 		return a.commitModelReply(ctx, *next.Reply, mode)

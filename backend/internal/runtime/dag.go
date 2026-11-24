@@ -161,8 +161,8 @@ func startDAGStep(ctx workflow.Context, run string, node Node, lookupTurns, loca
 	if node.Image {
 		ctx = workflow.WithStartToCloseTimeout(ctx, resources.ImageTimeout+30*time.Second)
 	}
-	if node.focusedEvidence {
-		return workflow.ExecuteActivity(ctx, "AdvanceFocusedEvidence", FocusedEvidenceTurn{Step: Step{run, node.Ordinal}, Questions: node.EvidenceQuestions})
+	if node.focusedEvidence || node.requirementEvidence {
+		return workflow.ExecuteActivity(ctx, focusedTurnActivity(node), FocusedEvidenceTurn{Step: Step{run, node.Ordinal}, Questions: node.EvidenceQuestions})
 	}
 	activity := "ExecuteStep"
 	if node.CheckpointEvidence || localActions && (node.LookupAnswer || node.Calculation) {
@@ -173,6 +173,13 @@ func startDAGStep(ctx workflow.Context, run string, node Node, lookupTurns, loca
 		activity = "AdvanceTextStep"
 	}
 	return workflow.ExecuteActivity(ctx, activity, Step{run, node.Ordinal})
+}
+
+func focusedTurnActivity(node Node) string {
+	if node.requirementEvidence {
+		return "AdvanceRequirementEvidence"
+	}
+	return "AdvanceFocusedEvidence"
 }
 
 func localTurnActivity(node Node) string {
@@ -199,12 +206,12 @@ func localTransitionLimit(node Node) int {
 }
 
 func advanceLocalActivity(ctx workflow.Context, run string, node Node, outcome Result) workflow.Future {
-	if node.focusedEvidence {
+	if node.focusedEvidence || node.requirementEvidence {
 		next := FocusedEvidenceTurn{Step: Step{run, node.Ordinal}, Questions: node.EvidenceQuestions, Reply: outcome.TextReply, Action: outcome.Action}
 		if outcome.Observation != nil {
 			next.Action, next.ConsumeObservation = outcome.Observation, true
 		}
-		return workflow.ExecuteActivity(ctx, "AdvanceFocusedEvidence", next)
+		return workflow.ExecuteActivity(ctx, focusedTurnActivity(node), next)
 	}
 	if outcome.TextReply != nil {
 		if node.CheckpointEvidence {

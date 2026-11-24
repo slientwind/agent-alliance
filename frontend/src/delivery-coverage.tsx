@@ -21,8 +21,8 @@ function RequirementAssessment({
   busy: boolean;
   save: (data: Assessment) => void;
 }) {
-  const [state, setState] = useState<Assessment["state"]>(
-    item.state === "missing" || !item.artifact ? "missing" : "covered",
+  const [state, setState] = useState<Assessment["state"] | "">(
+    item.state === "unchecked" ? "" : item.state,
   );
   const [responsible, setResponsible] = useState(item.responsibleActive ? item.responsible || "" : "");
   return (
@@ -30,6 +30,7 @@ function RequirementAssessment({
       <summary>核对此必交项{item.version ? " · v" + item.version : ""}</summary>
       <form onSubmit={event => {
         event.preventDefault();
+        if (!state) return;
         const fields = new FormData(event.currentTarget);
         save({
           expected: project.revision,
@@ -45,13 +46,17 @@ function RequirementAssessment({
       }}>
         <label>
           核对结果
-          <select value={state} onChange={e => setState(e.target.value === "missing" ? "missing" : "covered")}>
+          <select required value={state} onChange={e => {
+            const value = e.target.value;
+            if (value === "" || value === "missing" || value === "covered") setState(value);
+          }}>
+            <option value="">请选择核对结果</option>
             {item.artifact && <option value="covered">已满足</option>}
             <option value="missing">仍缺项</option>
           </select>
         </label>
         <label>
-          {state === "covered" ? "依据位置或说明" : "缺少什么"}
+          {state === "missing" ? "缺少什么" : "依据位置或说明"}
           <textarea name="reason" rows={2} maxLength={1000} defaultValue={item.reason || ""} required />
         </label>
         {state === "missing" && project.deliveryCoverage?.allowPartial && (
@@ -69,8 +74,23 @@ function RequirementAssessment({
             </label>}
           </>
         )}
-        <button disabled={busy}>保存必交项核对</button>
+        <button disabled={busy || !state}>保存必交项核对</button>
       </form>
+    </details>
+  );
+}
+
+function RequirementEvidence({ evidence, reviewed }: { evidence: NonNullable<CoverageItem["evidence"]>; reviewed: boolean }) {
+  if (evidence.gap) return <p className="preserve"><strong>建议补材料</strong> · {evidence.gap}</p>;
+  return (
+    <details>
+      <summary>{reviewed ? "核对引用" : "找到原句，待核对 · 核对引用"}</summary>
+      {(evidence.citations ?? []).map((quote, index) => (
+        <div key={index}>
+          <small>{quote.name} · v{quote.version} · 字符 {quote.start}–{quote.end}</small>
+          <blockquote className="preserve">{quote.text}</blockquote>
+        </div>
+      ))}
     </details>
   );
 }
@@ -99,6 +119,9 @@ export function CoverageReview({ project, busy, save }: {
             <strong>{item.label}</strong>{" · "}
             {blocked.has(item.artifact ?? "") ? "候选待重做" : item.state === "covered" ? "已满足" : item.state === "missing" ? "缺项" : "待核对"}
             {item.version && <small>步骤 {item.step} · 成果 v{item.version}</small>}
+            {item.evidence && !blocked.has(item.artifact ?? "") && (
+              <RequirementEvidence key={item.artifact + ":" + item.version} evidence={item.evidence} reviewed={item.state !== "unchecked"} />
+            )}
             {item.reason && <p className="preserve">{item.reason}</p>}
             {item.state === "missing" && item.responsible && <p>
               {item.responsibleActive ? `接手人 ${item.responsibleName}` : "接手权限已失效"}

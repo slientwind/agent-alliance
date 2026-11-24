@@ -27,8 +27,9 @@ type lookupReplyEvidence struct {
 	Files        []lookupFilePin
 	Offered      []lookupReplyCitation
 	AlreadyKnown []lookupReplyCitation
-	Amounts      string `json:",omitempty"`
-	Focused      bool   `json:",omitempty"`
+	Amounts      string                `json:",omitempty"`
+	Focused      bool                  `json:",omitempty"`
+	Requirements []evidenceRequirement `json:",omitempty"`
 }
 
 type lookupFilePin struct {
@@ -84,6 +85,7 @@ func captureLookupReply(d contextData) *lookupReplyEvidence {
 	pin := &lookupReplyEvidence{
 		Phase: d.lookupPhase, Files: lookupFilePins(d.lookupFiles), Focused: d.focusedLookup,
 		Offered: replyCitations(d.hits), AlreadyKnown: replyCitations(d.knownLookupEvidence),
+		Requirements: d.requirements,
 	}
 	if d.lookupPhase == "answer_calc" {
 		pin.Amounts = amountDigest(d.operands)
@@ -93,7 +95,7 @@ func captureLookupReply(d contextData) *lookupReplyEvidence {
 
 func (pin lookupReplyEvidence) restore(d *contextData, files []knowledge.InputSource) bool {
 	if pin.Phase != d.lookupPhase || !isEvidenceReply(pin.Phase) || len(pin.Files) == 0 ||
-		!slices.Equal(pin.Files, lookupFilePins(files)) || len(pin.Offered) == 0 {
+		!slices.Equal(pin.Files, lookupFilePins(files)) || len(pin.Offered) == 0 || !slices.Equal(pin.Requirements, d.requirements) {
 		return false
 	}
 	first, found := reopenReplyCitations(pin.Offered, files)
@@ -143,6 +145,7 @@ type lookupReplyDecision struct {
 	kind          ActionKind
 	decision      []byte
 	groups        int
+	findings      []requirementFinding
 }
 
 func (a Activities) interpretLookupReply(ref TextReplyRef, d contextData, reply checkpointedReply, mode turnMode, local bool) (lookupReplyDecision, error) {
@@ -150,6 +153,9 @@ func (a Activities) interpretLookupReply(ref TextReplyRef, d contextData, reply 
 	text := reply.Text
 	if reply.FinishReason != "" && reply.FinishReason != "stop" {
 		text = ""
+	}
+	if answer, ok := interpretRequirementEvidence(text, d); ok {
+		return answer, nil
 	}
 	var err error
 	switch d.lookupPhase {

@@ -249,6 +249,16 @@ func (a Activities) adoptLookupReply(ctx context.Context, tx pgx.Tx, ref TextRep
 	if reply.Evidence != nil && reply.Evidence.Focused && !mode.focusesLookup() {
 		return errors.New("recorded reply requires the focused evidence activity")
 	}
+	if reply.Evidence != nil && len(reply.Evidence.Requirements) > 0 {
+		if !mode.requiresEvidence() {
+			return errors.New("recorded reply requires the requirement evidence activity")
+		}
+		var err error
+		d.requirements, err = readEvidenceRequirements(ctx, tx, ref.Step, d)
+		if err != nil {
+			return err
+		}
+	}
 	if reply.Evidence == nil || !reply.Evidence.restore(&d, files) {
 		result.Wait = true
 		if err := retireTextReply(ctx, tx, ref, "discarded"); err != nil {
@@ -282,6 +292,7 @@ func (a Activities) adoptLookupReply(ctx context.Context, tx pgx.Tx, ref TextRep
 			return err
 		}
 	}
+	d.requirementFindings, d.requirementAttempt = interpreted.findings, ref.Attempt
 	return publishTextReply(ctx, tx, ref, d, interpreted.text, result)
 }
 
