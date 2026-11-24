@@ -319,7 +319,10 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
      join agent_revisions ar on(ar.agent_id,ar.revision)=(en.agent_id,en.agent_revision)
      join model_revisions mr on(mr.resource_id,mr.revision)=(ar.resource_id,ar.resource_revision)
      where en.run_id=r.id and en.lookup_phase='' and mr.stream_text),
- 'lookupPending',r.status='running' and exists(select from lookup_turns t where t.run_id=r.id and t.decision is not null),
+ 'lookupPending',r.status='running' and exists(select from lookup_turns t where t.run_id=r.id and t.decision is not null
+     and (t.action_kind is null or t.action_kind='refine_lookup')),
+ 'calculationPending',r.status='running' and exists(select from lookup_turns t where t.run_id=r.id and t.decision is not null
+     and t.action_kind='calculate_amounts'),
  'canConcludeFailure',run_failure_confirmable(r.id),'attempts',(select coalesce(jsonb_agg(jsonb_build_object('step',ordinal,'status',status,
  'workingSet',case when r.actor=$1 then (select jsonb_build_object(
     'sources',count(*) filter(where d.kind='source'),'preferences',count(*) filter(where d.kind='preference'),

@@ -33,6 +33,8 @@ func TestLookupTurnPostgresRecovery(t *testing.T) {
 	}
 	var calls atomic.Int32
 	var truncated atomic.Bool
+	var content atomic.Value
+	content.Store(`{"terms":["质保单"]}`)
 	provider := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
 		reason := "stop"
@@ -40,7 +42,7 @@ func TestLookupTurnPostgresRecovery(t *testing.T) {
 			reason = "length"
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"choices": []map[string]any{{"finish_reason": reason, "message": map[string]string{"content": `{"terms":["质保单"]}`}}},
+			"choices": []map[string]any{{"finish_reason": reason, "message": map[string]string{"content": content.Load().(string)}}},
 			"usage":   map[string]int{"total_tokens": 17},
 		})
 	}))
@@ -154,6 +156,115 @@ func TestLookupTurnPostgresRecovery(t *testing.T) {
 			t.Fatalf("unexpected truncated reply output: %q %v", body, err)
 		}
 	})
+	truncated.Store(false)
+	for _, tc := range []struct {
+		name, phase, raw, wantedCode, wantedText string
+		kind                                     ActionKind
+	}{
+		{"typed retrieval", "answer", `{"terms":["质保单"]}`, "lookup_refined", "周五前签收", refineLookupAction},
+		{"typed calculation", "answer_calc", `{"calculation":{"operation":"difference","operands":[2,1]}}`,
+			"lookup_calculated", "差额为 40.50", calculateAction},
+		{"duplicate calculation fields", "answer_calc", `{"calculation":{"operation":"sum","operation":"difference","operands":[2,1]}}`,
+			"lookup_calculation_rejected", "无法按这些引文核实计算口径", ""},
+		{"truncated calculation", "answer_calc", `{"calculation":{"operation":"difference","operands":[2,1]}}`,
+			"lookup_unverified", "模型未给出可核对的回答", ""},
+		{"revoked calculation input", "answer_calc", `{"calculation":{"operation":"difference","operands":[2,1]}}`, "invalidated", "", calculateAction},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			content.Store(tc.raw)
+			truncated.Store(tc.name == "truncated calculation")
+			step, source := seedLookupTurn(t, ctx, a, provider.URL)
+			if tc.phase == "answer_calc" {
+				const excerpt = "合同额度为 500.00 元。实付金额为 540.50 元。"
+				lookupTestSQL(t, ctx, db, "update source_versions set extracted=$2 where source_id=$1", source, excerpt)
+				hit := lookupHit{version: 1, end: len([]rune(excerpt)), text: excerpt}
+				lookupTestSQL(t, ctx, db, "update invocations set result=$2 where run_id=$1 and ordinal=1", step.Run, hit.line())
+				lookupTestSQL(t, ctx, db, "update nodes n set lookup_phase='answer_calc' from runs r where n.project_id=r.project_id and r.id=$1 and n.ordinal=$2", step.Run, step.Ordinal)
+			}
+			before := calls.Load()
+			outcome, err := a.AdvanceExecutionTurn(ctx, step)
+			if err != nil || calls.Load() != before+1 || outcome.LookupAttempt != 0 {
+				t.Fatalf("typed Advance did not settle one model invocation: %+v %v", outcome, err)
+			}
+			if tc.kind == "" {
+				var actionCount int
+				if err := db.QueryRow(ctx, "select count(*) from lookup_turns where run_id=$1", step.Run).Scan(&actionCount); err != nil || actionCount != 0 || outcome.Action != nil {
+					t.Fatalf("invalid reply produced a durable action: %+v, %d, %v", outcome, actionCount, err)
+				}
+				var result string
+				var traceRecorded bool
+				if err := db.QueryRow(ctx, `select result,exists(select from trace_events e where
+					(e.run_id,e.ordinal)=(i.run_id,i.ordinal) and e.code=$3) from invocations i where run_id=$1 and ordinal=$2`,
+					step.Run, step.Ordinal, tc.wantedCode).
+					Scan(&result, &traceRecorded); err != nil || !traceRecorded || !strings.Contains(result, tc.wantedText) ||
+					strings.Contains(result, "差额为") || strings.Contains(result, "合计为") {
+					t.Fatalf("invalid reply produced an unexpected candidate: %q %v", result, err)
+				}
+				return
+			}
+			if outcome.Action == nil || outcome.Action.Kind != tc.kind || outcome.Action.Attempt != 1 {
+				t.Fatalf("action missing or of the wrong kind: %+v", outcome.Action)
+			}
+			var pending, beforeCandidate bool
+			if err := db.QueryRow(ctx, `select t.decision is not null, i.result is null from lookup_turns t
+				join invocations i using(run_id,ordinal) where t.run_id=$1 and t.ordinal=$2 and t.action_kind=$3`,
+				step.Run, step.Ordinal, tc.kind).Scan(&pending, &beforeCandidate); err != nil || !pending || !beforeCandidate {
+				t.Fatalf("action was not checkpointed independently of its result: %v %v %v", pending, beforeCandidate, err)
+			}
+			if tc.name == "revoked calculation input" {
+				lookupTestSQL(t, ctx, db, "update sources set revoked_at=now() where id=$1", source)
+				_, err = a.ExecuteAction(ctx, *outcome.Action)
+				var code string
+				if err == nil {
+					err = db.QueryRow(ctx, "select decision is null,outcome from lookup_turns where run_id=$1 and ordinal=$2",
+						step.Run, step.Ordinal).Scan(&beforeCandidate, &code)
+				}
+				if err != nil || !beforeCandidate || code != tc.wantedCode {
+					t.Fatalf("withdrawn source left executable arguments: %t %q %v", beforeCandidate, code, err)
+				}
+				return
+			}
+			lookupTestSQL(t, ctx, db, "update runs set control_revision=control_revision+1 where id=$1", step.Run)
+			stale, err := a.ExecuteAction(ctx, *outcome.Action)
+			if err != nil || !stale.RevisitTurn {
+				t.Fatalf("stale action advanced after controls changed: %+v %v", stale, err)
+			}
+			freshPool, err := pgxpool.New(ctx, dsn)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer freshPool.Close()
+			restarted := Activities{Catalog: resources.Catalog{DB: freshPool, Vault: vault}}
+			current, err := restarted.AdvanceExecutionTurn(ctx, step)
+			if err != nil || current.Action == nil || current.Action.Kind != tc.kind ||
+				current.Action.ControlRevision != outcome.Action.ControlRevision+1 || calls.Load() != before+1 {
+				t.Fatalf("restart did not reuse the typed decision: %+v %v", current.Action, err)
+			}
+			effects := make(chan error, 2)
+			for range cap(effects) {
+				go func() {
+					_, err := restarted.ExecuteAction(ctx, *current.Action)
+					effects <- err
+				}()
+			}
+			for range cap(effects) {
+				if err := <-effects; err != nil {
+					t.Fatal(err)
+				}
+			}
+			var code, result string
+			var observations, charges int
+			if err := db.QueryRow(ctx, `select t.decision is null,t.outcome,i.result,
+				(select count(*) from trace_events e where e.run_id=t.run_id and e.code=t.outcome),
+				(select count(*) from spend s where s.run_id=t.run_id)
+				from lookup_turns t join invocations i using(run_id,ordinal) where t.run_id=$1 and t.ordinal=$2`,
+				step.Run, step.Ordinal).Scan(&beforeCandidate, &code, &result, &observations, &charges); err != nil || !beforeCandidate || code != tc.wantedCode || !strings.Contains(result, tc.wantedText) ||
+				observations != 1 || charges != 1 || calls.Load() != before+1 {
+				t.Fatalf("incorrect committed effect: %t %q %q observations=%d charges=%d %v",
+					beforeCandidate, code, result, observations, charges, err)
+			}
+		})
+	}
 }
 
 func lookupTurnProjectReader(t *testing.T, ctx context.Context, db *pgxpool.Pool, run string) func() bool {

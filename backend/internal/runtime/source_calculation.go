@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"alliance/internal/harness"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -150,42 +151,45 @@ func calculationContext(operands []moneyOperand) string {
 	return b.String()
 }
 
-type moneyAction struct {
-	Operation string
-	Operands  []int
-}
-
 func calculationAnswer(raw string, hits []lookupHit, files []knowledge.InputSource, operands []moneyOperand) (string, string) {
 	var request map[string]json.RawMessage
 	if !decodeLookup(raw, &request) || request["calculation"] == nil {
 		return groundedAnswer(raw, hits, files)
 	}
-	invalid := func() (string, string) {
-		return "无法按这些引文核实计算口径。请核对金额、币种与计算顺序。\n" + lookupContext(hits, files), "lookup_calculation_rejected"
-	}
-	var action struct{ Calculation moneyAction }
+	var action struct{ Calculation harness.CalculationDecision }
 	if len(request) != 1 || !decodeLookup(raw, &action) {
-		return invalid()
+		return rejectedCalculation(hits, files)
 	}
-	op, ids := action.Calculation.Operation, action.Calculation.Operands
-	if (op != "sum" && op != "difference") || len(ids) < 2 || len(ids) > 6 || (op == "difference" && len(ids) != 2) {
-		return invalid()
+	return applyCalculation(action.Calculation, hits, files, operands)
+}
+
+func rejectedCalculation(hits []lookupHit, files []knowledge.InputSource) (string, string) {
+	return "无法按这些引文核实计算口径。请核对金额、币种与计算顺序。\n" + lookupContext(hits, files), "lookup_calculation_rejected"
+}
+
+func unplannedCalculation(raw string, hits []lookupHit, files []knowledge.InputSource) (string, string) {
+	var request map[string]json.RawMessage
+	if decodeLookup(raw, &request) && request["calculation"] != nil {
+		return rejectedCalculation(hits, files)
 	}
+	return groundedAnswer(raw, hits, files)
+}
+
+func applyCalculation(action harness.CalculationDecision, hits []lookupHit, files []knowledge.InputSource, operands []moneyOperand) (string, string) {
+	if !action.Valid(len(operands)) {
+		return rejectedCalculation(hits, files)
+	}
+	op, ids := action.Operation, action.Operands
 	total := new(big.Int)
 	var unit string
 	var terms, refs []string
-	seen := map[int]bool{}
 	var cited []int
 	for i, id := range ids {
-		if id < 1 || id > len(operands) || seen[id] {
-			return invalid()
-		}
 		a := operands[id-1]
 		if i > 0 && unit != a.currency {
-			return invalid()
+			return rejectedCalculation(hits, files)
 		}
 		unit = a.currency
-		seen[id] = true
 		if op == "difference" && i == 1 {
 			total.Sub(total, a.cents)
 		} else {

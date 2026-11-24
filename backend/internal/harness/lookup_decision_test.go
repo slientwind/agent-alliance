@@ -42,3 +42,24 @@ func TestLookupDecisionRejectsUnusableReplies(t *testing.T) {
 		}
 	}
 }
+
+func TestCalculationDecisionAllowsOnlyNumberedOperands(t *testing.T) {
+	valid := `{"calculation":{"operation":"difference","operands":[2,1]}}`
+	formula, err := DecodeCalculation(valid, 2)
+	if err != nil || formula.Operation != "difference" || !reflect.DeepEqual(formula.Operands, []int{2, 1}) {
+		t.Fatalf("valid ordered operands rejected: %+v %v", formula, err)
+	}
+	for _, raw := range []string{
+		`{"calculation":{"operation":"sum","operation":"difference","operands":[1,2]}}`,
+		`{"calculation":{"operation":"sum","operands":[1,2],"amount":800}}`,
+		`{"calculation":{"operation":"sum","operands":[1,2]},"question":"补金额"}`,
+		`{"calculation":{"operation":"sum","operands":[1,1]}}`,
+		`{"calculation":{"operation":"difference","operands":[2,3]}}`,
+		`{"calculation":{"operation":"sum","operands":[null,2]}}`,
+		valid + valid,
+	} {
+		if _, err := DecodeCalculation(raw, 2); !errors.Is(err, ErrLookupDecision) {
+			t.Errorf("invalid calculation was accepted: %s", raw)
+		}
+	}
+}

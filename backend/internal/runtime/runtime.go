@@ -48,6 +48,8 @@ type Result struct {
 	Wait          bool
 	More          bool
 	LookupAttempt int
+	Action        *ActionRef
+	RevisitTurn   bool
 }
 
 func Collaborate(ctx workflow.Context, run string) error {
@@ -75,6 +77,15 @@ func Collaborate(ctx workflow.Context, run string) error {
 }
 
 type Activities struct{ Catalog resources.Catalog }
+
+type turnMode int
+
+const (
+	fixedStep turnMode = iota
+	legacyLookupTurn
+	durableLocalActions
+)
+
 type contextData struct {
 	memberDraft                                            bool
 	routing                                                toolChoice
@@ -96,14 +107,18 @@ type contextData struct {
 }
 
 func (a Activities) ExecuteStep(ctx context.Context, step Step) (Result, error) {
-	return a.executeStep(ctx, step, false)
+	return a.executeStep(ctx, step, fixedStep)
 }
 
 func (a Activities) AdvanceTurn(ctx context.Context, step Step) (Result, error) {
-	return a.executeStep(ctx, step, true)
+	return a.executeStep(ctx, step, legacyLookupTurn)
 }
 
-func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool) (Result, error) {
+func (a Activities) AdvanceExecutionTurn(ctx context.Context, step Step) (Result, error) {
+	return a.executeStep(ctx, step, durableLocalActions)
+}
+
+func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (Result, error) {
 	var d contextData
 	var result Result
 	var invoke bool
@@ -173,7 +188,8 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 				return setState(ctx, tx, step, d.project, "blocked", "working_memory_invalidated", memory.Unavailable)
 			}
 		}
-		if lookupTurns && invocationStatus == "completed" && recorded == nil && d.lookupPhase == "answer" {
+		if mode != fixedStep && invocationStatus == "completed" && recorded == nil &&
+			(d.lookupPhase == "answer" || mode == durableLocalActions && d.lookupPhase == "answer_calc") {
 			found, err := resumeLookupTurn(ctx, tx, step, d, attempt, &result)
 			if found || err != nil {
 				return err
@@ -496,7 +512,10 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 	workingKey := memory.Key{Run: step.Run, Step: step.Ordinal, Attempt: dispatchedAttempt}
 	var lookupOutcome string
 	var lookupDecision []byte
+	var actionKind ActionKind
 	if callErr == nil {
+		localText := !d.change && d.routing.target == 0 && !d.model.External && d.model.Tool == nil &&
+			d.model.OutputOperation == "text" && reply.File == nil && reply.Receipt == nil
 		switch d.lookupPhase {
 		case "search":
 			var fallback func() (knowledge.SemanticLookup, error)
@@ -511,14 +530,30 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 			}
 			reply.Text, lookupOutcome = searchForGoal(reply.Text, d.lookupFiles, d.moneyGoal, fallback)
 		case "answer_calc":
-			reply.Text, lookupOutcome = calculationAnswer(reply.Text, d.hits, d.lookupFiles, d.operands)
+			if mode == durableLocalActions && localText {
+				if reply.FinishReason != "" && reply.FinishReason != "stop" {
+					reply.Text = ""
+				}
+				actionKind, lookupDecision, err = a.prepareLocalAction(step, dispatchedAttempt, d, reply.Text)
+				if err != nil {
+					return result, err
+				}
+				if lookupDecision == nil {
+					reply.Text, lookupOutcome = unplannedCalculation(reply.Text, d.hits, d.lookupFiles)
+				}
+			} else {
+				reply.Text, lookupOutcome = calculationAnswer(reply.Text, d.hits, d.lookupFiles, d.operands)
+			}
 		case "answer":
 			if reply.FinishReason != "" && reply.FinishReason != "stop" {
 				reply.Text = ""
 			}
-			if lookupTurns && !d.change && d.routing.target == 0 && !d.model.External && d.model.Tool == nil &&
-				d.model.OutputOperation == "text" && reply.File == nil && reply.Receipt == nil {
-				lookupDecision, err = a.prepareLookupTurn(step, dispatchedAttempt, d, reply.Text)
+			if mode != fixedStep && localText {
+				if mode == durableLocalActions {
+					actionKind, lookupDecision, err = a.prepareLocalAction(step, dispatchedAttempt, d, reply.Text)
+				} else {
+					lookupDecision, err = a.prepareLookupTurn(step, dispatchedAttempt, d, reply.Text)
+				}
 				if err != nil {
 					return result, err
 				}
@@ -537,9 +572,9 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 	}
 	err = database.WithTx(ctx, db, func(tx pgx.Tx) error {
 		var status string
-		var currentAttempt int
+		var currentAttempt, currentControl int
 		var replaced bool
-		if err := tx.QueryRow(ctx, "select status from runs where id=$1 for update", step.Run).Scan(&status); err != nil {
+		if err := tx.QueryRow(ctx, "select status,control_revision from runs where id=$1 for update", step.Run).Scan(&status, &currentControl); err != nil {
 			return err
 		}
 		if err := tx.QueryRow(ctx, `select i.attempt_no,exists(select from active_call_redos c where(c.run_id,c.ordinal,c.attempt_no)=(i.run_id,i.ordinal,$3))
@@ -630,7 +665,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 			return nil
 		}
 		if lookupDecision != nil {
-			return saveLookupTurn(ctx, tx, step, d, dispatchedAttempt, status, lookupDecision, reply, &result)
+			return saveLookupTurn(ctx, tx, step, d, dispatchedAttempt, currentControl, status, actionKind, lookupDecision, reply, &result)
 		}
 		if d.routing.target > 0 {
 			if err := d.routing.record(ctx, tx, step, selectedTool); err != nil {
@@ -881,10 +916,11 @@ type Node struct {
 	Dependencies []int
 	Image        bool
 	LookupAnswer bool
+	Calculation  bool
 }
 
 func (a Activities) Topology(ctx context.Context, run string) ([]Node, error) {
-	rows, err := a.Catalog.DB.Query(ctx, `select n.ordinal,case when cb.run_id is not null then array[]::integer[] else array(select e.depends_on from node_edges e where(e.project_id,e.plan_version,e.ordinal)=(n.project_id,n.plan_version,n.ordinal) order by e.depends_on) end,agent_output_operation(ar)='png',n.lookup_phase='answer' and cb.run_id is null from runs r left join change_batches cb on cb.run_id=r.id left join artifacts target on target.id=cb.artifact_id join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version) join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision) where r.id=$1 and (cb.run_id is null or n.ordinal=target.ordinal) order by n.ordinal`, run)
+	rows, err := a.Catalog.DB.Query(ctx, `select n.ordinal,case when cb.run_id is not null then array[]::integer[] else array(select e.depends_on from node_edges e where(e.project_id,e.plan_version,e.ordinal)=(n.project_id,n.plan_version,n.ordinal) order by e.depends_on) end,agent_output_operation(ar)='png',n.lookup_phase='answer' and cb.run_id is null,n.lookup_phase='answer_calc' and cb.run_id is null from runs r left join change_batches cb on cb.run_id=r.id left join artifacts target on target.id=cb.artifact_id join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version) join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision) where r.id=$1 and (cb.run_id is null or n.ordinal=target.ordinal) order by n.ordinal`, run)
 	if err != nil {
 		return nil, err
 	}
@@ -896,6 +932,7 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 		return err
 	}
 	lookupTurns := workflow.GetVersion(ctx, "read-only-lookup-turns", workflow.DefaultVersion, 1) != workflow.DefaultVersion
+	localActions := workflow.GetVersion(ctx, "durable-local-actions", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	done := map[int]bool{}
 	control := workflow.GetSignalChannel(ctx, "control")
 	type pending struct {
@@ -922,7 +959,9 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 					stepCtx = workflow.WithStartToCloseTimeout(ctx, resources.ImageTimeout+30*time.Second)
 				}
 				activity := "ExecuteStep"
-				if lookupTurns && node.LookupAnswer {
+				if localActions && (node.LookupAnswer || node.Calculation) {
+					activity = "AdvanceExecutionTurn"
+				} else if lookupTurns && node.LookupAnswer {
 					activity = "AdvanceTurn"
 				}
 				active = append(active, pending{node.Ordinal, workflow.ExecuteActivity(stepCtx, activity, Step{run, node.Ordinal})})
@@ -936,6 +975,24 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 			var outcome Result
 			if err := item.future.Get(ctx, &outcome); err != nil {
 				return err
+			}
+			if outcome.Action != nil {
+				step := Step{run, item.ordinal}
+				for retries := 0; outcome.Action != nil || outcome.RevisitTurn; retries++ {
+					if retries == 4 {
+						outcome = Result{Wait: true}
+						break
+					}
+					if outcome.RevisitTurn {
+						if err := workflow.ExecuteActivity(ctx, "AdvanceExecutionTurn", step).Get(ctx, &outcome); err != nil {
+							return err
+						}
+						continue
+					}
+					if err := workflow.ExecuteActivity(ctx, "ExecuteAction", *outcome.Action).Get(ctx, &outcome); err != nil {
+						return err
+					}
+				}
 			}
 			if outcome.LookupAttempt > 0 {
 				action := lookupAction{Step: Step{run, item.ordinal}, Attempt: outcome.LookupAttempt}

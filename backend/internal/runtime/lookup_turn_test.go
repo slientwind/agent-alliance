@@ -61,6 +61,7 @@ func TestLookupTurnWorkflowSchedulesLocalEffectBeforeDependents(t *testing.T) {
 	env.RegisterActivity(a.AdvanceTurn)
 	env.RegisterActivity(a.ExecuteLookupAction)
 	env.RegisterActivity(a.ExecuteStep)
+	env.OnGetVersion("durable-local-actions", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
 	env.OnActivity(a.Topology, mock.Anything, "run").Return([]Node{
 		{Ordinal: 1, LookupAnswer: true}, {Ordinal: 2, Dependencies: []int{1}},
 	}, nil).Once()
@@ -82,10 +83,37 @@ func TestLookupTurnWorkflowKeepsOldHistoryActivity(t *testing.T) {
 	env.RegisterActivity(a.Topology)
 	env.RegisterActivity(a.ExecuteStep)
 	env.OnGetVersion("read-only-lookup-turns", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	env.OnGetVersion("durable-local-actions", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
 	env.OnActivity(a.Topology, mock.Anything, "run").Return([]Node{{Ordinal: 1, LookupAnswer: true}}, nil).Once()
 	env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", 1}).Return(func(context.Context, Step) (Result, error) {
 		return Result{}, nil
 	}).Once()
+	env.ExecuteWorkflow(Collaborate, "run")
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+	env.AssertExpectations(t)
+}
+
+func TestDurableLocalActionRevisitsStaleControlBeforeContinuing(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	var a Activities
+	env.RegisterActivity(a.Topology)
+	env.RegisterActivity(a.AdvanceExecutionTurn)
+	env.RegisterActivity(a.ExecuteAction)
+	env.RegisterActivity(a.ExecuteStep)
+	env.OnActivity(a.Topology, mock.Anything, "run").Return([]Node{
+		{Ordinal: 1, Calculation: true}, {Ordinal: 2, Dependencies: []int{1}},
+	}, nil).Once()
+	step := Step{"run", 1}
+	old := ActionRef{Step: step, Attempt: 1, Kind: calculateAction, ControlRevision: 2}
+	current := ActionRef{Step: step, Attempt: 1, Kind: calculateAction, ControlRevision: 3}
+	first := env.OnActivity(a.AdvanceExecutionTurn, mock.Anything, step).Return(Result{Action: &old}, nil).Once()
+	stale := env.OnActivity(a.ExecuteAction, mock.Anything, old).Return(Result{RevisitTurn: true}, nil).NotBefore(first).Once()
+	resumed := env.OnActivity(a.AdvanceExecutionTurn, mock.Anything, step).Return(Result{Action: &current}, nil).NotBefore(stale).Once()
+	done := env.OnActivity(a.ExecuteAction, mock.Anything, current).Return(Result{}, nil).NotBefore(resumed).Once()
+	env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", 2}).Return(Result{}, nil).NotBefore(done).Once()
 	env.ExecuteWorkflow(Collaborate, "run")
 	if err := env.GetWorkflowError(); err != nil {
 		t.Fatal(err)

@@ -33,6 +33,8 @@ func main() {
 	w.RegisterActivity(a.ExecuteStep)
 	w.RegisterActivity(a.AdvanceTurn)
 	w.RegisterActivity(a.ExecuteLookupAction)
+	w.RegisterActivity(a.AdvanceExecutionTurn)
+	w.RegisterActivity(a.ExecuteAction)
 	w.RegisterActivity(a.Topology)
 	if err := w.Start(); err != nil {
 		log.Fatal(err)

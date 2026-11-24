@@ -510,6 +510,7 @@ export type Project = Summary & {
     receiptRequest?: { step: number; reason: string; kind?: "calculation" | "lookup" } | null;
     indexWait?: { step: number; until: string; automatic: boolean } | null;
     lookupPending?: boolean;
+    calculationPending?: boolean;
     draftAvailable?: boolean;
     canResolveToolChoice?: boolean;
     canConcludeFailure?: boolean;
