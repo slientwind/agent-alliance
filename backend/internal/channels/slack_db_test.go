@@ -69,8 +69,8 @@ func TestSlackProjectThreadAndSharedWaitPostgres(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"ok":true,"channel":"DDEMO","ts":"1730000000.990010"}`)
 	}))
 	defer api.Close()
-	s := Slack{db: db, vault: vault, team: "TDEMO", app: "ADEMO", bot: bot, signing: "test-slack-signing",
-		public: "https://example.invalid", endpoint: api.URL, client: api.Client()}
+	s := Slack{imChannel: imChannel{db: db, vault: vault, key: "slack/TDEMO/ADEMO", provider: "slack", name: "Slack", conversation: " Slack 线程", public: "https://example.invalid"},
+		team: "TDEMO", app: "ADEMO", bot: bot, signing: "test-slack-signing", endpoint: api.URL, client: api.Client()}
 	secret, team, actor := web.Token(), uuid.NewString(), uuid.NewString()
 	sql := func(statement string, args ...any) {
 		t.Helper()
@@ -148,7 +148,7 @@ func TestSlackProjectThreadAndSharedWaitPostgres(t *testing.T) {
 	}
 	deliver := func(want string) string {
 		t.Helper()
-		if err := s.deliverNext(ctx); err != nil {
+		if err := s.deliverNext(ctx, s.postReply, slackFormat); err != nil {
 			t.Fatal(err)
 		}
 		select {
@@ -181,7 +181,7 @@ func TestSlackProjectThreadAndSharedWaitPostgres(t *testing.T) {
 	if res := signed(valid, s.signing); res.Code != 403 {
 		t.Fatalf("foreign workspace accepted: %d", res.Code)
 	}
-	check("ignored event filters", "select count(*)=0 from im_events where connection=$1", s.connection())
+	check("ignored event filters", "select count(*)=0 from im_events where connection=$1", s.key)
 
 	stale, fresh := code(), code()
 	accept(envelope("EvStale", "1730000000.000020", "", stale))
@@ -193,14 +193,14 @@ func TestSlackProjectThreadAndSharedWaitPostgres(t *testing.T) {
 	accepted.ID = "EvSameMessage"
 	accept(accepted)
 	check("binding only after processing and payload encrypted before acknowledgement", `select payload is not null and binding_id is null and state='received'
-         and position($2::bytea in payload)=0 from im_events where (connection,event_id)=($1,'EvBind')`, s.connection(), []byte(fresh))
+         and position($2::bytea in payload)=0 from im_events where (connection,event_id)=($1,'EvBind')`, s.key, []byte(fresh))
 	process()
 	if got := deliver("Slack 身份已绑定"); strings.Contains(got, fresh) {
 		t.Fatal("binding code appeared in the reply")
 	}
 	check("binding code consumed and message deduplicated", `select (select count(*)=1 from im_bindings where connection=$1)
       and (select count(*)=0 from im_binding_codes where connection=$1)
-      and (select count(*)=1 from im_events where connection=$1 and message_id='1730000000.000021')`, s.connection())
+      and (select count(*)=1 from im_events where connection=$1 and message_id='1730000000.000021')`, s.key)
 
 	const thread = "1730000000.000030"
 	accept(envelope("EvCreate", thread, "", "新建 采购报价核对"))
@@ -218,8 +218,8 @@ func TestSlackProjectThreadAndSharedWaitPostgres(t *testing.T) {
 	upstream.Store(429)
 	deliver("消息已加入原项目对话")
 	check("rate limiting only retries the reply", `select state='ready' and attempts=1 and next_at>now() and payload is null
-        from im_events where (connection,event_id)=($1,'EvNote')`, s.connection())
-	sql("update im_events set next_at=now() where (connection,event_id)=($1,'EvNote')", s.connection())
+        from im_events where (connection,event_id)=($1,'EvNote')`, s.key)
+	sql("update im_events set next_at=now() where (connection,event_id)=($1,'EvNote')", s.key)
 	deliver("消息已加入原项目对话")
 	accept(envelope("EvOtherThread", "1730000000.000039", "", "补充 未绑定线程"))
 	process()
@@ -281,7 +281,7 @@ func TestSlackProjectThreadAndSharedWaitPostgres(t *testing.T) {
 	}
 	process()
 	for range 2 {
-		if err := s.deliverNext(ctx); err != nil {
+		if err := s.deliverNext(ctx, s.postReply, slackFormat); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -313,5 +313,5 @@ func TestSlackProjectThreadAndSharedWaitPostgres(t *testing.T) {
 	}
 	check("rebinding never inherits the old thread mapping", `select
         exists(select from im_bindings where (connection,member_id)=($1,$2))
-        and not exists(select from im_threads where project_id=$3)`, s.connection(), actor, project)
+        and not exists(select from im_threads where project_id=$3)`, s.key, actor, project)
 }

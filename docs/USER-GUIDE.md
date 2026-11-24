@@ -347,6 +347,12 @@
 
 成员在「我的工作区 → 账号设置 → Slack 账号绑定」领取十分钟有效的绑定指令，在企业机器人的单聊中发送。发送「新建 工作目标」建立项目对话，或用「切换 项目ID」接续已有项目。在同一 Slack 线程中回复「进度」「待办」或「补充 内容」。需要复查执行条件时，有权处理的成员可复制「待办」当前给出的指令。指令已过期时重新查询。附件、正式补件、成果审核和交付从链接进入原项目处理。解除绑定会清除原线程关联。
 
+### 钉钉单聊入口
+
+管理员在钉钉企业内部应用中启用机器人，选择 Stream 接收消息并发布给使用成员。API 配置 `PUBLIC_BASE_URL`、`DINGTALK_CORP_ID`、`DINGTALK_CLIENT_ID` 和 `DINGTALK_CLIENT_SECRET`。机器人编码与 Client ID 不同时配置 `DINGTALK_ROBOT_CODE`。服务主动连接钉钉，不需要另设入站回调地址。从本企业单聊接收带企业成员身份的文本消息。[钉钉 Stream 协议](https://open-dingtalk.github.io/developerpedia/docs/learn/stream/protocol/) · [机器人消息格式](https://opensource.dingtalk.com/developerpedia/docs/learn/bot/message/)
+
+成员在「我的工作区 → 账号设置 → 钉钉账号绑定」领取并发送绑定指令。单聊发送「新建 工作目标」或「切换 项目ID」，接下来在原单聊发送「进度」「待办」或「补充 内容」。核对执行条件后，可发送待办给出的当前复查指令。附件、正式补件、审核和交付从链接进入原项目。会话回复地址失效后，可重新发送「进度」查看原项目的当前状态。
+
 ### 飞书任务入口
 
 为 API 配置企业实例的 HTTPS 外部地址 `PUBLIC_BASE_URL`，以及 `FEISHU_APP_ID`、`FEISHU_APP_SECRET`、`FEISHU_ENCRYPT_KEY`、`FEISHU_VERIFICATION_TOKEN`、`FEISHU_TENANT_KEY`。群内定向消息另需机器人的 `FEISHU_BOT_OPEN_ID`。企业自建应用须开通机器人、接收指定范围的消息和回复消息的权限，并发布到试用成员可用的范围。把加密事件订阅地址设成企业实例的 `/api/channels/feishu/events`，订阅 `im.message.receive_v1`。[接收消息事件](https://open.feishu.cn/document/server-docs/im-v1/message/events/receive) · [回复消息](https://open.feishu.cn/document/server-docs/im-v1/message/reply)

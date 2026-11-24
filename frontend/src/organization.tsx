@@ -17,7 +17,11 @@ export function SlackIdentity() {
   return <ChannelIdentity channel="slack" name="Slack" />;
 }
 
-function ChannelIdentity({ channel, name }: { channel: "feishu" | "slack"; name: string }) {
+export function DingTalkIdentity() {
+  return <ChannelIdentity channel="dingtalk" name="钉钉" />;
+}
+
+function ChannelIdentity({ channel, name }: { channel: "feishu" | "slack" | "dingtalk"; name: string }) {
   const [state, setState] = useState<{ configured: boolean; bound: boolean }>();
   const [command, setCommand] = useState("");
   const [message, setMessage] = useState("");
@@ -79,7 +83,7 @@ function ChannelIdentity({ channel, name }: { channel: "feishu" | "slack"; name:
             单聊发送「服务」或「服务
             关键词」查找团队服务。发起后可在同一单聊附一份兼容资料，核对文件名、服务版本、调用次数与费用承担方再确认。发送「进度」查询状态，发送「待办」打开任务卡。
           </p>
-          </> : <p>在 Slack 单聊发送「新建 工作目标」或「切换 项目ID」。在同一线程回复「进度」「待办」或「补充 内容」。</p>}
+          </> : <p>在{name}单聊发送「新建 工作目标」或「切换 项目ID」。在{channel === "slack" ? "同一线程" : "原单聊"}回复「进度」「待办」或「补充 内容」。</p>}
           <button
             onClick={async () => {
               try {

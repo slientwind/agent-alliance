@@ -65,7 +65,7 @@ func TestSlackReplyRequiresConfirmationOrAnExplicitRetry(t *testing.T) {
 			}))
 			defer server.Close()
 			slack := Slack{client: server.Client(), endpoint: server.URL, bot: "scratch-bot"}
-			state, delay := slack.postReply(context.Background(), slackJob{chat: "D03", thread: "1730000000.000100", attempts: tc.attempts}, "当前状态")
+			state, delay := slack.postReply(context.Background(), imJob{chat: "D03", thread: "1730000000.000100", attempts: tc.attempts}, "当前状态")
 			if state != tc.state || delay != time.Duration(tc.delay)*time.Second {
 				t.Fatalf("got %s/%s, want %s/%ds", state, delay, tc.state, tc.delay)
 			}

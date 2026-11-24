@@ -6,6 +6,7 @@ require (
 	filippo.io/age v1.3.2
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/google/uuid v1.6.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.7.6
 	go.opentelemetry.io/proto/otlp v1.7.1
 	go.temporal.io/api v1.64.3

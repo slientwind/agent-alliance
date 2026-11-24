@@ -1,21 +1,18 @@
 package channels
 
 import (
-	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"alliance/internal/database"
 	"alliance/internal/identity"
 	"alliance/internal/resources"
 	"alliance/internal/web"
@@ -24,82 +21,30 @@ import (
 )
 
 type Slack struct {
-	db                      *pgxpool.Pool
-	vault                   resources.Vault
+	imChannel
 	team, app, signing, bot string
-	public, endpoint        string
+	endpoint                string
 	client                  *http.Client
 }
 
 func NewSlack(db *pgxpool.Pool, vault resources.Vault) Slack {
-	return Slack{db: db, vault: vault, team: os.Getenv("SLACK_TEAM_ID"), app: os.Getenv("SLACK_APP_ID"),
-		signing: os.Getenv("SLACK_SIGNING_SECRET"), bot: os.Getenv("SLACK_BOT_TOKEN"),
-		public: strings.TrimRight(os.Getenv("PUBLIC_BASE_URL"), "/"), endpoint: "https://slack.com/api/chat.postMessage",
-		client: &http.Client{Timeout: 4 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return http.ErrUseLastResponse
-		}},
-	}
+	team, app := os.Getenv("SLACK_TEAM_ID"), os.Getenv("SLACK_APP_ID")
+	return Slack{imChannel: imChannel{db: db, vault: vault, key: "slack/" + team + "/" + app, provider: "slack", name: "Slack", conversation: " Slack 线程",
+		public: strings.TrimRight(os.Getenv("PUBLIC_BASE_URL"), "/")}, team: team, app: app, signing: os.Getenv("SLACK_SIGNING_SECRET"),
+		bot: os.Getenv("SLACK_BOT_TOKEN"), endpoint: "https://slack.com/api/chat.postMessage", client: newIMHTTPClient()}
 }
 
 var slackID = regexp.MustCompile(`^[A-Za-z0-9]{2,64}$`)
 var slackTimestamp = regexp.MustCompile(`^[0-9]{1,16}\.[0-9]{1,12}$`)
 
-func (s Slack) connection() string { return "slack/" + s.team + "/" + s.app }
-
 func (s Slack) configured() bool {
-	base, err := url.Parse(s.public)
-	return err == nil && base.Scheme == "https" && base.Hostname() != "" && base.User == nil &&
-		base.RawQuery == "" && !base.ForceQuery && base.Fragment == "" && !strings.ContainsAny(s.public, "<>|") &&
-		slackID.MatchString(s.team) && strings.HasPrefix(s.team, "T") && slackID.MatchString(s.app) && strings.HasPrefix(s.app, "A") &&
-		s.signing != "" && s.bot != ""
+	return s.publicConfigured() && slackID.MatchString(s.team) && strings.HasPrefix(s.team, "T") && slackID.MatchString(s.app) &&
+		strings.HasPrefix(s.app, "A") && s.signing != "" && s.bot != ""
 }
 
 func (s Slack) Routes(m *http.ServeMux, g identity.Server) {
-	m.Handle("GET /api/channels/slack/bind", g.Protect(false, s.bindingStatus))
-	m.Handle("POST /api/channels/slack/bind", g.Protect(false, s.newBindingCode))
-	m.Handle("DELETE /api/channels/slack/bind", g.Protect(false, s.unlink))
+	s.bindingRoutes(m, g, s.configured())
 	m.Handle("POST /api/channels/slack/events", web.Handler(s.event))
-}
-
-func (s Slack) bindingStatus(w http.ResponseWriter, r *http.Request, member identity.Member) error {
-	var bound bool
-	if err := s.db.QueryRow(r.Context(), "select exists(select from im_bindings where (connection,member_id)=($1,$2))",
-		s.connection(), member.ID).Scan(&bound); err != nil {
-		return err
-	}
-	return web.JSON(w, 200, map[string]bool{"configured": s.configured(), "bound": bound})
-}
-
-func (s Slack) newBindingCode(w http.ResponseWriter, r *http.Request, member identity.Member) error {
-	if !s.configured() {
-		return web.Fail(409, "企业尚未配置 Slack 应用")
-	}
-	code := web.Token()
-	if _, err := s.db.Exec(r.Context(), `insert into im_binding_codes(connection,member_id,token_hash,expires_at)
-        values($1,$2,$3,now()+interval '10 minutes') on conflict(connection,member_id) do update
-        set token_hash=excluded.token_hash,expires_at=excluded.expires_at`, s.connection(), member.ID, web.Hash(code)); err != nil {
-		return err
-	}
-	w.Header().Set("Cache-Control", "no-store")
-	return web.JSON(w, 201, map[string]string{"command": "绑定 " + code})
-}
-
-func (s Slack) unlink(w http.ResponseWriter, r *http.Request, member identity.Member) error {
-	ctx := r.Context()
-	err := database.WithTx(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, "delete from im_binding_codes where (connection,member_id)=($1,$2)", s.connection(), member.ID); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, "delete from im_bindings where (connection,member_id)=($1,$2)", s.connection(), member.ID); err != nil {
-			return err
-		}
-		return database.Audit(ctx, tx, member.ID, "channel.unlink", "slack", map[string]any{})
-	})
-	if err != nil {
-		return err
-	}
-	w.WriteHeader(204)
-	return nil
 }
 
 func verifySlackSignature(secret, stamp, signature string, body []byte, now time.Time) bool {
@@ -182,21 +127,9 @@ func (s Slack) event(w http.ResponseWriter, r *http.Request) error {
 		w.WriteHeader(200)
 		return nil
 	}
-	sealed, err := s.vault.Seal(text, s.eventScope(envelope.ID))
-	if err != nil {
-		return err
-	}
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-	defer cancel()
-	_, err = s.db.Exec(ctx, `insert into im_events(connection,event_id,chat_id,thread_id,message_id,external_user,binding_id,payload)
-       values($1,$2,$3,$4,$5,$6,(select b.id from im_bindings b join members m on m.id=b.member_id
-            and m.enabled and m.kind='person' where (b.connection,b.external_user)=($1,$6)),$7) on conflict do nothing`,
-		s.connection(), envelope.ID, m.Channel, thread, m.TS, m.User, sealed)
-	if err != nil {
+	if err := s.accept(r.Context(), imMessage{event: envelope.ID, chat: m.Channel, thread: thread, message: m.TS, sender: m.User, text: text}); err != nil {
 		return err
 	}
 	w.WriteHeader(200)
 	return nil
 }
-
-func (s Slack) eventScope(id string) string { return s.connection() + "/event/" + id }

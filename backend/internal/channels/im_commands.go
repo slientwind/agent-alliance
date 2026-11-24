@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"alliance/internal/database"
@@ -16,7 +17,9 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type slackJob struct {
+type imJob struct {
+	replyTarget              []byte
+	replyExpiry              *time.Time
 	id, chat, thread, sender string
 	binding, project         *string
 	text                     string
@@ -25,136 +28,134 @@ type slackJob struct {
 	attempts                 int
 }
 
-type slackReply struct{ project, kind, note string }
+type imReply struct{ project, kind, note string }
 
-const slackThreadGuide = "发送“新建 工作目标”开始，或发送“切换 项目ID”接续原项目。后续在同一 Slack 线程发送“进度”“待办”或“补充 内容”。"
-
-func (s Slack) boundMember(ctx context.Context, tx pgx.Tx, job slackJob) (string, error) {
+func (s imChannel) boundMember(ctx context.Context, tx pgx.Tx, job imJob) (string, error) {
 	var actor string
 	err := tx.QueryRow(ctx, `select m.id from im_bindings b join members m on m.id=b.member_id
         where (b.connection,b.external_user,b.id)=($1,$2,$3) and m.enabled and m.kind='person' and m.departed_at is null
-        for share of b,m`, s.connection(), job.sender, job.binding).Scan(&actor)
+        for share of b,m`, s.key, job.sender, job.binding).Scan(&actor)
 	return actor, err
 }
 
-func (s Slack) bind(ctx context.Context, tx pgx.Tx, job *slackJob, code string) (slackReply, error) {
+func (s imChannel) bind(ctx context.Context, tx pgx.Tx, job *imJob, code string) (imReply, error) {
 	var member string
 	err := tx.QueryRow(ctx, `delete from im_binding_codes where connection=$1 and token_hash=$2 and expires_at>now()
-        returning member_id`, s.connection(), web.Hash(code)).Scan(&member)
+        returning member_id`, s.key, web.Hash(code)).Scan(&member)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return slackReply{note: "绑定码已失效，请到企业网页重新领取。"}, nil
+		return imReply{note: "绑定码已失效，请到企业网页重新领取。"}, nil
 	}
 	if err != nil {
-		return slackReply{}, err
+		return imReply{}, err
 	}
 	err = tx.QueryRow(ctx, `insert into im_bindings(connection,external_user,member_id)
         select $1,$2,m.id from members m where m.id=$3 and m.enabled and m.kind='person' and m.departed_at is null
-        for share of m on conflict do nothing returning id::text`, s.connection(), job.sender, member).Scan(&job.binding)
+        for share of m on conflict do nothing returning id::text`, s.key, job.sender, member).Scan(&job.binding)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return slackReply{note: "当前无法绑定，请在企业网页核对账号状态。"}, nil
+		return imReply{note: "当前无法绑定，请在企业网页核对账号状态。"}, nil
 	}
 	if err != nil {
-		return slackReply{}, err
+		return imReply{}, err
 	}
-	if err := database.Audit(ctx, tx, member, "channel.bind", "slack", map[string]any{}); err != nil {
-		return slackReply{}, err
+	if err := database.Audit(ctx, tx, member, "channel.bind", s.provider, map[string]any{}); err != nil {
+		return imReply{}, err
 	}
-	return slackReply{note: "Slack 身份已绑定。\n" + slackThreadGuide}, nil
+	return imReply{note: s.name + " 身份已绑定。\n" + s.conversationGuide()}, nil
 }
 
-func (s Slack) command(ctx context.Context, tx pgx.Tx, job *slackJob) (slackReply, error) {
+func (s imChannel) command(ctx context.Context, tx pgx.Tx, job *imJob) (imReply, error) {
 	verb, value, _ := strings.Cut(job.text, " ")
 	value = strings.TrimSpace(value)
 	if job.binding == nil {
 		if verb == "绑定" && value != "" {
 			return s.bind(ctx, tx, job, value)
 		}
-		return slackReply{note: "请从企业网页的「账号设置 → Slack 账号绑定」获取绑定码，并在单聊发送绑定指令。"}, nil
+		return imReply{note: "请从企业网页的「账号设置 → " + s.name + " 账号绑定」获取绑定码，并在单聊发送绑定指令。"}, nil
 	}
 	actor, err := s.boundMember(ctx, tx, *job)
 	if err != nil {
-		return slackReply{}, err
+		return imReply{}, err
 	}
 	if verb == "绑定" {
-		return slackReply{note: "Slack 身份已绑定。"}, nil
+		return imReply{note: s.name + " 身份已绑定。"}, nil
 	}
 	var project string
 	if verb == "新建" || verb == "切换" {
 		if verb == "新建" {
 			if value == "" || utf8.RuneCountInString(value) > 16000 {
-				return slackReply{note: "请发送“新建 工作目标”，目标限 16000 字。"}, nil
+				return imReply{note: "请发送“新建 工作目标”，目标限 16000 字。"}, nil
 			}
 			project, err = projects.CreateProjectDraft(ctx, tx, actor, "", value)
 		} else {
 			if !uuidPattern.MatchString(value) {
-				return slackReply{note: "请发送“切换 项目ID”。"}, nil
+				return imReply{note: "请发送“切换 项目ID”。"}, nil
 			}
-			project, err = slackReadableProject(ctx, tx, value, actor)
+			project, err = imReadableProject(ctx, tx, value, actor)
 		}
 		if err != nil {
-			return slackReply{}, err
+			return imReply{}, err
 		}
 		_, err = tx.Exec(ctx, `insert into im_threads(binding_id,chat_id,thread_id,project_id) values($1,$2,$3,$4)
            on conflict(binding_id,chat_id,thread_id) do update set project_id=excluded.project_id`, job.binding, job.chat, job.thread, project)
-		return slackReply{project: project, kind: "project", note: "已关联此 Slack 线程。\n在此线程回复“进度”“待办”或“补充 内容”。"}, err
+		return imReply{project: project, kind: "project", note: "已关联此" + s.conversation + "。\n回复“进度”“待办”或“补充 内容”。"}, err
 	}
 	err = tx.QueryRow(ctx, `select t.project_id from im_threads t join project_members p on(p.project_id,p.member_id)=(t.project_id,$4)
 	       where (t.binding_id,t.chat_id,t.thread_id)=($1,$2,$3)`, job.binding, job.chat, job.thread, actor).Scan(&project)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return slackReply{note: slackThreadGuide}, nil
+		return imReply{note: s.conversationGuide()}, nil
 	}
 	if err != nil {
-		return slackReply{}, err
+		return imReply{}, err
 	}
 	switch verb {
 	case "进度":
-		return slackReply{project: project, kind: "progress"}, nil
+		return imReply{project: project, kind: "progress"}, nil
 	case "待办":
-		return slackReply{project: project, kind: "todos"}, nil
+		return imReply{project: project, kind: "todos"}, nil
 	case "补充":
 		if value == "" || utf8.RuneCountInString(value) > 16000 {
-			return slackReply{note: "请发送“补充 内容”，消息限 16000 字。"}, nil
+			return imReply{note: "请发送“补充 内容”，消息限 16000 字。"}, nil
 		}
 		err := projects.AppendProjectMessage(ctx, tx, project, actor, value)
-		return slackReply{project: project, kind: "project", note: "消息已加入原项目对话。任务所需原件及正式补件可在企业网页提交。"}, err
+		return imReply{project: project, kind: "project", note: "消息已加入原项目对话。任务所需原件及正式补件可在企业网页提交。"}, err
 	case "复查":
 		return s.recheck(ctx, tx, job.id, actor, project, value)
 	default:
-		return slackReply{project: project, kind: "project", note: "请发送“进度”“待办”或“补充 内容”。"}, nil
+		return imReply{project: project, kind: "project", note: "请发送“进度”“待办”或“补充 内容”。"}, nil
 	}
 }
 
-func slackReadableProject(ctx context.Context, tx pgx.Tx, target, actor string) (string, error) {
+func imReadableProject(ctx context.Context, tx pgx.Tx, target, actor string) (string, error) {
 	var project string
 	err := tx.QueryRow(ctx, `select project_id from project_members where (project_id,member_id)=($1,$2) for share`, target, actor).Scan(&project)
 	return project, err
 }
 
-func (s Slack) recheck(ctx context.Context, tx pgx.Tx, event, actor, project, text string) (slackReply, error) {
+func (s imChannel) recheck(ctx context.Context, tx pgx.Tx, event, actor, project, text string) (imReply, error) {
 	parts := strings.Fields(text)
 	if len(parts) != 4 || !uuidPattern.MatchString(parts[0]) {
-		return slackReply{note: "请发送“待办”，并使用当前步骤给出的复查指令。"}, nil
+		return imReply{note: "请发送“待办”，并使用当前步骤给出的复查指令。"}, nil
 	}
 	step, stepErr := strconv.Atoi(parts[1])
 	wait, waitErr := strconv.Atoi(parts[2])
 	control, controlErr := strconv.Atoi(parts[3])
 	if stepErr != nil || waitErr != nil || controlErr != nil {
-		return slackReply{note: "请发送“待办”，并使用当前步骤给出的复查指令。"}, nil
+		return imReply{note: "请发送“待办”，并使用当前步骤给出的复查指令。"}, nil
 	}
 	var linked bool
 	if err := tx.QueryRow(ctx, "select exists(select from runs where (id,project_id)=($1,$2))", parts[0], project).Scan(&linked); err != nil {
-		return slackReply{}, err
+		return imReply{}, err
 	}
 	if !linked {
-		return slackReply{note: "该待办已失效或不属于本线程的项目。"}, nil
+		return imReply{note: "该待办已失效或不属于当前项目。"}, nil
 	}
-	key := "slack/" + hex.EncodeToString(web.Hash(s.connection()+"/"+event))
+	key := s.provider + "/" + hex.EncodeToString(web.Hash(s.key+"/"+event))
 	err := projects.RecheckStepDispatch(ctx, tx, parts[0], actor, key,
 		projects.DispatchRecheckInput{Step: step, Expected: control, WaitRevision: wait})
-	return slackReply{project: project, kind: "project", note: "已提交步骤复查。发送“进度”查看当前结果。"}, err
+	return imReply{project: project, kind: "project", note: "已提交步骤复查。发送“进度”查看当前结果。"}, err
 }
 
-func slackProjectReply(ctx context.Context, tx pgx.Tx, actor, project, kind string) (string, error) {
+func imProjectReply(ctx context.Context, tx pgx.Tx, actor, project, kind string) (string, error) {
 	var stage, title string
 	if err := tx.QueryRow(ctx, "select stage,title from projects where id=$1", project).Scan(&stage, &title); err != nil {
 		return "", err
@@ -215,7 +216,7 @@ func slackProjectReply(ctx context.Context, tx pgx.Tx, actor, project, kind stri
 			return "", err
 		}
 		if granted {
-			lines = append(lines, fmt.Sprintf("步骤 %d 待核对执行条件。处理后在本线程发送：\n复查 %s %d %d %d",
+			lines = append(lines, fmt.Sprintf("步骤 %d 待核对执行条件。处理后回复：\n复查 %s %d %d %d",
 				wait.Step, wait.Run, wait.Step, wait.Wait, wait.Control))
 		}
 	}

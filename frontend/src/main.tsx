@@ -28,7 +28,7 @@ import { TeamSetup } from "./team-setup";
 import { TeamRules } from "./team-rules";
 import { ProjectRecovery } from "./project-recovery";
 import { ResponsibilityQueue } from "./reviewer-handoffs";
-import { FeishuIdentity, SlackIdentity } from "./organization";
+import { DingTalkIdentity, FeishuIdentity, SlackIdentity } from "./organization";
 import { EnterpriseWorkspace } from "./enterprise-workspace";
 import { createRoot } from "react-dom/client";
 import {
@@ -1341,6 +1341,7 @@ function App() {
                 {state.sso && <LoginBinding />}
                 <FeishuIdentity />
                 <SlackIdentity />
+                <DingTalkIdentity />
               </details>
               {user.role === "admin" && (
                 <button onClick={admin}>企业管理</button>
