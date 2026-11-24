@@ -111,6 +111,7 @@ func (mode turnMode) batchesLookup() bool {
 
 type contextData struct {
 	memberDraft                                            bool
+	canWaitForDispatch                                     bool
 	routing                                                toolChoice
 	project, actor, agent, brief, prior, prompt            string
 	skillTask                                              string
@@ -172,11 +173,12 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		var selector, choice *int
 		var stepToolChoice bool
 		var boundedUpstream bool
+		var stepDispatchWait bool
 		err := tx.QueryRow(ctx, `select r.project_id,r.actor,n.agent_id,n.agent_revision,p.brief,r.status,r.max_calls,n.lookup_phase,r.await_calculation_receipt,r.await_lookup_receipt,
             exists(select from nodes next where n.lookup_phase='search' and (next.project_id,next.plan_version,next.ordinal)=(n.project_id,n.plan_version,n.ordinal+1) and next.lookup_phase='answer_calc'),
-            exists(select from change_batches where run_id=r.id),n.selector,n.choice,r.plan_version,r.control_revision,r.service_id is null,r.step_tool_choice,r.bounded_upstream_context,`+runSkillTaskSQL+`
+            exists(select from change_batches where run_id=r.id),n.selector,n.choice,r.plan_version,r.control_revision,r.service_id is null,r.step_tool_choice,r.bounded_upstream_context,r.step_dispatch_wait,`+runSkillTaskSQL+`
             from runs r join plans p on(p.project_id,p.version)=(r.project_id,r.plan_version)
-            join effective_run_nodes n on n.run_id=r.id where r.id=$1 and n.ordinal=$2 for update of r`, step.Run, step.Ordinal).Scan(&d.project, &d.actor, &d.agent, &d.revision, &d.brief, &runState, &d.maximum, &d.lookupPhase, &d.awaitReceipt, &d.awaitLookupReceipt, &d.searchForCalculation, &d.change, &selector, &choice, &d.planVersion, &d.controlRevision, &d.memberDraft, &stepToolChoice, &boundedUpstream, &d.skillTask)
+            join effective_run_nodes n on n.run_id=r.id where r.id=$1 and n.ordinal=$2 for update of r`, step.Run, step.Ordinal).Scan(&d.project, &d.actor, &d.agent, &d.revision, &d.brief, &runState, &d.maximum, &d.lookupPhase, &d.awaitReceipt, &d.awaitLookupReceipt, &d.searchForCalculation, &d.change, &selector, &choice, &d.planVersion, &d.controlRevision, &d.memberDraft, &stepToolChoice, &boundedUpstream, &stepDispatchWait, &d.skillTask)
 		if err != nil {
 			return err
 		}
@@ -194,16 +196,17 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		if alreadyFinished {
 			return nil
 		}
-		var waitingForSource bool
+		var waiting bool
 		if err := tx.QueryRow(ctx, `select exists(select from calculation_requests
             where (run_id,ordinal)=($1,$2) and request_revision is not null
             union all select from lookup_index_waits
             where (run_id,ordinal,plan_version)=($1,$2,$3) and active and step_wait_revision is not null
-            union all select from step_rule_waits where (run_id,ordinal)=($1,$2))`,
-			step.Run, step.Ordinal, d.planVersion).Scan(&waitingForSource); err != nil {
+            union all select from step_rule_waits where (run_id,ordinal)=($1,$2)
+            union all select from current_step_dispatch_waits where (run_id,ordinal)=($1,$2))`,
+			step.Run, step.Ordinal, d.planVersion).Scan(&waiting); err != nil {
 			return err
 		}
-		if waitingForSource {
+		if waiting {
 			result.Wait = true
 			return nil
 		}
@@ -303,6 +306,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			result.Wait = true
 			return setState(ctx, tx, step, d.project, "blocked", "resource_denied", "项目访问已失效")
 		}
+		d.canWaitForDispatch = stepDispatchWait && !d.change && invocationStatus == ""
 		if ok, err := checkAgentEvidence(ctx, tx, step, &result, d); !ok || err != nil {
 			return err
 		}
@@ -312,7 +316,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		}
 		if !m.RemoteOperations.CanStart() {
 			result.Wait = true
-			return setState(ctx, tx, step, d.project, "blocked", "remote_policy_unverified", "此发布修订已无有效的远端执行证据，请联系维护人")
+			return parkDispatchStep(ctx, tx, step, d, "remote_policy_unverified", "此发布修订已无有效的远端执行证据，请联系维护人")
 		}
 		if d.change {
 			if _, err := tx.Exec(ctx, "select id from projects where id=$1 for update", d.project); err != nil {
@@ -575,14 +579,14 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			}
 			if !available {
 				result.Wait = true
-				return setState(ctx, tx, step, d.project, "blocked", "resource_denied", "项目授权次数已用完，请提供方重新授权")
+				return parkDispatchStep(ctx, tx, step, d, "resource_denied", "项目授权次数已用完，请提供方重新授权")
 			}
 		}
 		if err = billing.Reserve(ctx, tx, billing.Operation{Key: m.Operation, Kind: kind, Actor: d.actor, Team: m.Team, Resource: m.BudgetID, SourceRevision: m.SourceRevision, SourceName: m.Name, Run: step.Run, Project: d.project, Estimate: m.Estimate, AllowUnknown: d.change || step.Ordinal <= d.maximum}); err != nil {
 			var problem web.Problem
 			if errors.As(err, &problem) {
 				result.Wait = true
-				return setState(ctx, tx, step, d.project, "blocked", "budget_denied", problem.Message)
+				return parkDispatchStep(ctx, tx, step, d, "budget_denied", problem.Message)
 			}
 			return err
 		}
@@ -611,6 +615,11 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		}
 		if d.routing.profile == "text" || specialistChoice {
 			if _, err := tx.Exec(ctx, "select set_config('alliance.text_agent_choice_worker','true',true)"); err != nil {
+				return err
+			}
+		}
+		if stepDispatchWait {
+			if _, err := tx.Exec(ctx, "select set_config('alliance.step_dispatch_worker','true',true)"); err != nil {
 				return err
 			}
 		}
@@ -648,6 +657,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		invoke = true
 		return err
 	})
+	d.canWaitForDispatch = false
 	if err == nil && indexProbe != nil {
 		return a.recheckLookupIndex(ctx, step, d, mode, *indexProbe)
 	}
@@ -897,15 +907,15 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 func blockUnavailableAgent(ctx context.Context, tx pgx.Tx, step Step, d contextData, result *Result, err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		result.Wait = true
-		return setState(ctx, tx, step, d.project, "blocked", "resource_denied", "成员或资源授权已失效")
+		return parkDispatchStep(ctx, tx, step, d, "resource_denied", "资源授权或固定修订已失效，请联系维护人核对")
 	}
 	var unavailable web.Problem
 	if errors.As(err, &unavailable) {
 		result.Wait = true
 		if unavailable.Message == builder.DriftMessage {
-			return setState(ctx, tx, step, d.project, "blocked", "build_unavailable", unavailable.Message)
+			return parkDispatchStep(ctx, tx, step, d, "build_unavailable", unavailable.Message)
 		}
-		return setState(ctx, tx, step, d.project, "blocked", "skill_unavailable", unavailable.Message)
+		return parkDispatchStep(ctx, tx, step, d, "skill_unavailable", unavailable.Message)
 	}
 	return err
 }
@@ -917,11 +927,11 @@ func checkAgentEvidence(ctx context.Context, tx pgx.Tx, step Step, result *Resul
 	}
 	if !buildUsable {
 		result.Wait = true
-		return false, setState(ctx, tx, step, d.project, "blocked", "template_build_changed", "此步骤的构建清单与方案采用的模板版本不一致，请联系维护人")
+		return false, parkDispatchStep(ctx, tx, step, d, "template_build_changed", "此步骤的构建清单与方案采用的模板版本不一致，请联系维护人")
 	}
 	if !verified {
 		result.Wait = true
-		return false, setState(ctx, tx, step, d.project, "blocked", "verification_failed", "此步骤绑定的 Agent 修订缺少必要验证，请复验后恢复")
+		return false, parkDispatchStep(ctx, tx, step, d, "verification_failed", "此步骤绑定的 Agent 修订缺少必要验证，请复验后恢复")
 	}
 	return true, nil
 }
@@ -1194,6 +1204,11 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 		if workflow.GetVersion(ctx, "evidence-reply-checkpoints", workflow.DefaultVersion, 1) == workflow.DefaultVersion {
 			for i := range nodes {
 				nodes[i].CheckpointEvidence = false
+			}
+		}
+		if parallel && workflow.GetVersion(ctx, "step-dispatch-waits", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+			if err := workflow.ExecuteActivity(ctx, "EnableStepDispatchWaits", run).Get(ctx, nil); err != nil {
+				return err
 			}
 		}
 		return scheduleIndependentSteps(ctx, run, nodes, lookupTurns, localActions)

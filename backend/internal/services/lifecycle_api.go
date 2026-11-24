@@ -126,7 +126,7 @@ func (s Server) action(w http.ResponseWriter, r *http.Request) error {
 	if in.Action != "submit_receipt" && in.Action != "submit_lookup_receipt" && (in.Attachment != nil || in.Excerpt != "" || in.ExcerptStart != nil || in.ReceiptRevision != 0) {
 		return web.Fail(422, "请使用补交原件动作提交附件")
 	}
-	if (in.Action != "recheck_source_index" && in.Action != "recheck_step_rule" && in.WaitRevision != 0) ||
+	if (in.Action != "recheck_source_index" && in.Action != "recheck_step_rule" && in.Action != "recheck_step_dispatch" && in.WaitRevision != 0) ||
 		(in.Action != "recheck_step_rule" && in.RuleRevision != 0) {
 		return web.Fail(422, "请使用对应的待办核对动作")
 	}
@@ -189,6 +189,15 @@ func (s Server) action(w http.ResponseWriter, r *http.Request) error {
 		case "recheck_source_index":
 			if err := projects.RecheckSourceIndex(ctx, tx, id, v.Actor, fmt.Sprintf("api/%s/%x", id, web.Hash(key)),
 				projects.IndexRecheckInput{Step: in.Step, Expected: in.Expected, WaitRevision: in.WaitRevision}); err != nil {
+				return err
+			}
+			out = map[string]any{"action": in.Action, "step": in.Step, "controlRevision": in.Expected}
+		case "recheck_step_dispatch":
+			if v.Delegate == "" {
+				return web.Fail(403, "请由项目网页的负责人核对步骤执行条件")
+			}
+			if err := projects.RecheckStepDispatch(ctx, tx, id, v.Actor, fmt.Sprintf("api/%s/%x", id, web.Hash(key)),
+				projects.DispatchRecheckInput{Step: in.Step, Expected: in.Expected, WaitRevision: in.WaitRevision}); err != nil {
 				return err
 			}
 			out = map[string]any{"action": in.Action, "step": in.Step, "controlRevision": in.Expected}
@@ -386,6 +395,8 @@ var progressSQL = `select jsonb_build_object(
    (select case when cr.kind='lookup' then 'submit_lookup_receipt' else 'submit_receipt' end from current_source_receipt_requests cr where cr.run_id=r.id order by cr.ordinal limit 1)
  when jsonb_array_length(repair.requests)>0 then 'correct_columns'
  when repair.needs_human then 'review_columns'
+ when r.status='running' and exists(select from current_step_dispatch_waits w where w.run_id=r.id)
+   then case when r.delegated_by is not null then 'recheck_step_dispatch' else 'review_step_dispatch' end
  when r.status='running' and exists(select from lookup_index_waits w where (w.run_id,w.plan_version)=(r.id,r.plan_version)
       and w.active and w.step_wait_revision is not null) then 'wait_source_index'
  when run_failure_confirmable(r.id) then 'review_failure_receipt' when r.status='blocked' then 'restore_prerequisite' when r.status='reconcile' then 'check_original_receipt' when r.status='paused' then 'resume_or_cancel' when p.stage='delivered' then 'download' end,
@@ -394,6 +405,7 @@ var progressSQL = `select jsonb_build_object(
  'receiptRequest',(select jsonb_strip_nulls(jsonb_build_object('step',cr.ordinal,'reason',cr.reason,'kind',cr.kind,'receiptRevision',cr.request_revision)) from current_source_receipt_requests cr where cr.run_id=r.id order by cr.ordinal limit 1),
  'indexWait',` + projects.LookupIndexWaitSQL + `,
  'indexWaits',` + projects.StepIndexWaitsSQL + `,
+ 'dispatchWaits',` + projects.StepDispatchWaitsSQL + `,
  'ruleWaits',` + projects.StepRuleWaitsSQL("$2") + `,
  'ruleRebuildUrl','/api/v1/runs/'||r.id||'/rule-rebuild',
  'replacementRun',(select b.run_id from rule_branch_rebuilds b where b.source_run=r.id),
@@ -402,6 +414,7 @@ var progressSQL = `select jsonb_build_object(
    'toolChoiceWaitScope',case when choice_wait.step_scoped then 'step' when choice_wait.run_id is not null then 'run' end,
    'status',case when branch.mode='reuse' then 'reused'
    when choice_wait.step_scoped then 'waiting_tool_choice'
+   when exists(select from current_step_dispatch_waits w where (w.run_id,w.ordinal)=(n.run_id,n.ordinal)) then 'waiting_dispatch'
    when r.status='running' and exists(select from text_reply_checkpoints reply where
      (reply.run_id,reply.ordinal,reply.attempt_no)=(i.run_id,i.ordinal,i.attempt_no) and reply.state='pending'
      and run_working_set_usable(i.run_id,i.ordinal,i.attempt_no)) then 'checking_model_reply'

@@ -875,6 +875,20 @@ export function Work({
           )}
         </section>
       ))}
+      {p.run?.dispatchWaits?.map(wait => (
+        <section className="card" key={`dispatch-${wait.waitRevision}`} aria-label={`步骤 ${wait.step} 的执行条件`}>
+          <h2>步骤 {wait.step} · 待核对执行条件</h2>
+          <p>{wait.name} v{wait.revision}。{wait.detail}</p>
+          {p.run?.status === "running" && <p role="status">其他就绪步骤可继续。此步骤按原方案核对后续执行条件。</p>}
+          {p.run?.canRecheckDispatch && (
+            <button disabled={busy} onClick={() => void perform(() => api(
+              "runs/" + p.run!.id + "/step-dispatch/recheck", "POST",
+              { step: wait.step, expected: p.run!.controlRevision, waitRevision: wait.waitRevision },
+              { "Idempotency-Key": `dispatch-recheck/${p.run!.id}/${p.run!.controlRevision}/${wait.step}/${wait.waitRevision}` },
+            ))}>核对执行条件</button>
+          )}
+        </section>
+      ))}
       {p.run?.ruleWaits?.map(wait => (
         <section className="card" key={wait.waitRevision} aria-label={`步骤 ${wait.step} 的团队规则`}>
           <h2>步骤 {wait.step} · 团队规则待核对</h2>

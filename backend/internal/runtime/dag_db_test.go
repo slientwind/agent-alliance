@@ -121,6 +121,7 @@ func TestIndependentDAGDispatchPostgres(t *testing.T) {
 	env.RegisterActivity(a.Topology)
 	env.RegisterActivity(a.EnableStepRemoteInput)
 	env.RegisterActivity(a.EnableStepSourceReceipts)
+	env.RegisterActivity(a.EnableStepDispatchWaits)
 	env.RegisterActivity(a.ExecuteStep)
 	env.RegisterActivity(a.AdvanceTextStep)
 	env.RegisterActivity(a.CommitTextReply)

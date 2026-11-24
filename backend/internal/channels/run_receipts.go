@@ -129,7 +129,12 @@ func stepWaitProgress(ctx context.Context, tx pgx.Tx, actor, project string) (st
         join nodes n on(n.project_id,n.plan_version,n.ordinal)=(r.project_id,r.plan_version,w.ordinal)
         join agent_revisions a on(a.agent_id,a.revision)=(n.agent_id,n.agent_revision)
         join project_members pm on (pm.project_id,pm.member_id)=(p.id,$1)
-        where p.id=$2 order by 1`, actor, project)
+        where p.id=$2
+        union all
+        select w.ordinal,true,'dispatch' from current_step_dispatch_waits w
+        join runs r on r.id=w.run_id join projects p on (p.id,p.plan_version)=(r.project_id,r.plan_version)
+        join project_members pm on (pm.project_id,pm.member_id)=(p.id,$1)
+        where p.id=$2 and r.status='running' order by 1`, actor, project)
 	if err != nil {
 		return "", err
 	}
@@ -142,6 +147,8 @@ func stepWaitProgress(ctx context.Context, tx pgx.Tx, actor, project string) (st
 			return "", err
 		}
 		switch {
+		case kind == "dispatch":
+			notes = append(notes, fmt.Sprintf("步骤 %d 待核对执行条件，其他就绪步骤可继续。打开原项目查看原因。", step))
 		case kind == "tool" || kind == "agent":
 			label := "工具"
 			if kind == "agent" {

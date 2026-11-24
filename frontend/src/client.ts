@@ -539,6 +539,8 @@ export type Project = Summary & {
     receiptRequests?: SourceReceiptRequest[];
     indexWait?: { step: number; until: string; automatic: boolean } | null;
     indexWaits?: { step: number; until: string; automatic: boolean; waitRevision: number }[];
+    dispatchWaits?: { step: number; name: string; revision: number; waitRevision: number; reason: string; detail: string }[];
+    canRecheckDispatch?: boolean;
     ruleWaits?: {
       step: number;
       rule: string;
