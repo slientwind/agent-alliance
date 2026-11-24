@@ -1,7 +1,7 @@
 # Agent Alliance vNext 技术架构与工程演进规格
 
 版本：vNext 1.0 · 2026 年 11 月 24 日  
-定位：面向企业自部署 Personal Agent 平台的工程演进蓝图（承接 [v0.1.52 已发布基线](11-technical-blueprint.md#platform-implementation-baseline)，对齐 [vNext 产品方案](18-vnext-product-ia.md)）  
+定位：面向企业自部署 Personal Agent 平台的工程演进蓝图（承接 [v0.1.52 已发布基线](archive/11-technical-blueprint.md#platform-implementation-baseline)，对齐 [vNext 产品方案](18-vnext-product-ia.md)）  
 约束说明：本阶段仅定版技术架构与接口契约，暂不改动业务代码。
 
 ---

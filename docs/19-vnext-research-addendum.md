@@ -1,7 +1,7 @@
 # Agent Alliance vNext 专项调研增补报告
 
 日期：2026 年 11 月 24 日  
-目的：补齐历史调研（[01-research.md](01-research.md)、[12-enterprise-research.md](12-enterprise-research.md)、[16-personal-agent-execution.md](16-personal-agent-execution.md)）在三大关键增量上的盲区——**① 面向非研发的自然语言 Agent 构建器交互 ② 企业级全局模型网关与监控治理 ③ 非技术企业员工的无引导可用性测试方案**。
+目的：补齐历史调研（[01-research.md](archive/01-research.md)、[12-enterprise-research.md](archive/12-enterprise-research.md)、[16-personal-agent-execution.md](archive/16-personal-agent-execution.md)）在三大关键增量上的盲区——**① 面向非研发的自然语言 Agent 构建器交互 ② 企业级全局模型网关与监控治理 ③ 非技术企业员工的无引导可用性测试方案**。
 
 ---
 
@@ -66,7 +66,7 @@
 
 ## 四、非技术企业员工无引导可用性测试方案（补齐一手用户证据）
 
-历史文档 [12-enterprise-research.md](12-enterprise-research.md#L26) 坦承尚缺真实业务员工的一手交互实测。在进入大规模前端重构代码开发前，建议直接用新版高保真原型 [vnext-prototype.html](uiux/vnext-prototype.html) 开展一轮 **5–8 人、每人 25 分钟的无引导走查**。
+历史文档 [12-enterprise-research.md](archive/12-enterprise-research.md#L26) 坦承尚缺真实业务员工的一手交互实测。在进入大规模前端重构代码开发前，建议直接用新版高保真原型 [vnext-prototype.html](uiux/vnext-prototype.html) 开展一轮 **5–8 人、每人 25 分钟的无引导走查**。
 
 ### 4.1 招募画像（严禁只找研发或产品经理测试）
 - **4–6 名非技术业务员工**：行政/人事、采购、运营/市场、销售支持各 1–2 名（要求：平时偶尔用过豆包/ChatGPT/Kimi 聊天，但不懂 API、Prompt 工程或 JSON）。

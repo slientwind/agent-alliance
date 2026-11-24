@@ -33,7 +33,7 @@
 
 ## 一、之前功能未实现 / 未闭环部分（Legacy Gaps）
 
-对照 [11-technical-blueprint.md](11-technical-blueprint.md#platform-implementation-baseline) 与 [15-rebuild.md](15-rebuild.md)，以下为历史基线已设计但尚未完成真实闭环的欠账：
+对照 [11-technical-blueprint.md](archive/11-technical-blueprint.md#platform-implementation-baseline) 与 [15-rebuild.md](archive/15-rebuild.md)，以下为历史基线已设计但尚未完成真实闭环的欠账：
 
 ### 1.1 通用执行内核与记忆欠账（EA01–EA04）
 - [ ] **通用多动作有界 Loop 未落地**：现有仅实现了只读检索与引文加减法的特化回合（`AdvanceObservedTurn` / `AdvanceBatchedLookup`），通用跨工具调用、跨连接器纠错、统一停滞指纹判定与子 Agent 动态委派尚未实现。

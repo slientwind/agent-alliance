@@ -131,7 +131,7 @@
 <p align="center">
   <img src="docs/architecture/vnext-architecture.png" alt="Agent Alliance vNext 五层系统架构图" width="960" />
   <br />
-  <sub><a href="docs/architecture/vnext-architecture.svg">查看高清矢量图 (SVG)</a> · <a href="docs/architecture/platform/enterprise-platform.html">历史工程全景详图</a> · <a href="docs/20-vnext-technical-architecture.md">完整架构规格书</a></sub>
+  <sub><a href="docs/architecture/vnext-architecture.svg">查看高清矢量图 (SVG)</a> · <a href="docs/archive/architecture/platform/enterprise-platform.html">历史工程全景详图</a> · <a href="docs/20-vnext-technical-architecture.md">完整架构规格书</a></sub>
 </p>
 
 | 分层 | 核心技术栈 | 关键职责与边界 |

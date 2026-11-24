@@ -2,7 +2,7 @@
 
 版本：vNext 1.0 · 2026 年 11 月 24 日  
 对标基准：布局、图标样式与交互行为全面仿照 **ChatGPT、Claude、Gemini** 桌面网页版，并融入企业级 Personal Agent 治理能力。  
-视觉定调：**暖灰白纸面 + 深墨绿强调色**（延续 [execution-review.html](uiux/execution-review.html) 质感），**原生支持一键浅色 / 深色双主题切换**。  
+视觉定调：**暖灰白纸面 + 深墨绿强调色**（延续 [execution-review.html](archive/uiux/execution-review.html) 质感），**原生支持一键浅色 / 深色双主题切换**。  
 可交互原型：[打开统一高保真原型（零依赖单文件）](uiux/vnext-prototype.html) · [三巨头界面逐帧对照](uiux/desktop-web-references.md)
 
 ---
