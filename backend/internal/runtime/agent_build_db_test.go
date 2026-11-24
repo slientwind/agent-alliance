@@ -220,6 +220,111 @@ func TestAgentBuildPublicationPostgres(t *testing.T) {
 		pinnedBuild != published.Build.Digest || !usable {
 		t.Fatalf("new publication changed the bound revision: %s, %t, %v", pinnedBuild, usable, err)
 	}
+	t.Run("restore a historical release", func(t *testing.T) {
+		historyPath, restorePath := path+"/publication-history", path+"/publication-restore"
+		skillTestRequest(t, routes, makerToken, "GET", historyPath, nil, 403)
+		lookupTestSQL(t, ctx, db, "update members set role='admin' where id=$1", visitor)
+		skillTestRequest(t, routes, outsiderToken, "GET", historyPath, nil, 404)
+		history := func() (view struct {
+			Generation, CurrentRevision int
+			CurrentRecorded             bool
+			Versions                    []struct {
+				Revision, PriorRevision int
+				Ready                   bool
+				RestoreReason           string
+			}
+		}) {
+			t.Helper()
+			decode(skillTestRequest(t, routes, adminToken, "GET", historyPath, nil, 200), &view)
+			return view
+		}
+		before := history()
+		if before.Generation != 2 || before.CurrentRevision != 2 || !before.CurrentRecorded || len(before.Versions) != 2 ||
+			before.Versions[1].Revision != 1 || !before.Versions[1].Ready {
+			t.Fatalf("unexpected publication history: %+v", before)
+		}
+		firstEvidence := builder.Selection{BuildDigest: published.Build.Digest, EvidenceDigest: published.Evidence.Digest}
+		var next struct {
+			Build    builder.Manifest
+			Evidence builder.Evidence
+		}
+		decode(skillTestRequest(t, routes, makerToken, "GET", path+"/builds/2", nil, 200), &next)
+		secondEvidence := builder.Selection{BuildDigest: next.Build.Digest, EvidenceDigest: next.Evidence.Digest}
+		type restoreRequest struct {
+			builder.Selection
+			Generation, Revision int
+			Reason               string
+		}
+		const reason = "恢复经验证的原输出"
+		in := restoreRequest{firstEvidence, before.Generation, 1, reason}
+		skillTestRequest(t, routes, makerToken, "POST", restorePath, in, 403)
+		skillTestRequest(t, routes, outsiderToken, "POST", restorePath, in, 404)
+		skillTestRequest(t, routes, adminToken, "POST", path+"/publish", map[string]int{"revision": 1}, 409)
+		stale := in
+		stale.Generation--
+		skillTestRequest(t, routes, adminToken, "POST", restorePath, stale, 409)
+		forged := in
+		forged.EvidenceDigest = secondEvidence.EvidenceDigest
+		skillTestRequest(t, routes, adminToken, "POST", restorePath, forged, 409)
+		unpublished := in
+		unpublished.Revision = 3
+		skillTestRequest(t, routes, adminToken, "POST", restorePath, unpublished, 409)
+
+		lookupTestSQL(t, ctx, db, `insert into plans(project_id,version,brief,confirmed_by) values($1,2,'已确认的新版方案',$2)`, project, admin)
+		lookupTestSQL(t, ctx, db, `insert into nodes(project_id,plan_version,ordinal,agent_id,agent_revision) values($1,2,1,$2,2)`, project, agent.ID)
+		raw, err := json.Marshal(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		responses := make(chan *httptest.ResponseRecorder, 2)
+		for i := 0; i < cap(responses); i++ {
+			go func() {
+				req := httptest.NewRequest("POST", restorePath, bytes.NewReader(raw)).WithContext(ctx)
+				req.AddCookie(&http.Cookie{Name: "aa_session", Value: adminToken})
+				reply := httptest.NewRecorder()
+				routes.ServeHTTP(reply, req)
+				responses <- reply
+			}()
+		}
+		for i := 0; i < cap(responses); i++ {
+			if reply := <-responses; reply.Code != 204 {
+				t.Fatalf("restore or concurrent replay: %d %s", reply.Code, reply.Body)
+			}
+		}
+		after := history()
+		if after.Generation != 3 || after.CurrentRevision != 1 || after.Versions[0].PriorRevision != 2 || after.Versions[0].RestoreReason != reason {
+			t.Fatalf("restore did not produce one receipt: %+v", after)
+		}
+		var catalog []resources.AgentInfo
+		decode(skillTestRequest(t, routes, adminToken, "GET", "/api/agents", nil, 200), &catalog)
+		var current resources.AgentInfo
+		for _, listed := range catalog {
+			if listed.ID == agent.ID {
+				current = listed
+				break
+			}
+		}
+		if current.Published != 1 || current.Revision != 2 || !current.DraftPublished || !current.PublishedReady {
+			t.Fatalf("catalog did not select the restored revision: %+v", current)
+		}
+		var pinned int
+		if err := db.QueryRow(ctx, `select agent_revision from nodes where project_id=$1 and plan_version=2 and ordinal=1`, project).Scan(&pinned); err != nil || pinned != 2 {
+			t.Fatalf("restore changed a confirmed node: %d %v", pinned, err)
+		}
+		if _, instructions, err := worker.Catalog.ResolveRun(ctx, db, project, admin, agent.ID, pinned); err != nil || instructions != draft.Instructions {
+			t.Fatalf("confirmed run could not resolve its existing revision: %q %v", instructions, err)
+		}
+		skillTestRequest(t, routes, makerToken, "POST", path+"/release-requests", map[string]any{"revision": 2, "buildDigest": secondEvidence.BuildDigest, "evidenceDigest": secondEvidence.EvidenceDigest}, 409)
+		skillTestRequest(t, routes, adminToken, "POST", restorePath, restoreRequest{secondEvidence, after.Generation, 2, "新版已核对"}, 204)
+		skillTestRequest(t, routes, adminToken, "POST", restorePath, in, 204)
+		skillTestRequest(t, routes, makerToken, "POST", path+"/evidence/"+secondID+"/withdraw", map[string]string{"reason": "原证明已失效"}, 204)
+		in.Generation = 4
+		skillTestRequest(t, routes, adminToken, "POST", restorePath, in, 409)
+		final := history()
+		if final.Generation != 4 || final.CurrentRevision != 2 || final.Versions[1].Ready || calls.Load() != 4 {
+			t.Fatalf("replay or withdrawal changed publication or ran a trial: %+v, %d", final, calls.Load())
+		}
+	})
 
 	lookupTestSQL(t, ctx, db, "update model_revisions set model='drift' where resource_id=$1 and revision=1", model)
 	var valid bool

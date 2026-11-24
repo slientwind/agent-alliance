@@ -1,4 +1,5 @@
 import { PublishDraft, ReleaseQueue, RequestRelease } from "./agent-release";
+import { PublicationHistory } from "./publication-history";
 import { BuildReview } from "./agent-build";
 import { AgentTeamField, type AgentTeam } from "./agent-team";
 import { ModelMaintenance } from "./model-maintenance";
@@ -162,18 +163,21 @@ export function Library({
           {!commonTeam && <small>归属团队 · {a.teamName}</small>}
           <p>{a.instructions}</p>
           <small>
-            草稿 v{a.revision} · {a.validated ? "验证通过" : "待试运行"} ·{" "}
+            {a.draftPublished ? "最新修订" : "草稿"} v{a.revision} · {a.validated ? "验证通过" : "待试运行"} ·{" "}
             {a.published
               ? "已发布 v" +
                 a.published +
                 (a.publishedReady ? "" : " · 需复验或恢复资源")
               : "尚未发布"}
           </small>
-          {a.release?.state === "pending" || !admin && a.revision !== a.published
+          {a.draftPublished
+            ? <BuildReview agent={a} />
+            : a.release?.state === "pending" || !admin && a.revision !== a.published
             ? <RequestRelease agent={a} refresh={refresh} />
             : admin && a.revision !== a.published
               ? <PublishDraft agent={a} refresh={refresh} />
               : <BuildReview agent={a} />}
+          {admin && a.published > 0 && <PublicationHistory agent={a} refresh={refresh} />}
           {a.publishedReady &&
             a.publishedReviewDue &&
             Date.parse(a.publishedReviewDue) <= Date.now() && (

@@ -88,7 +88,7 @@ export function ReleaseQueue({
   refresh: Props["refresh"];
 }) {
   const pending = agents.filter(
-    (a) => a.release?.state === "pending" && a.revision !== a.published,
+    (a) => a.release?.state === "pending" && !a.draftPublished && a.revision !== a.published,
   );
   if (!pending.length) return null;
   return (

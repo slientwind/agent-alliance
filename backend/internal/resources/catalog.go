@@ -59,6 +59,8 @@ func (c Catalog) Routes(m *http.ServeMux, s identity.Server) {
 	m.Handle("POST /api/agents/{id}/release-requests", s.Protect(false, c.requestRelease))
 	m.Handle("POST /api/agents/{id}/release-requests/{request}", s.Protect(true, c.decideRelease))
 	m.Handle("POST /api/agents/{id}/publish", s.Protect(true, c.publish))
+	m.Handle("GET /api/agents/{id}/publication-history", s.Protect(true, c.publicationHistory))
+	m.Handle("POST /api/agents/{id}/publication-restore", s.Protect(true, c.restorePublication))
 }
 
 type ModelInfo struct {
@@ -204,6 +206,7 @@ type AgentInfo struct {
 	ResourceRevision      int             `json:"resourceRevision"`
 	Validated             bool            `json:"validated"`
 	Skills                json.RawMessage `json:"skills,omitempty"`
+	DraftPublished        bool            `json:"draftPublished,omitempty"`
 }
 
 func (c Catalog) listAgents(w http.ResponseWriter, r *http.Request, u identity.Member) error {
@@ -235,7 +238,8 @@ func (c Catalog) listAgents(w http.ResponseWriter, r *http.Request, u identity.M
  a.id,r.name,r.instructions,r.revision,agent_admissible(a.id,a.published_revision,$1),
  coalesce(a.published_revision,0),coalesce(r.resource_id::text,''),coalesce(r.resource_revision,0),agent_verified(a.id,r.revision),
  (select jsonb_agg(jsonb_build_object('id',b.skill_id,'revision',b.skill_revision) order by b.position)
-    from agent_skill_bindings b where (b.agent_id,b.revision)=(a.id,r.revision) and b.root)
+    from agent_skill_bindings b where (b.agent_id,b.revision)=(a.id,r.revision) and b.root),
+ exists(select from agent_publications p where (p.agent_id,p.revision)=(a.id,r.revision))
  from agents a
  join team_members t on t.team_id=a.team_id and t.member_id=$1
  join teams team on team.id=a.team_id
@@ -613,7 +617,10 @@ func (c Catalog) publish(w http.ResponseWriter, r *http.Request, u identity.Memb
 		if err := identity.RequireAdmin(ctx, tx, u.ID); err != nil {
 			return err
 		}
-		return c.publishRevision(ctx, tx, u.ID, id, in.Revision, false, in.Selection)
+		if err := lockTeamAgent(ctx, tx, u.ID, id, ""); err != nil {
+			return err
+		}
+		return c.publishRevision(ctx, tx, u.ID, id, in.Revision, publicationChange{}, in.Selection)
 	})
 	if err != nil {
 		return err

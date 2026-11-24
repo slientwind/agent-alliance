@@ -18,6 +18,11 @@ type releaseRequest struct {
 	Previous string
 }
 
+type publicationChange struct {
+	modelRestore  bool
+	restoreReason string
+}
+
 // The agent lock serializes draft creation, duplicate requests and publication.
 func (c Catalog) requestRelease(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	var in releaseRequest
@@ -31,6 +36,9 @@ func (c Catalog) requestRelease(w http.ResponseWriter, r *http.Request, u identi
 			return err
 		}
 		if err := currentReleaseDraft(ctx, tx, id, in.Revision); err != nil {
+			return err
+		}
+		if err := requireFirstPublication(ctx, tx, id, in.Revision); err != nil {
 			return err
 		}
 		previous, err := latestRelease(ctx, tx, id, in.Revision)
@@ -132,7 +140,7 @@ func (c Catalog) decideRelease(w http.ResponseWriter, r *http.Request, u identit
 			return err
 		}
 		if in.Action == "publish" {
-			return c.publishRevision(ctx, tx, u.ID, id, in.Revision, false, in.Selection)
+			return c.publishRevision(ctx, tx, u.ID, id, in.Revision, publicationChange{}, in.Selection)
 		}
 		if _, err := tx.Exec(ctx, `update agent_release_requests set state='returned',decider=$2,reason=$3,decided_at=now() where id=$1`, request, u.ID, in.Reason); err != nil {
 			return err
@@ -146,9 +154,24 @@ func (c Catalog) decideRelease(w http.ResponseWriter, r *http.Request, u identit
 	return nil
 }
 
-func (c Catalog) publishRevision(ctx context.Context, tx pgx.Tx, actor, id string, revision int, rollback bool, seen builder.Selection) error {
-	if err := guardReplacementPublication(ctx, tx, id, revision, rollback); err != nil {
+func requireFirstPublication(ctx context.Context, tx pgx.Tx, id string, revision int) error {
+	var historical bool
+	err := tx.QueryRow(ctx, `select exists(select from agents a join agent_publications p on p.agent_id=a.id
+        where a.id=$1 and p.revision=$2 and a.published_revision is distinct from $2)`, id, revision).Scan(&historical)
+	if err == nil && historical {
+		return web.Fail(409, "此修订已有发布记录，请从发布历史核对并恢复")
+	}
+	return err
+}
+
+func (c Catalog) publishRevision(ctx context.Context, tx pgx.Tx, actor, id string, revision int, change publicationChange, seen builder.Selection) error {
+	if err := guardReplacementPublication(ctx, tx, id, revision, change.modelRestore); err != nil {
 		return err
+	}
+	if change == (publicationChange{}) {
+		if err := requireFirstPublication(ctx, tx, id, revision); err != nil {
+			return err
+		}
 	}
 	model, _, err := c.Resolve(ctx, tx, actor, id, revision)
 	if err != nil {
@@ -200,16 +223,22 @@ func (c Catalog) publishRevision(ctx context.Context, tx pgx.Tx, actor, id strin
 	if request.State == "pending" {
 		requestID = request.ID
 	}
-	if err := tx.QueryRow(ctx, `update agents set published_revision=$1 where id=$2 and not disabled and agent_verified($2,$1)
-            returning publication_generation`, revision, id).Scan(&generation); err != nil {
+	var restoredFrom *int64
+	if change.restoreReason != "" {
+		base := generation
+		restoredFrom = &base
+	}
+	if err := tx.QueryRow(ctx, `update agents set published_revision=$1 where id=$2 and not disabled
+            and agent_verified($2,$1) and ($3::bigint is null or agent_revision_ready($2,$1))
+            returning publication_generation`, revision, id, restoredFrom).Scan(&generation); err != nil {
 		if err == pgx.ErrNoRows {
 			return web.Fail(409, "指定修订的必要验证尚未通过")
 		}
 		return err
 	}
-	tag, err := tx.Exec(ctx, `insert into agent_publications(agent_id,generation,revision,build_digest,evidence_digest,evidence_snapshot,prior_revision,request_id,actor)
-            values($1,$2,$3,$4,$5,$6,$7,nullif($8,'')::uuid,$9) on conflict do nothing`,
-		id, generation, revision, build.Digest, proof.Digest, proof.Snapshot, prior, requestID, actor)
+	tag, err := tx.Exec(ctx, `insert into agent_publications(agent_id,generation,revision,build_digest,evidence_digest,evidence_snapshot,prior_revision,request_id,actor,restored_from_generation,restore_reason)
+            values($1,$2,$3,$4,$5,$6,$7,nullif($8,'')::uuid,$9,$10,$11) on conflict do nothing`,
+		id, generation, revision, build.Digest, proof.Digest, proof.Snapshot, prior, requestID, actor, restoredFrom, change.restoreReason)
 	if err != nil || tag.RowsAffected() == 0 {
 		return err
 	}

@@ -158,8 +158,7 @@ func guardReplacementPublication(ctx context.Context, tx pgx.Tx, id string, revi
 	}
 	if !rollback {
 		var restores bool
-		if err := tx.QueryRow(ctx, `select exists(select from model_replacement_agents x join agents a on a.id=x.agent_id
-  where (x.agent_id,x.original)=($1,$2) and a.published_revision=x.draft and x.adoption_generation=a.publication_generation and x.rollback_at is null)`, id, revision).Scan(&restores); err != nil {
+		if err := tx.QueryRow(ctx, `select agent_requires_model_restore($1,$2)`, id, revision).Scan(&restores); err != nil {
 			return err
 		}
 		if restores {
@@ -220,7 +219,7 @@ func (c Catalog) rollbackReplacement(w http.ResponseWriter, r *http.Request, u i
 		if !ready {
 			return web.Fail(409, "原修订的资源、授权或验证当前不可用")
 		}
-		if err = c.publishRevision(ctx, tx, u.ID, id, original, true, builder.Selection{}); err != nil {
+		if err = c.publishRevision(ctx, tx, u.ID, id, original, publicationChange{modelRestore: true}, builder.Selection{}); err != nil {
 			return err
 		}
 		if _, err = tx.Exec(ctx, `update model_replacement_agents set rollback_at=now(),rollback_actor=$3,rollback_reason=$4 where(batch_id,agent_id)=($1,$2)`, batch, id, u.ID, in.Reason); err != nil {

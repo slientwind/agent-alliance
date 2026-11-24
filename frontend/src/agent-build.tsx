@@ -45,9 +45,10 @@ const operations = [
 ] as const;
 
 export function BuildReview({
-  agent, openInitially = false, children,
+  agent, revision = agent.revision, openInitially = false, children,
 }: {
   agent: Agent;
+  revision?: number;
   openInitially?: boolean;
   children?: (build: BuildSnapshot, reload: () => void) => ReactNode;
 }) {
@@ -55,6 +56,7 @@ export function BuildReview({
   const [version, reload] = useState(0);
   const [result, setResult] = useState<{
     agent: Agent;
+    revision: number;
     version: number;
     build?: BuildSnapshot;
     error?: string;
@@ -62,21 +64,21 @@ export function BuildReview({
   useEffect(() => {
     if (!open) return;
     let active = true;
-    void api<BuildSnapshot>("agents/" + agent.id + "/builds/" + agent.revision).then(
-      build => { if (active) setResult({agent, version, build}); },
-      error => { if (active) setResult({agent, version, error: (error as Error).message}); },
+    void api<BuildSnapshot>("agents/" + agent.id + "/builds/" + revision).then(
+      build => { if (active) setResult({agent, revision, version, build}); },
+      error => { if (active) setResult({agent, revision, version, error: (error as Error).message}); },
     );
     return () => { active = false; };
-  }, [agent, open, version]);
+  }, [agent, revision, open, version]);
 
-  const current = result?.agent === agent && result.version === version ? result : undefined;
+  const current = result?.agent === agent && result.revision === revision && result.version === version ? result : undefined;
   const snapshot = current?.build;
   const definition = snapshot?.build.definition;
   const items = snapshot?.evidence.snapshot.items || [];
   const refresh = () => reload(v => v + 1);
   return (
     <details open={open} onToggle={e => setOpen(e.currentTarget.open)}>
-      <summary>发布清单 · v{agent.revision}</summary>
+      <summary>发布清单 · v{revision}</summary>
       {open && !current && <p role="status">正在读取清单与验收证据</p>}
       {open && current?.error && <p role="alert">{current.error}</p>}
       {open && snapshot && definition && (
@@ -105,7 +107,7 @@ export function BuildReview({
                   </li>
                 ))}
               </ul>
-              {agent.published === agent.revision && !snapshot.publishedRemoteOperations && (
+              {agent.published === revision && !snapshot.publishedRemoteOperations && (
                 <small>旧版发布沿用原操作范围。可创建新修订并按项试跑后发布。</small>
               )}
               {snapshot.publishedRemoteOperations && (

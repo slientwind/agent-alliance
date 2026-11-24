@@ -1302,7 +1302,7 @@ function App() {
               />
               <button onClick={() => setPanel("library")}>团队能力库</button>
               {user.role === "admin" &&
-                agents.some((a) => a.release?.state === "pending" && a.revision !== a.published) && (
+                agents.some((a) => a.release?.state === "pending" && !a.draftPublished && a.revision !== a.published) && (
                   <button onClick={() => setPanel("library")}>处理 Agent 发布申请</button>
                 )}
               <button onClick={() => setPanel("services")}>服务与渠道</button>

@@ -32,6 +32,7 @@ export type PlanAgent = Pick<
   "id" | "name" | "published" | "publishedName" | "publishedReady" | "publishedLookup" | "publishedOperation" | "publishedOutline" | "publishedVision" | "publishedImageEdit"
 > & Partial<Pick<Agent, "team">>;
 export type Agent = {
+  draftPublished?: boolean;
   release?: {
     id: string;
     state: "pending" | "published" | "returned" | "superseded";
