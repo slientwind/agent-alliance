@@ -40,7 +40,7 @@ func commitRuleBranchOutput(ctx context.Context, tx pgx.Tx, step Step, d context
 			}
 			version = current + 1
 		}
-		if _, err := tx.Exec(ctx, "insert into artifact_versions(artifact_id,version,body,reason) values($1,$2,$3,'按有效团队规则重做')", *artifact, version, text); err != nil {
+		if _, err := tx.Exec(ctx, "insert into artifact_versions(artifact_id,version,body,reason) values($1,$2,$3,'按当前有效依据重做')", *artifact, version, text); err != nil {
 			return true, err
 		}
 		if _, err := tx.Exec(ctx, `insert into artifact_files select $1,$2,object_hash,filename,media_type

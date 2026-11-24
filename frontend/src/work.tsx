@@ -1014,6 +1014,7 @@ export function Work({
           id={
             p.stage === "review" &&
             p.canReview &&
+            !a.draftBlock &&
             (!a.approved ||
               hasSourceReview(a) ||
               (p.takeoverAssignment && a.needsTakeoverReview)) &&
@@ -1025,7 +1026,10 @@ export function Work({
           <h2>
             {a.name} · v{a.version}
           </h2>
-          {p.plan?.nodes[a.ordinal - 1]?.lookupPhase
+          {a.draftBlock ? (
+            <p role="status">{a.draftBlock === "preference" ? "生成此候选时使用的个人偏好已失效。" : "生成此候选时使用的团队规则已失效。"}
+              {p.owner === user.id ? "请核对重做范围。" : "请由项目发起人核对重做范围。"}</p>
+          ) : p.plan?.nodes[a.ordinal - 1]?.lookupPhase
             ? <LookupBody artifact={a} project={p} sources={sources} />
             : <div className="preserve">{a.body}</div>}
           {a.file && canPreview(a.file) && (
@@ -1064,7 +1068,7 @@ export function Work({
                 : "review-state pending"
             }
           >
-            {a.approved ? "已审核" : "待审核"}
+            {a.draftBlock ? "待重做" : a.approved ? "已审核" : "待审核"}
             {p.stage === "review" && hasSourceReview(a) && " · 资料影响待核对"}
             {a.needsTakeoverReview && " · 待接管人核对当前版本"}
           </small>
@@ -1077,6 +1081,8 @@ export function Work({
               a.version +
               ":" +
               a.approved +
+              ":" +
+              a.draftBlock +
               ":" +
               reviewScope +
               ":" +
@@ -1108,7 +1114,7 @@ export function Work({
             busy={busy}
             perform={perform}
           />
-          <ArtifactEditor
+          {!a.draftBlock && <ArtifactEditor
             project={p}
             artifact={a}
             draft={revisions?.[a.id]}
@@ -1116,8 +1122,8 @@ export function Work({
             busy={busy}
             perform={perform}
             refresh={refresh}
-          />
-          {p.stage === "review" && p.canReview && (
+          />}
+          {p.stage === "review" && p.canReview && !a.draftBlock && (
             <div className="actions">
               {(!a.approved ||
                 (p.takeoverAssignment && a.needsTakeoverReview)) &&

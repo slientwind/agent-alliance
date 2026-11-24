@@ -272,7 +272,8 @@ func (f Feishu) reviewMessage(ctx context.Context, tx pgx.Tx, actor, project, ki
 			return "本项目当前没有分配给你的成果审核待办。", nil
 		}
 	} else {
-		rows, err := tx.Query(ctx, `select a.id,a.name,a.current_version from artifacts a join project_members m on m.project_id=a.project_id
+		rows, err := tx.Query(ctx, `select a.id,a.name,a.current_version,not artifact_rule_draft_readable(a.id,a.current_version)
+   from artifacts a join project_members m on m.project_id=a.project_id
    where a.project_id=$1 and m.member_id=$2 order by a.ordinal,a.id limit 9`, project, actor)
 		if err != nil {
 			return "", err
@@ -281,14 +282,19 @@ func (f Feishu) reviewMessage(ctx context.Context, tx pgx.Tx, actor, project, ki
 		for rows.Next() {
 			var id, name string
 			var version int
-			if err = rows.Scan(&id, &name, &version); err != nil {
+			var needsRebuild bool
+			if err = rows.Scan(&id, &name, &version, &needsRebuild); err != nil {
 				return "", err
 			}
 			if len(lines) == 8 {
 				lines = append(lines, "更多成果请在网页查看。")
 				break
 			}
-			lines = append(lines, fmt.Sprintf("%s v%d · %s", name, version, id))
+			line := fmt.Sprintf("%s v%d · %s", name, version, id)
+			if needsRebuild {
+				line += " · 待重做，请在网页核对"
+			}
+			lines = append(lines, line)
 		}
 		if err = rows.Err(); err != nil {
 			return "", err

@@ -82,7 +82,8 @@ export function CoverageReview({ project, busy, save }: {
 }) {
   const coverage = project.deliveryCoverage;
   if (!coverage || project.stage === "delivered") return null;
-  const covered = coverage.items.filter(item => item.state === "covered").length;
+  const blocked = new Set(project.artifacts.filter(a => a.draftBlock).map(a => a.id));
+  const covered = coverage.items.filter(item => item.state === "covered" && !blocked.has(item.artifact ?? "")).length;
   const missing = coverage.items.filter(item => item.state === "missing");
   return (
     <section className="card" aria-label="必交项核对" id="delivery-coverage" tabIndex={-1}>
@@ -96,14 +97,14 @@ export function CoverageReview({ project, busy, save }: {
         {coverage.items.map(item => (
           <li key={item.item}>
             <strong>{item.label}</strong>{" · "}
-            {item.state === "covered" ? "已满足" : item.state === "missing" ? "缺项" : "待核对"}
+            {blocked.has(item.artifact ?? "") ? "候选待重做" : item.state === "covered" ? "已满足" : item.state === "missing" ? "缺项" : "待核对"}
             {item.version && <small>步骤 {item.step} · 成果 v{item.version}</small>}
             {item.reason && <p className="preserve">{item.reason}</p>}
             {item.state === "missing" && item.responsible && <p>
               {item.responsibleActive ? `接手人 ${item.responsibleName}` : "接手权限已失效"}
               {item.continueWhen && ` · ${item.continueWhen}`}
             </p>}
-            {project.stage === "review" && project.canReview && item.run && (
+            {project.stage === "review" && project.canReview && item.run && !blocked.has(item.artifact ?? "") && (
               <RequirementAssessment
                 key={[item.run,item.artifact,item.version,item.state,item.reason,item.responsible,item.continueWhen].join(":")}
                 item={item} project={project} busy={busy} save={save} />

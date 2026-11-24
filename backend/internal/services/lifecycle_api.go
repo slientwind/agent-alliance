@@ -430,7 +430,7 @@ var progressSQL = `select jsonb_build_object(
     then exists(select from jsonb_to_recordset(handoff.upstream_context) as clip("headBytes" int,"tailFrom" int) where clip."headBytes"<clip."tailFrom") end,
  'loadedSkills',readable_run_skills(i.run_id,i.ordinal,i.attempt_no),
  'canSupplement',r.status in('queued','running','blocked','paused') and i.run_id is null and a.id is null and not coalesce(branch.finished,false) and ar.tool is null and (select count(*) from service_supplements x where(x.run_id,x.ordinal)=(r.id,n.ordinal))<8,
- 'artifact',a.id,'version',a.current_version,'needsSourceReview',case when a.id is not null then source_check_needed(a.id) end,'needsTakeoverReview',case when a.id is not null then takeover_review_needed(p.id,a.id,a.current_version) end,'approved',case when a.id is not null then exists(select from reviews rv where(rv.artifact_id,rv.version)=(a.id,a.current_version)) end))
+ 'artifact',a.id,'version',a.current_version,'draftBlock',case when a.id is not null then artifact_draft_block_reason(a.id,a.current_version) end,'needsSourceReview',case when a.id is not null then source_check_needed(a.id) end,'needsTakeoverReview',case when a.id is not null then takeover_review_needed(p.id,a.id,a.current_version) end,'approved',case when a.id is not null then exists(select from reviews rv where(rv.artifact_id,rv.version)=(a.id,a.current_version)) end))
  from effective_run_nodes n join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision)
  left join active_tool_choice_waits choice_wait on (choice_wait.run_id,choice_wait.ordinal)=(n.run_id,n.ordinal)
  left join rule_branch_steps branch on(branch.run_id,branch.ordinal)=(r.id,n.ordinal)

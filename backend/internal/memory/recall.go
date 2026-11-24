@@ -17,6 +17,7 @@ type pinnedEntry struct {
 	Usable   bool
 	Body     *string
 	Scoped   bool
+	Optional bool
 }
 
 type RuleUnavailable struct {
@@ -47,7 +48,7 @@ func RecallWithReferences(ctx context.Context, tx pgx.Tx, run string, step int, 
         select 'preference'::text kind,p.preference_id as id,p.revision,pref.body,
           p.revision=pref.revision and p.agent_scope is not distinct from pref.agent_scope and pref.enabled and pref.deleted_at is null
             and not pref.departure_guard and pref.body is not null and pref.expires_at>statement_timestamp() usable,
-          true as scoped
+          true as scoped,true as optional
         from runs r join plan_scoped_preferences p on(p.project_id,p.plan_version)=(r.project_id,r.plan_version)
         join effective_run_nodes n on(n.run_id,n.ordinal,n.agent_id)=(r.id,$2,p.agent_scope)
         join agent_revisions a on(a.agent_id,a.revision)=(n.agent_id,n.agent_revision) and a.tool is null
@@ -55,25 +56,25 @@ func RecallWithReferences(ctx context.Context, tx pgx.Tx, run string, step int, 
         where r.id=$1 and run_memory_can_use_personal(r.id)
         `+lockScoped+`
       )
-      select kind,id,revision,usable,case when usable then body end,scoped
+      select kind,id,revision,usable,case when usable then body end,scoped,optional
       from (
         select 'preference'::text kind,p.preference_id as id,p.revision,pref.body,
             p.revision=pref.revision and pref.agent_scope is null and pref.enabled and pref.deleted_at is null and not pref.departure_guard
               and pref.member_id=r.actor and pref.body is not null and pref.expires_at>statement_timestamp() usable,
-            false as scoped
+            false as scoped,r.skip_unavailable_preferences as optional
         from runs r join plan_preferences p on(p.project_id,p.plan_version)=(r.project_id,r.plan_version)
         join preferences pref on pref.id=p.preference_id
         where r.id=$1 and run_memory_can_use_personal(r.id)
         union all
         select * from scoped_preferences
         union all
-        select 'rule'::text,p.rule_id,p.rule_revision,v.body,tr.team_id=project.team_id and rule_usable(p.rule_id,p.rule_revision,r.actor),false
+        select 'rule'::text,p.rule_id,p.rule_revision,v.body,tr.team_id=project.team_id and rule_usable(p.rule_id,p.rule_revision,r.actor),false,false
         from runs r join plan_rules p on(p.project_id,p.plan_version)=(r.project_id,r.plan_version)
         join rule_versions v on(v.rule_id,v.revision)=(p.rule_id,p.rule_revision)
         join team_rules tr on tr.id=p.rule_id join projects project on project.id=r.project_id
         where r.id=$1 and $2=0 and cardinality(v.agent_scope)=0
         union all
-        select 'rule'::text,p.rule_id,p.rule_revision,v.body,p.usable,p.scoped
+        select 'rule'::text,p.rule_id,p.rule_revision,v.body,p.usable,p.scoped,false
         from effective_run_rules p join rule_versions v on(v.rule_id,v.revision)=(p.rule_id,p.rule_revision)
         where (p.run_id,p.ordinal)=($1,$2)
       ) pinned order by scoped,kind,id`, run, step)
@@ -108,7 +109,7 @@ func formatRecall(items []pinnedEntry) (string, error) {
 				}
 				return "", web.Fail(409, "已采用的团队规则到期、停用或授权撤销")
 			}
-			if item.Scoped {
+			if item.Scoped || item.Optional {
 				continue
 			}
 			return "", web.Fail(409, "已采用的个人偏好发生变化")

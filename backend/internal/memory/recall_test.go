@@ -45,3 +45,15 @@ func TestRecallKeepsScopedPreferenceOutWhenUnavailable(t *testing.T) {
 		t.Fatalf("unavailable scoped memory = %q, %v", out, err)
 	}
 }
+
+func TestRecallRebuildKeepsOnlyUsableOriginalPreferences(t *testing.T) {
+	expired, usable, rule := "过期默认值", "仍有效的原默认值", "必需规则"
+	out, err := formatRecall([]pinnedEntry{
+		{Kind: "preference", Optional: true, Body: &expired},
+		{Kind: "preference", Optional: true, Usable: true, Body: &usable},
+		{Kind: "rule", Usable: true, Body: &rule},
+	})
+	if err != nil || !strings.Contains(out, usable) || !strings.Contains(out, rule) || strings.Contains(out, expired) {
+		t.Fatalf("rebuilt working context = %q, %v", out, err)
+	}
+}

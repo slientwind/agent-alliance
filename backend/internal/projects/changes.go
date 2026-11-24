@@ -152,7 +152,7 @@ func (s Server) startChange(w http.ResponseWriter, r *http.Request, u identity.M
 		if p.Stage != "review" || revision != in.Expected || version != in.Version || state != "required" {
 			return web.Fail(409, "请核对当前成果、版本及已采纳修改项")
 		}
-		if err := requireCurrentArtifactRules(ctx, tx, artifact, version); err != nil {
+		if err := requireCurrentArtifactInputs(ctx, tx, artifact, version); err != nil {
 			return err
 		}
 		if in.ImageRegion != nil && tool != "image-edit" {

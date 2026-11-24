@@ -34,15 +34,16 @@ type ruleBranchRule struct {
 }
 
 type RuleBranchPreview struct {
-	Run     string           `json:"run"`
-	Control int              `json:"controlRevision"`
-	Plan    int              `json:"planVersion"`
-	Project int              `json:"projectRevision"`
-	Team    string           `json:"chargeTeam"`
-	Calls   int              `json:"calls"`
-	Steps   []RuleBranchStep `json:"steps"`
-	Rules   []ruleBranchRule `json:"rules"`
-	Digest  string           `json:"digest"`
+	Run                        string           `json:"run"`
+	Control                    int              `json:"controlRevision"`
+	Plan                       int              `json:"planVersion"`
+	Project                    int              `json:"projectRevision"`
+	Team                       string           `json:"chargeTeam"`
+	Calls                      int              `json:"calls"`
+	Steps                      []RuleBranchStep `json:"steps"`
+	Rules                      []ruleBranchRule `json:"rules"`
+	SkipUnavailablePreferences bool             `json:"skipUnavailablePreferences,omitempty"`
+	Digest                     string           `json:"digest"`
 }
 
 type RuleBranchInput struct {
@@ -141,11 +142,22 @@ func buildRuleBranchPreview(ctx context.Context, tx pgx.Tx, run, actor string, s
 	if !latest || !quiescent {
 		return preview, web.Fail(409, "请先等待已发调用返回或完成回执核对，再确认本次重做")
 	}
+	if err := tx.QueryRow(ctx, `select skip_unavailable_preferences or exists(
+      select from run_candidate_artifacts a where a.run_id=r.id and artifact_draft_block_reason(a.id,a.current_version)='preference')
+      from runs r where r.id=$1`, run).Scan(&preview.SkipUnavailablePreferences); err != nil {
+		return preview, err
+	}
 	rows, err := tx.Query(ctx, `with recursive roots(ordinal) as (
           select w.ordinal from step_rule_waits w where w.run_id=$1 and w.rebuild_required
           union
           select o.ordinal from run_observations o where o.run_id=$1 and exists(
             select from invalid_working_step_rules(o.origin_run,o.ordinal,o.attempt_no) invalid where invalid.scoped)
+          union
+          select a.ordinal from run_candidate_artifacts a where a.run_id=$1 and $5
+            and artifact_draft_block_reason(a.id,a.current_version)='preference'
+          union
+          select o.ordinal from run_observations o where o.run_id=$1 and $5 and exists(
+            select from working_preference_inputs(o.origin_run,o.ordinal,o.attempt_no) pin where not pin.usable)
         ), affected(ordinal) as (
           select ordinal from roots
           union
@@ -165,7 +177,7 @@ func buildRuleBranchPreview(ctx context.Context, tx pgx.Tx, run, actor string, s
         left join run_candidate_artifacts committed on (committed.run_id,committed.ordinal)=(n.run_id,n.ordinal)
         left join run_artifact_slots slot on (slot.run_id,slot.ordinal)=(n.run_id,n.ordinal)
         left join artifacts artifact on artifact.id=slot.artifact_id
-        where n.run_id=$1 order by n.ordinal`, run, p.ID, source.plan, actor)
+        where n.run_id=$1 order by n.ordinal`, run, p.ID, source.plan, actor, preview.SkipUnavailablePreferences)
 	if err != nil {
 		return preview, err
 	}
@@ -193,7 +205,7 @@ func buildRuleBranchPreview(ctx context.Context, tx pgx.Tx, run, actor string, s
 		return preview, err
 	}
 	if !rebuild {
-		return preview, web.Fail(409, "此运行没有因已使用的团队规则失效而需要重做的分支")
+		return preview, web.Fail(409, "此运行没有因已采用的规则或偏好失效而需要重做的分支")
 	}
 	preview.Rules, err = branchRuleChoices(ctx, tx, run, actor, targets)
 	if err != nil {
@@ -271,7 +283,7 @@ func RebuildRuleBranch(ctx context.Context, tx pgx.Tx, run, actor, key string, i
 		return "", err
 	}
 	if preview.Digest != in.Digest || preview.Calls != in.AuthorizeCalls {
-		return "", web.Fail(409, "规则、成果或待重做步骤已变化，请重新核对")
+		return "", web.Fail(409, "执行依据、成果或待重做步骤已变化，请重新核对")
 	}
 	encoded, err := json.Marshal(preview)
 	if err != nil {
@@ -279,11 +291,11 @@ func RebuildRuleBranch(ctx context.Context, tx pgx.Tx, run, actor, key string, i
 	}
 	if err := tx.QueryRow(ctx, `insert into runs(project_id,plan_version,actor,charge_team,request_key,request_hash,max_calls,
         app_id,delegated_by,service_id,service_version,await_lookup_receipt,await_calculation_receipt,
-        step_remote_input,step_source_receipt)
+        step_remote_input,step_source_receipt,skip_unavailable_preferences)
         select project_id,plan_version,actor,charge_team,$2,$3,max_calls,
         app_id,delegated_by,service_id,service_version,await_lookup_receipt,await_calculation_receipt,
-        step_remote_input,step_source_receipt
-        from runs where id=$1 returning id`, run, requestKey, sign).Scan(&next); err != nil {
+        step_remote_input,step_source_receipt,$4
+        from runs where id=$1 returning id`, run, requestKey, sign, preview.SkipUnavailablePreferences).Scan(&next); err != nil {
 		return "", err
 	}
 	if _, err := tx.Exec(ctx, "insert into rule_branch_rebuilds(run_id,source_run,authorized_calls,preview) values($1,$2,$3,$4::jsonb)",

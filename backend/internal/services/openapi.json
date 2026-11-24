@@ -953,6 +953,10 @@
                   "type": "boolean",
                   "description": "当前成果所依据的资料发生变化，需核对适用性。历史审核决定保留。"
                 },
+                "draftBlock": {
+                  "enum": ["preference", "rule"],
+                  "description": "当前未审核候选所依赖的个人偏好或团队规则已失效。请按 nextAction 核对原任务和重做范围。"
+                },
                 "needsTakeoverReview": {
                   "type": "boolean",
                   "description": "当前版本需要异常接管人亲自审核。"
@@ -1194,6 +1198,10 @@
           "projectRevision": { "type": "integer", "minimum": 1 },
           "chargeTeam": { "type": "string" },
           "calls": { "type": "integer", "minimum": 1 },
+          "skipUnavailablePreferences": {
+            "type": "boolean",
+            "description": "此批次略过已失效的原方案个人偏好，其余已采用的有效修订继续适用。"
+          },
           "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
           "steps": {
             "type": "array",

@@ -203,6 +203,7 @@ export type SourceReceiptRequest = {
 };
 
 export type Artifact = {
+  draftBlock?: "preference" | "rule" | null;
   verifiedWord?:boolean;
   sourcePins?: { id: string; version: number }[] | null;
   reviewNotesReadable: boolean;

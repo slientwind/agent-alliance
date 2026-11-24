@@ -8,7 +8,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"net/http"
 	"strings"
 	"unicode/utf8"
@@ -56,7 +58,7 @@ func (s Server) artifactAction(w http.ResponseWriter, r *http.Request, u identit
 		if in.Version != ver {
 			return web.Fail(409, "成果已更新，请查看当前版本")
 		}
-		if err := requireCurrentArtifactRules(ctx, tx, id, ver); err != nil {
+		if err := requireCurrentArtifactInputs(ctx, tx, id, ver); err != nil {
 			return err
 		}
 		if edit {
@@ -91,6 +93,10 @@ func (s Server) artifactAction(w http.ResponseWriter, r *http.Request, u identit
 				return web.Fail(409, "请先核对资料变更对当前成果的影响")
 			}
 			if _, err = tx.Exec(ctx, "insert into reviews(artifact_id,version,reviewer) values($1,$2,$3) on conflict do nothing", id, ver, u.ID); err != nil {
+				var pgErr *pgconn.PgError
+				if errors.As(err, &pgErr) && pgErr.Message == "review_candidate_preference_unavailable" {
+					return web.Fail(409, artifactPreferenceUnavailable)
+				}
 				return err
 			}
 			if in.Assignment != "" {
@@ -121,12 +127,20 @@ func (s Server) artifactAction(w http.ResponseWriter, r *http.Request, u identit
 	return nil
 }
 
-func requireCurrentArtifactRules(ctx context.Context, tx pgx.Tx, id string, version int) error {
-	var readable bool
-	if err := tx.QueryRow(ctx, "select artifact_rule_draft_readable($1,$2)", id, version).Scan(&readable); err != nil {
+const artifactPreferenceUnavailable = "此候选使用的个人偏好已失效，请由项目发起人核对重做范围"
+
+func requireCurrentArtifactInputs(ctx context.Context, tx pgx.Tx, id string, version int) error {
+	if _, err := tx.Exec(ctx, "select lock_artifact_preference_inputs($1,$2)", id, version); err != nil {
 		return err
 	}
-	if !readable {
+	var reason string
+	if err := tx.QueryRow(ctx, "select coalesce(artifact_draft_block_reason($1,$2),'')", id, version).Scan(&reason); err != nil {
+		return err
+	}
+	switch reason {
+	case "preference":
+		return web.Fail(409, artifactPreferenceUnavailable)
+	case "rule":
 		return web.Fail(409, "此候选使用的团队规则已失效，请按当前规则重做后处理")
 	}
 	return nil
@@ -338,14 +352,14 @@ const affectedNodes = `with recursive edges as (
 
 func advanceDescendants(ctx context.Context, tx pgx.Tx, run string, ord int) error {
 	// Only descendants of the changed node need a dependency review.
-	if _, err := tx.Exec(ctx, affectedNodes+`insert into artifact_versions(artifact_id,version,body,reason) select a.id,a.current_version+1,v.body,$3 from candidates c join artifacts a on a.id=c.id join artifact_versions v on(v.artifact_id,v.version)=(a.id,a.current_version)`, run, ord, "上游内容变化，需要核对引用"); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, affectedNodes+`insert into artifact_files select a.id,a.current_version+1,f.object_hash,f.filename,f.media_type from candidates c join artifacts a on a.id=c.id join artifact_files f on(f.artifact_id,f.version)=(a.id,a.current_version)`, run, ord); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, affectedNodes+"update artifacts a set current_version=current_version+1 from candidates c where a.id=c.id", run, ord); err != nil {
-		return err
-	}
-	return nil
+	_, err := tx.Exec(ctx, affectedNodes+`, copies as (
+       insert into artifact_versions(artifact_id,version,body,reason,copied_from)
+       select a.id,v.version+1,v.body,$3,v.version from candidates c join artifacts a on a.id=c.id
+       join artifact_versions v on (v.artifact_id,v.version)=(a.id,a.current_version)
+       returning artifact_id,version,copied_from
+     ), files as (
+       insert into artifact_files select c.artifact_id,c.version,f.object_hash,f.filename,f.media_type
+       from copies c join artifact_files f on (f.artifact_id,f.version)=(c.artifact_id,c.copied_from)
+     ) update artifacts a set current_version=c.version from copies c where a.id=c.artifact_id`, run, ord, "上游内容变化，需要核对引用")
+	return err
 }

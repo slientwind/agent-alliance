@@ -67,7 +67,7 @@ func (s Server) reviseFile(w http.ResponseWriter, r *http.Request, u identity.Me
 		if current != base {
 			return web.Fail(409, "成果已有新版本，请重新核对后提交")
 		}
-		if err := requireCurrentArtifactRules(ctx, tx, id, current); err != nil {
+		if err := requireCurrentArtifactInputs(ctx, tx, id, current); err != nil {
 			return err
 		}
 		part := knowledge.OfficePart(name)
