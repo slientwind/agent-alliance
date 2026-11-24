@@ -1,6 +1,7 @@
 import { FilePreview } from "./file-preview";
 import { useState, useEffect } from "react";
 import { api } from "./client";
+import { RemoteInputForm } from "./remote-input-form";
 type Trial = {
   canReuseSample?: boolean;
   id: string;
@@ -20,10 +21,13 @@ type Trial = {
   output: string | null;
   canCheck: boolean;
   cancelRequested: boolean;
+  canSupplement?: boolean;
+  inputRevision?: number;
+  inputPrompt?: string;
   remoteOperations?: { operation: string; outcome: string; state?: string; time: string }[];
 };
 const operationLabels: Record<string, string> = {
-  send: "提交", query: "查询原任务", cancel: "取消请求",
+  send: "提交", query: "查询原任务", cancel: "取消请求", supplement: "向原任务补件",
 };
 const operationOutcomes: Record<string, string> = {
   text: "已取得文本", state: "已核对任务状态", unconfirmed: "回执待核对",
@@ -65,15 +69,17 @@ export function TrialEvidence({
       active = false;
     };
   }, [base, open, epoch, version]);
-  async function follow(id: string, action: string) {
+  async function follow(id: string, action: string, extra?: { input: string; inputRevision: number }) {
     setBusy(true);
     try {
-      await api(base + "/" + id + "/receipt", "POST", { action });
+      await api(base + "/" + id + "/receipt", "POST", { action, ...(extra && {...extra, authorizeOneCall: true}) });
       bump((x) => x + 1);
       await refresh();
       setError("");
+      return true;
     } catch (e) {
       setError((e as Error).message);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -209,6 +215,10 @@ export function TrialEvidence({
               </button>
             </div>
           )}
+          {t.canSupplement && t.inputRevision && <RemoteInputForm
+            key={t.inputRevision} destination="试运行的第三方 Agent" question={t.inputPrompt}
+            send={input => follow(t.id, "supplement", { input, inputRevision: t.inputRevision! })}
+          />}
         </section>
       ))}
     </details>

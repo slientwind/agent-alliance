@@ -119,6 +119,11 @@ func controlTx(ctx context.Context, tx pgx.Tx, id, actor, key, action string, ex
 		return 0, err
 	}
 	if action == "cancel" {
+		if _, err := tx.Exec(ctx, `update remote_task_inputs
+          set state='rejected',encrypted_body=null,decided_at=now(),detail='cancelled_before_send'
+          where run_id=$1 and state='queued'`, id); err != nil {
+			return 0, err
+		}
 		if _, err := tx.Exec(ctx, `update remote_jobs set phase='checking',deadline=now()+check_window_seconds*interval '1 second',next_at=now(),consecutive_errors=0,detail='remote_cancel_requested' where run_id=$1 and phase<>'finished'`, id); err != nil {
 			return 0, err
 		}

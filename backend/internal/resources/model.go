@@ -33,6 +33,9 @@ func NewVault(key string) (Vault, error) {
 	return Vault{aead}, err
 }
 func (v Vault) Seal(value, scope string) ([]byte, error) {
+	if v.aead == nil {
+		return nil, errors.New("resource vault is not configured")
+	}
 	n := make([]byte, v.aead.NonceSize())
 	if _, err := rand.Read(n); err != nil {
 		return nil, err
@@ -40,6 +43,9 @@ func (v Vault) Seal(value, scope string) ([]byte, error) {
 	return v.aead.Seal(n, n, []byte(value), []byte(scope)), nil
 }
 func (v Vault) Open(value []byte, scope string) (string, error) {
+	if v.aead == nil {
+		return "", errors.New("resource vault is not configured")
+	}
 	n := v.aead.NonceSize()
 	if len(value) < n {
 		return "", errors.New("invalid secret reference")

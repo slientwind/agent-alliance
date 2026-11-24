@@ -3,6 +3,7 @@ package projects
 import (
 	"alliance/internal/database"
 	"alliance/internal/identity"
+	"alliance/internal/resources"
 	"alliance/internal/web"
 	"context"
 	"fmt"
@@ -14,7 +15,10 @@ import (
 	"unicode/utf8"
 )
 
-type Server struct{ DB *pgxpool.Pool }
+type Server struct {
+	DB    *pgxpool.Pool
+	Vault resources.Vault
+}
 type Project struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
@@ -44,8 +48,18 @@ const callReviewSummarySQL = `case when i.run_id is not null and (i.status in ('
  from (select case when i.status='input_rejected' then visible_column_issues(i.run_id,$1,i.input_issue) end as list) issue) end`
 
 const remoteSummarySQL = `(select jsonb_build_object('step',j.ordinal,'state',i.remote_status,'phase',j.phase,'detail',j.detail,'deadline',j.deadline,'checks',j.checks,'cancelRequested',j.cancel_attempted,
- 'canQuery',coalesce((remote_operation_availability(agent_released_remote_operation_evidence(n.agent_id,n.agent_revision))->>'query')::boolean,true))
+ 'canQuery',coalesce((scope.operations->>'query')::boolean,true) and not coalesce(last_input.state in ('queued','submitted'),false),
+ 'canSupplement',coalesce((scope.operations->>'supplement')::boolean,false) and j.phase='manual'
+    and i.remote_status='input-required' and i.remote_context<>'' and j.input_revision>0
+    and exists(select from runs current_run where current_run.id=j.run_id and current_run.status='reconcile')
+    and not j.cancel_attempted and (last_input.state is null or last_input.state='rejected' or last_input.input_revision<>j.input_revision),
+ 'inputRevision',j.input_revision,'inputPrompt',case when i.remote_status='input-required' and run_review_notes_readable(i.run_id,$1) then j.input_prompt end,
+ 'inputState',last_input.state,'inputDetail',last_input.detail,'destination',a.name)
  from remote_jobs j join effective_run_nodes n on(n.run_id,n.ordinal)=(j.run_id,j.ordinal)
+ join agent_revisions a on(a.agent_id,a.revision)=(n.agent_id,n.agent_revision)
+ cross join lateral (select remote_operation_availability(agent_released_remote_operation_evidence(n.agent_id,n.agent_revision)) operations) scope
+ left join lateral (select q.state,q.detail,q.input_revision from remote_task_inputs q where (q.run_id,q.ordinal)=(j.run_id,j.ordinal)
+   order by q.created_at desc,q.id desc limit 1) last_input on true
  where(j.run_id,j.ordinal)=(i.run_id,i.ordinal))`
 const fields = "p.id,p.title,p.stage,p.revision,p.plan_version,p.owner,p.final_reviewer"
 const access = " from projects p join project_members m on m.project_id=p.id where m.member_id=$1 "
@@ -84,6 +98,7 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 		"POST /api/workflow-templates/{template}/publication":                          s.workflowTemplatePublication,
 		"POST /api/workflow-templates/{template}/projects":                             s.useWorkflowTemplate,
 		"POST /api/runs/{id}/remote/{step}/check":                                      s.recheckRemote,
+		"POST /api/runs/{id}/remote/{step}/inputs":                                     s.queueRemoteInput,
 		"GET /api/projects/{id}/diagnostics":                                           s.traceDirectory,
 		"GET /api/projects/{id}/runs/{run}/trace":                                      s.trace,
 		"PATCH /api/projects/{id}/runs/{run}/trace-access":                             s.traceGrant,

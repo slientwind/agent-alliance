@@ -1,13 +1,20 @@
 package resources
 
-import "context"
+import (
+	"alliance/internal/web"
+	"context"
+	"strings"
+	"unicode/utf8"
+)
 
 type RemoteOperations struct {
-	Send       bool `json:"send"`
-	DirectText bool `json:"directText"`
-	Query      bool `json:"query"`
-	AsyncText  bool `json:"asyncText"`
-	Cancel     bool `json:"cancel"`
+	Send           bool `json:"send"`
+	DirectText     bool `json:"directText"`
+	Query          bool `json:"query"`
+	AsyncText      bool `json:"asyncText"`
+	Cancel         bool `json:"cancel"`
+	Supplement     bool `json:"supplement"`
+	SupplementText bool `json:"supplementText"`
 }
 
 func ReadRemoteOperations(ctx context.Context, q Query, agent string, revision int) (*RemoteOperations, error) {
@@ -18,7 +25,7 @@ func ReadRemoteOperations(ctx context.Context, q Query, agent string, revision i
 
 // A nil policy is used for trials and revisions released before qualification.
 func (p *RemoteOperations) CanStart() bool {
-	return p == nil || p.DirectText || (p.Query && p.AsyncText)
+	return p == nil || p.DirectText || (p.Query && p.AsyncText) || p.CanReturnSupplementText()
 }
 
 func (p *RemoteOperations) CanFollow(cancel bool) bool {
@@ -27,4 +34,20 @@ func (p *RemoteOperations) CanFollow(cancel bool) bool {
 
 func (p *RemoteOperations) CanReturnText(async bool) bool {
 	return p == nil || (async && p.AsyncText && p.Query) || (!async && p.DirectText)
+}
+
+func (p *RemoteOperations) CanSupplement() bool {
+	return p != nil && p.Supplement
+}
+
+func (p *RemoteOperations) CanReturnSupplementText() bool {
+	return p.CanSupplement() && p.SupplementText
+}
+
+func RemoteInput(text string) (string, error) {
+	text = strings.TrimSpace(text)
+	if text == "" || strings.ContainsRune(text, 0) || utf8.RuneCountInString(text) > 4000 {
+		return "", web.Fail(422, "请填写 1 到 4000 字的补件内容")
+	}
+	return text, nil
 }

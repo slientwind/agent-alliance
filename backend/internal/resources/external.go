@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 type RemotePolicy struct {
@@ -150,7 +151,10 @@ func (c Catalog) external(w http.ResponseWriter, r *http.Request, u identity.Mem
 	return web.JSON(w, 201, map[string]any{"id": id, "revision": rev})
 }
 
-type part struct{ Kind, Text string }
+type part struct {
+	Kind string `json:"kind"`
+	Text string `json:"text"`
+}
 type a2aResult struct {
 	Kind      string
 	ID        string
@@ -158,16 +162,38 @@ type a2aResult struct {
 	Parts     []part
 	Status    struct {
 		State   string
-		Message struct{ Parts []part }
+		Message struct {
+			MessageID string
+			Parts     []part
+		}
 	}
 	Artifacts []struct{ Parts []part }
 }
 type RemoteWait struct {
 	Task, Context, State string
+	Question             string
+	QuestionMessage      string
 	NoText               bool
 }
 
 func (e *RemoteWait) Error() string { return "外部任务状态：" + e.State }
+
+func (m Model) SupplementRemote(ctx context.Context, receipt RemoteWait, messageID, input string) (Reply, error) {
+	if !m.External || receipt.Task == "" || receipt.Context == "" || messageID == "" || web.Blank(input) {
+		return Reply{}, errors.New("需要原远端任务、上下文及本次已登记的补件")
+	}
+	if m.RemoteOperations != nil && !m.RemoteOperations.CanSupplement() {
+		return Reply{}, web.Fail(409, "此发布修订的远端补件证据已失效")
+	}
+	sub, stop := context.WithTimeout(ctx, time.Duration(m.Policy.ExecutionSeconds)*time.Second)
+	defer stop()
+	return m.remote(sub, "message/send", &receipt, map[string]any{
+		"message": map[string]any{"kind": "message", "messageId": messageID, "role": "user",
+			"taskId": receipt.Task, "contextId": receipt.Context, "parts": []part{{Kind: "text", Text: input}}},
+		"configuration": map[string]any{"blocking": true, "acceptedOutputModes": []string{"text/plain"}},
+	})
+}
+
 func (m Model) CheckRemote(ctx context.Context, receipt RemoteWait, cancel bool) (Reply, error) {
 	if !m.External || receipt.Task == "" {
 		return Reply{}, errors.New("需要已登记的外部任务编号")
@@ -233,6 +259,13 @@ func (m Model) remote(ctx context.Context, method string, expected *RemoteWait, 
 			return Reply{}, errors.New("外部任务缺少标识")
 		}
 		receipt = &RemoteWait{Task: result.ID, Context: result.ContextID, State: result.Status.State}
+		if receipt.State == "input-required" {
+			receipt.Question = remoteQuestion(result.Status.Message.Parts)
+			message := result.Status.Message.MessageID
+			if len(message) <= 256 && !strings.ContainsRune(message, 0) {
+				receipt.QuestionMessage = message
+			}
+		}
 		switch receipt.State {
 		case "submitted", "working", "input-required", "auth-required", "canceled", "failed", "rejected", "unknown":
 			return Reply{}, receipt
@@ -263,6 +296,28 @@ func (m Model) remote(ctx context.Context, method string, expected *RemoteWait, 
 		return Reply{}, errors.New("返回成果不包含已声明支持的文本操作")
 	}
 	return Reply{Text: strings.Join(text, "\n"), Receipt: receipt}, nil
+}
+
+func remoteQuestion(parts []part) string {
+	const limit = 1000
+	var question []rune
+	for _, p := range parts {
+		if p.Kind != "text" || web.Blank(p.Text) {
+			continue
+		}
+		if len(question) != 0 {
+			question = append(question, '\n')
+		}
+		for _, ch := range strings.TrimSpace(p.Text) {
+			if !unicode.IsControl(ch) || ch == '\n' || ch == '\t' {
+				question = append(question, ch)
+			}
+			if len(question) >= limit {
+				return strings.TrimSpace(string(question[:limit]))
+			}
+		}
+	}
+	return strings.TrimSpace(string(question))
 }
 
 // Registered cards are public service descriptions. The separately sealed credential

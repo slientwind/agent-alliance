@@ -7,6 +7,8 @@ type RemoteOperations = {
   query: boolean;
   asyncText: boolean;
   cancel: boolean;
+  supplement?: boolean;
+  supplementText?: boolean;
 };
 
 type BuildSnapshot = {
@@ -38,6 +40,8 @@ const operations = [
   ["query", "查询原任务"],
   ["asyncText", "异步取回文本"],
   ["cancel", "取消确认"],
+  ["supplement", "向原任务补件"],
+  ["supplementText", "补件后直接取得文本"],
 ] as const;
 
 export function BuildReview({

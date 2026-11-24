@@ -28,6 +28,7 @@ type remoteJob struct {
 	cancel                              bool
 	receipt                             resources.RemoteWait
 	model                               resources.Model
+	inputID                             string
 }
 
 func remoteDisposition(receipt *resources.RemoteWait) (phase, detail string) {
@@ -55,6 +56,8 @@ func remoteNote(code string) string {
 		return "远端需要授权，完成授权后可核对原任务。"
 	case "remote_input":
 		return "远端需要补充资料，在原任务补齐后可核对回执。"
+	case "remote_input_unconfirmed":
+		return "补件响应待核对，请查原任务回执。"
 	case "remote_no_text":
 		return "远端已完成，此操作没有可读取的文本成果。"
 	case "remote_failed", "remote_canceled", "remote_rejected":
@@ -90,7 +93,9 @@ func beginRemote(ctx context.Context, tx pgx.Tx, step Step, project, state strin
 			phase, detail = "manual", "remote_query_unverified"
 		}
 	}
-	_, err = tx.Exec(ctx, `insert into remote_jobs(run_id,ordinal,phase,detail,check_window_seconds,deadline) values($1,$2,$3,$4,$5::int,now()+$5::int*interval '1 second')`, step.Run, step.Ordinal, phase, detail, model.Policy.WindowSeconds)
+	_, err = tx.Exec(ctx, `insert into remote_jobs(run_id,ordinal,phase,detail,check_window_seconds,deadline,input_revision,input_prompt,input_message)
+       values($1,$2,$3,$4,$5::int,now()+$5::int*interval '1 second',($6='input-required')::int,$7,$8)`,
+		step.Run, step.Ordinal, phase, detail, model.Policy.WindowSeconds, r.State, r.Question, r.QuestionMessage)
 	if err != nil {
 		return err
 	}
@@ -118,6 +123,10 @@ func closeUnverifiedRemoteOutput(ctx context.Context, tx pgx.Tx, step Step, proj
 
 func (a Activities) FollowRemote(ctx context.Context, c client.Client) {
 	for ctx.Err() == nil {
+		input, sendErr := a.sendRemoteInput(ctx)
+		if sendErr != nil && ctx.Err() == nil {
+			slog.Warn("external input dispatch pending")
+		}
 		did, err := a.checkRemote(ctx)
 		if err != nil && ctx.Err() == nil {
 			slog.Warn("external receipt check pending")
@@ -125,7 +134,7 @@ func (a Activities) FollowRemote(ctx context.Context, c client.Client) {
 		if err := a.wakeRemote(ctx, c); err != nil && ctx.Err() == nil {
 			slog.Warn("external receipt signal pending")
 		}
-		if !did || err != nil {
+		if (!did && !input) || err != nil || sendErr != nil {
 			select {
 			case <-ctx.Done():
 				return
@@ -208,7 +217,11 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 	queryCtx, stop := context.WithDeadline(ctx, job.deadline)
 	reply, callErr := job.model.CheckRemote(queryCtx, job.receipt, job.cancel)
 	stop()
-	err = database.WithTx(ctx, a.Catalog.DB, func(tx pgx.Tx) error {
+	return true, a.applyRemoteOutcome(ctx, job, reply, callErr)
+}
+
+func (a Activities) applyRemoteOutcome(ctx context.Context, job remoteJob, reply resources.Reply, callErr error) error {
+	return database.WithTx(ctx, a.Catalog.DB, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx, "select status from runs where id=$1 for update", job.Run).Scan(&job.state); err != nil {
 			return err
 		}
@@ -222,6 +235,25 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 			return err
 		}
 		receipt := reply.Receipt
+		if job.inputID != "" {
+			if callErr != nil {
+				_ = errors.As(callErr, &receipt)
+			}
+			if receipt == nil || receipt.State == "unknown" {
+				if err := finishRemoteInput(ctx, tx, job.inputID, "uncertain", "receipt_unconfirmed"); err != nil {
+					return err
+				}
+				if job.state == "cancelled" {
+					_, err := tx.Exec(ctx, `update remote_jobs set lease=null,lease_until=null,next_at=now()
+                      where (run_id,ordinal)=($1,$2)`, job.Run, job.Ordinal)
+					return err
+				}
+				return parkRemote(ctx, tx, job, "remote_input_unconfirmed")
+			}
+			if err := finishRemoteInput(ctx, tx, job.inputID, "received", receipt.State); err != nil {
+				return err
+			}
+		}
 		if callErr != nil && !errors.As(callErr, &receipt) {
 			if failures >= job.model.Policy.ReadRetries {
 				return parkRemote(ctx, tx, job, "remote_query_failed")
@@ -240,7 +272,14 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 		if job.state == "cancelled" && phase == "manual" && (!cancelSent || job.cancel) {
 			phase = "checking"
 		}
-		if _, err = tx.Exec(ctx, `update remote_jobs set phase=$1,detail=$2,lease=null,lease_until=null,consecutive_errors=0,next_at=now()+$3*interval '1 second' where run_id=$4 and ordinal=$5`, phase, code, job.model.Policy.IntervalSeconds, job.Run, job.Ordinal); err != nil {
+		if _, err = tx.Exec(ctx, `update remote_jobs j set phase=$1,detail=$2,lease=null,lease_until=null,consecutive_errors=0,next_at=now()+$3*interval '1 second',
+              input_revision=j.input_revision+q.fresh::int,
+              input_prompt=case when q.fresh then $7 else j.input_prompt end,
+              input_message=case when q.fresh or ($6='input-required' and $8<>'') then $8 else j.input_message end
+            from remote_jobs prior join invocations i using (run_id,ordinal)
+            cross join lateral (select a2a_new_question(i.remote_status,prior.input_prompt,prior.input_message,$6,$7,$8) fresh) q
+            where (j.run_id,j.ordinal)=(prior.run_id,prior.ordinal) and (j.run_id,j.ordinal)=($4,$5)`,
+			phase, code, job.model.Policy.IntervalSeconds, job.Run, job.Ordinal, receipt.State, receipt.Question, receipt.QuestionMessage); err != nil {
 			return err
 		}
 		if _, err = tx.Exec(ctx, "update invocations set remote_status=$1 where run_id=$2 and ordinal=$3", receipt.State, job.Run, job.Ordinal); err != nil {
@@ -266,7 +305,7 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 			if err != nil {
 				return err
 			}
-			if !operations.CanReturnText(true) {
+			if (job.inputID == "" && !operations.CanReturnText(true)) || (job.inputID != "" && !operations.CanReturnSupplementText()) {
 				if _, err := tx.Exec(ctx, "update remote_jobs set detail='remote_text_unverified' where run_id=$1 and ordinal=$2", job.Run, job.Ordinal); err != nil {
 					return err
 				}
@@ -309,7 +348,6 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 		}
 		return err
 	})
-	return true, err
 }
 func parkRemote(ctx context.Context, tx pgx.Tx, j remoteJob, code string) error {
 	_, err := tx.Exec(ctx, "update remote_jobs set phase='manual',detail=$3,lease=null,lease_until=null where run_id=$1 and ordinal=$2", j.Run, j.Ordinal, code)

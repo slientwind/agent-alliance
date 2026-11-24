@@ -62,6 +62,14 @@ func (s Server) recheckRemote(w http.ResponseWriter, r *http.Request, u identity
 		if rev != in.Expected || phase != "manual" {
 			return web.Fail(409, "运行或远端核对状态已变化")
 		}
+		var pendingInput bool
+		if err := tx.QueryRow(ctx, `select exists(select from remote_task_inputs where (run_id,ordinal)=($1,$2)
+             and state in ('queued','submitted'))`, run, step).Scan(&pendingInput); err != nil {
+			return err
+		}
+		if pendingInput {
+			return web.Fail(409, "本轮补件仍在发送，请查看原任务状态")
+		}
 		if !allowed {
 			return web.Fail(409, "当前执行人无权核对原远端任务，请先恢复项目及绑定修订的授权")
 		}

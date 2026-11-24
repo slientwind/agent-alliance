@@ -44,6 +44,8 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	var sent, queried, canceled atomic.Int32
+	var supplements atomic.Int32
+	supplementIDs := make(chan string, 8)
 	var wrongTask atomic.Bool
 	provider := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var rpc struct {
@@ -52,6 +54,8 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 				ID      string
 				Message struct {
 					MessageID string
+					TaskID    string
+					ContextID string
 					Parts     []struct{ Text string }
 				}
 			}
@@ -64,6 +68,14 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 		task := func(id, state string) map[string]any {
 			return map[string]any{"kind": "task", "id": id, "contextId": "fixture", "status": map[string]string{"state": state}}
 		}
+		waitingTask := func(id, questionMessage string) map[string]any {
+			waiting := task(id, "input-required")
+			waiting["status"] = map[string]any{"state": "input-required", "message": map[string]any{
+				"messageId": questionMessage,
+				"parts":     []map[string]string{{"kind": "text", "text": "请补充供应商的报价有效期"}},
+			}}
+			return waiting
+		}
 		var result any
 		switch rpc.Method {
 		case "message/send":
@@ -73,9 +85,30 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 				return
 			}
 			input := rpc.Params.Message.Parts[0].Text
-			if strings.HasPrefix(input, "background") {
+			switch {
+			case rpc.Params.Message.TaskID != "":
+				if !strings.HasPrefix(rpc.Params.Message.TaskID, "input-") || rpc.Params.Message.ContextID != "fixture" {
+					http.Error(w, "wrong original task", http.StatusBadRequest)
+					return
+				}
+				supplements.Add(1)
+				supplementIDs <- rpc.Params.Message.MessageID
+				if input == "fixture lost response" {
+					http.Error(w, "lost response", http.StatusServiceUnavailable)
+					return
+				}
+				if input == "fixture ask again" {
+					result = waitingTask(rpc.Params.Message.TaskID, "revised-question")
+					break
+				}
+				completed := task(rpc.Params.Message.TaskID, "completed")
+				completed["artifacts"] = []map[string]any{{"parts": text}}
+				result = completed
+			case strings.HasPrefix(input, "needs-input"):
+				result = waitingTask("input-"+rpc.Params.Message.MessageID, "initial-question")
+			case strings.HasPrefix(input, "background"):
 				result = task("remote-"+rpc.Params.Message.MessageID, "working")
-			} else {
+			default:
 				if strings.HasPrefix(input, "business-fail") {
 					text[0]["text"] = "NO EXPECTED RESULT"
 				}
@@ -115,7 +148,7 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 	auth := identity.Server{DB: db}
 	routes := http.NewServeMux()
 	worker.Catalog.Routes(routes, auth)
-	projects.Server{DB: db}.Routes(routes, auth)
+	projects.Server{DB: db, Vault: vault}.Routes(routes, auth)
 	seed, _ := seedLookupTurn(t, ctx, worker, provider.URL)
 	var actor, team string
 	if err := db.QueryRow(ctx, "select actor,charge_team from runs where id=$1", seed.Run).Scan(&actor, &team); err != nil {
@@ -329,4 +362,180 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 		t.Fatalf("legacy remote work failed to continue: %t %v", checked, err)
 	}
 	dispatch(legacyRun, false)
+
+	decode(call("POST", "/api/agents/cards", map[string]any{"team": team, "card": card}, 201), &agent)
+	path = "/api/agents/" + agent.ID
+	trial := startTrial(1, "needs-input qualification", "remote")
+	if evidence := call("GET", path+"/evidence", nil, 200); !strings.Contains(string(evidence), "请补充供应商的报价有效期") {
+		t.Fatalf("trial question missing: %s", evidence)
+	}
+	trialInput := map[string]any{"action": "supplement", "inputRevision": 1, "input": "有效期至月底", "authorizeOneCall": true}
+	supplementsBefore := supplements.Load()
+	call("POST", path+"/evidence/"+trial+"/receipt", trialInput, 200)
+	call("POST", path+"/evidence/"+trial+"/receipt", trialInput, 200)
+	if supplements.Load() != supplementsBefore+1 {
+		t.Fatal("trial supplement was dispatched twice")
+	}
+	if proof := operations(1); !proof.Evidence.Passed || !proof.Evidence.RemoteOperations.CanReturnSupplementText() {
+		t.Fatalf("original-task continuation was not verifiable: %+v", proof)
+	}
+	followTrial(startTrial(1, "background polling proof", "remote"), "check", "passed")
+	publish(1, 204)
+
+	type inputReceipt struct{ ID, Status string }
+	enqueueAtQuestion := func(step Step, key string, control, question int, input string, authorized bool, want int) inputReceipt {
+		t.Helper()
+		body, err := json.Marshal(map[string]any{"expected": control, "inputRevision": question, "input": input, "authorizeOneCall": authorized})
+		if err != nil {
+			t.Fatal(err)
+		}
+		req := httptest.NewRequest("POST", "/api/runs/"+step.Run+"/remote/1/inputs", strings.NewReader(string(body)))
+		req.AddCookie(&http.Cookie{Name: "aa_session", Value: token})
+		req.Header.Set("Idempotency-Key", key)
+		response := httptest.NewRecorder()
+		routes.ServeHTTP(response, req)
+		if response.Code != want {
+			t.Fatalf("enqueue: %d want %d, %s", response.Code, want, response.Body)
+		}
+		var receipt inputReceipt
+		if want == 202 {
+			decode(response.Body.Bytes(), &receipt)
+		}
+		return receipt
+	}
+	enqueue := func(step Step, key string, control int, input string, authorized bool, want int) inputReceipt {
+		t.Helper()
+		return enqueueAtQuestion(step, key, control, 1, input, authorized, want)
+	}
+	sendInput := func() bool {
+		t.Helper()
+		sentInput, err := worker.sendRemoteInput(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return sentInput
+	}
+	supplementRun, supplementProject := run(1, "needs-input actual run")
+	dispatch(supplementRun, true)
+	projectSnapshot := call("GET", "/api/projects/"+supplementProject, nil, 200)
+	if !strings.Contains(string(projectSnapshot), "请补充供应商的报价有效期") {
+		t.Fatal("production question missing")
+	}
+	expected, key := controlRevision(supplementRun), web.Token()
+	enqueue(supplementRun, key, expected, "有效期至月底", false, 422)
+	initial := enqueue(supplementRun, key, expected, "有效期至月底", true, 202)
+	replay := enqueue(supplementRun, key, expected, "有效期至月底", true, 202)
+	enqueue(supplementRun, key, expected, "不要使用旧报价", true, 409)
+	enqueue(supplementRun, web.Token(), controlRevision(supplementRun), "有效期至下周", true, 409)
+	if initial.ID == "" || initial != replay || supplements.Load() != supplementsBefore+1 {
+		t.Fatalf("queued input was not idempotent or reached provider before worker: %+v %+v", initial, replay)
+	}
+	var storedState string
+	var sealed []byte
+	var costCount int
+	if err := db.QueryRow(ctx, "select state,encrypted_body from remote_task_inputs where id=$1", initial.ID).
+		Scan(&storedState, &sealed); err != nil || storedState != "queued" || len(sealed) == 0 || strings.Contains(string(sealed), "有效期") {
+		t.Fatalf("queued content did not stay protected: %s, %v", storedState, err)
+	}
+	if !sendInput() || sendInput() {
+		t.Fatal("worker did not consume exactly one supplement")
+	}
+	<-supplementIDs // The trial message has its own operation identity.
+	if actualID := <-supplementIDs; actualID != initial.ID {
+		t.Fatalf("provider received unexpected operation identity %s", actualID)
+	}
+	if after := enqueue(supplementRun, key, expected, "有效期至月底", true, 202); after.Status != "received" {
+		t.Fatalf("replay lost the original receipt: %+v", after)
+	}
+	dispatch(supplementRun, false)
+	if err := db.QueryRow(ctx, "select count(*) from spend where run_id=$1 and kind='remote-input'", supplementRun.Run).Scan(&costCount); err != nil || costCount != 1 {
+		t.Fatalf("supplement accounting: %d, %v", costCount, err)
+	}
+
+	reprompt, _ := run(1, "needs-input reprompt")
+	dispatch(reprompt, true)
+	enqueue(reprompt, web.Token(), controlRevision(reprompt), "fixture ask again", true, 202)
+	if !sendInput() {
+		t.Fatal("first input was not sent")
+	}
+	var questionRevision int
+	if err := db.QueryRow(ctx, "select input_revision from remote_jobs where run_id=$1", reprompt.Run).
+		Scan(&questionRevision); err != nil || questionRevision != 2 {
+		t.Fatalf("new question with unchanged text was not distinguished: %d %v", questionRevision, err)
+	}
+	enqueue(reprompt, web.Token(), controlRevision(reprompt), "旧卡补件", true, 409)
+	enqueueAtQuestion(reprompt, web.Token(), controlRevision(reprompt), 2, "再次核对后补充", true, 202)
+	if !sendInput() || sendInput() {
+		t.Fatal("second question did not accept exactly one new supplement")
+	}
+	dispatch(reprompt, false)
+
+	lost, _ := run(1, "needs-input lost response")
+	dispatch(lost, true)
+	uncertain := enqueue(lost, web.Token(), controlRevision(lost), "fixture lost response", true, 202)
+	if !sendInput() || sendInput() {
+		t.Fatal("missing receipt was re-sent")
+	}
+	if err := db.QueryRow(ctx, "select state,encrypted_body from remote_task_inputs where id=$1", uncertain.ID).
+		Scan(&storedState, &sealed); err != nil || storedState != "uncertain" || sealed != nil {
+		t.Fatalf("lost input response: %s, %v", storedState, err)
+	}
+	call("POST", "/api/runs/"+lost.Run+"/remote/1/check", map[string]any{"expected": controlRevision(lost), "reason": "核对原任务"}, 202)
+	sendsBefore, queriesBefore = sent.Load(), queried.Load()
+	if checked, err := worker.checkRemote(ctx); !checked || err != nil {
+		t.Fatalf("original query failed: %t %v", checked, err)
+	}
+	dispatch(lost, false)
+	if sent.Load() != sendsBefore || queried.Load() != queriesBefore+1 {
+		t.Fatal("reconciliation must query the original task without re-sending")
+	}
+
+	interrupted, _ := run(1, "needs-input interrupted worker")
+	dispatch(interrupted, true)
+	submittedInput := enqueue(interrupted, web.Token(), controlRevision(interrupted), "等待另一执行进程", true, 202)
+	// Simulate a worker exit after the committed claim, before a receipt can be saved.
+	if _, err := db.Exec(ctx, `with claimed as (
+		update remote_task_inputs set state='submitted',encrypted_body=null,claim_until=now()-interval '1 second'
+		where id=$1 returning run_id,ordinal,id,claim_until
+	) update remote_jobs j set lease=c.id,lease_until=c.claim_until
+	from claimed c where (j.run_id,j.ordinal)=(c.run_id,c.ordinal)`, submittedInput.ID); err != nil {
+		t.Fatal(err)
+	}
+	sendsBefore = sent.Load()
+	if !sendInput() || sendInput() || sent.Load() != sendsBefore {
+		t.Fatal("worker recovery replayed a claimed supplement")
+	}
+	if err := db.QueryRow(ctx, "select state,encrypted_body from remote_task_inputs where id=$1", submittedInput.ID).
+		Scan(&storedState, &sealed); err != nil || storedState != "uncertain" || sealed != nil {
+		t.Fatalf("expired input claim: %s, %v", storedState, err)
+	}
+	if phase, detail := remoteStatus(interrupted); phase != "manual" || detail != "remote_input_unconfirmed" {
+		t.Fatalf("expired input was not left for reconciliation: %s %s", phase, detail)
+	}
+
+	cancelledInput, _ := run(1, "needs-input cancelled worker")
+	dispatch(cancelledInput, true)
+	cancelledReceipt := enqueue(cancelledInput, web.Token(), controlRevision(cancelledInput), "撤销前保存的补件", true, 202)
+	sendsBefore = sent.Load()
+	cancelRun(cancelledInput)
+	if sendInput() || sent.Load() != sendsBefore {
+		t.Fatal("cancellation permitted dispatch of queued input")
+	}
+	if err := db.QueryRow(ctx, "select state,encrypted_body from remote_task_inputs where id=$1", cancelledReceipt.ID).
+		Scan(&storedState, &sealed); err != nil || storedState != "rejected" || sealed != nil {
+		t.Fatalf("cancelled input left pending data: %s, %v", storedState, err)
+	}
+
+	revoke, _ := run(1, "needs-input before proof withdrawal")
+	dispatch(revoke, true)
+	waitingInput := enqueue(revoke, web.Token(), controlRevision(revoke), "之前已授权的补件", true, 202)
+	call("POST", path+"/evidence/"+trial+"/withdraw", map[string]string{"reason": "连接协议发生变动"}, 204)
+	sendsBefore = sent.Load()
+	if !sendInput() || sent.Load() != sendsBefore {
+		t.Fatal("revoked supplement proof permitted a new dispatch")
+	}
+	if err := db.QueryRow(ctx, "select state,encrypted_body from remote_task_inputs where id=$1", waitingInput.ID).
+		Scan(&storedState, &sealed); err != nil || storedState != "rejected" || sealed != nil {
+		t.Fatalf("withdrawn authorization left pending data: %s, %v", storedState, err)
+	}
 }
