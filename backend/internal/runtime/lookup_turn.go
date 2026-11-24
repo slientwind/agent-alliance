@@ -97,7 +97,7 @@ func (a Activities) sealLookupAction(action ActionRef, d contextData, input look
 	return a.Catalog.Vault.Seal(string(encoded), action.scope())
 }
 
-func saveLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, attempt, control int, status string, kind ActionKind, decision []byte, reply resources.Reply, result *Result) error {
+func saveLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, attempt, control int, status string, kind ActionKind, decision []byte, reply resources.Reply, observe bool, result *Result) error {
 	if _, err := tx.Exec(ctx, `update invocations set status='completed',tokens=$3,result=null,ended_at=now()
         where run_id=$1 and ordinal=$2`, step.Run, step.Ordinal, callTokens(d.model, reply)); err != nil {
 		return err
@@ -125,9 +125,9 @@ func saveLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, at
 		agent, revision, decidedControl = d.agent, d.revision, d.controlRevision
 	}
 	if _, err := tx.Exec(ctx, `insert into lookup_turns(run_id,ordinal,attempt_no,plan_version,decision,outcome,
-          action_kind,agent_id,agent_revision,decided_control_revision)
-        values($1,$2,$3,$4,$5,$6,nullif($7,''),$8,$9,$10) on conflict do nothing`, step.Run, step.Ordinal, attempt,
-		d.planVersion, decision, disposition, kind, agent, revision, decidedControl); err != nil {
+		  action_kind,agent_id,agent_revision,decided_control_revision,observe_before_commit)
+		values($1,$2,$3,$4,$5,$6,nullif($7,''),$8,$9,$10,$11) on conflict do nothing`, step.Run, step.Ordinal, attempt,
+		d.planVersion, decision, disposition, kind, agent, revision, decidedControl, observe); err != nil {
 		return err
 	}
 	if status == "running" {
@@ -142,10 +142,11 @@ func saveLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, at
 }
 
 func resumeLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, attempt int, result *Result) (bool, error) {
-	var pending bool
+	var pending, observed bool
 	var kind ActionKind
-	err := tx.QueryRow(ctx, `select decision is not null,coalesce(action_kind,'') from lookup_turns
-        where run_id=$1 and ordinal=$2 and attempt_no=$3`, step.Run, step.Ordinal, attempt).Scan(&pending, &kind)
+	err := tx.QueryRow(ctx, `select t.decision is not null,coalesce(t.action_kind,''),o.payload is not null
+        from lookup_turns t left join local_action_observations o using(run_id,ordinal,attempt_no)
+        where t.run_id=$1 and t.ordinal=$2 and t.attempt_no=$3`, step.Run, step.Ordinal, attempt).Scan(&pending, &kind, &observed)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -153,7 +154,11 @@ func resumeLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, 
 		return false, err
 	}
 	if pending {
-		setLocalActionResult(step, attempt, d.controlRevision, kind, result)
+		if observed {
+			result.Observation = &ActionRef{Step: step, Attempt: attempt, Kind: kind, ControlRevision: d.controlRevision}
+		} else {
+			setLocalActionResult(step, attempt, d.controlRevision, kind, result)
+		}
 		return true, nil
 	}
 	result.Wait = true
@@ -203,7 +208,7 @@ func reopenLookupTurn(citations []indexCitation, files []knowledge.InputSource) 
 // ExecuteLookupAction consumes a single pending local effect and commits its
 // observation with the candidate. Retrying after that commit is a read.
 func (a Activities) ExecuteLookupAction(ctx context.Context, action lookupAction) (Result, error) {
-	return a.executeLocalAction(ctx, ActionRef{Step: action.Step, Attempt: action.Attempt})
+	return a.executeLocalAction(ctx, ActionRef{Step: action.Step, Attempt: action.Attempt}, false)
 }
 
 // ExecuteAction consumes only the decision recorded for this invocation.
@@ -212,10 +217,14 @@ func (a Activities) ExecuteAction(ctx context.Context, action ActionRef) (Result
 	if action.Kind == "" {
 		return Result{}, fmt.Errorf("missing local action kind")
 	}
-	return a.executeLocalAction(ctx, action)
+	return a.executeLocalAction(ctx, action, false)
 }
 
-func (a Activities) executeLocalAction(ctx context.Context, action ActionRef) (Result, error) {
+func (a Activities) CommitLocalObservation(ctx context.Context, action ActionRef) (Result, error) {
+	return a.executeLocalAction(ctx, action, true)
+}
+
+func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, commit bool) (Result, error) {
 	step := action.Step
 	var result Result
 	err := database.WithTx(ctx, a.Catalog.DB, func(tx pgx.Tx) error {
@@ -225,7 +234,7 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef) (R
 		var savedAgent string
 		var kind ActionKind
 		var sealed []byte
-		var recorded bool
+		var recorded, observe bool
 		if err := tx.QueryRow(ctx, `select project_id,actor,status,plan_version,max_calls,control_revision from runs
             where id=$1 for update`, step.Run).Scan(&d.project, &d.actor, &status, &d.planVersion, &d.maximum, &control); err != nil {
 			return err
@@ -240,12 +249,12 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef) (R
 		// commit is visible even when the run itself stays in "running".
 		err := tx.QueryRow(ctx, `select n.agent_id,n.agent_revision,n.lookup_phase,i.attempt_no,i.status,
           i.result is not null,t.plan_version,t.decision,coalesce(t.action_kind,''),coalesce(t.agent_id::text,''),
-          coalesce(t.agent_revision,0),coalesce(t.decided_control_revision,0)
+		  coalesce(t.agent_revision,0),coalesce(t.decided_control_revision,0),t.observe_before_commit
           from effective_run_nodes n join invocations i on(i.run_id,i.ordinal)=(n.run_id,n.ordinal)
           join lookup_turns t on(t.run_id,t.ordinal)=(n.run_id,n.ordinal) and t.attempt_no=$3
           where n.run_id=$1 and n.ordinal=$2`, step.Run, step.Ordinal, action.Attempt).Scan(
 			&d.agent, &d.revision, &d.lookupPhase, &attempt, &invocationStatus, &recorded, &savedPlan, &sealed,
-			&kind, &savedAgent, &savedRevision, &decidedControl)
+			&kind, &savedAgent, &savedRevision, &decidedControl, &observe)
 		if err != nil {
 			return err
 		}
@@ -255,6 +264,9 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef) (R
 		}
 		if recorded {
 			return nil
+		}
+		if commit && !observe {
+			return errors.New("local action does not use the observation protocol")
 		}
 		if kind != "" && control != action.ControlRevision {
 			result.RevisitTurn = true
@@ -333,39 +345,49 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef) (R
 		if !ok {
 			return invalid("首轮引文的资料位置或版本已变化，请核对后重新发起。")
 		}
-		var text, outcome string
-		var observed []byte
-		switch kind {
-		case "", refineLookupAction:
-			var fresh []lookupHit
-			text, outcome, fresh = refineLookupObserved(input.Terms, first, files)
-			if len(fresh) > 0 {
-				hits := append(fresh, first...)
-				observed, err = json.Marshal(lookupCitationRefs(hits[:min(len(hits), 6)], files))
-				if err != nil {
+		var observation localObservation
+		if observe {
+			// Serialize the publication check with invalidation of this decision.
+			var stillPending bool
+			if err := tx.QueryRow(ctx, `select decision is not null and run_working_set_usable(run_id,ordinal,attempt_no) from lookup_turns
+                where (run_id,ordinal,attempt_no)=($1,$2,$3) for update`, step.Run, step.Ordinal, attempt).Scan(&stillPending); err != nil {
+				return err
+			}
+			if !stillPending {
+				if parked, err := parkRevokedWorkingRule(ctx, tx, step, d.project, attempt); parked || err != nil {
+					result.Wait = true
 					return err
 				}
+				return invalid(memory.Unavailable)
 			}
-		case calculateAction:
-			operands := moneyOperands(first, files)
-			if input.Calculation == nil || !input.Calculation.Valid(len(operands)) {
-				return invalid("核算动作引用的金额已变化，请核对后重新发起。")
-			}
-			text, outcome = applyCalculation(*input.Calculation, first, files, operands)
-		default:
-			return invalid("无法核对已登记的操作，请联系维护人。")
+			observation, err = a.resolveLocalObservation(ctx, tx, action, commit, input, first, files, &result)
+		} else {
+			observation, err = observeLocalAction(kind, input, first, files)
 		}
-		if _, err = tx.Exec(ctx, "update invocations set result=$3 where run_id=$1 and ordinal=$2", step.Run, step.Ordinal, text); err != nil {
+		if errors.As(err, &problem) {
+			return invalid(problem.Message)
+		}
+		if err != nil || result.Observation != nil || result.RevisitTurn {
+			return err
+		}
+		var evidence []byte
+		if len(observation.Refinement) > 0 {
+			evidence, err = json.Marshal(observation.Refinement)
+			if err != nil {
+				return err
+			}
+		}
+		if _, err = tx.Exec(ctx, "update invocations set result=$3 where run_id=$1 and ordinal=$2", step.Run, step.Ordinal, observation.Body); err != nil {
 			return err
 		}
 		if _, err = tx.Exec(ctx, `update lookup_turns set decision=null,outcome=$4,refinement_evidence=$5::jsonb
-            where run_id=$1 and ordinal=$2 and attempt_no=$3`, step.Run, step.Ordinal, action.Attempt, outcome, observed); err != nil {
+			where run_id=$1 and ordinal=$2 and attempt_no=$3`, step.Run, step.Ordinal, action.Attempt, observation.Outcome, evidence); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, "insert into trace_events(run_id,ordinal,kind,code) values($1,$2,'checkpoint',$3)", step.Run, step.Ordinal, outcome); err != nil {
+		if _, err := tx.Exec(ctx, "insert into trace_events(run_id,ordinal,kind,code) values($1,$2,'checkpoint',$3)", step.Run, step.Ordinal, observation.Outcome); err != nil {
 			return err
 		}
-		return commitOutput(ctx, tx, step, d, text, &result)
+		return commitOutput(ctx, tx, step, d, observation.Body, &result)
 	})
 	return result, err
 }

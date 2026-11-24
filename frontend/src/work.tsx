@@ -807,6 +807,11 @@ export function Work({
       {p.run?.calculationPending && (
         <p className="card" role="status">正在按已核对的原文金额计算。</p>
       )}
+      {p.run?.localObservations?.map(observation => (
+        <p key={observation.step} className="card" role="status">
+          步骤 {observation.step} 已完成{observation.kind === "calculate_amounts" ? "核算" : "补查"}，正在核对依据。
+        </p>
+      ))}
       {p.run?.indexWait && (
         <section className="card" aria-label="资料索引进度">
           <p role="status">{p.run.indexWait.automatic

@@ -1427,6 +1427,7 @@
         }
       },
       "Event": {
+        "description": "step/checking_observation 表示补查或核算观察已记录，正在复核使用权限和依据。成果可用以 artifact/ready 为准。",
         "type": "object",
         "properties": {
           "seq": {

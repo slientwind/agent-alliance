@@ -105,6 +105,7 @@ func TestDurableLocalActionRevisitsStaleControlBeforeContinuing(t *testing.T) {
 	env.RegisterActivity(a.AdvanceExecutionTurn)
 	env.RegisterActivity(a.ExecuteAction)
 	env.RegisterActivity(a.ExecuteStep)
+	env.OnGetVersion("observed-local-actions", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
 	env.OnGetVersion("step-remote-input", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
 	env.OnActivity(a.Topology, mock.Anything, "run").Return([]Node{
 		{Ordinal: 1, Calculation: true}, {Ordinal: 2, Dependencies: []int{1}},
@@ -117,6 +118,36 @@ func TestDurableLocalActionRevisitsStaleControlBeforeContinuing(t *testing.T) {
 	resumed := env.OnActivity(a.AdvanceExecutionTurn, mock.Anything, step).Return(Result{Action: &current}, nil).NotBefore(stale).Once()
 	done := env.OnActivity(a.ExecuteAction, mock.Anything, current).Return(Result{}, nil).NotBefore(resumed).Once()
 	env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", 2}).Return(Result{}, nil).NotBefore(done).Once()
+	env.ExecuteWorkflow(Collaborate, "run")
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+	env.AssertExpectations(t)
+}
+
+func TestObservedWorkflowPublishesBeforeStartingDependents(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	var a Activities
+	env.RegisterActivity(a.Topology)
+	env.RegisterActivity(a.AdvanceObservedTurn)
+	env.RegisterActivity(a.ExecuteAction)
+	env.RegisterActivity(a.CommitLocalObservation)
+	env.RegisterActivity(a.ExecuteStep)
+	env.OnGetVersion("step-remote-input", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	env.OnActivity(a.Topology, mock.Anything, "run").Return([]Node{
+		{Ordinal: 1, LookupAnswer: true}, {Ordinal: 2, Dependencies: []int{1}},
+	}, nil).Once()
+	step := Step{"run", 1}
+	action := ActionRef{Step: step, Attempt: 1, Kind: refineLookupAction, ControlRevision: 2}
+	current := action
+	current.ControlRevision++
+	decision := env.OnActivity(a.AdvanceObservedTurn, mock.Anything, step).Return(Result{Action: &action}, nil).Once()
+	observed := env.OnActivity(a.ExecuteAction, mock.Anything, action).Return(Result{Observation: &action}, nil).NotBefore(decision).Once()
+	stale := env.OnActivity(a.CommitLocalObservation, mock.Anything, action).Return(Result{RevisitTurn: true}, nil).NotBefore(observed).Once()
+	reloaded := env.OnActivity(a.AdvanceObservedTurn, mock.Anything, step).Return(Result{Observation: &current}, nil).NotBefore(stale).Once()
+	published := env.OnActivity(a.CommitLocalObservation, mock.Anything, current).Return(Result{}, nil).NotBefore(reloaded).Once()
+	env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", 2}).Return(Result{}, nil).NotBefore(published).Once()
 	env.ExecuteWorkflow(Collaborate, "run")
 	if err := env.GetWorkflowError(); err != nil {
 		t.Fatal(err)

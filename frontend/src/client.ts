@@ -546,6 +546,7 @@ export type Project = Summary & {
     ruleBranchRebuild?: { sourceRun: string; authorizedCalls: number; steps: RuleBranchStep[] } | null;
     lookupPending?: boolean;
     calculationPending?: boolean;
+    localObservations?: { step: number; kind: "refine_lookup" | "calculate_amounts" }[];
     draftAvailable?: boolean;
     canResolveToolChoice?: boolean;
     canConcludeFailure?: boolean;

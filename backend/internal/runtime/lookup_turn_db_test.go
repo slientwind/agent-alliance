@@ -20,6 +20,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.temporal.io/sdk/testsuite"
 )
 
 func TestLookupTurnPostgresRecovery(t *testing.T) {
@@ -80,8 +81,8 @@ func TestLookupTurnPostgresRecovery(t *testing.T) {
                 where t.run_id=$1 and t.ordinal=$2`, step.Run, step.Ordinal).Scan(&pending, &notYetPublished); err != nil || !pending || !notYetPublished {
 				t.Fatalf("expected a sealed pending decision with no result: %v", err)
 			}
-			projectPending := lookupTurnProjectReader(t, ctx, db, step.Run)
-			if !projectPending() {
+			readProject := lookupTurnProjectReader(t, ctx, db, step.Run)
+			if !readProject().LookupPending {
 				t.Fatal("project did not report the pending lookup")
 			}
 			next, err := pgxpool.New(ctx, dsn)
@@ -127,7 +128,7 @@ func TestLookupTurnPostgresRecovery(t *testing.T) {
 				t.Fatalf("outcome=%q status=%q sealed gone=%t artifacts=%d charges=%d tokens=%d calls=%d err=%v",
 					outcome, status, sealedGone, artifacts, charges, tokens, calls.Load()-before, err)
 			}
-			if projectPending() {
+			if readProject().LookupPending {
 				t.Fatal("project still reported a pending lookup")
 			}
 			if (tc.name == "replay" && !strings.Contains(body, "周五前签收")) ||
@@ -265,9 +266,160 @@ func TestLookupTurnPostgresRecovery(t *testing.T) {
 			}
 		})
 	}
+	for _, tc := range []struct {
+		name, reply, outcome, want string
+	}{
+		{"recover recorded observation", `{"terms":["质保单"]}`, "lookup_refined", "周五前签收"},
+		{"no new evidence", `{"terms":["报价表"]}`, "lookup_no_progress", "未取得新依据"},
+		{"recover recorded calculation", `{"calculation":{"operation":"difference","operands":[2,1]}}`, "lookup_calculated", "差额为 40.50"},
+		{"source revoked after observation", `{"terms":["质保单"]}`, "invalidated", ""},
+		{"cancelled after observation", `{"terms":["质保单"]}`, "run_ended", ""},
+		{"observed evidence changed", `{"terms":["质保单"]}`, "invalidated", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			content.Store(tc.reply)
+			truncated.Store(false)
+			step, source := seedLookupTurn(t, ctx, a, provider.URL)
+			wantKind := refineLookupAction
+			if tc.name == "recover recorded calculation" {
+				wantKind = calculateAction
+				const excerpt = "合同额度为 500.00 元。实付金额为 540.50 元。"
+				lookupTestSQL(t, ctx, db, "update source_versions set extracted=$2 where source_id=$1", source, excerpt)
+				hit := lookupHit{version: 1, end: len([]rune(excerpt)), text: excerpt}
+				lookupTestSQL(t, ctx, db, "update invocations set result=$2 where run_id=$1 and ordinal=1", step.Run, hit.line())
+				lookupTestSQL(t, ctx, db, "update nodes n set lookup_phase='answer_calc' from runs r where n.project_id=r.project_id and r.id=$1 and n.ordinal=$2", step.Run, step.Ordinal)
+			}
+			before := calls.Load()
+			proposed, err := a.AdvanceObservedTurn(ctx, step)
+			if err != nil || proposed.Action == nil || proposed.Observation != nil || calls.Load() != before+1 {
+				t.Fatalf("advance did not prepare one action: %+v %v", proposed, err)
+			}
+			action := *proposed.Action
+			if out, err := a.CommitLocalObservation(ctx, action); err != nil || !out.RevisitTurn {
+				t.Fatalf("commit ran without a recorded observation: %+v %v", out, err)
+			}
+			var beforeEvent int
+			if err := db.QueryRow(ctx, `select h.seq from project_session_heads h join runs r using(project_id) where r.id=$1`, step.Run).
+				Scan(&beforeEvent); err != nil {
+				t.Fatal(err)
+			}
+			for range 2 {
+				out, err := a.ExecuteAction(ctx, action)
+				if err != nil || out.Observation == nil || *out.Observation != action || out.Action != nil || out.Wait {
+					t.Fatalf("observe did not return a reusable handle: %+v %v", out, err)
+				}
+			}
+			var pending, unpublished bool
+			var observedEvent int
+			if err := db.QueryRow(ctx, `select o.payload is not null,i.result is null,h.seq
+                from local_action_observations o join invocations i using(run_id,ordinal,attempt_no)
+                join runs r on r.id=o.run_id join project_session_heads h using(project_id)
+                where (o.run_id,o.ordinal) = ($1,$2)`, step.Run, step.Ordinal).
+				Scan(&pending, &unpublished, &observedEvent); err != nil || !pending || !unpublished || observedEvent != beforeEvent+1 {
+				t.Fatalf("observation already published or repeated: %v %v %d/%d %v", pending, unpublished, observedEvent, beforeEvent, err)
+			}
+			readProject := lookupTurnProjectReader(t, ctx, db, step.Run)
+			if projection := readProject(); len(projection.LocalObservations) != 1 || projection.LookupPending || projection.CalculationPending ||
+				projection.LocalObservations[0].Kind != wantKind || projection.LocalObservations[0].Step != step.Ordinal {
+				t.Fatalf("project did not project the observed phase: %+v", projection)
+			}
+			switch tc.name {
+			case "source revoked after observation":
+				lookupTestSQL(t, ctx, db, "update sources set revoked_at=now() where id=$1", source)
+			case "cancelled after observation":
+				lookupTestSQL(t, ctx, db, "update runs set status='cancelled' where id=$1", step.Run)
+			case "observed evidence changed":
+				lookupTestSQL(t, ctx, db, "update source_versions set extracted=replace(extracted,'周五','周六') where source_id=$1", source)
+			default:
+				lookupTestSQL(t, ctx, db, "update runs set control_revision=control_revision+1 where id=$1", step.Run)
+				out, err := a.CommitLocalObservation(ctx, action)
+				if err != nil || !out.RevisitTurn {
+					t.Fatalf("old control consumed the observation: %+v %v", out, err)
+				}
+			}
+			freshPool, err := pgxpool.New(ctx, dsn)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer freshPool.Close()
+			restarted := Activities{Catalog: resources.Catalog{DB: freshPool, Vault: vault}}
+			if tc.want != "" {
+				resumed, err := restarted.AdvanceObservedTurn(ctx, step)
+				if err != nil || resumed.Observation == nil || resumed.Observation.ControlRevision != action.ControlRevision+1 || resumed.Action != nil {
+					t.Fatalf("restart lost recorded observation: %+v %v", resumed, err)
+				}
+				action = *resumed.Observation
+			}
+			results := make(chan error, 2)
+			for range cap(results) {
+				go func() {
+					_, err := restarted.CommitLocalObservation(ctx, action)
+					results <- err
+				}()
+			}
+			for range cap(results) {
+				if err := <-results; err != nil {
+					t.Fatal(err)
+				}
+			}
+			var cleared, consumed, discarded bool
+			var outcome, body string
+			var charges, candidates, published int
+			if err := db.QueryRow(ctx, `select o.payload is null,o.consumed_at is not null,o.discarded_at is not null,
+                t.outcome,coalesce(i.result,''),
+                (select count(*) from spend where run_id=t.run_id),
+                (select count(*) from artifacts where (run_id,ordinal)=(t.run_id,t.ordinal)),
+                (select count(*) from trace_events e where (e.run_id,e.ordinal,e.code)=(t.run_id,t.ordinal,t.outcome))
+                from local_action_observations o join lookup_turns t using(run_id,ordinal,attempt_no)
+                join invocations i using(run_id,ordinal,attempt_no) where (t.run_id,t.ordinal)=($1,$2)`, step.Run, step.Ordinal).
+				Scan(&cleared, &consumed, &discarded, &outcome, &body, &charges, &candidates, &published); err != nil || !cleared ||
+				consumed != (tc.want != "") || discarded == consumed || outcome != tc.outcome || charges != 1 || calls.Load() != before+1 {
+				t.Fatalf("wrong observation lifecycle: %s cleared=%v consumed=%v discarded=%v cost=%d: %v", outcome, cleared, consumed, discarded, charges, err)
+			}
+			if consumed && (candidates != 1 || published != 1 || !strings.Contains(body, tc.want)) || !consumed && (candidates != 0 || body != "") {
+				t.Fatalf("wrong publication: body=%q candidates=%d trace=%d", body, candidates, published)
+			}
+		})
+	}
+	t.Run("workflow dispatch observes and publishes", func(t *testing.T) {
+		content.Store(`{"terms":["质保单"]}`)
+		step, _ := seedLookupTurn(t, ctx, a, provider.URL)
+		lookupTestSQL(t, ctx, db, "update runs set max_calls=2 where id=$1", step.Run)
+		before := calls.Load()
+		var suite testsuite.WorkflowTestSuite
+		env := suite.NewTestWorkflowEnvironment()
+		env.SetTestTimeout(15 * time.Second)
+		env.RegisterActivity(a.Topology)
+		env.RegisterActivity(a.EnableStepRemoteInput)
+		env.RegisterActivity(a.ExecuteStep)
+		env.RegisterActivity(a.AdvanceObservedTurn)
+		env.RegisterActivity(a.ExecuteAction)
+		env.RegisterActivity(a.CommitLocalObservation)
+		env.ExecuteWorkflow(Collaborate, step.Run)
+		if err := env.GetWorkflowError(); err != nil {
+			t.Fatal(err)
+		}
+		var state, stage string
+		var published int
+		if err := db.QueryRow(ctx, `select r.status,p.stage,
+            (select count(*) from local_action_observations o where o.run_id=r.id and o.consumed_at is not null and o.outcome='lookup_refined')
+            from runs r join projects p on p.id=r.project_id where r.id=$1`, step.Run).Scan(&state, &stage, &published); err != nil ||
+			state != "completed" || stage != "review" || published != 1 || calls.Load() != before+1 {
+			t.Fatalf("workflow did not publish a single observed result: %s/%s %d %v", state, stage, published, err)
+		}
+	})
 }
 
-func lookupTurnProjectReader(t *testing.T, ctx context.Context, db *pgxpool.Pool, run string) func() bool {
+type lookupTurnProjection struct {
+	LookupPending      bool
+	CalculationPending bool
+	LocalObservations  []struct {
+		Step int
+		Kind ActionKind
+	}
+}
+
+func lookupTurnProjectReader(t *testing.T, ctx context.Context, db *pgxpool.Pool, run string) func() lookupTurnProjection {
 	t.Helper()
 	var project, actor string
 	if err := db.QueryRow(ctx, "select project_id,actor from runs where id=$1", run).Scan(&project, &actor); err != nil {
@@ -277,18 +429,18 @@ func lookupTurnProjectReader(t *testing.T, ctx context.Context, db *pgxpool.Pool
 	lookupTestSQL(t, ctx, db, "insert into sessions(token_hash,member_id,expires_at) values($1,$2,now()+interval '1 minute')", web.Hash(token), actor)
 	routes := http.NewServeMux()
 	projects.Server{DB: db}.Routes(routes, identity.Server{DB: db})
-	return func() bool {
+	return func() lookupTurnProjection {
 		req := httptest.NewRequest("GET", "/api/projects/"+project, nil).WithContext(ctx)
 		req.AddCookie(&http.Cookie{Name: "aa_session", Value: token})
 		res := httptest.NewRecorder()
 		routes.ServeHTTP(res, req)
 		var snapshot struct {
-			Run struct{ LookupPending bool }
+			Run lookupTurnProjection
 		}
 		if err := json.Unmarshal(res.Body.Bytes(), &snapshot); err != nil || res.Code != http.StatusOK {
 			t.Fatalf("read project snapshot: %d %v %s", res.Code, err, res.Body)
 		}
-		return snapshot.Run.LookupPending
+		return snapshot.Run
 	}
 }
 

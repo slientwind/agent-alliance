@@ -356,9 +356,15 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
      join model_revisions mr on(mr.resource_id,mr.revision)=(ar.resource_id,ar.resource_revision)
      where en.run_id=r.id and en.lookup_phase='' and mr.stream_text),
  'lookupPending',r.status='running' and exists(select from lookup_turns t where t.run_id=r.id and t.decision is not null
-     and (t.action_kind is null or t.action_kind='refine_lookup')),
+     and (t.action_kind is null or t.action_kind='refine_lookup') and not exists(select from local_action_observations o
+       where (o.run_id,o.ordinal,o.attempt_no)=(t.run_id,t.ordinal,t.attempt_no) and o.payload is not null)),
  'calculationPending',r.status='running' and exists(select from lookup_turns t where t.run_id=r.id and t.decision is not null
-     and t.action_kind='calculate_amounts'),
+     and t.action_kind='calculate_amounts' and not exists(select from local_action_observations o
+       where (o.run_id,o.ordinal,o.attempt_no)=(t.run_id,t.ordinal,t.attempt_no) and o.payload is not null)),
+ 'localObservations',array(select jsonb_build_object('step',o.ordinal,'kind',t.action_kind) from local_action_observations o
+    join lookup_turns t using(run_id,ordinal,attempt_no)
+    where o.run_id=r.id and r.status='running' and o.payload is not null and run_working_set_usable(o.run_id,o.ordinal,o.attempt_no)
+    order by o.ordinal),
  'canConcludeFailure',run_failure_confirmable(r.id),'attempts',(select coalesce(jsonb_agg(jsonb_build_object('step',ordinal,'status',case when evidence_follow_up_skipped(i.run_id,i.ordinal) then 'skipped' else status end,
  'workingSet',case when r.actor=$1 then (select jsonb_build_object(
     'sources',count(*) filter(where d.kind='source'),'preferences',count(*) filter(where d.kind='preference'),

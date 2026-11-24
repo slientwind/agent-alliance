@@ -124,17 +124,13 @@ func scheduleIndependentSteps(ctx workflow.Context, run string, nodes []Node, lo
 			continue
 		}
 		switch {
-		case outcome.Action != nil || outcome.RevisitTurn:
+		case outcome.Action != nil || outcome.Observation != nil || outcome.RevisitTurn:
 			if step.localCalls == 4 {
 				step.waiting = true
 				continue
 			}
 			step.localCalls++
-			if outcome.RevisitTurn {
-				step.future = workflow.ExecuteActivity(ctx, "AdvanceExecutionTurn", Step{run, nodes[readyIndex].Ordinal})
-			} else {
-				step.future = workflow.ExecuteActivity(ctx, "ExecuteAction", *outcome.Action)
-			}
+			step.future = advanceLocalActivity(ctx, run, nodes[readyIndex], outcome)
 		case outcome.LookupAttempt > 0 && !step.legacyCheck:
 			step.legacyCheck = true
 			action := lookupAction{Step: Step{run, nodes[readyIndex].Ordinal}, Attempt: outcome.LookupAttempt}
@@ -166,9 +162,26 @@ func startDAGStep(ctx workflow.Context, run string, node Node, lookupTurns, loca
 	}
 	activity := "ExecuteStep"
 	if localActions && (node.LookupAnswer || node.Calculation) {
-		activity = "AdvanceExecutionTurn"
+		activity = localTurnActivity(node)
 	} else if lookupTurns && node.LookupAnswer {
 		activity = "AdvanceTurn"
 	}
 	return workflow.ExecuteActivity(ctx, activity, Step{run, node.Ordinal})
+}
+
+func localTurnActivity(node Node) string {
+	if node.observeLocalActions {
+		return "AdvanceObservedTurn"
+	}
+	return "AdvanceExecutionTurn"
+}
+
+func advanceLocalActivity(ctx workflow.Context, run string, node Node, outcome Result) workflow.Future {
+	if outcome.RevisitTurn {
+		return workflow.ExecuteActivity(ctx, localTurnActivity(node), Step{run, node.Ordinal})
+	}
+	if outcome.Observation != nil {
+		return workflow.ExecuteActivity(ctx, "CommitLocalObservation", *outcome.Observation)
+	}
+	return workflow.ExecuteActivity(ctx, "ExecuteAction", *outcome.Action)
 }
