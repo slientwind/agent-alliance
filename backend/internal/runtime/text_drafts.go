@@ -56,7 +56,8 @@ func (a Activities) appendDraft(ctx context.Context, step Step, attempt, control
 		// The run lock is shared with cancellation and receipt application.
 		tag, err := tx.Exec(ctx, `with advanced as (
             update runs set draft_seq=draft_seq+1 where id=$1 and exists(
-                select from invocations where run_id=$1 and ordinal=$2 and attempt_no=$3 and status='submitted')
+                select from invocations where run_id=$1 and ordinal=$2 and attempt_no=$3 and status='submitted'
+                  and run_working_set_usable(run_id,ordinal,attempt_no))
             returning draft_seq
         )
         insert into run_draft_fragments(run_id,seq,ordinal,attempt_no,control_revision,byte_offset,body)
