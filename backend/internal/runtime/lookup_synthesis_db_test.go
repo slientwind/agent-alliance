@@ -350,8 +350,14 @@ func TestEvidenceFollowUpPostgres(t *testing.T) {
 			}
 			if scenario == "fresh" || scenario == "review fresh" {
 				lookupTestSQL(t, ctx, db, "update members set role='admin' where id=$1", actor)
-				created := skillTestRequest(t, routes, token, "POST", "/api/services", map[string]string{
+				var publication struct{ PlanVersion int }
+				preview := skillTestRequest(t, routes, token, "GET", "/api/service-publications/projects/"+project, nil, 200)
+				if err := json.Unmarshal(preview, &publication); err != nil || publication.PlanVersion < 1 {
+					t.Fatalf("publication source plan missing: %s %v", preview, err)
+				}
+				created := skillTestRequest(t, routes, token, "POST", "/api/services", map[string]any{
 					"name": "原文续答", "project": project, "instructions": "得到新证据时续答",
+					"expectedPlanVersion": publication.PlanVersion, "confirmDeliveryContract": true,
 				}, http.StatusCreated)
 				var service struct{ ID string }
 				if err := json.Unmarshal(created, &service); err != nil || service.ID == "" {
@@ -363,6 +369,13 @@ func TestEvidenceFollowUpPostgres(t *testing.T) {
 				}
 				if withReview && !bytes.Contains(entry, []byte(`review_evidence`)) {
 					t.Fatal("published service dropped the authorized evidence review")
+				}
+				var published struct {
+					DeliveryContract services.ServiceDeliveryContract
+				}
+				if err := json.Unmarshal(entry, &published); err != nil || len(published.DeliveryContract.Items) != 1 ||
+					published.DeliveryContract.Items[0].Step != wantFinal {
+					t.Fatalf("published service lost the final delivery step: %s %v", entry, err)
 				}
 
 				// Template storage opens after delivery. Approval itself is exercised by the delivery suite.

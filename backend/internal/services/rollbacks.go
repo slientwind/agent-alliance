@@ -108,6 +108,7 @@ func serviceVersionContract(ctx context.Context, tx pgx.Tx, id string, version i
 	var snapshot json.RawMessage
 	err := tx.QueryRow(ctx, `select jsonb_build_object('version',v.version,'name',v.name,
  'instructions',v.instructions,'example',v.example_input,'reviewer',reviewer.display_name,'team',team.name,
+ 'deliveryContract',service_delivery_contract(s.id,v.version),
  'allowsDocuments',`+serviceAcceptsDocuments+`,
  'requiresPictures',`+serviceUsesPictures+`,'editsImage',`+serviceEditsPicture+`,
  'requiresCSV',service_requires_csv_choice(s.id,v.version),

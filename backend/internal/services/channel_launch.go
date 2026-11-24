@@ -38,6 +38,7 @@ type channelLaunch struct {
 type ChannelLaunchPreview struct {
 	Service, Name, Team, Reviewer, Goal, WebOnlyReason string
 	Version, Calls                                     int
+	Delivery                                           ServiceDeliveryContract
 	Receipt                                            *ChannelLaunchReceipt
 }
 
@@ -173,6 +174,9 @@ func ReadChannelPreview(ctx context.Context, tx pgx.Tx, vault resources.Vault, s
 	}
 	view.Name, view.Team, view.Reviewer = info.name, info.teamName, info.reviewerName
 	view.WebOnlyReason = channelWebOnly(info, external)
+	if err := tx.QueryRow(ctx, "select service_delivery_contract($1,$2)", p.service, p.version).Scan(&view.Delivery); err != nil {
+		return view, err
+	}
 	view.Goal, err = vault.Open(p.sealed, channelLaunchScope(p.id))
 	return view, err
 }
@@ -273,6 +277,7 @@ type channelConfirmation struct {
 	Attachments             []Attachment
 	AwaitLookupReceipt      bool
 	AwaitCalculationReceipt bool
+	AllowPartialDelivery    bool
 }
 
 func (s Server) confirmChannelLaunch(w http.ResponseWriter, r *http.Request, u identity.Member) error {
@@ -285,7 +290,8 @@ func (s Server) confirmChannelLaunch(w http.ResponseWriter, r *http.Request, u i
 		return web.Fail(422, "请先确认工作目标和调用授权")
 	}
 	in := request{Attachment: attempt.Attachment, Attachments: attempt.Attachments,
-		AwaitLookupReceipt: attempt.AwaitLookupReceipt, AwaitCalculationReceipt: attempt.AwaitCalculationReceipt}
+		AwaitLookupReceipt: attempt.AwaitLookupReceipt, AwaitCalculationReceipt: attempt.AwaitCalculationReceipt,
+		AllowPartialDelivery: attempt.AllowPartialDelivery}
 	if err := in.validateFiles(); err != nil {
 		return err
 	}

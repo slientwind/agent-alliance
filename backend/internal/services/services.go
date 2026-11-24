@@ -34,6 +34,7 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 	}
 	m.Handle("GET /api/services/{id}/channel-launches/{launch}", g.Protect(false, s.channelLaunchEntry))
 	m.Handle("POST /api/services/{id}/channel-launches/{launch}", g.Protect(false, s.confirmChannelLaunch))
+	m.Handle("GET /api/service-publications/projects/{project}", g.Protect(true, s.publicationSource))
 	for p, h := range map[string]identity.Action{"POST /api/services": s.publish, "GET /api/services/{id}/versions": s.serviceVersions, "GET /api/services/{id}/versions/{version}/preflight": s.rollbackPreview, "POST /api/services/{id}/rollback": s.rollback, "POST /api/services/{id}/applications": s.issue, "DELETE /api/applications/{id}": s.revokeApp} {
 		m.Handle(p, g.Protect(true, h))
 	}
@@ -49,18 +50,20 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 	m.Handle("GET /api/v1/runs/{id}/delivery", web.Handler(s.delivery))
 }
 func (s Server) list(w http.ResponseWriter, r *http.Request, u identity.Member) error {
-	rows, err := s.DB.Query(r.Context(), `select s.id,s.name,s.current_version,s.routing_revision,sv.instructions,sv.example_input,count(n.ordinal)::integer from services s join team_members t on t.team_id=s.team_id join service_versions sv on(sv.service_id,sv.version)=(s.id,s.current_version) join service_nodes n on(n.service_id,n.version)=(s.id,s.current_version) where t.member_id=$1 and enabled group by s.id,sv.instructions,sv.example_input order by s.name`, u.ID)
+	rows, err := s.DB.Query(r.Context(), `select s.id,s.name,s.current_version,s.routing_revision,sv.instructions,sv.example_input,count(n.ordinal)::integer,
+ service_delivery_contract(s.id,s.current_version) from services s join team_members t on t.team_id=s.team_id join service_versions sv on(sv.service_id,sv.version)=(s.id,s.current_version) join service_nodes n on(n.service_id,n.version)=(s.id,s.current_version) where t.member_id=$1 and enabled group by s.id,sv.instructions,sv.example_input order by s.name`, u.ID)
 	if err != nil {
 		return err
 	}
 	type item struct {
-		ID              string `json:"id"`
-		Name            string `json:"name"`
-		Version         int    `json:"version"`
-		RoutingRevision int    `json:"routingRevision"`
-		Brief           string `json:"brief"`
-		Example         string `json:"example"`
-		Calls           int    `json:"calls"`
+		ID              string                  `json:"id"`
+		Name            string                  `json:"name"`
+		Version         int                     `json:"version"`
+		RoutingRevision int                     `json:"routingRevision"`
+		Brief           string                  `json:"brief"`
+		Example         string                  `json:"example"`
+		Calls           int                     `json:"calls"`
+		Delivery        ServiceDeliveryContract `json:"deliveryContract"`
 	}
 	items, err := pgx.CollectRows(rows, pgx.RowToStructByPos[item])
 	if err != nil {
@@ -70,8 +73,9 @@ func (s Server) list(w http.ResponseWriter, r *http.Request, u identity.Member) 
 }
 func (s Server) publish(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	var in struct {
-		ID, Name, Agent, Project, Instructions, Example string
-		Expected, ExpectedRoutingRevision               int
+		ID, Name, Agent, Project, Instructions, Example        string
+		Expected, ExpectedRoutingRevision, ExpectedPlanVersion int
+		ConfirmDeliveryContract                                bool
 	}
 	if err := web.Read(r, &in); err != nil {
 		return err
@@ -90,19 +94,22 @@ func (s Server) publish(w http.ResponseWriter, r *http.Request, u identity.Membe
 			return err
 		}
 		var team string
-		sourceID := in.Agent
-		var scope string
+		var plan publicationPlan
+		var err error
 		if in.Agent != "" {
-			scope = "select a.team_id from agents a join team_members tm on tm.team_id=a.team_id and tm.member_id=$2 where a.id=$1 for share of a,tm"
+			err = tx.QueryRow(ctx, "select a.team_id from agents a join team_members tm on tm.team_id=a.team_id and tm.member_id=$2 where a.id=$1 for share of a,tm", in.Agent, u.ID).Scan(&team)
 		} else {
-			sourceID = in.Project
-			scope = "select p.team_id from projects p join team_members tm on tm.team_id=p.team_id and tm.member_id=$2 where p.id=$1 and p.owner=$2 for share of p,tm"
+			plan, err = readPublicationPlan(ctx, tx, in.Project, u.ID)
+			team = plan.team
 		}
-		if err := tx.QueryRow(ctx, scope, sourceID, u.ID).Scan(&team); err != nil {
+		if err != nil {
 			if err == pgx.ErrNoRows {
 				return web.Fail(409, "来源未发布、尚未确认或无权复用")
 			}
 			return err
+		}
+		if in.Project != "" && (len(plan.Delivery.Items) > 0 || in.ExpectedPlanVersion != 0) && plan.PlanVersion != in.ExpectedPlanVersion {
+			return web.Fail(409, "请先读取并核对来源方案的当前修订")
 		}
 		var current int
 		if id == "" {
@@ -117,13 +124,26 @@ func (s Server) publish(w http.ResponseWriter, r *http.Request, u identity.Membe
 		if current != in.Expected || (in.ExpectedRoutingRevision != 0 && routing != in.ExpectedRoutingRevision) {
 			return web.Fail(409, "服务版本已更新")
 		}
+		if !in.ConfirmDeliveryContract {
+			var existing bool
+			if current > 0 {
+				if err := tx.QueryRow(ctx, `select exists(select from service_delivery_requirements where (service_id,version)=($1,$2))`,
+					id, current).Scan(&existing); err != nil {
+					return err
+				}
+			}
+			if len(plan.Delivery.Items) > 0 || existing {
+				return web.Fail(422, "请核对服务受众及本次发布的必交项")
+			}
+		}
 		if in.ID != "" {
 			if err := tx.QueryRow(ctx, "select max(version)+1 from service_versions where service_id=$1", id).Scan(&version); err != nil {
 				return err
 			}
 			routing++
 		}
-		if _, err := tx.Exec(ctx, "insert into service_versions(service_id,version,name,instructions,reviewer,example_input) values($1,$2,$3,$4,$5,$6)", id, version, in.Name, in.Instructions, u.ID, in.Example); err != nil {
+		if _, err := tx.Exec(ctx, `insert into service_versions(service_id,version,name,instructions,reviewer,example_input,allows_partial_delivery)
+ values($1,$2,$3,$4,$5,$6,$7)`, id, version, in.Name, in.Instructions, u.ID, in.Example, plan.Delivery.AllowsPartial); err != nil {
 			return err
 		}
 		var count int64
@@ -145,6 +165,9 @@ func (s Server) publish(w http.ResponseWriter, r *http.Request, u identity.Membe
 		}
 
 		if in.Project != "" {
+			if err := savePublishedDelivery(ctx, tx, id, version, in.Project, plan); err != nil {
+				return err
+			}
 			if _, err := tx.Exec(ctx, `insert into service_tool_choices
  select $1,$2,c.ordinal,c.selector,c.alternative,c.alternative_revision
  from projects p join plan_tool_choices c on (c.project_id,c.plan_version)=(p.id,p.plan_version) where p.id=$3`, id, version, in.Project); err != nil {
@@ -314,6 +337,7 @@ func authorize(ctx context.Context, tx pgx.Tx, r *http.Request) (subject, error)
 type request struct {
 	AwaitLookupReceipt      bool
 	AwaitCalculationReceipt bool
+	AllowPartialDelivery    bool
 	Attachment              *Attachment
 	Attachments             []Attachment
 	Input                   string
@@ -442,12 +466,13 @@ type serviceAdmission struct {
 	version, currentVersion, routingRevision, count            int
 	calculation, lookup, csvChoice, needsSource                bool
 	acceptsDocuments, usesPictures, editsPicture               bool
+	allowsPartialDelivery                                      bool
 }
 
 // A zero version selects the current publication for a new member preview.
 func readServiceAdmission(ctx context.Context, tx pgx.Tx, sub subject, version int) (info serviceAdmission, err error) {
 	err = tx.QueryRow(ctx, `select s.team_id,v.reviewer,v.instructions,coalesce(v.name,s.name),team.name,m.display_name,
- v.version,s.current_version,s.routing_revision,
+ v.version,s.current_version,s.routing_revision,v.allows_partial_delivery,
  (select count(*) from service_nodes where service_id=s.id and version=v.version),
  exists(select from service_nodes where service_id=s.id and version=v.version and lookup_phase='answer_calc'),
  exists(select from service_nodes where service_id=s.id and version=v.version and lookup_phase='answer'),
@@ -460,7 +485,7 @@ func readServiceAdmission(ctx context.Context, tx pgx.Tx, sub subject, version i
  where s.id=$1 and v.version=coalesce(nullif($2,0),s.current_version) and s.enabled
  for share of s,t,m,reviewer`,
 		sub.Service, version, sub.Actor).Scan(&info.team, &info.reviewer, &info.instructions, &info.name, &info.teamName, &info.reviewerName,
-		&info.version, &info.currentVersion, &info.routingRevision, &info.count, &info.calculation, &info.lookup,
+		&info.version, &info.currentVersion, &info.routingRevision, &info.allowsPartialDelivery, &info.count, &info.calculation, &info.lookup,
 		&info.csvChoice, &info.needsSource, &info.acceptsDocuments, &info.usesPictures, &info.editsPicture)
 	if err != nil {
 		return info, err
@@ -486,6 +511,9 @@ func admitService(ctx context.Context, tx pgx.Tx, sub subject, input request) (s
 }
 
 func (info serviceAdmission) validateInput(input request) error {
+	if input.AllowPartialDelivery && !info.allowsPartialDelivery {
+		return web.Fail(422, "该服务版本要求必交项齐全后才能交付")
+	}
 	if input.AwaitCalculationReceipt && !info.calculation {
 		return web.Fail(422, "该服务版本没有可等待补件的金额核算步骤")
 	}
@@ -560,6 +588,9 @@ func (input request) fingerprint(sub subject) [32]byte {
 	if input.AwaitLookupReceipt {
 		sig = sha256.Sum256(append([]byte("await-lookup-receipt/"), sig[:]...))
 	}
+	if input.AllowPartialDelivery {
+		sig = sha256.Sum256(append([]byte("allow-partial-delivery/"), sig[:]...))
+	}
 	return sig
 }
 
@@ -627,6 +658,9 @@ func launch(ctx context.Context, tx pgx.Tx, sub subject, input request, key stri
 	if _, err = tx.Exec(ctx, "insert into nodes select $1,1,ordinal,agent_id,agent_revision,lookup_phase from service_nodes where service_id=$2 and version=$3", project, sub.Service, input.Version); err != nil {
 		return nil, err
 	}
+	if err = pinServiceDelivery(ctx, tx, project, sub.Service, input.Version, input.AllowPartialDelivery); err != nil {
+		return nil, err
+	}
 	if _, err := tx.Exec(ctx, `insert into plan_tool_choices select $1,1,ordinal,selector,alternative,alternative_revision
  from service_tool_choices where service_id=$2 and version=$3`, project, sub.Service, input.Version); err != nil {
 		return nil, err
@@ -647,7 +681,7 @@ func launch(ctx context.Context, tx pgx.Tx, sub subject, input request, key stri
 	if _, err = tx.Exec(ctx, "insert into outbox(run_id) values($1)", run); err != nil {
 		return nil, err
 	}
-	if err = database.Audit(ctx, tx, sub.Actor, "service.invoke", run, map[string]any{"service": sub.Service, "app": sub.App, "version": input.Version, "awaitCalculationReceipt": input.AwaitCalculationReceipt, "awaitLookupReceipt": input.AwaitLookupReceipt}); err != nil {
+	if err = database.Audit(ctx, tx, sub.Actor, "service.invoke", run, map[string]any{"service": sub.Service, "app": sub.App, "version": input.Version, "awaitCalculationReceipt": input.AwaitCalculationReceipt, "awaitLookupReceipt": input.AwaitLookupReceipt, "allowPartialDelivery": input.AllowPartialDelivery}); err != nil {
 		return nil, err
 	}
 	return map[string]string{"id": run, "project": project}, nil

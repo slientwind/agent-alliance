@@ -361,6 +361,12 @@
 
 网页受理后可在原会话查「进度」和「待办」，两边指向同一项目。重复确认可取回已有的任务。更换目标、预览过期或服务换版时，在原会话重新发起并核对。用「新建」或「切换」进入其他项目时，当前尚未确认的服务预览失效。
 
+### 发布和发起有必交项的服务
+
+在「服务与渠道 → 发布可复用服务」选择已确认的协作方案，查看来源修订、拟发布及当前服务的必交项。核对这些文字可向服务调用方共享后发布。版本比较和回退会一并展示交付约定。已发布服务的执行步骤按固定清单接收本次工作要求，审核人在原项目按候选版本逐项核对。
+
+缺项默认等待补齐。支持部分交付的服务可在网页发起时勾选「本次允许部分交付」，授权应用也可显式提交 `allowPartialDelivery: true`。单聊内直接确认采用缺项等待策略。审核时须为每个缺项记录接手人和继续条件，再由最终确认人固定本次交付清单。Open API 可在运行状态的 `deliveryCoverage` 查看必交项及核对结果，`humanActionUrl` 指向原项目。
+
 ### 飞书任务入口
 
 为 API 配置企业实例的 HTTPS 外部地址 `PUBLIC_BASE_URL`，以及 `FEISHU_APP_ID`、`FEISHU_APP_SECRET`、`FEISHU_ENCRYPT_KEY`、`FEISHU_VERIFICATION_TOKEN`、`FEISHU_TENANT_KEY`。群内定向消息另需机器人的 `FEISHU_BOT_OPEN_ID`。企业自建应用须开通机器人、接收指定范围的消息和回复消息的权限，并发布到试用成员可用的范围。把加密事件订阅地址设成企业实例的 `/api/channels/feishu/events`，订阅 `im.message.receive_v1`。[接收消息事件](https://open.feishu.cn/document/server-docs/im-v1/message/events/receive) · [回复消息](https://open.feishu.cn/document/server-docs/im-v1/message/reply)

@@ -27,7 +27,8 @@ func (s Server) entry(w http.ResponseWriter, r *http.Request, u identity.Member)
 func readEntry(ctx context.Context, q resources.Query, id, actor string) (json.RawMessage, error) {
 	var result json.RawMessage
 	err := q.QueryRow(ctx, `select jsonb_build_object('id',s.id,'name',s.name,'version',v.version,'brief',v.instructions,'example',v.example_input,
- 'team',t.name,'reviewer',reviewer.display_name,'allowDocumentAttachments',`+serviceAcceptsDocuments+`,'requiresPictures',`+serviceUsesPictures+`,'editsImage',`+serviceEditsPicture+`,
+ 'team',t.name,'reviewer',reviewer.display_name,'deliveryContract',service_delivery_contract(s.id,v.version),
+ 'allowDocumentAttachments',`+serviceAcceptsDocuments+`,'requiresPictures',`+serviceUsesPictures+`,'editsImage',`+serviceEditsPicture+`,
  'ready',reviewer.enabled and exists(select from team_members tm where tm.team_id=s.team_id and tm.member_id=v.reviewer) and not exists(select from service_nodes n where(n.service_id,n.version)=(s.id,v.version) and not agent_admissible(n.agent_id,n.agent_revision,$2))
  and not exists(select from service_tool_choices c where (c.service_id,c.version)=(s.id,v.version) and not agent_admissible(c.alternative,c.alternative_revision,$2)),
  'steps',array(select jsonb_build_object('name',a.name,'revision',n.agent_revision,'lookupPhase',n.lookup_phase,'operation',agent_output_operation(a),'toolChoice',

@@ -547,6 +547,23 @@
           "requestId"
         ]
       },
+      "ServiceDeliveryItem": {
+        "type": "object",
+        "properties": {
+          "item": { "type": "integer", "minimum": 1 },
+          "step": { "type": "integer", "minimum": 1, "description": "已发布执行图中的最终产出步骤编号。" },
+          "label": { "type": "string", "maxLength": 180 }
+        },
+        "required": ["item", "step", "label"]
+      },
+      "ServiceDeliveryContract": {
+        "type": "object",
+        "properties": {
+          "allowsPartial": { "type": "boolean", "description": "此发布版本是否允许调用方为一次运行明确选择部分交付。" },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/ServiceDeliveryItem" } }
+        },
+        "required": ["allowsPartial", "items"]
+      },
       "Service": {
         "type": "object",
         "properties": {
@@ -577,6 +594,7 @@
             "type": "integer",
             "minimum": 1
           },
+          "deliveryContract": { "$ref": "#/components/schemas/ServiceDeliveryContract" },
           "ready": {
             "type": "boolean"
           },
@@ -698,6 +716,11 @@
             "type": "integer",
             "minimum": 1
           },
+          "allowPartialDelivery": {
+            "type": "boolean",
+            "default": false,
+            "description": "仅当固定服务版本的 deliveryContract.allowsPartial 为 true 时可启用。缺项由有权成员指定接手人和继续条件，再由最终确认人交付。"
+          },
           "attachment": {
             "$ref": "#/components/schemas/ServiceRunAttachment"
           },
@@ -779,6 +802,27 @@
           },
           "finalReviewer": {
             "type": "string"
+          },
+          "deliveryCoverage": {
+            "type": ["object", "null"],
+            "description": "本次运行已固定的必交项及人工核对状态。需要补齐或核对时由原项目的有权成员通过 humanActionUrl 处理。",
+            "properties": {
+              "allowPartial": { "type": "boolean" },
+              "items": {
+                "type": "array",
+                "items": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ServiceDeliveryItem" },
+                    {
+                      "type": "object",
+                      "properties": { "state": { "type": "string", "enum": ["unchecked", "covered", "missing"] } },
+                      "required": ["state"]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": ["allowPartial", "items"]
           },
           "canConcludeFailure": {
             "type": "boolean",

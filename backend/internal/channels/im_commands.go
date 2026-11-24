@@ -176,6 +176,13 @@ func imProjectReply(ctx context.Context, tx pgx.Tx, actor, project, kind string)
 		label = "请打开项目查看当前状态"
 	}
 	lines := []string{title + " · " + label}
+	if stage == "review" {
+		coverage, err := projectDeliveryProgress(ctx, tx, actor, project)
+		if err != nil {
+			return "", err
+		}
+		lines = append(lines, coverage...)
+	}
 	if kind == "progress" {
 		waits, err := waitingReceipts(ctx, tx, actor, project)
 		if err != nil {

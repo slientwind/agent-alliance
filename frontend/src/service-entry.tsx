@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Plus, X } from "lucide-react";
 import { api, RequestError, statusLabel, type Project } from "./client";
 import { encodeAttachment, isPictureName, pictureExtensions } from "./attachment-data";
+import { ServiceDeliverySummary, type ServiceDeliveryContract } from "./service-delivery";
 
 export type PublishedService = {
   id: string;
@@ -14,6 +15,7 @@ export type PublishedService = {
   brief: string;
   example: string;
   calls: number;
+  deliveryContract?: ServiceDeliveryContract;
 };
 type Entry = Omit<PublishedService, "calls"> & {
   team: string;
@@ -118,6 +120,7 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
     [files, setFiles] = useState<File[]>([]),
     [awaitReceipt, setAwaitReceipt] = useState(true),
     [awaitLookup, setAwaitLookup] = useState(!!channelLaunch),
+    [allowPartial, setAllowPartial] = useState(false),
     [consent, setConsent] = useState(false),
     [busy, setBusy] = useState(false);
   const [fromGoal, setFromGoal] = useState("");
@@ -126,6 +129,7 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
     setEntry(null);
     setChannelView(null);
     setConsent(false);
+    setAllowPartial(false);
     setLoadError("");
     const load = async () => {
       try {
@@ -191,6 +195,7 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
       const inputOptions = {
         awaitCalculationReceipt: canAwaitReceipt && awaitReceipt ? true : undefined,
         awaitLookupReceipt: canAwaitLookup && awaitLookup ? true : undefined,
+        allowPartialDelivery: entry.deliveryContract?.allowsPartial && allowPartial ? true : undefined,
         attachment: originals.length === 1 ? originals[0] : undefined,
         attachments: originals.length > 1 ? originals : undefined,
       };
@@ -275,6 +280,7 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
               {entry.team} · v{entry.version} · 最终确认人 {entry.reviewer}
             </small>
             {channelView && <p>接续{channelView.provider === "slack" ? " Slack" : "钉钉"}预览 · 确认有效至 {new Date(channelView.expiresAt).toLocaleTimeString()}</p>}
+            <ServiceDeliverySummary contract={entry.deliveryContract} />
             <details>
               <summary>协作步骤 · {entry.steps.length}</summary>
               <ol>
@@ -406,6 +412,17 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
                 <label>
                   <input type="checkbox" checked={awaitReceipt} disabled={busy} onChange={e=>{setAwaitReceipt(e.target.checked); setConsent(false)}}/>
                   金额不足时在原任务等待我补交原件
+                </label>
+              )}
+              {entry.ready && !!entry.deliveryContract?.allowsPartial && (
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={allowPartial}
+                    disabled={busy}
+                    onChange={e => { setAllowPartial(e.target.checked); setConsent(false); }}
+                  />
+                  本次允许部分交付。缺项须指定接手人和继续条件。
                 </label>
               )}
               {entry.ready ? (

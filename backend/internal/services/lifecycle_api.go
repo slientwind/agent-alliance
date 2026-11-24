@@ -49,6 +49,7 @@ func (s Server) describe(w http.ResponseWriter, r *http.Request) error {
 		}
 		return tx.QueryRow(ctx, `select jsonb_build_object('id',s.id,'name',s.name,'version',v.version,'instructions',v.instructions,'example',v.example_input,'team',t.name,'reviewer',m.display_name,'allowDocumentAttachments',`+serviceAcceptsDocuments+`,'requiresPictures',`+serviceUsesPictures+`,'editsImage',`+serviceEditsPicture+`,
  'authorizeCalls',(select count(*) from service_nodes where service_id=s.id and version=v.version),
+ 'deliveryContract',service_delivery_contract(s.id,v.version),
  'ready',m.enabled and exists(select from team_members where team_id=s.team_id and member_id=m.id) and not exists(select from service_nodes n where n.service_id=s.id and n.version=v.version and not agent_admissible(n.agent_id,n.agent_revision,$2))
  and not exists(select from service_tool_choices c where (c.service_id,c.version)=(s.id,v.version) and not agent_admissible(c.alternative,c.alternative_revision,$2)),
  'steps',array(select jsonb_build_object('step',n.ordinal,'name',ar.name,'revision',n.agent_revision,'lookupPhase',n.lookup_phase,'operation',agent_output_operation(ar),'toolChoice',
@@ -376,6 +377,7 @@ var progressSQL = `select jsonb_build_object(
  'deliveries',array(select jsonb_build_object('edition',d.edition,'id',d.id,'isPartial',d.partial,'distribution',distribution_state(d.id),'deliveryUrl','/api/v1/runs/'||r.id||'/delivery?edition='||d.edition,'packageUrl','/api/v1/runs/'||r.id||'/delivery/package?edition='||d.edition) from deliveries d where d.project_id=p.id order by d.edition desc),
  'humanActionUrl','/#'||p.id::text,'deliveryUrl','/api/v1/runs/'||r.id||'/delivery'||urls.suffix,'packageUrl','/api/v1/runs/'||r.id||'/delivery/package'||urls.suffix,
  'eventsUrl','/api/v1/runs/'||r.id||'/events','actionsUrl','/api/v1/runs/'||r.id||'/actions',
+ 'deliveryCoverage',` + serviceRunDeliverySQL + `,
  'nextAction',case when exists(select from rule_branch_rebuilds b where b.source_run=r.id) then 'read_replacement_run'
  when exists(select from step_rule_waits w where w.run_id=r.id and w.rebuild_required and r.status='running')
    or p.stage='review' and r.status='completed' and exists(select from run_candidate_artifacts a where a.run_id=r.id and not artifact_rule_draft_readable(a.id,a.current_version))

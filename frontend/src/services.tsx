@@ -3,6 +3,12 @@ import { ServiceVersions } from "./service-versions";
 import { useEffect, useState } from "react";
 import { api, RequestError, type Agent, type Summary } from "./client";
 import { serviceURL, type PublishedService as Service } from "./service-entry";
+import { ServiceDeliverySummary, type ServiceDeliveryContract } from "./service-delivery";
+
+type PublicationSource = {
+  planVersion: number;
+  deliveryContract: ServiceDeliveryContract;
+};
 export function Services({
   admin,
   agents,
@@ -16,6 +22,16 @@ export function Services({
     [msg, setMsg] = useState(""),
     [selected, setSelected] = useState<Service | null>(null);
   const [target, setTarget] = useState<Service | null>(null);
+  const [source, setSource] = useState("");
+  const [preview, setPreview] = useState<{ project: string; plan: PublicationSource }>();
+  const [previewError, setPreviewError] = useState("");
+  const [reloadSource, setReloadSource] = useState(0);
+  const [publishing, setPublishing] = useState(false);
+  const sourceProject = source.startsWith("project/") ? source.slice("project/".length) : "";
+  const sourcePlan = preview?.project === sourceProject ? preview.plan : undefined;
+  const sourceReady = !!source && (!sourceProject || !!sourcePlan);
+  const needsDeliveryConfirmation = sourceReady &&
+    (!!sourcePlan?.deliveryContract.items.length || !!target?.deliveryContract?.items.length);
   const latestTarget = target && items.find((s) => s.id === target.id);
   const staleTarget = target && (target.version !== latestTarget?.version ||
     target.routingRevision !== latestTarget?.routingRevision);
@@ -27,6 +43,16 @@ export function Services({
   useEffect(() => {
     void refresh().catch((e) => setMsg(e.message));
   }, []);
+  useEffect(() => {
+    setPreview(undefined);
+    setPreviewError("");
+    if (!sourceProject) return;
+    let live = true;
+    api<PublicationSource>("service-publications/projects/" + encodeURIComponent(sourceProject))
+      .then(plan => { if (live) setPreview({project: sourceProject, plan}); })
+      .catch(e => { if (live) setPreviewError(e.message); });
+    return () => { live = false; };
+  }, [sourceProject, reloadSource]);
   return (
     <section>
       {items.map((s) => (
@@ -61,9 +87,10 @@ export function Services({
             发布目标
             <select
               value={target?.id || ""}
-              onChange={(e) =>
-                setTarget(items.find((s) => s.id === e.target.value) || null)
-              }
+              onChange={(e) => {
+                setTarget(items.find((s) => s.id === e.target.value) || null);
+                setSource("");
+              }}
             >
               <option value="">新建服务</option>
               {items.map((s) => (
@@ -82,16 +109,19 @@ export function Services({
             key={target?.id || "new"}
             onSubmit={async (e) => {
               e.preventDefault();
-              if (staleTarget) return;
+              if (staleTarget || !sourceReady || publishing) return;
               const form = e.currentTarget,
                 f = new FormData(form),
                 source = String(f.get("source")),
                 [kind, id] = source.split("/");
+              setPublishing(true);
               try {
                 await api("services", "POST", {
                   id: target?.id,
                   expected: target?.version,
                   expectedRoutingRevision: target?.routingRevision,
+                  expectedPlanVersion: sourcePlan?.planVersion,
+                  confirmDeliveryContract: f.get("confirmDeliveryContract") === "on",
                   name: f.get("name"),
                   instructions: f.get("brief"),
                   example: f.get("example"),
@@ -100,10 +130,16 @@ export function Services({
                 await refresh();
                 form.reset();
                 setTarget(null);
+                setSource("");
                 setMsg("服务已发布，来源修订已固定。");
               } catch (e) {
                 setMsg((e as Error).message);
-                if (e instanceof RequestError && e.status === 409) void refresh().catch(() => {});
+                if (e instanceof RequestError && e.status === 409) {
+                  void refresh().catch(() => {});
+                  setReloadSource(n => n + 1);
+                }
+              } finally {
+                setPublishing(false);
               }
             }}
           >
@@ -113,7 +149,7 @@ export function Services({
             </label>
             <label>
               能力来源
-              <select name="source" required>
+              <select name="source" value={source} onChange={e => setSource(e.target.value)} required>
                 <option value="">请选择</option>
                 {agents
                   .filter((a) => a.publishedReady)
@@ -134,6 +170,19 @@ export function Services({
                   ))}
               </select>
             </label>
+            {previewError && <p role="alert">{previewError}</p>}
+            {sourceProject && !sourcePlan && !previewError && <p role="status">正在读取来源方案的交付约定…</p>}
+            {sourcePlan && <small>来源方案 v{sourcePlan.planVersion}</small>}
+            <ServiceDeliverySummary contract={target?.deliveryContract} label="当前服务的必交项" />
+            <ServiceDeliverySummary contract={sourcePlan?.deliveryContract} label="拟发布的必交项" />
+            {needsDeliveryConfirmation && (
+              <label key={[target?.routingRevision, source, sourcePlan?.planVersion].join("/")}>
+                <input type="checkbox" name="confirmDeliveryContract" required />
+                {sourcePlan?.deliveryContract.items.length
+                  ? "我已核对本次发布的必交项，所列条件可向服务调用方共享。"
+                  : "确认在新版本中移除当前服务的必交项。"}
+              </label>
+            )}
             <label>
               对外服务要求
               <textarea name="brief" defaultValue={target?.brief} required />
@@ -147,7 +196,7 @@ export function Services({
               />
             </label>
             <p>本次发布人承担新服务运行的审核与最终确认职责。</p>
-            <button disabled={!!staleTarget}>{target ? "确认发布新版本" : "发布固定版本"}</button>
+            <button disabled={!!staleTarget || !sourceReady || publishing}>{target ? "确认发布新版本" : "发布固定版本"}</button>
           </form>
         </details>
       )}

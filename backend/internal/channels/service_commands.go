@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"alliance/internal/projects"
+	"alliance/internal/services"
 	"alliance/internal/web"
 	"github.com/jackc/pgx/v5"
 )
@@ -172,18 +173,19 @@ func (f Feishu) serviceMessage(ctx context.Context, tx pgx.Tx, actor, kind, arg 
 	}
 	var name, team, input, reviewer, brief, service, fileName string
 	var version, calls int
+	var delivery services.ServiceDeliveryContract
 	var needsSource, needsCSV, needsPictures, awaitLookup, awaitCalculation bool
 	err := tx.QueryRow(ctx, `select s.name,t.name,p.input,r.display_name,v.instructions,s.id,p.version,p.calls,p.file_name,
  exists(select from service_nodes n where (n.service_id,n.version)=(s.id,p.version) and n.lookup_phase='search'),
  service_requires_csv_choice(s.id,p.version),
  exists(select from service_nodes n join agent_revisions a on (a.agent_id,a.revision)=(n.agent_id,n.agent_revision)
    where (n.service_id,n.version)=(s.id,p.version) and agent_uses_picture(a)),
- p.await_lookup_receipt,p.await_calculation_receipt from channel_proposals p
+ p.await_lookup_receipt,p.await_calculation_receipt,service_delivery_contract(p.service_id,p.version) from channel_proposals p
  join services s on s.id=p.service_id and s.enabled and s.current_version=p.version join service_versions v on(v.service_id,v.version)=(s.id,p.version)
  join teams t on t.id=s.team_id join team_members tm on tm.team_id=t.id and tm.member_id=p.member_id
  join members r on r.id=v.reviewer and r.enabled join team_members rt on rt.team_id=t.id and rt.member_id=r.id
  where p.id=$1 and p.member_id=$2 and p.tenant=$3 and p.expires_at>now() and not exists(
- select from service_nodes n where(n.service_id,n.version)=(s.id,p.version) and not agent_admissible(n.agent_id,n.agent_revision,$2) union all select from service_tool_choices c where (c.service_id,c.version)=(s.id,p.version) and not agent_admissible(c.alternative,c.alternative_revision,$2))`, arg, actor, f.Tenant).Scan(&name, &team, &input, &reviewer, &brief, &service, &version, &calls, &fileName, &needsSource, &needsCSV, &needsPictures, &awaitLookup, &awaitCalculation)
+ select from service_nodes n where(n.service_id,n.version)=(s.id,p.version) and not agent_admissible(n.agent_id,n.agent_revision,$2) union all select from service_tool_choices c where (c.service_id,c.version)=(s.id,p.version) and not agent_admissible(c.alternative,c.alternative_revision,$2))`, arg, actor, f.Tenant).Scan(&name, &team, &input, &reviewer, &brief, &service, &version, &calls, &fileName, &needsSource, &needsCSV, &needsPictures, &awaitLookup, &awaitCalculation, &delivery)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "该预览已失效或服务暂不可用，请重新查询并发起。", nil
 	}
@@ -198,6 +200,7 @@ func (f Feishu) serviceMessage(ctx context.Context, tx pgx.Tx, actor, kind, arg 
 		limits = "一份不超过 96 KiB 的 UTF-8 CSV 文件"
 	}
 	summary := fmt.Sprintf("%s · v%d\n任务：%s\n服务说明：%s\n最多授权 %d 次调用，金额未封顶，实际费用由%s承担。最终确认人：%s。\n查看完整服务：%s/?service=%s", name, version, input, brief, calls, team, reviewer, f.Public, service)
+	summary += serviceDeliveryPreview(delivery)
 	if needsPictures {
 		return summary + "\n此服务需要图片。请打开企业网页附上 PNG 或 JPEG 后确认。", nil
 	}
@@ -213,6 +216,60 @@ func (f Feishu) serviceMessage(ctx context.Context, tx pgx.Tx, actor, kind, arg 
 		summary += "\n本次资料：" + fileName + "。确认后从飞书读取原件并用于此任务。"
 	}
 	return summary + "\n同意后在本单聊发送：确认 " + arg, nil
+}
+
+func serviceDeliveryPreview(contract services.ServiceDeliveryContract) string {
+	if len(contract.Items) == 0 {
+		return ""
+	}
+	var summary strings.Builder
+	fmt.Fprintf(&summary, "\n必交项 %d 项 · 单聊确认时，缺项等待补齐。", len(contract.Items))
+	for _, item := range contract.Items[:min(3, len(contract.Items))] {
+		fmt.Fprintf(&summary, "\n- 步骤 %d · %s", item.Step, strings.Join(strings.Fields(item.Label), " "))
+	}
+	if len(contract.Items) > 3 {
+		summary.WriteString("\n完整清单见企业网页。")
+	}
+	if contract.AllowsPartial {
+		summary.WriteString("\n本服务支持在网页发起时明确允许部分交付。")
+	}
+	return summary.String()
+}
+
+func projectDeliveryProgress(ctx context.Context, tx pgx.Tx, actor, project string) ([]string, error) {
+	rows, err := tx.Query(ctx, `select item->>'label',item->>'state' from projects p
+ cross join lateral jsonb_array_elements(project_delivery_coverage(p.id,p.plan_version,$2)->'items') item
+ where p.id=$1 order by (item->>'item')::integer`, project, actor)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	total, covered, missing := 0, 0, 0
+	var labels []string
+	for rows.Next() {
+		var label, state string
+		if err := rows.Scan(&label, &state); err != nil {
+			return nil, err
+		}
+		total++
+		switch state {
+		case "covered":
+			covered++
+		case "missing":
+			missing++
+			if len(labels) < 3 {
+				labels = append(labels, "缺项 · "+strings.Join(strings.Fields(label), " "))
+			}
+		}
+	}
+	if err := rows.Err(); err != nil || total == 0 {
+		return nil, err
+	}
+	status := fmt.Sprintf("必交项已核对通过 %d/%d 项", covered, total)
+	if missing > 0 {
+		status += fmt.Sprintf(" · 缺 %d 项", missing)
+	}
+	return append([]string{status}, labels...), nil
 }
 
 func (f Feishu) proposeFeedback(ctx context.Context, tx pgx.Tx, actor, chat, value string) (channelReply, error) {

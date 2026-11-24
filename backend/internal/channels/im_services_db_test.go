@@ -82,6 +82,9 @@ func TestIMServiceLaunchPostgres(t *testing.T) {
 	sql(`insert into service_nodes(service_id,version,ordinal,agent_id,agent_revision,lookup_phase)
  values($1,1,1,$3,1,''),($2,1,1,$3,1,'search'),($2,1,2,$3,1,'answer')`, textService, lookupService, agent)
 	sql("insert into service_edges values($1,1,2,1)", lookupService)
+	sql("update service_versions set allows_partial_delivery=true where service_id in ($1,$2)", textService, lookupService)
+	sql(`insert into service_delivery_requirements values
+ ($1,1,1,1,'内部简报须有已核对的报价'),($2,1,1,2,'同一来源须能核对报价有效期')`, textService, lookupService)
 
 	slack := imChannel{db: db, vault: vault, key: "slack/" + uuid.NewString(), provider: "slack", name: "Slack", conversation: "线程", public: "https://example.invalid"}
 	ding := imChannel{db: db, vault: vault, key: "dingtalk/" + uuid.NewString(), provider: "dingtalk", name: "钉钉", conversation: "单聊", public: "https://example.invalid"}
@@ -158,7 +161,7 @@ func TestIMServiceLaunchPostgres(t *testing.T) {
 
 	const textGoal = "将报价差异整理成内部简报"
 	id, entry, text := preview(slack, "root", textService, textGoal)
-	if !strings.Contains(text, "确认 "+id) || !strings.Contains(text, "最多授权 1 次") {
+	if !strings.Contains(text, "确认 "+id) || !strings.Contains(text, "最多授权 1 次") || !strings.Contains(text, "内部简报须有已核对的报价") {
 		t.Fatal(text)
 	}
 	check("preview is encrypted and has no business effect", `select
@@ -204,6 +207,8 @@ func TestIMServiceLaunchPostgres(t *testing.T) {
  join im_service_launches p on p.run_id=r.id join im_threads t on (t.binding_id,t.chat_id,t.thread_id)=(p.binding_id,p.chat_id,p.thread_id)
  where r.id=$2 and r.project_id=t.project_id and p.goal is null and r.max_calls=1 and r.service_version=1 and m.body=$3)
  and not exists(select from invocations where run_id=$2)`, actor, result.ID, textGoal)
+	check("native confirmation uses the published checklist and strict delivery", `select not c.allow_partial and q.label='内部简报须有已核对的报价'
+ from plan_delivery_contracts c join plan_delivery_requirements q using(project_id,plan_version) where c.project_id=$1`, result.Project)
 
 	sql("update services set routing_revision=routing_revision+1 where id=$1", textService)
 	expect(call("GET", entry, session, nil), 200, result.Project)
@@ -224,7 +229,8 @@ func TestIMServiceLaunchPostgres(t *testing.T) {
 	}
 	expect(call("POST", lookupEntry, session, map[string]any{"acknowledged": true}), 422, "需要一份可读资料")
 	original := []byte("报价在周五前有效。")
-	submit := map[string]any{"acknowledged": true, "awaitLookupReceipt": true, "attachment": services.Attachment{Name: "报价.txt", Data: original}}
+	submit := map[string]any{"acknowledged": true, "awaitLookupReceipt": true, "allowPartialDelivery": true,
+		"attachment": services.Attachment{Name: "报价.txt", Data: original}}
 	res = call("POST", lookupEntry, session, submit)
 	expect(res, 202, "project")
 	var lookupResult services.ChannelLaunchReceipt
@@ -241,6 +247,8 @@ func TestIMServiceLaunchPostgres(t *testing.T) {
  join source_versions v on (v.source_id,v.version)=(p.source_id,p.source_version)
  where r.id=$1 and r.max_calls=2 and r.await_lookup_receipt and v.extracted=$2)
  and (select count(*)=2 from runs where actor=$3)`, lookupResult.ID, string(original), actor)
+	check("web confirmation on the same channel preview can opt in", `select c.allow_partial and q.ordinal=2
+ from plan_delivery_contracts c join plan_delivery_requirements q using(project_id,plan_version) where c.project_id=$1`, lookupResult.Project)
 
 	expired, expiredEntry, _ := preview(ding, "private", textService, "过期工作")
 	sql("update im_service_launches set expires_at=clock_timestamp()-interval '1 minute' where id=$1", expired)

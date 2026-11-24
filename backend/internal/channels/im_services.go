@@ -80,6 +80,7 @@ func (s imChannel) serviceReply(ctx context.Context, tx pgx.Tx, job imJob, actor
 	}
 	text := fmt.Sprintf("%s · v%d\n任务：%s\n最多授权 %d 次调用，金额未封顶，实际费用由%s承担。最终确认人：%s。",
 		view.Name, view.Version, view.Goal, view.Calls, view.Team, view.Reviewer)
+	text += serviceDeliveryPreview(view.Delivery)
 	if view.WebOnlyReason == "" {
 		text += "\n同意后，十分钟内在本" + s.conversation + "发送：确认 " + arg + "\n也可在网页补充资料后确认同一任务。"
 	} else {

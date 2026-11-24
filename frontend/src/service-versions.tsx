@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AggregationScope, type AggregationConfig } from "./aggregation-scope";
 import { api, RequestError } from "./client";
 import { outputOperations } from "./output-operations";
+import { ServiceDeliverySummary, type ServiceDeliveryContract } from "./service-delivery";
 
 type VersionSummary = { version: number; name: string | null };
 type ServiceHistory = {
@@ -20,6 +21,7 @@ type VersionContract = VersionSummary & {
   requiresFile: boolean;
   requiresPictures?: boolean;
   editsImage?: boolean;
+  deliveryContract?: ServiceDeliveryContract;
   steps: {
     ordinal: number;
     name: string;
@@ -55,6 +57,7 @@ function VersionDetails({ value, label }: { value: VersionContract; label: strin
         : "需附 1 至 4 张 PNG 或 JPEG 图片 · 视觉模型读取原件"}</p>}
       <p>最终确认人 · {value.reviewer}</p>
       <p>最多 {value.steps.length} 次调用 · {value.team}承担费用</p>
+      <ServiceDeliverySummary contract={value.deliveryContract} label={label + "的必交项"} />
       <ol>
         {value.steps.map(step => (
           <li key={step.ordinal}>

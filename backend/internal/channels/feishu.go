@@ -421,6 +421,15 @@ func (f Feishu) Notify(ctx context.Context) {
 									note = remote
 								}
 							}
+							if kind == "progress" && stage == "review" {
+								coverage, err := projectDeliveryProgress(ctx, tx, *actor, *project)
+								if err != nil {
+									return err
+								}
+								if len(coverage) > 0 {
+									note = strings.Join(coverage, "\n") + "\n" + note
+								}
+							}
 							if takeover > 0 {
 								note = fmt.Sprintf("接管人还需核对 %d 份当前版本。\n", takeover) + note
 							}
