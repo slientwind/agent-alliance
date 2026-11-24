@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { CoverageItem, Project } from "./client";
+import { FileEvidencePicker } from "./delivery-file-evidence";
 
 export type Assessment = {
   expected: number;
@@ -11,6 +12,7 @@ export type Assessment = {
   reason: string;
   responsible?: string;
   continueWhen?: string;
+  fileEvidence?: string;
 };
 
 function RequirementAssessment({
@@ -25,6 +27,8 @@ function RequirementAssessment({
     item.state === "unchecked" ? "" : item.state,
   );
   const [responsible, setResponsible] = useState(item.responsibleActive ? item.responsible || "" : "");
+  const [fileChoice, setFileChoice] = useState<(NonNullable<CoverageItem["fileEvidence"]> & { proof: string }) | null>();
+  const fileEvidence = fileChoice === undefined ? item.fileEvidence : fileChoice;
   return (
     <details>
       <summary>核对此必交项{item.version ? " · v" + item.version : ""}</summary>
@@ -42,6 +46,7 @@ function RequirementAssessment({
           reason: String(fields.get("reason") || "").trim(),
           responsible: state === "missing" && responsible ? responsible : undefined,
           continueWhen: state === "missing" && responsible ? String(fields.get("continueWhen") || "").trim() : undefined,
+          fileEvidence: item.fileEvidenceAvailable ? fileChoice?.proof ?? (fileChoice === null ? "" : undefined) : undefined,
         });
       }}>
         <label>
@@ -55,6 +60,18 @@ function RequirementAssessment({
             <option value="missing">仍缺项</option>
           </select>
         </label>
+        {item.fileEvidenceAvailable && (
+          <>
+            <FileEvidencePicker project={project.id} item={item} selected={fileChoice?.proof} choose={setFileChoice} />
+            {fileEvidence && (
+              <div>
+                <p>选定依据 · {fileEvidence.name} · {fileEvidence.location}</p>
+                <blockquote className="preserve">{fileEvidence.text}</blockquote>
+                <button type="button" onClick={() => setFileChoice(null)}>移除所选依据</button>
+              </div>
+            )}
+          </>
+        )}
         <label>
           {state === "missing" ? "缺少什么" : "依据位置或说明"}
           <textarea name="reason" rows={2} maxLength={1000} defaultValue={item.reason || ""} required />
@@ -101,7 +118,7 @@ export function CoverageReview({ project, busy, save }: {
   save: (data: Assessment) => void;
 }) {
   const coverage = project.deliveryCoverage;
-  if (!coverage || project.stage === "delivered") return null;
+  if (!coverage || project.stage === "delivered" && !coverage.items.some(item => item.fileEvidence)) return null;
   const blocked = new Set(project.artifacts.filter(a => a.draftBlock).map(a => a.id));
   const covered = coverage.items.filter(item => item.state === "covered" && !blocked.has(item.artifact ?? "")).length;
   const missing = coverage.items.filter(item => item.state === "missing");
@@ -123,13 +140,20 @@ export function CoverageReview({ project, busy, save }: {
               <RequirementEvidence key={item.artifact + ":" + item.version} evidence={item.evidence} reviewed={item.state !== "unchecked"} />
             )}
             {item.reason && <p className="preserve">{item.reason}</p>}
+            {item.fileEvidence && (
+              <details>
+                <summary>已记录的成果依据 · {item.fileEvidence.location}</summary>
+                <small>{item.fileEvidence.name} · v{item.version}</small>
+                <blockquote className="preserve">{item.fileEvidence.text}</blockquote>
+              </details>
+            )}
             {item.state === "missing" && item.responsible && <p>
               {item.responsibleActive ? `接手人 ${item.responsibleName}` : "接手权限已失效"}
               {item.continueWhen && ` · ${item.continueWhen}`}
             </p>}
             {project.stage === "review" && project.canReview && item.run && !blocked.has(item.artifact ?? "") && (
               <RequirementAssessment
-                key={[item.run,item.artifact,item.version,item.state,item.reason,item.responsible,item.continueWhen].join(":")}
+                key={[item.run,item.artifact,item.version,item.reviewedAt,item.state,item.reason,item.responsible,item.continueWhen].join(":")}
                 item={item} project={project} busy={busy} save={save} />
             )}
           </li>

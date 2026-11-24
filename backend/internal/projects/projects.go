@@ -128,10 +128,11 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 		"POST /api/projects/{id}/participants": s.participant, "POST /api/projects/{id}/artifacts/{artifact}/review": s.review,
 		"POST /api/projects/{id}/artifacts/{artifact}/file-revisions": s.reviseFile,
 		"POST /api/projects/{id}/artifacts/{artifact}/revise":         s.revise, "POST /api/projects/{id}/deliver": s.deliver, "GET /api/projects/{id}/delivery": s.download,
-		"POST /api/projects/{id}/distribution-reviews": s.reviewDistribution,
-		"POST /api/projects/{id}/delivery/revisions":   s.reviseDelivery,
-		"POST /api/projects/{id}/delivery/assessments": s.assessDeliveryItem,
-		"GET /api/projects/{id}/delivery/receipt":      s.deliveryReceipt,
+		"POST /api/projects/{id}/distribution-reviews":                      s.reviewDistribution,
+		"POST /api/projects/{id}/delivery/revisions":                        s.reviseDelivery,
+		"POST /api/projects/{id}/delivery/assessments":                      s.assessDeliveryItem,
+		"GET /api/projects/{id}/delivery/requirements/{item}/file-evidence": s.deliveryFilePassages,
+		"GET /api/projects/{id}/delivery/receipt":                           s.deliveryReceipt,
 	}
 	for path, h := range actions {
 		m.Handle(path, g.Protect(false, h))

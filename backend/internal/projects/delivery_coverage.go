@@ -160,6 +160,7 @@ type deliveryAssessment struct {
 	State, Reason           string
 	Responsible             string
 	ContinueWhen            string
+	FileEvidence            *string
 }
 
 func (s Server) assessDeliveryItem(w http.ResponseWriter, r *http.Request, u identity.Member) error {
@@ -173,6 +174,7 @@ func (s Server) assessDeliveryItem(w http.ResponseWriter, r *http.Request, u ide
 		(in.Artifact == "") != (in.Version == 0) || in.Version < 0 ||
 		in.State == "covered" && (in.Artifact == "" || in.Responsible != "" || in.ContinueWhen != "") ||
 		(in.Responsible == "") != (in.ContinueWhen == "") ||
+		in.FileEvidence != nil && (*in.FileEvidence != "" && in.Artifact == "" || len(*in.FileEvidence) > 8192) ||
 		utf8.RuneCountInString(in.ContinueWhen) > 1000 || strings.ContainsRune(in.ContinueWhen, 0) {
 		return web.Fail(422, "请选择必交项并填写核对依据。指定接手人时请填写继续条件")
 	}
@@ -225,9 +227,13 @@ func (s Server) assessDeliveryItem(w http.ResponseWriter, r *http.Request, u ide
 				return web.Fail(422, "接手人需为有当前项目权限的成员")
 			}
 		}
-		if _, err := tx.Exec(ctx, `insert into delivery_item_assessments(project_id,plan_version,item,run_id,artifact_id,artifact_version,state,reason,responsible,continue_when,reviewer)
-          values($1,$2,$3,$4,nullif($5,'')::uuid,nullif($6,0),$7,$8,nullif($9,'')::uuid,$10,$11)`,
-			p.ID, p.PlanVersion, in.Item, in.Run, in.Artifact, in.Version, in.State, in.Reason, in.Responsible, in.ContinueWhen, u.ID); err != nil {
+		evidence, err := s.deliveryAssessmentEvidence(ctx, tx, p, u.ID, in, current)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `insert into delivery_item_assessments(project_id,plan_version,item,run_id,artifact_id,artifact_version,state,reason,responsible,continue_when,reviewer,file_evidence)
+          values($1,$2,$3,$4,nullif($5,'')::uuid,nullif($6,0),$7,$8,nullif($9,'')::uuid,$10,$11,$12)`,
+			p.ID, p.PlanVersion, in.Item, in.Run, in.Artifact, in.Version, in.State, in.Reason, in.Responsible, in.ContinueWhen, u.ID, evidence); err != nil {
 			return err
 		}
 		return Touch(ctx, tx, p.ID, p.Stage)

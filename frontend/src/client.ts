@@ -315,6 +315,7 @@ export type DeliveryEdition = {
   isPartial?: boolean;
   handoff: Partial<Record<"purpose" | "instructions" | "limitations", string>>;
 };
+export type FileEvidenceExcerpt = { location: string; start: number; end: number; text: string };
 export type CoverageItem = {
   item: number;
   step: number;
@@ -328,6 +329,9 @@ export type CoverageItem = {
   responsibleName?: string;
   responsibleActive: boolean;
   continueWhen?: string;
+  reviewedAt?: string;
+  fileEvidenceAvailable?: boolean;
+  fileEvidence?: FileEvidenceExcerpt & { name: string };
   evidence?: {
     gap?: string;
     citations?: { name: string; version: number; start: number; end: number; text: string }[];
