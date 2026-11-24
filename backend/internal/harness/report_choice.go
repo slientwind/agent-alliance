@@ -36,19 +36,23 @@ const ReportChoiceInstructions = `你的任务是为当前业务目标选择一�
 
 // Accept returns the one-based choice consumed by the existing run ledger, or zero for abstention.
 func (options ReportOptions) Accept(reply string) (int, string) {
-	var cleaned bytes.Buffer
-	n := 0
-	if json.Compact(&cleaned, []byte(reply)) == nil {
-		switch cleaned.String() {
-		case `{"choice":1}`:
-			n = 1
-		case `{"choice":2}`:
-			n = 2
-		}
-	}
+	n := choicePosition(reply)
 	if n < 1 || n > len(options) {
 		return 0, "Agent 未从已授权候选中选出可用的汇总工具。"
 	}
 	option := options[n-1]
 	return n, fmt.Sprintf("选择：%s v%d\n按「%s」分组，汇总「%s」。", option.Name, option.Revision, option.Group, option.Amount)
+}
+
+func choicePosition(reply string) int {
+	var cleaned bytes.Buffer
+	if json.Compact(&cleaned, []byte(reply)) == nil {
+		switch cleaned.String() {
+		case `{"choice":1}`:
+			return 1
+		case `{"choice":2}`:
+			return 2
+		}
+	}
+	return 0
 }

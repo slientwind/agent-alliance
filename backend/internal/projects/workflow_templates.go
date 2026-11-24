@@ -18,12 +18,12 @@ import (
 // Candidate identifiers and names are projected only through current access.
 const workflowTemplateNodes = `coalesce((select jsonb_agg(jsonb_build_object(
  'agent',coalesce(a.id::text,''),'name',coalesce(a.name,''),'revision',(n.doc->>'revision')::int,
- 'ready',coalesce(a.ready,false),'buildMatches',a.build_matches,'operation',n.doc->>'operation','vision',coalesce((n.doc->>'vision')::boolean,false),'editsImage',coalesce((n.doc->>'editsImage')::boolean,false),'lookupPhase',n.doc->>'lookupPhase','dependsOn',n.doc->'dependsOn',
+ 'ready',coalesce(a.ready,false),'buildMatches',a.build_matches,'operation',n.doc->>'operation','outline',coalesce(a.outline,false),'vision',coalesce((n.doc->>'vision')::boolean,false),'editsImage',coalesce((n.doc->>'editsImage')::boolean,false),'lookupPhase',n.doc->>'lookupPhase','dependsOn',n.doc->'dependsOn',
  'toolChoice',case when n.doc->'toolChoice' is distinct from 'null'::jsonb then jsonb_build_object(
  'selector',(n.doc->'toolChoice'->>'selector')::int,'agent',coalesce(b.id::text,''),'name',coalesce(b.name,''),
  'revision',(n.doc->'toolChoice'->>'revision')::int,'ready',coalesce(b.ready,false),'buildMatches',b.build_matches) end
  ) order by n.ordinal) from jsonb_array_elements(v.nodes) with ordinality n(doc,ordinal)
- left join lateral(select a.id,ar.name,build.matches as build_matches,
+ left join lateral(select a.id,ar.name,build.matches as build_matches,tool_choice_profile(ar.tool)='pptx-outline-v1' as outline,
    coalesce(a.published_revision=ar.revision and agent_admissible(a.id,ar.revision,$1) and build.matches,false) ready
  from agents a join agent_revisions ar on ar.agent_id=a.id and ar.revision=(n.doc->>'revision')::int
  cross join lateral(select workflow_build_usable(v.template_id,v.version,a.id,ar.revision) matches) build

@@ -558,7 +558,7 @@ export function Work({
               const chosen = n.toolChoice?.selected === 2 ? n.toolChoice : n;
               return (
               <li key={i}>
-                {n.toolChoice ? <strong>汇总报表</strong> : (
+                {n.toolChoice ? <strong>{n.operation === "aggregate" ? "汇总报表" : "文件制作"}</strong> : (
                   <>{n.name} · v{n.revision}{n.lookupPhase === "search" ? " · 检索依据" : n.lookupPhase === "answer_calc" ? " · 引文金额核算" : n.lookupPhase === "answer" ? " · 据原文回答" : n.lookupPhase === "review_evidence" ? " · 再次核对新依据" : n.lookupPhase === "synthesize" ? " · 有新增原文时续答" : ""}</>
                 )}
                 <small>
@@ -579,18 +579,19 @@ export function Work({
                     自动选择 · {n.name} v{n.revision} 或 {n.toolChoice.name} v{n.toolChoice.revision}
                   </small>
                 )}
+                {n.toolChoice && n.operation !== "aggregate" && <small>步骤 {n.toolChoice.selector} 负责选择</small>}
                 {n.toolChoice?.selected === 0 && <strong>待人工选择</strong>}
                 {!!n.toolChoice?.selected && (
                   <strong>{n.toolChoice.manual ? "人工选定 " : "本次使用 "}{chosen.name} v{chosen.revision}</strong>
                 )}
-                {n.toolChoice && (
+                {n.toolChoice && n.operation === "aggregate" && (
                   <details>
                     <summary>查看两项汇总口径</summary>
                     <p>{n.name} v{n.revision} · <AggregationScope config={n.toolChoice.primaryConfig} /></p>
                     <p>{n.toolChoice.name} v{n.toolChoice.revision} · <AggregationScope config={n.toolChoice.config} /></p>
                   </details>
                 )}
-                {p.run?.status === "blocked" && p.run.canResolveToolChoice && n.toolChoice?.selected === 0 && (
+                {p.run?.status === "blocked" && p.run.canResolveToolChoice && (n.toolChoice?.canConfirm ?? n.toolChoice?.selected === 0) && n.toolChoice && (
                   <div className="actions">
                     {[n.name, n.toolChoice.name].map((name, index) => (
                       <button
@@ -910,7 +911,7 @@ export function Work({
                   {["queued", "running"].includes(p.run.status) && (
                     <option value="pause">暂停后续执行</option>
                   )}
-                  {!p.run.indexWait && !p.run.receiptRequest && !p.plan?.nodes.some(n=>n.toolChoice?.selected===0) && ["paused", "blocked"].includes(p.run.status) && (
+                  {!p.run.indexWait && !p.run.receiptRequest && !p.plan?.nodes.some(n => n.toolChoice?.canConfirm ?? n.toolChoice?.selected === 0) && ["paused", "blocked"].includes(p.run.status) && (
                     <option value="resume">复查条件并继续</option>
                   )}
                   <option value="cancel">取消后续执行</option>

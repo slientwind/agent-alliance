@@ -347,6 +347,7 @@ export type WorkflowTemplate = {
     ready: boolean;
     buildMatches?: boolean | null;
     operation: string;
+    outline?: boolean;
     vision?: boolean;
     editsImage?: boolean;
     lookupPhase?: "search" | "answer" | "answer_calc" | "review_evidence" | "synthesize" | "";
@@ -519,6 +520,7 @@ export type Project = Summary & {
         revision: number;
         selected: 0 | 1 | 2 | null;
         manual?: boolean;
+        canConfirm?: boolean;
       } | null;
       dependsOn: number[];
     }[];

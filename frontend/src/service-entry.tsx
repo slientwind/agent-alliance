@@ -23,7 +23,7 @@ type Entry = Omit<PublishedService, "calls"> & {
   requiresPictures?: boolean;
   editsImage?: boolean;
   example: string;
-  steps: { toolChoice?: {name:string; revision:number;primaryConfig:AggregationConfig;config:AggregationConfig} | null; lookupPhase?: string; name: string; revision: number; operation: string }[];
+  steps: { toolChoice?: {name:string; revision:number;selector:number;primaryConfig:AggregationConfig;config:AggregationConfig} | null; lookupPhase?: string; name: string; revision: number; operation: string }[];
   recent: { id: string; version: number; stage: string; input: string }[];
 };
 export function serviceURL(id: string) {
@@ -139,7 +139,7 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
       live = false;
     };
   }, []);
-  const needsCSV = !!entry?.steps.some(s => s.toolChoice);
+  const needsCSV = !!entry?.steps.some(s => s.operation === "aggregate" && s.toolChoice);
   const allowsDocuments = !!entry?.allowDocumentAttachments && !needsCSV;
   const requiresPictures = !!entry?.requiresPictures;
   const formats = needsCSV ? [".csv"] : [
@@ -240,8 +240,11 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
                     {s.name} v{s.revision}{s.lookupPhase === "search" ? " · 检索依据" : s.lookupPhase === "answer_calc" ? " · 引文金额核算" : s.lookupPhase === "answer" ? " · 据原文回答" : s.lookupPhase === "review_evidence" ? " · 再次核对新依据" : s.lookupPhase === "synthesize" ? " · 有新增原文时续答" : ""}
                     {s.toolChoice && (
                       <>
-                        <small><AggregationScope config={s.toolChoice.primaryConfig} /></small>
-                        <small>或由 Agent 选用 {s.toolChoice.name} v{s.toolChoice.revision} · <AggregationScope config={s.toolChoice.config} /></small>
+                        {s.operation === "aggregate" && <small><AggregationScope config={s.toolChoice.primaryConfig} /></small>}
+                        <small>或由 Agent 选用 {s.toolChoice.name} v{s.toolChoice.revision}
+                          {s.operation === "aggregate" && <> · <AggregationScope config={s.toolChoice.config} /></>}
+                        </small>
+                        {s.operation !== "aggregate" && <small>步骤 {s.toolChoice.selector} 负责选择</small>}
                       </>
                     )}
                     <small>

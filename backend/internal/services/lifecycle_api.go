@@ -374,7 +374,7 @@ var progressSQL = `select jsonb_build_object(
  when p.stage='review' and exists(select from plan_delivery_contracts c where(c.project_id,c.plan_version)=(p.id,p.plan_version))
    then case when exists(select from review_actions a where a.project_id=p.id and a.kind='deliver') then 'confirm_delivery' else 'review_artifacts' end
  when p.stage='review' then case when exists(select from run_candidate_artifacts a where a.run_id=r.id and (source_check_needed(a.id) or takeover_review_needed(p.id,a.id,a.current_version) or not exists(select from reviews v where(v.artifact_id,v.version)=(a.id,a.current_version)) or exists(select from feedback f where f.artifact_id=a.id and f.state in ('required','investigate','verification')))) then 'review_artifacts' else 'confirm_delivery' end
- when r.status='blocked' and exists(select from run_tool_choices choice where choice.run_id=r.id and choice.choice=0 and choice.manual_choice is null) then 'select_tool'
+ when exists(select from active_tool_choice_waits w where w.run_id=r.id) then 'select_tool'
  when r.status='running' and exists(select from step_rule_waits w where w.run_id=r.id) then 'check_step_rule'
  when r.status='blocked' and exists(select from lookup_index_waits w where w.run_id=r.id and w.active and w.step_wait_revision is null) then
    (select case when w.deadline>clock_timestamp() then 'wait_source_index' else 'resume' end

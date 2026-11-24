@@ -171,7 +171,7 @@ func (f Feishu) serviceMessage(ctx context.Context, tx pgx.Tx, actor, kind, arg 
 	var needsSource, needsCSV, needsPictures, awaitLookup, awaitCalculation bool
 	err := tx.QueryRow(ctx, `select s.name,t.name,p.input,r.display_name,v.instructions,s.id,p.version,p.calls,p.file_name,
  exists(select from service_nodes n where (n.service_id,n.version)=(s.id,p.version) and n.lookup_phase='search'),
- exists(select from service_tool_choices c where (c.service_id,c.version)=(s.id,p.version)),
+ service_requires_csv_choice(s.id,p.version),
  exists(select from service_nodes n join agent_revisions a on (a.agent_id,a.revision)=(n.agent_id,n.agent_revision)
    where (n.service_id,n.version)=(s.id,p.version) and agent_uses_picture(a)),
  p.await_lookup_receipt,p.await_calculation_receipt from channel_proposals p

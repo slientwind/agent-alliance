@@ -29,7 +29,7 @@ type VersionContract = VersionSummary & {
     estimatedCny: string | null;
     aggregation: AggregationConfig | null;
     dependsOn: number[];
-    alternative: { name: string; revision: number; aggregation: AggregationConfig } | null;
+    alternative: { name: string; revision: number; aggregation: AggregationConfig | null } | null;
   }[];
 };
 type Preview = {

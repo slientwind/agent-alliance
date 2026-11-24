@@ -442,17 +442,17 @@ type serviceAdmission struct {
 
 func admitService(ctx context.Context, tx pgx.Tx, sub subject, input request) (info serviceAdmission, err error) {
 	var currentVersion int
-	var calculation, lookup, toolChoice, needsSource, acceptsDocuments, usesPictures, editsPicture bool
+	var calculation, lookup, csvChoice, needsSource, acceptsDocuments, usesPictures, editsPicture bool
 	err = tx.QueryRow(ctx, `select s.team_id,v.reviewer,v.instructions,coalesce(v.name,s.name),s.current_version,
  (select count(*) from service_nodes where service_id=s.id and version=v.version),
  exists(select from service_nodes where service_id=s.id and version=v.version and lookup_phase='answer_calc'),
  exists(select from service_nodes where service_id=s.id and version=v.version and lookup_phase='answer'),
- exists(select from service_tool_choices where service_id=s.id and version=v.version),
+ service_requires_csv_choice(s.id,v.version),
  exists(select from service_nodes where service_id=s.id and version=v.version and lookup_phase='search'), `+serviceAcceptsDocuments+`, `+serviceUsesPictures+`, `+serviceEditsPicture+`
  from services s join service_versions v on v.service_id=s.id join team_members t on t.team_id=s.team_id
  join members m on m.id=v.reviewer and m.enabled where s.id=$1 and v.version=$2 and s.enabled and t.member_id=$3
  and exists(select from team_members where team_id=s.team_id and member_id=v.reviewer) for share of s,t,m`,
-		sub.Service, input.Version, sub.Actor).Scan(&info.team, &info.reviewer, &info.instructions, &info.name, &currentVersion, &info.count, &calculation, &lookup, &toolChoice, &needsSource, &acceptsDocuments, &usesPictures, &editsPicture)
+		sub.Service, input.Version, sub.Actor).Scan(&info.team, &info.reviewer, &info.instructions, &info.name, &currentVersion, &info.count, &calculation, &lookup, &csvChoice, &needsSource, &acceptsDocuments, &usesPictures, &editsPicture)
 	if err != nil {
 		return info, err
 	}
@@ -482,7 +482,7 @@ func admitService(ctx context.Context, tx pgx.Tx, sub subject, input request) (i
 	if input.hasDocuments() && !acceptsDocuments {
 		return info, web.Fail(422, "此服务的汇总步骤需要 CSV 资料，请改用 CSV 后再启动")
 	}
-	if toolChoice {
+	if csvChoice {
 		if len(files) == 0 {
 			return info, web.Fail(422, "此服务需要 CSV 资料以选择并执行汇总")
 		}

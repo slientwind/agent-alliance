@@ -309,7 +309,8 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
  'preferences',coalesce((select jsonb_agg(jsonb_build_object('id',pp.preference_id,'revision',pp.revision) order by pp.preference_id) from plan_preferences pp join preferences f on f.id=pp.preference_id where pp.project_id=p.id and pp.plan_version=p.plan_version and f.member_id=$1),'[]'),
  'nodes',(select jsonb_agg(jsonb_build_object('agent',n.agent_id,'name',a.name,'revision',n.agent_revision,'operation',agent_output_operation(a),'vision',agent_uses_picture(a) and not agent_edits_picture(a),'editsImage',agent_edits_picture(a),'outline',coalesce(a.tool @> '{"operation":"pptx","contract":"pptx-outline-v1"}'::jsonb,false),'lookupPhase',n.lookup_phase,'toolChoice',
  (select jsonb_build_object('selector',c.selector,'agent',v.agent_id,'name',v.name,'revision',v.revision,'primaryConfig',aggregate_scope(a.tool),'config',aggregate_scope(v.tool),
-   'selected',coalesce(pick.manual_choice,pick.choice),'manual',pick.manual_choice is not null) from plan_tool_choices c join agent_revisions v on (v.agent_id,v.revision)=(c.alternative,c.alternative_revision)
+   'selected',coalesce(pick.manual_choice,pick.choice),'manual',pick.manual_choice is not null,
+   'canConfirm',exists(select from active_tool_choice_waits w where(w.run_id,w.ordinal)=(pick.run_id,pick.ordinal))) from plan_tool_choices c join agent_revisions v on (v.agent_id,v.revision)=(c.alternative,c.alternative_revision)
    left join run_tool_choices pick on (pick.run_id,pick.ordinal)=((select r.id from runs r
       where(r.project_id,r.plan_version)=(p.id,p.plan_version) and not exists(select from change_batches cb where cb.run_id=r.id)
       order by r.created_at desc limit 1),n.ordinal)
@@ -796,7 +797,7 @@ func CheckAdmission(ctx context.Context, tx pgx.Tx, project string, version int,
 		return err
 	}
 	if missing {
-		return web.Fail(409, "候选汇总能力已失效，请重新核对方案")
+		return web.Fail(409, "候选工具已失效，请重新核对方案")
 	}
 
 	err := tx.QueryRow(ctx, `select exists(select from nodes n join agents a on a.id=n.agent_id join agent_revisions r on(r.agent_id,r.revision)=(n.agent_id,n.agent_revision) left join model_resources m on m.id=r.resource_id left join model_revisions v on (v.resource_id,v.revision)=(r.resource_id,r.resource_revision) where n.project_id=$1 and n.plan_version=$2 and (a.disabled or a.emergency or (r.resource_id is not null and (not m.enabled or (v.key_blocked and r.key_override is null))) or not project_agent_access(n.project_id,n.agent_id,n.agent_revision,$3)))`, project, version, actor).Scan(&missing)

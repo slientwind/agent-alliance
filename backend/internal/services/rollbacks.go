@@ -110,7 +110,7 @@ func serviceVersionContract(ctx context.Context, tx pgx.Tx, id string, version i
  'instructions',v.instructions,'example',v.example_input,'reviewer',reviewer.display_name,'team',team.name,
  'allowsDocuments',`+serviceAcceptsDocuments+`,
  'requiresPictures',`+serviceUsesPictures+`,'editsImage',`+serviceEditsPicture+`,
- 'requiresCSV',exists(select from service_tool_choices c where(c.service_id,c.version)=(s.id,v.version)),
+ 'requiresCSV',service_requires_csv_choice(s.id,v.version),
  'requiresFile',exists(select from service_nodes n where(n.service_id,n.version)=(s.id,v.version) and n.lookup_phase='search'),
  'steps',array(select jsonb_build_object('ordinal',n.ordinal,'name',a.name,'revision',n.agent_revision,
   'operation',agent_output_operation(a),'phase',n.lookup_phase,
@@ -118,7 +118,8 @@ func serviceVersionContract(ctx context.Context, tx pgx.Tx, id string, version i
   'estimatedCny',case when a.tool is not null then '0' else model.estimate_cny::text end,
   'dependsOn',array(select e.depends_on from service_edges e
    where(e.service_id,e.version,e.ordinal)=(n.service_id,n.version,n.ordinal) order by e.depends_on),
-  'alternative',(select jsonb_build_object('name',other.name,'revision',other.revision,'aggregation',aggregate_scope(other.tool))
+  'alternative',(select jsonb_build_object('name',other.name,'revision',other.revision,'aggregation',
+      case when other.tool->>'operation'='aggregate' then aggregate_scope(other.tool) end)
    from service_tool_choices c join agent_revisions other on (other.agent_id,other.revision)=(c.alternative,c.alternative_revision)
    where(c.service_id,c.version,c.ordinal)=(n.service_id,n.version,n.ordinal)))
   from service_nodes n join agent_revisions a on(a.agent_id,a.revision)=(n.agent_id,n.agent_revision)

@@ -45,8 +45,7 @@ const maxAttachments = 20
 const serviceRequestLimit = 12 << 20
 
 const serviceAcceptsDocuments = `not exists(select from service_nodes n join agent_revisions a on(a.agent_id,a.revision)=(n.agent_id,n.agent_revision)
- where (n.service_id,n.version)=(s.id,v.version) and a.tool->>'operation'='aggregate')
- and not exists(select from service_tool_choices c where(c.service_id,c.version)=(s.id,v.version))`
+ where (n.service_id,n.version)=(s.id,v.version) and a.tool->>'operation'='aggregate')`
 
 const serviceUsesPictures = `exists(select from service_nodes n join agent_revisions a on(a.agent_id,a.revision)=(n.agent_id,n.agent_revision)
  where (n.service_id,n.version)=(s.id,v.version) and agent_uses_picture(a))`

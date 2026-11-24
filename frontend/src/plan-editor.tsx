@@ -5,6 +5,11 @@ import type { Source, Preference } from "./knowledge";
 import { outputOperations } from "./output-operations";
 import { carryLegacyConditions, conditionItems, retainsConditions } from "./delivery-conditions";
 
+function choiceProfile(operation?: string, outline?: boolean) {
+  if (operation === "pptx") return outline ? "pptx-outline-v1" : "pptx";
+  if (operation === "docx" || operation === "xlsx" || operation === "aggregate") return operation;
+}
+
 type Step = {
   lookup?: boolean;
   calculate?: boolean;
@@ -65,7 +70,7 @@ export function currentPlan(project: Project): PlanDraft {
       requiredOperation: template ? node.operation : undefined,
       templateBuildChanged: "buildMatches" in node && node.buildMatches === false,
       operation: node.operation,
-      outline: "outline" in node ? node.outline : undefined,
+      outline: node.outline,
       vision: node.vision,
       editsImage: node.editsImage,
       original: template ? undefined : { step: steps.length + 1, agent: node.agent, revision: node.revision },
@@ -297,16 +302,17 @@ export function PlanEditor({
   const csvOnly = selectedFiles.length > 0 && selectedFiles.every(([id]) =>
     /\.csv$/i.test(sources.find(source => source.id === id)?.name || ""),
   );
-  function selectorFor(step: Step) {
-    if (step.inputs.length !== 1) return;
-    const selector = steps.find(item => item.key === step.inputs[0]);
-    if (selector && !selector.inputs.length && !selector.lookup && !selector.toolChoice &&
-        agents.some(a => a.id === selector.agent && a.published === selector.revision && a.publishedLookup)) {
-      return selector;
-    }
+  function selectorsFor(step: Step) {
+    if (step.operation === "aggregate" && step.inputs.length !== 1) return [];
+    return steps.filter(selector =>
+      step.inputs.includes(selector.key) && !selector.inputs.length && !selector.lookup &&
+      !selector.toolChoice && !steps.some(other => other.key !== step.key && other.toolChoice?.selector === selector.key) &&
+      agents.some(a => a.id === selector.agent && a.published === selector.revision && a.publishedLookup && a.team === project.team),
+    );
   }
   const invalidToolChoice = steps.some(step => step.toolChoice &&
-    (step.toolChoice.buildMatches === false || !csvOnly || selectorFor(step)?.key !== step.toolChoice.selector ||
+    (step.toolChoice.buildMatches === false || !choiceProfile(step.operation, step.outline) ||
+      (step.operation === "aggregate" && !csvOnly) || !selectorsFor(step).some(item => item.key === step.toolChoice?.selector) ||
       (step.requiredOperation && !agents.some(a => a.id === step.toolChoice?.agent && a.published === step.toolChoice.revision))));
   const unavailableTemplateStep = steps.some(step => step.templateBuildChanged || step.requiredOperation && !agents.some(agent =>
     agent.id === step.agent && agent.published === step.revision && agent.publishedOperation === step.requiredOperation &&
@@ -524,7 +530,7 @@ export function PlanEditor({
         {tooManyReferences && <small role="status">参考图编辑只接受一张图片。</small>}
         {missingTemplateSources && !missingLookupSources && <small role="status">请引用本次任务的可读资料。</small>}
         {invalidToolChoice && (
-          <small role="status">自动选择需要已引用的 CSV，并依赖一个可独立开始的已发布文本 Agent。</small>
+          <small role="status">核对备选工具、输入约定及独立文本步骤。汇总还需要 CSV 资料，并且只依赖选择步骤。</small>
         )}
         {unavailableTemplateStep && (
           <small role="status">原模板有待替换或复验的 Agent，请核对执行步骤。</small>
@@ -537,12 +543,15 @@ export function PlanEditor({
         />
         <ol className="plan-steps">
           {steps.map((s, i) => {
-            const selector = selectorFor(s);
             const primary = agents.find(a => a.id === s.agent && a.published === s.revision);
-            const alternatives = primary?.publishedOperation === "aggregate" && selector
-              ? agents.filter(a => a.id !== s.agent && a.publishedOperation === "aggregate")
-              : [];
             const operation = s.operation || primary?.publishedOperation;
+            const selectors = selectorsFor(s);
+            const selector = selectors.find(item => item.key === s.toolChoice?.selector) ?? selectors[0];
+            const profile = choiceProfile(operation, s.outline ?? primary?.publishedOutline);
+            const alternatives = profile && selector && primary?.team === project.team
+              ? agents.filter(a => a.id !== s.agent && a.team === project.team &&
+                  choiceProfile(a.publishedOperation, a.publishedOutline) === profile)
+              : [];
             const canReplace = !s.requiredOperation && !!operation;
             return (
             <li key={s.key}>
@@ -639,9 +648,9 @@ export function PlanEditor({
               )}
               {(s.toolChoice || alternatives.length > 0) && (
                 <details open={s.toolChoice ? true : undefined}>
-                  <summary>允许 Agent 在两个汇总工具中选择</summary>
+                  <summary>{operation === "aggregate" ? "允许 Agent 在两个汇总工具中选择" : "允许 Agent 在两个文件工具中选择"}</summary>
                   <label>
-                    自动选择的备选汇总工具（步骤 {i+1}）
+                    自动选择的备选{operation === "aggregate" ? "汇总工具" : "文件工具"}（步骤 {i+1}）
                     <select
                       value={s.toolChoice ? s.toolChoice.agent + "/" + s.toolChoice.revision : ""}
                       onChange={(e) => {
@@ -664,7 +673,24 @@ export function PlanEditor({
                       ))}
                     </select>
                   </label>
-                  <small>前一步的文本 Agent 只读取目标和 CSV 表头，从两个版本中选一个。汇总仍交付 XLSX。</small>
+                  {s.toolChoice && selectors.length > 1 && (
+                    <label>
+                      负责选择的文本步骤
+                      <select value={s.toolChoice.selector} onChange={e => {
+                        const selectorKey = e.target.value;
+                        edit({steps: steps.map(t => t.key === s.key && t.toolChoice ? {
+                          ...t, toolChoice: {...t.toolChoice, selector: selectorKey},
+                        } : t)});
+                      }}>
+                        {selectors.map(item => <option key={item.key} value={item.key}>步骤 {steps.indexOf(item) + 1} · {item.name} v{item.revision}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  {s.toolChoice && operation !== "aggregate" && selectors.length === 1 &&
+                    <small>步骤 {steps.indexOf(selectors[0]) + 1} 负责选择 · {selectors[0].name}</small>}
+                  <small>{operation === "aggregate"
+                    ? "前一步的文本 Agent 只读取目标和 CSV 表头，从两个版本中选一个。汇总仍交付 XLSX。"
+                    : "两项候选采用相同的格式和输入约定，只执行一项。选择步骤读取目标和原件名称，制作步骤使用其余前置成果、所选资料或原执行要求。"}</small>
                 </details>
               )}
               <button

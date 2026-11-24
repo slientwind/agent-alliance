@@ -77,11 +77,17 @@ func Usable(ctx context.Context, q interface {
 // Prior reads the exact observations selected by the plan graph. An older
 // receipt is never replaced with a newer or invalid copy just to fill a gap.
 func Prior(ctx context.Context, tx pgx.Tx, run string, step int) (string, error) {
+	return PriorWithControl(ctx, tx, run, step, 0)
+}
+
+// PriorWithControl verifies the control predecessor but excludes its receipt
+// from the tool's content. Capture still records every predecessor.
+func PriorWithControl(ctx context.Context, tx pgx.Tx, run string, step, controlStep int) (string, error) {
 	var needed, available int
 	var invalid bool
 	var body string
 	err := tx.QueryRow(ctx, `select count(*),count(value) filter(where usable),
-            coalesce(bool_or(not usable),false),coalesce(string_agg(value,E'\n\n' order by depends_on) filter(where usable),'')
+            coalesce(bool_or(not usable),false),coalesce(string_agg(value,E'\n\n' order by depends_on) filter(where usable and depends_on<>$3),'')
         from (
             select e.depends_on,case when branch.mode='reuse' then coalesce(v.body,i.result) else coalesce(i.result,v.body) end as value,
                 (o.attempt_no is null or run_working_set_usable(o.origin_run,e.depends_on,o.attempt_no))
@@ -93,7 +99,7 @@ func Prior(ctx context.Context, tx pgx.Tx, run string, step int) (string, error)
             left join rule_branch_steps branch on(branch.run_id,branch.ordinal)=(r.id,e.depends_on)
             left join artifact_versions v on(v.artifact_id,v.version)=(a.id,coalesce(branch.result_version,1))
             where r.id=$1 and e.ordinal=$2
-        ) ordered`, run, step).Scan(&needed, &available, &invalid, &body)
+        ) ordered`, run, step, controlStep).Scan(&needed, &available, &invalid, &body)
 	if err != nil {
 		return "", err
 	}

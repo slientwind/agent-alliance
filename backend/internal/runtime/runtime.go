@@ -4,7 +4,6 @@ import (
 	"alliance/internal/billing"
 	"alliance/internal/builder"
 	"alliance/internal/database"
-	"alliance/internal/harness"
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
 	"alliance/internal/memory"
@@ -232,8 +231,15 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			}
 		}
 		if selector != nil && (choice == nil || *choice == 0) {
+			if choice != nil && !d.change {
+				if _, err := tx.Exec(ctx, `insert into run_tool_choice_waits(run_id,ordinal,control_revision) values($1,$2,$3)
+                    on conflict(run_id) do update set (ordinal,control_revision)=(excluded.ordinal,excluded.control_revision)`,
+					step.Run, step.Ordinal, d.controlRevision); err != nil {
+					return err
+				}
+			}
 			result.Wait = true
-			return setState(ctx, tx, step, d.project, "blocked", "tool_choice_unavailable", "未选出已授权的汇总能力。发起人可从原候选中选择一个，继续本次运行。")
+			return setState(ctx, tx, step, d.project, "blocked", "tool_choice_unavailable", "Agent 未选出已授权的工具。经办人可从原候选中选择一个，继续本次运行。")
 		}
 		if !d.change {
 			if err := d.routing.load(ctx, tx, step.Run, step.Ordinal); err != nil {
@@ -355,11 +361,16 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		}
 		d.model = m
 		d.prompt = prompt
+		officeChoice := selector != nil && m.Tool != nil && m.Tool.Operation != "aggregate"
 		kind := "execution"
 		if d.change {
 			kind = "revision"
 		} else {
-			d.prior, err = memory.Prior(ctx, tx, step.Run, step.Ordinal)
+			controlStep := 0
+			if officeChoice {
+				controlStep = *selector
+			}
+			d.prior, err = memory.PriorWithControl(ctx, tx, step.Run, step.Ordinal, controlStep)
 			var invalid web.Problem
 			if errors.As(err, &invalid) {
 				result.Wait = true
@@ -492,7 +503,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			}
 		}
 		if d.routing.target > 0 {
-			d.prompt += "\n" + harness.ReportChoiceInstructions
+			d.prompt += "\n" + d.routing.instructions()
 			d.brief = d.routing.input(d.brief, files)
 			d.prior = ""
 		}
@@ -527,6 +538,9 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			}
 			d.model.Sources = files
 			d.model.ToolInput = d.prior
+			if officeChoice && d.prior == "" && len(files) == 0 {
+				d.model.ToolInput = planBrief
+			}
 			if m.Tool.Operation == "pptx" && m.Tool.Contract == resources.SlideOutlineContract && d.prior == "" && len(files) == 0 {
 				d.model.ToolInput = planBrief
 			}
@@ -650,7 +664,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 	}
 	selectedTool := 0
 	if callErr == nil && d.routing.target > 0 {
-		selectedTool, reply.Text = d.routing.options.Accept(reply.Text)
+		selectedTool, reply.Text = d.routing.accept(reply.Text, reply.FinishReason)
 	}
 	if callErr == nil && d.excerpt != "" {
 		reply.Text = strings.Replace(d.baseBody, d.excerpt, reply.Text, 1)
