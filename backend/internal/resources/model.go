@@ -57,10 +57,11 @@ type Message struct {
 	Content string `json:"content"`
 }
 type Reply struct {
-	Receipt *RemoteWait
-	File    *File
-	Text    string
-	Tokens  int
+	Receipt      *RemoteWait
+	File         *File
+	Text         string
+	Tokens       int
+	FinishReason string
 }
 type Model struct {
 	ProjectGrant    string
@@ -145,13 +146,17 @@ func (m Model) Generate(ctx context.Context, messages []Message) (Reply, error) 
 		return Reply{}, ProviderStatus(resp.StatusCode)
 	}
 	var result struct {
-		Choices []struct{ Message Message }
-		Usage   struct {
+		Choices []struct {
+			Message      Message
+			FinishReason string `json:"finish_reason"`
+		}
+		Usage struct {
 			Total int `json:"total_tokens"`
 		}
 	}
 	if err = json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&result); err != nil || len(result.Choices) == 0 || strings.TrimSpace(result.Choices[0].Message.Content) == "" {
 		return Reply{}, errors.New("供应商响应缺少有效正文")
 	}
-	return Reply{Text: result.Choices[0].Message.Content, Tokens: result.Usage.Total}, nil
+	choice := result.Choices[0]
+	return Reply{Text: choice.Message.Content, Tokens: result.Usage.Total, FinishReason: choice.FinishReason}, nil
 }

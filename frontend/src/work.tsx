@@ -767,6 +767,9 @@ export function Work({
           )}
         </details>
       )}
+      {p.run?.lookupPending && (
+        <p className="card" role="status">正在对照原文补查依据。</p>
+      )}
       {p.run?.indexWait && (
         <section className="card" aria-label="资料索引进度">
           <p role="status">{p.run.indexWait.automatic

@@ -42,9 +42,10 @@ func runEnded(state string) bool {
 }
 
 type Result struct {
-	Stop bool
-	Wait bool
-	More bool
+	Stop          bool
+	Wait          bool
+	More          bool
+	LookupAttempt int
 }
 
 func Collaborate(ctx workflow.Context, run string) error {
@@ -92,6 +93,14 @@ type contextData struct {
 }
 
 func (a Activities) ExecuteStep(ctx context.Context, step Step) (Result, error) {
+	return a.executeStep(ctx, step, false)
+}
+
+func (a Activities) AdvanceTurn(ctx context.Context, step Step) (Result, error) {
+	return a.executeStep(ctx, step, true)
+}
+
+func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool) (Result, error) {
 	var d contextData
 	var result Result
 	var invoke bool
@@ -111,11 +120,12 @@ func (a Activities) ExecuteStep(ctx context.Context, step Step) (Result, error) 
 			result.Wait = !result.Stop
 			return nil
 		}
-		var invocationStatus, recorded string
+		var invocationStatus string
+		var recorded *string
 		attempt := 1
 		var authorization *string
 		var grantActive, fieldCorrection bool
-		err = tx.QueryRow(ctx, `select i.status,coalesce(i.result,''),i.attempt_no,v.control_id,
+		err = tx.QueryRow(ctx, `select i.status,i.result,i.attempt_no,v.control_id,
           coalesce(v.authority_current,false),v.input_mapping is not null
           from invocations i left join active_call_redos v on(v.run_id,v.ordinal,v.attempt_no)=(i.run_id,i.ordinal,i.attempt_no)
           where i.run_id=$1 and i.ordinal=$2`, step.Run, step.Ordinal).Scan(&invocationStatus, &recorded, &attempt, &authorization, &grantActive, &fieldCorrection)
@@ -149,6 +159,12 @@ func (a Activities) ExecuteStep(ctx context.Context, step Step) (Result, error) 
 		if err == nil && invocationStatus != "completed" && !redo {
 			result.Wait = true
 			return setState(ctx, tx, step, d.project, "reconcile", "receipt_pending", "已有提交记录，等待核对；不会重复调用。")
+		}
+		if lookupTurns && invocationStatus == "completed" && recorded == nil && d.lookupPhase == "answer" {
+			found, err := resumeLookupTurn(ctx, tx, step, d, attempt, &result)
+			if found || err != nil {
+				return err
+			}
 		}
 		if selector != nil && (choice == nil || *choice == 0) {
 			result.Wait = true
@@ -208,7 +224,11 @@ func (a Activities) ExecuteStep(ctx context.Context, step Step) (Result, error) 
 			return setState(ctx, tx, step, d.project, "blocked", "input_changed", problem.Message)
 		}
 		if invocationStatus == "completed" {
-			return commitOutput(ctx, tx, step, d, recorded, &result)
+			var text string
+			if recorded != nil {
+				text = *recorded
+			}
+			return commitOutput(ctx, tx, step, d, text, &result)
 		}
 		if resources.RequiresPicture(m.OutputOperation) {
 			if m.OutputOperation == resources.ImageEditOperation && d.change {
@@ -427,6 +447,7 @@ func (a Activities) ExecuteStep(ctx context.Context, step Step) (Result, error) 
 	}
 	reply, callErr := runnable.Invoke(ctx, d.brief)
 	var lookupOutcome string
+	var lookupDecision []byte
 	if callErr == nil {
 		switch d.lookupPhase {
 		case "search":
@@ -440,7 +461,19 @@ func (a Activities) ExecuteStep(ctx context.Context, step Step) (Result, error) 
 		case "answer_calc":
 			reply.Text, lookupOutcome = calculationAnswer(reply.Text, d.hits, d.lookupFiles, d.operands)
 		case "answer":
-			reply.Text, lookupOutcome = groundedAnswer(reply.Text, d.hits, d.lookupFiles)
+			if reply.FinishReason != "" && reply.FinishReason != "stop" {
+				reply.Text = ""
+			}
+			if lookupTurns && !d.change && d.routing.target == 0 && !d.model.External && d.model.Tool == nil &&
+				d.model.OutputOperation == "text" && reply.File == nil && reply.Receipt == nil {
+				lookupDecision, err = a.prepareLookupTurn(step, dispatchedAttempt, d, reply.Text)
+				if err != nil {
+					return result, err
+				}
+			}
+			if lookupDecision == nil {
+				reply.Text, lookupOutcome = groundedAnswer(reply.Text, d.hits, d.lookupFiles)
+			}
 		}
 	}
 	selectedTool := 0
@@ -515,6 +548,9 @@ func (a Activities) ExecuteStep(ctx context.Context, step Step) (Result, error) 
 				return nil
 			}
 			return setState(ctx, tx, step, d.project, "reconcile", "outcome_unknown", note)
+		}
+		if lookupDecision != nil {
+			return saveLookupTurn(ctx, tx, step, d, dispatchedAttempt, status, lookupDecision, reply, &result)
 		}
 		if d.routing.target > 0 {
 			if err := d.routing.record(ctx, tx, step, selectedTool); err != nil {
@@ -741,10 +777,11 @@ type Node struct {
 	Ordinal      int
 	Dependencies []int
 	Image        bool
+	LookupAnswer bool
 }
 
 func (a Activities) Topology(ctx context.Context, run string) ([]Node, error) {
-	rows, err := a.Catalog.DB.Query(ctx, `select n.ordinal,case when cb.run_id is not null then array[]::integer[] else array(select e.depends_on from node_edges e where(e.project_id,e.plan_version,e.ordinal)=(n.project_id,n.plan_version,n.ordinal) order by e.depends_on) end,agent_output_operation(ar)='png' from runs r left join change_batches cb on cb.run_id=r.id left join artifacts target on target.id=cb.artifact_id join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version) join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision) where r.id=$1 and (cb.run_id is null or n.ordinal=target.ordinal) order by n.ordinal`, run)
+	rows, err := a.Catalog.DB.Query(ctx, `select n.ordinal,case when cb.run_id is not null then array[]::integer[] else array(select e.depends_on from node_edges e where(e.project_id,e.plan_version,e.ordinal)=(n.project_id,n.plan_version,n.ordinal) order by e.depends_on) end,agent_output_operation(ar)='png',n.lookup_phase='answer' and cb.run_id is null from runs r left join change_batches cb on cb.run_id=r.id left join artifacts target on target.id=cb.artifact_id join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version) join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision) where r.id=$1 and (cb.run_id is null or n.ordinal=target.ordinal) order by n.ordinal`, run)
 	if err != nil {
 		return nil, err
 	}
@@ -755,6 +792,7 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 	if err := workflow.ExecuteActivity(ctx, "Topology", run).Get(ctx, &nodes); err != nil {
 		return err
 	}
+	lookupTurns := workflow.GetVersion(ctx, "read-only-lookup-turns", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	done := map[int]bool{}
 	control := workflow.GetSignalChannel(ctx, "control")
 	type pending struct {
@@ -780,7 +818,11 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 				if node.Image {
 					stepCtx = workflow.WithStartToCloseTimeout(ctx, resources.ImageTimeout+30*time.Second)
 				}
-				active = append(active, pending{node.Ordinal, workflow.ExecuteActivity(stepCtx, "ExecuteStep", Step{run, node.Ordinal})})
+				activity := "ExecuteStep"
+				if lookupTurns && node.LookupAnswer {
+					activity = "AdvanceTurn"
+				}
+				active = append(active, pending{node.Ordinal, workflow.ExecuteActivity(stepCtx, activity, Step{run, node.Ordinal})})
 			}
 		}
 		if len(active) == 0 {
@@ -791,6 +833,12 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 			var outcome Result
 			if err := item.future.Get(ctx, &outcome); err != nil {
 				return err
+			}
+			if outcome.LookupAttempt > 0 {
+				action := lookupAction{Step: Step{run, item.ordinal}, Attempt: outcome.LookupAttempt}
+				if err := workflow.ExecuteActivity(ctx, "ExecuteLookupAction", action).Get(ctx, &outcome); err != nil {
+					return err
+				}
 			}
 			if outcome.Stop {
 				return nil

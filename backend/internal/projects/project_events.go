@@ -21,7 +21,8 @@ const projectEventStateSQL = `
 select jsonb_build_array(p.revision,p.stage,m.can_review,m.can_view_costs,
  (select max(seq) from messages where project_id=p.id),
  (select jsonb_agg(jsonb_build_array(r.id,r.status,r.control_revision,
-   (select jsonb_agg(jsonb_build_array(i.ordinal,i.status,i.attempt_no,i.remote_status)
+   exists(select from lookup_turns t where t.run_id=r.id and t.decision is not null),
+   (select jsonb_agg(jsonb_build_array(i.ordinal,i.status,i.attempt_no,i.remote_status,i.result is not null)
      order by i.ordinal) from invocations i where i.run_id=r.id))
    order by r.created_at,r.id)
   from (select id,status,control_revision,created_at from runs where project_id=p.id

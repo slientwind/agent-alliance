@@ -54,8 +54,8 @@ func (h lookupHit) location() lookupLocation {
 	return lookupLocation{h.source, h.version, h.start, h.end}
 }
 
-func searchForTerms(request []string, files []knowledge.InputSource, moneyGoal string, fallback func() (knowledge.SemanticLookup, error), prior map[lookupLocation]bool) (string, string) {
-	terms := []string{}
+func normalizeLookupTerms(request []string) []string {
+	var terms []string
 	seen := map[string]bool{}
 	for _, term := range request {
 		term = strings.ToLower(strings.TrimSpace(term))
@@ -70,6 +70,11 @@ func searchForTerms(request []string, files []knowledge.InputSource, moneyGoal s
 			}
 		}
 	}
+	return terms
+}
+
+func searchForTerms(request []string, files []knowledge.InputSource, moneyGoal string, fallback func() (knowledge.SemanticLookup, error), prior map[lookupLocation]bool) (string, string) {
+	terms := normalizeLookupTerms(request)
 	if len(terms) == 0 {
 		if len(request) > 0 {
 			return invalidLookup, "lookup_invalid_request"
