@@ -22,6 +22,36 @@ func dagTestEnvironment(nodes []Node) (*testsuite.TestWorkflowEnvironment, Activ
 	return env, a
 }
 
+func TestDAGTextCheckpointVersionAndDependencies(t *testing.T) {
+	for _, version := range []workflow.Version{workflow.DefaultVersion, 1} {
+		mode := "recorded replies"
+		if version == workflow.DefaultVersion {
+			mode = "existing workflow history"
+		}
+		t.Run(mode, func(t *testing.T) {
+			first := Step{"run", 1}
+			env, a := dagTestEnvironment([]Node{{Ordinal: 1, CheckpointText: true}, {Ordinal: 2, Dependencies: []int{1}}})
+			env.OnGetVersion("text-reply-checkpoints", workflow.DefaultVersion, 1).Return(version).Once()
+			ready := env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", 2}).Return(Result{}, nil).Once()
+			if version == workflow.DefaultVersion {
+				ready.NotBefore(env.OnActivity(a.ExecuteStep, mock.Anything, first).Return(Result{}, nil).Once())
+			} else {
+				env.RegisterActivity(a.AdvanceTextStep)
+				env.RegisterActivity(a.CommitTextReply)
+				ref := TextReplyRef{Step: first, Attempt: 1}
+				saved := env.OnActivity(a.AdvanceTextStep, mock.Anything, first).Return(Result{TextReply: &ref}, nil).Once()
+				committed := env.OnActivity(a.CommitTextReply, mock.Anything, ref).NotBefore(saved).Return(Result{}, nil).Once()
+				ready.NotBefore(committed)
+			}
+			env.ExecuteWorkflow(Collaborate, "run")
+			if err := env.GetWorkflowError(); err != nil {
+				t.Fatal(err)
+			}
+			env.AssertExpectations(t)
+		})
+	}
+}
+
 func TestDAGStartsReadySuccessorBeforeUnrelatedActivityFinishes(t *testing.T) {
 	for _, legacy := range []bool{false, true} {
 		name := "independent scheduling"

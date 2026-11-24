@@ -122,6 +122,8 @@ func TestIndependentDAGDispatchPostgres(t *testing.T) {
 	env.RegisterActivity(a.EnableStepRemoteInput)
 	env.RegisterActivity(a.EnableStepSourceReceipts)
 	env.RegisterActivity(a.ExecuteStep)
+	env.RegisterActivity(a.AdvanceTextStep)
+	env.RegisterActivity(a.CommitTextReply)
 	env.ExecuteWorkflow(Collaborate, run)
 	if err := env.GetWorkflowError(); err != nil {
 		t.Fatal(err)

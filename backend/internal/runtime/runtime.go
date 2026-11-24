@@ -60,6 +60,7 @@ type Result struct {
 	Action        *ActionRef
 	Observation   *ActionRef
 	RevisitTurn   bool
+	TextReply     *TextReplyRef
 }
 
 func Collaborate(ctx workflow.Context, run string) error {
@@ -96,6 +97,7 @@ const (
 	durableLocalActions
 	observedLocalActions
 	batchedLookupActions
+	checkpointedTextReply
 )
 
 type contextData struct {
@@ -138,6 +140,10 @@ func (a Activities) AdvanceObservedTurn(ctx context.Context, step Step) (Result,
 
 func (a Activities) AdvanceBatchedLookup(ctx context.Context, step Step) (Result, error) {
 	return a.executeStep(ctx, step, batchedLookupActions)
+}
+
+func (a Activities) AdvanceTextStep(ctx context.Context, step Step) (Result, error) {
+	return a.executeStep(ctx, step, checkpointedTextReply)
 }
 
 func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (Result, error) {
@@ -228,6 +234,17 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			return setState(ctx, tx, step, d.project, "reconcile", "receipt_pending", "已有提交记录，等待核对；不会重复调用。")
 		}
 		if invocationStatus == "completed" {
+			if mode == checkpointedTextReply && recorded == nil {
+				var saved bool
+				if err := tx.QueryRow(ctx, `select exists(select from text_reply_checkpoints
+                    where (run_id,ordinal,attempt_no)=($1,$2,$3))`, step.Run, step.Ordinal, attempt).Scan(&saved); err != nil {
+					return err
+				}
+				if saved {
+					result.TextReply = &TextReplyRef{step, attempt}
+					return nil
+				}
+			}
 			usable, err := memory.Usable(ctx, tx, memory.Key{Run: step.Run, Step: step.Ordinal, Attempt: attempt})
 			if err != nil {
 				return err
@@ -630,6 +647,10 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		return result, err
 	}
 	reply, callErr := runnable.Invoke(ctx, d.brief)
+	if mode == checkpointedTextReply && callErr == nil && d.lookupPhase == "" && !d.change &&
+		!d.model.External && d.model.Tool == nil && d.model.OutputOperation == "text" && reply.File == nil && reply.Receipt == nil {
+		return a.recordTextReply(ctx, TextReplyRef{step, dispatchedAttempt}, d, reply, result)
+	}
 	workingKey := memory.Key{Run: step.Run, Step: step.Ordinal, Attempt: dispatchedAttempt}
 	var lookupOutcome string
 	var lookupDecision []byte
@@ -1111,6 +1132,7 @@ type Node struct {
 	LookupAnswer        bool
 	Calculation         bool
 	ToolChoice          bool
+	CheckpointText      bool
 	observeLocalActions bool
 	batchLookupActions  bool
 }
@@ -1120,7 +1142,8 @@ func (a Activities) Topology(ctx context.Context, run string) ([]Node, error) {
         select e.depends_on from node_edges e where(e.project_id,e.plan_version,e.ordinal)=(n.project_id,n.plan_version,n.ordinal)
         and not exists(select from rule_branch_steps b where (b.run_id,b.ordinal)=(r.id,e.depends_on) and b.mode='reuse')
         order by e.depends_on) end,agent_output_operation(ar)='png',n.lookup_phase in ('answer','review_evidence') and cb.run_id is null,n.lookup_phase='answer_calc' and cb.run_id is null,
-        cb.run_id is null and exists(select from plan_tool_choices c where (c.project_id,c.plan_version,c.ordinal)=(n.project_id,n.plan_version,n.ordinal))
+        cb.run_id is null and exists(select from plan_tool_choices c where (c.project_id,c.plan_version,c.ordinal)=(n.project_id,n.plan_version,n.ordinal)),
+        cb.run_id is null and n.lookup_phase='' and ar.resource_id is not null and ar.tool is null and ar.card is null and agent_output_operation(ar)='text'
         from runs r left join change_batches cb on cb.run_id=r.id left join artifacts target on target.id=cb.artifact_id
         join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version)
         join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision)
@@ -1165,7 +1188,15 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 				return err
 			}
 		}
+		if workflow.GetVersion(ctx, "text-reply-checkpoints", workflow.DefaultVersion, 1) == workflow.DefaultVersion {
+			for i := range nodes {
+				nodes[i].CheckpointText = false
+			}
+		}
 		return scheduleIndependentSteps(ctx, run, nodes, lookupTurns, localActions)
+	}
+	for i := range nodes {
+		nodes[i].CheckpointText = false
 	}
 	done := map[int]bool{}
 	control := workflow.GetSignalChannel(ctx, "control")

@@ -31,6 +31,8 @@ func main() {
 	w := worker.New(c, runtime.Queue(), worker.Options{})
 	w.RegisterWorkflow(runtime.Collaborate)
 	w.RegisterActivity(a.ExecuteStep)
+	w.RegisterActivity(a.AdvanceTextStep)
+	w.RegisterActivity(a.CommitTextReply)
 	w.RegisterActivity(a.AdvanceTurn)
 	w.RegisterActivity(a.ExecuteLookupAction)
 	w.RegisterActivity(a.AdvanceExecutionTurn)

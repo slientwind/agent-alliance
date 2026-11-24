@@ -401,6 +401,9 @@ var progressSQL = `select jsonb_build_object(
    'toolChoiceWaitScope',case when choice_wait.step_scoped then 'step' when choice_wait.run_id is not null then 'run' end,
    'status',case when branch.mode='reuse' then 'reused'
    when choice_wait.step_scoped then 'waiting_tool_choice'
+   when r.status='running' and exists(select from text_reply_checkpoints reply where
+     (reply.run_id,reply.ordinal,reply.attempt_no)=(i.run_id,i.ordinal,i.attempt_no) and reply.state='pending'
+     and run_working_set_usable(i.run_id,i.ordinal,i.attempt_no)) then 'checking_model_reply'
    when o.payload is not null then 'checking_observation'
    when t.action_count>1 then 'refining_evidence'
    when n.lookup_phase in ('review_evidence','synthesize') and evidence_follow_up_skipped(r.id,n.ordinal) then 'skipped' else coalesce(i.status,case when n.lookup_phase in ('answer','answer_calc') and a.id is not null then 'skipped' else 'pending' end) end,

@@ -125,7 +125,7 @@ func scheduleIndependentSteps(ctx workflow.Context, run string, nodes []Node, lo
 			continue
 		}
 		switch {
-		case outcome.Action != nil || outcome.Observation != nil || outcome.RevisitTurn:
+		case outcome.Action != nil || outcome.Observation != nil || outcome.RevisitTurn || outcome.TextReply != nil:
 			if step.localCalls == localTransitionLimit(nodes[readyIndex]) {
 				step.waiting = true
 				continue
@@ -166,6 +166,8 @@ func startDAGStep(ctx workflow.Context, run string, node Node, lookupTurns, loca
 		activity = localTurnActivity(node)
 	} else if lookupTurns && node.LookupAnswer {
 		activity = "AdvanceTurn"
+	} else if node.CheckpointText {
+		activity = "AdvanceTextStep"
 	}
 	return workflow.ExecuteActivity(ctx, activity, Step{run, node.Ordinal})
 }
@@ -188,6 +190,9 @@ func localTransitionLimit(node Node) int {
 }
 
 func advanceLocalActivity(ctx workflow.Context, run string, node Node, outcome Result) workflow.Future {
+	if outcome.TextReply != nil {
+		return workflow.ExecuteActivity(ctx, "CommitTextReply", *outcome.TextReply)
+	}
 	if outcome.RevisitTurn {
 		return workflow.ExecuteActivity(ctx, localTurnActivity(node), Step{run, node.Ordinal})
 	}

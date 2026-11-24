@@ -197,7 +197,17 @@ func TestOfficeChoicePostgres(t *testing.T) {
 		plan.ToolChoices[0].Alternative = alternative
 		post(path+"/plan", plan, "", 204)
 		run := readID(post(path+"/runs", map[string]int{"expected": view.Revision + 1, "authorizeCalls": 3}, uuid.NewString(), 202))
-		start(run, 1, false)
+		prepared, err := worker.AdvanceTextStep(ctx, Step{Run: run, Ordinal: 1})
+		if err != nil || prepared.TextReply == nil || prepared.Wait || prepared.Stop {
+			t.Fatalf("choice reply was not recorded: %+v %v", prepared, err)
+		}
+		var decided bool
+		if err := db.QueryRow(ctx, "select exists(select from run_tool_choices where run_id=$1)", run).Scan(&decided); err != nil || decided {
+			t.Fatalf("choice applied before reply adoption: %v %v", decided, err)
+		}
+		if applied, err := worker.CommitTextReply(ctx, *prepared.TextReply); err != nil || applied.Wait || applied.Stop {
+			t.Fatalf("choice reply was not adopted: %+v %v", applied, err)
+		}
 		select {
 		case prompt := <-prompts:
 			if !strings.Contains(prompt, "quote.txt") || !strings.Contains(prompt, "供应商复核简报") || strings.Contains(prompt, sourceText) {

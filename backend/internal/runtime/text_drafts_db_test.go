@@ -134,7 +134,10 @@ func TestTextDraftPostgresSSE(t *testing.T) {
 			started := calls.Load()
 			done := make(chan error, 1)
 			go func() {
-				_, err := worker.ExecuteStep(sub, step)
+				outcome, err := worker.AdvanceTextStep(sub, step)
+				if err == nil && outcome.TextReply != nil {
+					_, err = worker.CommitTextReply(sub, *outcome.TextReply)
+				}
 				done <- err
 			}()
 			if strings.HasPrefix(test, "session") {

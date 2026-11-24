@@ -1460,7 +1460,7 @@
         }
       },
       "Event": {
-        "description": "step/refining_evidence 表示开始一组补查，step/checking_observation 表示补查或核算观察已记录并待核对，step/lookup_batches_finished 表示分组补查结束。组数通过运行进度查询。成果可用以 artifact/ready 为准。",
+        "description": "step/checking_model_reply 表示原模型调用的完整回包已入账，等待复核或采纳。step/refining_evidence 表示开始一组补查，step/checking_observation 表示补查或核算观察已记录并待核对，step/lookup_batches_finished 表示分组补查结束。组数通过运行进度查询。成果可用以 artifact/ready 为准。",
         "type": "object",
         "properties": {
           "seq": {

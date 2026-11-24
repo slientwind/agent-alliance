@@ -625,6 +625,7 @@ export const statusLabel: Record<string, string> = {
   review: "待审核",
   delivered: "已交付",
   submitted: "已提交",
+  checking_model_reply: "正在核对模型回复",
   remote: "已取得任务编号",
   input_rejected: "汇总输入未通过检查",
   remote_closed: "远端任务已结束",

@@ -373,7 +373,12 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
       on (o.run_id,o.ordinal,o.attempt_no,o.action_round)=(t.run_id,t.ordinal,t.attempt_no,t.action_cursor)
     where t.run_id=r.id and r.status='running' and t.decision is not null and t.action_count>1
       and run_working_set_usable(t.run_id,t.ordinal,t.attempt_no) order by t.ordinal),
- 'canConcludeFailure',run_failure_confirmable(r.id),'attempts',(select coalesce(jsonb_agg(jsonb_build_object('step',ordinal,'status',case when evidence_follow_up_skipped(i.run_id,i.ordinal) then 'skipped' else status end,
+ 'canConcludeFailure',run_failure_confirmable(r.id),'attempts',(select coalesce(jsonb_agg(jsonb_build_object('step',ordinal,'status',
+    case when evidence_follow_up_skipped(i.run_id,i.ordinal) then 'skipped'
+    when r.status='running' and exists(select from text_reply_checkpoints reply where
+      (reply.run_id,reply.ordinal,reply.attempt_no)=(i.run_id,i.ordinal,i.attempt_no) and reply.state='pending'
+      and run_working_set_usable(i.run_id,i.ordinal,i.attempt_no)) then 'checking_model_reply'
+    else status end,
  'workingSet',case when r.actor=$1 then (select jsonb_build_object(
     'sources',count(*) filter(where d.kind='source'),'preferences',count(*) filter(where d.kind='preference'),
     'rules',count(*) filter(where d.kind='rule'),

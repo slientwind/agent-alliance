@@ -23,7 +23,9 @@ export function applyDraftDelta(current: DraftFragment[], fragment: DraftFragmen
 export function LiveDrafts({ drafts }: { drafts: DraftFragment[] }) {
   return drafts.map(draft => (
     <section className="bubble" key={draft.step + ":" + draft.attempt} aria-label="回复草稿">
-      <p role="status">{draft.status === "unknown" ? "生成中断 · 保留已生成的草稿" : "正在生成 · 草稿"}</p>
+      <p role="status">{draft.status === "unknown"
+        ? "生成中断 · 保留已生成的草稿"
+        : draft.status === "completed" ? "生成结束 · 等待核对" : "正在生成 · 草稿"}</p>
       <div>{draft.text}</div>
     </section>
   ));

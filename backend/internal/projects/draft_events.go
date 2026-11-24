@@ -86,7 +86,9 @@ func readDraftWindow(ctx context.Context, tx pgx.Tx, project, run, actor string)
 	if window.head > 0 && (state == "running" || state == "reconcile") {
 		rows, err := tx.Query(ctx, `select i.ordinal,i.attempt_no,i.status
             from invocations i join effective_run_nodes n on(n.run_id,n.ordinal)=(i.run_id,i.ordinal)
-            where i.run_id=$1 and i.status in('submitted','unknown')
+            where i.run_id=$1 and (i.status in('submitted','unknown') or exists(
+                  select from text_reply_checkpoints reply where
+                  (reply.run_id,reply.ordinal,reply.attempt_no)=(i.run_id,i.ordinal,i.attempt_no) and reply.state='pending'))
                   and agent_revision_ready(n.agent_id,n.agent_revision)
                   and project_agent_access($2,n.agent_id,n.agent_revision,$3)
                   and agent_skills_usable(n.agent_id,n.agent_revision,$3)
