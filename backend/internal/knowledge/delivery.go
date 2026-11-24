@@ -183,7 +183,7 @@ func PrepareDeliveryPackage(ctx context.Context, db interface {
 	if err != nil {
 		return nil, err
 	}
-	sourceRows, err := db.Query(ctx, `select jsonb_build_object('id',s.source_id,'pinned',s.pinned,'observed',s.observed,'revoked',s.revoked,'assessments',s.assessments,'revisionInputs',s.revision_inputs) || jsonb_strip_nulls(jsonb_build_object('calculationReceipt',s.calculation_receipt,'lookupReceipt',s.lookup_receipt))
+	sourceRows, err := db.Query(ctx, `select jsonb_build_object('id',s.source_id,'pinned',s.pinned,'observed',s.observed,'revoked',s.revoked,'assessments',s.assessments,'revisionInputs',s.revision_inputs) || jsonb_strip_nulls(jsonb_build_object('calculationReceipt',s.calculation_receipt,'lookupReceipt',s.lookup_receipt,'stepReceipts',nullif(s.step_receipts,'[]'::jsonb)))
  from delivery_source_evidence s where s.delivery_id=$1 order by coalesce((s.calculation_receipt->>'plan')::integer,(s.lookup_receipt->>'plan')::integer,0),s.source_id`, manifest.ID)
 	if err != nil {
 		return nil, err

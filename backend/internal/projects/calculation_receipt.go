@@ -65,6 +65,7 @@ type ReceiptSelection struct {
 	Expected, Step, Version int
 	Source, Excerpt         string
 	ExcerptStart            *int `json:"excerptStart,omitempty"`
+	ReceiptRevision         int  `json:"receiptRevision,omitempty"`
 }
 
 type ReceiptFile struct{ Name, Text string }
@@ -75,6 +76,11 @@ const (
 	CalculationReceipt ReceiptKind = "calculation"
 	LookupReceipt      ReceiptKind = "lookup"
 )
+
+// Projections share the same wait window as receipt admission.
+const SourceReceiptRequestsSQL = `coalesce((select jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+ 'step',ordinal,'reason',reason,'kind',kind,'receiptRevision',request_revision)) order by ordinal)
+ from current_source_receipt_requests where run_id=r.id),'[]'::jsonb)`
 
 func (s Server) calculationReceipt(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	return s.submitSourceReceipt(w, r, u, CalculationReceipt)
@@ -123,6 +129,9 @@ func ApplySourceReceipt(ctx context.Context, tx pgx.Tx, run, actor, key string, 
 	if in.ExcerptStart != nil {
 		sign = web.Hash(fmt.Sprintf("%x/position/%d", sign, *in.ExcerptStart))
 	}
+	if in.ReceiptRevision != 0 {
+		sign = web.Hash(fmt.Sprintf("%x/question/%d", sign, in.ReceiptRevision))
+	}
 	if file != nil {
 		sign = web.Hash(fmt.Sprintf("%x/file/%x/%x", sign, web.Hash(file.Name), web.Hash(file.Text)))
 	}
@@ -150,12 +159,15 @@ func ApplySourceReceipt(ctx context.Context, tx pgx.Tx, run, actor, key string, 
 	if err != pgx.ErrNoRows {
 		return 0, err
 	}
-	var waiting bool
-	if err := tx.QueryRow(ctx, "select exists(select from calculation_requests where run_id=$1 and ordinal=$2 and kind=$3)", run, in.Step, kind).Scan(&waiting); err != nil {
-		return 0, err
-	}
-	if !waiting || in.Expected != revision || state != "blocked" {
+	var question int
+	err = tx.QueryRow(ctx, `select coalesce(request_revision,0) from calculation_requests
+        where (run_id,ordinal,kind)=($1,$2,$3) and source_receipt_open($4,request_revision)`,
+		run, in.Step, kind, state).Scan(&question)
+	if err == pgx.ErrNoRows || err == nil && (in.Expected != revision || question != in.ReceiptRevision) {
 		return 0, web.Fail(409, "待补件步骤或运行状态已变化，请重新核对")
+	}
+	if err != nil {
+		return 0, err
 	}
 	var body, digest string
 	var locations []byte
@@ -191,7 +203,13 @@ func ApplySourceReceipt(ctx context.Context, tx pgx.Tx, run, actor, key string, 
 		}
 	}
 	var bound bool
-	if err = tx.QueryRow(ctx, `select exists(select from plan_sources pin join source_versions v on (v.source_id,v.version)=(pin.source_id,pin.source_version) where pin.project_id=$1 and pin.plan_version=$2 and (pin.source_id::text=$3 or v.object_hash=$4))`, project, version, in.Source, digest).Scan(&bound); err != nil {
+	if err = tx.QueryRow(ctx, `select exists(
+      select from plan_sources pin join source_versions v on (v.source_id,v.version)=(pin.source_id,pin.source_version)
+      where pin.project_id=$1 and pin.plan_version=$2 and (pin.source_id::text=$3 or v.object_hash=$4)
+      union all
+      select from run_source_receipts p join source_versions v on (v.source_id,v.version)=(p.source_id,p.source_version)
+      where p.run_id=$5 and ($6=0 or p.ordinal=$7) and (p.source_id::text=$3 or v.object_hash=$4)
+    )`, project, version, in.Source, digest, run, question, in.Step).Scan(&bound); err != nil {
 		return 0, err
 	}
 	if bound {
@@ -203,6 +221,10 @@ func ApplySourceReceipt(ctx context.Context, tx pgx.Tx, run, actor, key string, 
 			return 0, err
 		}
 		in.Version = 1
+	}
+	if question != 0 {
+		err = applyStepSourceReceipt(ctx, tx, run, project, actor, key, sign, action, note, revision, version, kind, in, start, end)
+		return revision, err
 	}
 	next := version + 1
 	for _, q := range []string{
@@ -256,4 +278,30 @@ func ApplySourceReceipt(ctx context.Context, tx pgx.Tx, run, actor, key string, 
 		return 0, err
 	}
 	return revision, database.Audit(ctx, tx, actor, action, run, map[string]any{"plan": next, "previous": version, "step": in.Step, "source": in.Source, "version": in.Version, "from": start + 1, "to": end})
+}
+
+func applyStepSourceReceipt(ctx context.Context, tx pgx.Tx, run, project, actor, key string, sign []byte,
+	action, note string, revision, plan int, kind ReceiptKind, in ReceiptSelection, start, end int) error {
+	if _, err := tx.Exec(ctx, `insert into run_source_receipts(run_id,ordinal,request_revision,source_id,source_version,kind,excerpt_start,excerpt_end)
+        values($1,$2,$3,$4,$5,$6,$7,$8)`, run, in.Step, in.ReceiptRevision, in.Source, in.Version, kind, start, end); err != nil {
+		return err
+	}
+	if _, _, err := knowledge.RunInputs(ctx, tx, run, in.Step, false); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, "delete from calculation_requests where run_id=$1 and ordinal=$2", run, in.Step); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `insert into controls(run_id,actor,request_key,signature,action,reason,revision,wake_ordinal)
+        values($1,$2,$3,$4,$5,$6,$7,$8)`, run, actor, key, sign, action, note, revision, in.Step); err != nil {
+		return err
+	}
+	if err := TouchRun(ctx, tx, run, project, "running"); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, "select record_service_event($1,'step','receipt_submitted',$2)", run, in.Step); err != nil {
+		return err
+	}
+	return database.Audit(ctx, tx, actor, action, run, map[string]any{"plan": plan, "step": in.Step,
+		"receiptRevision": in.ReceiptRevision, "source": in.Source, "version": in.Version, "from": start + 1, "to": end})
 }

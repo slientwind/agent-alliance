@@ -138,6 +138,15 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			result.Wait = !result.Stop
 			return nil
 		}
+		var waitingForSource bool
+		if err := tx.QueryRow(ctx, `select exists(select from calculation_requests
+            where (run_id,ordinal)=($1,$2) and request_revision is not null)`, step.Run, step.Ordinal).Scan(&waitingForSource); err != nil {
+			return err
+		}
+		if waitingForSource {
+			result.Wait = true
+			return nil
+		}
 		var invocationStatus string
 		var recorded *string
 		attempt := 1
@@ -861,11 +870,30 @@ func commitOutput(ctx context.Context, tx pgx.Tx, step Step, d contextData, text
 	return nil
 }
 func requestReceipt(ctx context.Context, tx pgx.Tx, step Step, project string, kind projects.ReceiptKind, reason string) error {
-	if _, err := tx.Exec(ctx, `insert into calculation_requests(run_id,ordinal,reason,kind) values($1,$2,$3,$4)
-   on conflict(run_id,ordinal) do update set reason=excluded.reason`, step.Run, step.Ordinal, reason, kind); err != nil {
+	var scoped bool
+	if err := tx.QueryRow(ctx, `insert into calculation_requests(run_id,ordinal,reason,kind,request_revision)
+   select id,$2,$3,$4,case when step_source_receipt and status='running' then nextval('source_receipt_request_no') end
+   from runs where id=$1 on conflict(run_id,ordinal) do update set reason=excluded.reason
+   returning request_revision is not null`, step.Run, step.Ordinal, reason, kind).Scan(&scoped); err != nil {
+		return err
+	}
+	if scoped {
+		if _, err := tx.Exec(ctx, "insert into trace_events(run_id,ordinal,kind,code) values($1,$2,'checkpoint',$3)",
+			step.Run, step.Ordinal, string(kind)+"_step_receipt_requested"); err != nil {
+			return err
+		}
+		if err := projects.TouchRun(ctx, tx, step.Run, project, "running"); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, "select record_service_event($1,'step','source_receipt_requested',$2)", step.Run, step.Ordinal)
 		return err
 	}
 	return setState(ctx, tx, step, project, "blocked", string(kind)+"_receipt_requested", reason+" 可以补件后在本任务继续。")
+}
+
+func (a Activities) EnableStepSourceReceipts(ctx context.Context, run string) error {
+	_, err := a.Catalog.DB.Exec(ctx, "update runs set step_source_receipt=true where id=$1 and not step_source_receipt", run)
+	return err
 }
 
 func setState(ctx context.Context, tx pgx.Tx, step Step, project, state, code, note string) error {
@@ -936,8 +964,10 @@ func (a Activities) Dispatch(ctx context.Context, c client.Client) {
 
 func (a Activities) signalControl(ctx context.Context, c client.Client) error {
 	return database.WithTx(ctx, a.Catalog.DB, func(tx pgx.Tx) error {
-		var id, run, state string
-		err := tx.QueryRow(ctx, `select c.id,c.run_id,r.status from controls c join outbox o on o.run_id=c.run_id join runs r on r.id=c.run_id where c.sent_at is null and o.sent_at is not null order by c.created_at limit 1 for update of c skip locked`).Scan(&id, &run, &state)
+		var id, run, state, signal string
+		err := tx.QueryRow(ctx, `select c.id,c.run_id,r.status,coalesce($1||c.wake_ordinal,c.id::text)
+            from controls c join outbox o on o.run_id=c.run_id join runs r on r.id=c.run_id
+            where c.sent_at is null and o.sent_at is not null order by c.created_at limit 1 for update of c skip locked`, sourceReceiptPrefix).Scan(&id, &run, &state, &signal)
 		if err == pgx.ErrNoRows {
 			return nil
 		}
@@ -946,7 +976,7 @@ func (a Activities) signalControl(ctx context.Context, c client.Client) error {
 		}
 		sub, cancel := context.WithTimeout(ctx, 4*time.Second)
 		defer cancel()
-		err = c.SignalWorkflow(sub, "run/"+run, "", "control", id)
+		err = c.SignalWorkflow(sub, "run/"+run, "", "control", signal)
 		var missing *serviceerror.NotFound
 		if err != nil && !(errors.As(err, &missing) && runEnded(state)) {
 			return err
@@ -981,6 +1011,11 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 	if workflow.GetVersion(ctx, "independent-dag-dispatch", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
 		if len(nodes) > 1 && workflow.GetVersion(ctx, "step-remote-input", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
 			if err := workflow.ExecuteActivity(ctx, "EnableStepRemoteInput", run).Get(ctx, nil); err != nil {
+				return err
+			}
+		}
+		if hasParallelSteps(nodes) && workflow.GetVersion(ctx, "step-source-receipts", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+			if err := workflow.ExecuteActivity(ctx, "EnableStepSourceReceipts", run).Get(ctx, nil); err != nil {
 				return err
 			}
 		}

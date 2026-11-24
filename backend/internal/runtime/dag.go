@@ -3,6 +3,7 @@ package runtime
 import (
 	"alliance/internal/resources"
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -11,9 +12,21 @@ import (
 )
 
 const remoteReceiptPrefix = "remote-receipt/"
+const sourceReceiptPrefix = "source-receipt/"
 
 func remoteReceiptSignal(ordinal int) string {
 	return remoteReceiptPrefix + strconv.Itoa(ordinal)
+}
+
+// Topology returns nodes in ordinal order, with all dependencies earlier.
+// Consecutive nodes without a direct edge cannot have an indirect edge.
+func hasParallelSteps(nodes []Node) bool {
+	for i := 1; i < len(nodes); i++ {
+		if !slices.Contains(nodes[i].Dependencies, nodes[i-1].Ordinal) {
+			return true
+		}
+	}
+	return false
 }
 
 type scheduledStep struct {
@@ -79,7 +92,11 @@ func scheduleIndependentSteps(ctx workflow.Context, run string, nodes []Node, lo
 				var signal string
 				c.Receive(ctx, &signal)
 				wake++
-				if suffix, receipt := strings.CutPrefix(signal, remoteReceiptPrefix); receipt {
+				suffix, receipt := strings.CutPrefix(signal, remoteReceiptPrefix)
+				if !receipt {
+					suffix, receipt = strings.CutPrefix(signal, sourceReceiptPrefix)
+				}
+				if receipt {
 					if ordinal, err := strconv.Atoi(suffix); err == nil {
 						if i, exists := byOrdinal[ordinal]; exists {
 							steps[i].lastWake = wake

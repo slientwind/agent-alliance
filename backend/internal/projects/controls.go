@@ -76,7 +76,7 @@ func controlTx(ctx context.Context, tx pgx.Tx, id, actor, key, action string, ex
 		target = "paused"
 	case "resume":
 		var needsReceipt, needsFieldConfirmation bool
-		if err := tx.QueryRow(ctx, `select exists(select from calculation_requests cr where run_id=$1
+		if err := tx.QueryRow(ctx, `select exists(select from calculation_requests cr where run_id=$1 and cr.request_revision is null
  and not exists(select from lookup_index_waits w where (w.run_id,w.ordinal)=(cr.run_id,cr.ordinal) and w.active)),
  exists(select from pending_column_reconfirmations where run_id=$1)`, id).Scan(&needsReceipt, &needsFieldConfirmation); err != nil {
 			return 0, err

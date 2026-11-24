@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, type Project } from "./client";
+import { api, type Project, type SourceReceiptRequest } from "./client";
 import { upload, type Source } from "./knowledge";
 
 type Pin = { id: string; version: number };
@@ -8,12 +8,14 @@ type Page = { rows: Passage[]; more: boolean };
 
 export function SourceReceipt({
   project,
+  request,
   sources,
   busy,
   perform,
   reloadSources,
 }: {
   project: Project;
+  request: SourceReceiptRequest;
   sources: Source[];
   busy: boolean;
   perform: (action: () => Promise<unknown>) => Promise<void>;
@@ -26,8 +28,7 @@ export function SourceReceipt({
   const [quote, setQuote] = useState("");
   const [position, setPosition] = useState<number>();
   const run = project.run;
-  const request = run?.receiptRequest;
-  if (!run || !request) return null;
+  if (!run) return null;
   const existing = sources.filter(
     (s) =>
       s.readable &&
@@ -70,6 +71,7 @@ export function SourceReceipt({
         step: String(step),
         after: String(history[history.length - 1]),
       });
+      if (request.receiptRevision) query.set("receiptRevision", String(request.receiptRevision));
       const result = await api<Page>(route + "/receipt-passages?" + query);
       if (!selection) {
         await reloadSources();
@@ -81,7 +83,7 @@ export function SourceReceipt({
   }
   return (
     <section className="card">
-      <h2>{lookup ? "补充引用原件" : "补充核算原件"}</h2>
+      <h2>{lookup ? "补充引用原件" : "补充核算原件"}{request.receiptRevision ? " · 步骤 " + step : ""}</h2>
       <p>{request.reason}</p>
       <form
         onSubmit={(event) => {
@@ -99,6 +101,7 @@ export function SourceReceipt({
                 version: pin.version,
                 excerpt: quote,
                 excerptStart: position,
+                receiptRevision: request.receiptRevision,
               },
               {
                 "Idempotency-Key":

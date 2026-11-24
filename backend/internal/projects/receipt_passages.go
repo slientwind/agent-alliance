@@ -26,6 +26,13 @@ func (s Server) receiptPassages(w http.ResponseWriter, r *http.Request, u identi
 	if err != nil || step < 1 {
 		return web.Fail(422, "请指定待补件步骤")
 	}
+	question := 0
+	if params.Has("receiptRevision") {
+		question, err = strconv.Atoi(params.Get("receiptRevision"))
+		if err != nil || question < 1 {
+			return web.Fail(422, "请指定有效的补件修订")
+		}
+	}
 	after := 0
 	if params.Has("after") {
 		after, err = strconv.Atoi(params.Get("after"))
@@ -39,11 +46,11 @@ func (s Server) receiptPassages(w http.ResponseWriter, r *http.Request, u identi
 	err = s.DB.QueryRow(r.Context(), `select v.extracted,v.extraction_locations,cr.kind from runs r
  join projects p on (p.id,p.plan_version)=(r.project_id,r.plan_version) and p.owner=r.actor
  join project_members m on m.project_id=p.id and m.member_id=r.actor
- join calculation_requests cr on cr.run_id=r.id and cr.ordinal=$5
+ join current_source_receipt_requests cr on cr.run_id=r.id and cr.ordinal=$5 and coalesce(cr.request_revision,0)=$6
  join sources s on s.project_id=p.id and s.id::text=$3 and s.revoked_at is null
  join source_versions v on v.source_id=s.id and v.version=s.current_version and v.version=$4
- where r.id=$1 and r.actor=$2 and r.status='blocked' and case when cr.kind='lookup' then r.await_lookup_receipt else r.await_calculation_receipt end and v.extracted is not null
- and (`+identity.RunGrantSQL+`)`, r.PathValue("id"), u.ID, params.Get("source"), version, step).Scan(&body, &locations, &kind)
+ where r.id=$1 and r.actor=$2 and case when cr.kind='lookup' then r.await_lookup_receipt else r.await_calculation_receipt end and v.extracted is not null
+ and (`+identity.RunGrantSQL+`)`, r.PathValue("id"), u.ID, params.Get("source"), version, step, question).Scan(&body, &locations, &kind)
 	if err != nil {
 		return err
 	}

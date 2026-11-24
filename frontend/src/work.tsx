@@ -819,7 +819,10 @@ export function Work({
           )}
         </section>
       )}
-      {p.run?.receiptRequest && p.owner===user.id && <SourceReceipt key={p.run.id+":"+p.run.controlRevision} project={p} sources={sources} busy={busy} perform={perform} reloadSources={reloadSources}/>}
+      {p.run && p.owner===user.id && (p.run.receiptRequests ?? (p.run.receiptRequest ? [p.run.receiptRequest] : [])).map(request => (
+        <SourceReceipt key={`${p.run?.id}:${p.run?.controlRevision}:${request.step}:${request.receiptRevision ?? 0}`}
+          project={p} request={request} sources={sources} busy={busy} perform={perform} reloadSources={reloadSources}/>
+      ))}
       {p.run &&
         p.owner === user.id &&
         ["queued", "running", "paused", "blocked", "reconcile"].includes(

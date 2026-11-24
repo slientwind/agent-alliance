@@ -65,8 +65,13 @@ func (s Server) sourceComparison(w http.ResponseWriter, r *http.Request, u ident
 		v.body, coalesce(verified_document_format(a.id,v.version)='pptx',false)
 		from artifacts a join project_members m on (m.project_id,m.member_id)=(a.project_id,$3)
 		join runs run on run.id=a.run_id
-		join plan_sources ps on (ps.project_id,ps.plan_version,ps.source_id)=(a.project_id,run.plan_version,$5)
-		join sources s on s.id=ps.source_id and s.project_id=a.project_id and s.revoked_at is null
+		join sources s on s.id=$5 and s.project_id=a.project_id and s.revoked_at is null
+		join lateral (
+		  select source_version from plan_sources where (project_id,plan_version,source_id)=(a.project_id,run.plan_version,s.id)
+		  union
+		  select source_version from artifact_step_receipts(a.id,a.current_version) where source_id=s.id
+		  order by source_version desc limit 1
+		) ps on true
 		join source_versions sv on (sv.source_id,sv.version)=(s.id,ps.source_version) and sv.extracted is not null
 		join artifact_versions v on (v.artifact_id,v.version)=(a.id,a.current_version)
 		left join artifact_files f on (f.artifact_id,f.version)=(v.artifact_id,v.version)

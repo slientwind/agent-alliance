@@ -264,10 +264,14 @@ func (s Server) revoke(w http.ResponseWriter, r *http.Request, u identity.Member
 	return nil
 }
 func recordSourceChange(ctx context.Context, tx pgx.Tx, project, source, state string) error {
-	if _, err := tx.Exec(ctx, `update projects p set revision=revision+1,updated_at=now() where id=$1 and exists(select from plan_sources ps where(ps.project_id,ps.plan_version,ps.source_id)=(p.id,p.plan_version,$2))`, project, source); err != nil {
+	if _, err := tx.Exec(ctx, `update projects p set revision=revision+1,updated_at=now() where id=$1 and (
+      exists(select from plan_sources ps where(ps.project_id,ps.plan_version,ps.source_id)=(p.id,p.plan_version,$2))
+      or exists(select from run_source_receipts p join runs r on r.id=p.run_id where r.project_id=$1 and p.source_id=$2))`, project, source); err != nil {
 		return err
 	}
-	_, err := tx.Exec(ctx, `select record_service_event(r.id,'project',$3) from runs r join plan_sources ps on(ps.project_id,ps.plan_version)=(r.project_id,r.plan_version) where r.project_id=$1 and ps.source_id=$2 order by r.id`, project, source, state)
+	_, err := tx.Exec(ctx, `select record_service_event(r.id,'project',$3) from runs r where r.project_id=$1 and (
+      exists(select from plan_sources ps where(ps.project_id,ps.plan_version,ps.source_id)=(r.project_id,r.plan_version,$2))
+      or exists(select from run_source_receipts p where p.run_id=r.id and p.source_id=$2)) order by r.id`, project, source, state)
 	return err
 }
 
@@ -307,16 +311,27 @@ func CapturedRunInputs(ctx context.Context, tx pgx.Tx, run string, step int, inc
 
 func runInputs(ctx context.Context, tx pgx.Tx, run string, step int, includeText bool, refs *[]memory.Reference) (string, []InputSource, error) {
 	inputBytes := 0
-	rows, err := tx.Query(ctx, `select f.source_id,f.filename,f.version,
+	rows, err := tx.Query(ctx, `select source_id,filename,version,body,locations,receipt_step,excerpt_start,excerpt_end,picture,available
+      from (
+        select f.source_id,f.filename,f.version,
         case when f.extracted is null or (pin.receipt_step is not null and f.version<>f.plan_pin) then null
-             when $3<>0 and pin.receipt_step<>$3 then '' else f.extracted end,
-        case when not $2 and ($3=0 or pin.receipt_step is null or pin.receipt_step=$3) then v.extraction_locations end,
-        coalesce(pin.receipt_step,0),coalesce(pin.excerpt_start,0),coalesce(pin.excerpt_end,0),
-        f.picture_media is not null,f.picture_hash is not null
+             when $3<>0 and pin.receipt_step<>$3 then '' else f.extracted end body,
+        case when not $2 and ($3=0 or pin.receipt_step is null or pin.receipt_step=$3) then v.extraction_locations end locations,
+        coalesce(pin.receipt_step,0) receipt_step,coalesce(pin.excerpt_start,0) excerpt_start,coalesce(pin.excerpt_end,0) excerpt_end,
+        f.picture_media is not null picture,f.picture_hash is not null available,0 as scoped,coalesce(pin.receipt_order,0) as ordering
         from run_source_inputs f join source_versions v on (v.source_id,v.version)=(f.source_id,f.version)
-        join runs r on r.id=f.run_id join plan_sources pin on (pin.project_id,pin.plan_version,pin.source_id)=(r.project_id,r.plan_version,f.source_id)
+        join runs r on r.id=f.run_id left join plan_sources pin on (pin.project_id,pin.plan_version,pin.source_id)=(r.project_id,r.plan_version,f.source_id)
         where f.run_id=$1
-        order by coalesce(pin.receipt_order,0),f.source_id`, run, includeText, step)
+        union all
+        select p.source_id,coalesce(v.filename,'历史资料'),p.source_version,
+            case when s.revoked_at is null then v.extracted end,
+            case when not $2 then v.extraction_locations end,
+            p.reader,p.excerpt_start,p.excerpt_end,false,false,1,p.request_revision
+        from step_source_receipt_inputs p join runs r on r.id=p.run_id
+        join sources s on (s.id,s.project_id)=(p.source_id,r.project_id)
+        join source_versions v on (v.source_id,v.version)=(p.source_id,p.source_version)
+        where (p.run_id,p.reader)=($1,$3)
+      ) evidence order by scoped,ordering,source_id`, run, includeText, step)
 	if err != nil {
 		return "", nil, err
 	}

@@ -89,7 +89,7 @@ func (a Activities) wakeIndexedLookup(ctx context.Context) error {
 		var project string
 		err := tx.QueryRow(ctx, `select w.run_id,w.ordinal,r.project_id from lookup_index_waits w join runs r on r.id=w.run_id
  where w.active and r.status='blocked' and r.plan_version=w.plan_version
- and not exists(select from calculation_requests cr where cr.run_id=r.id and cr.ordinal<>w.ordinal)
+ and not exists(select from calculation_requests cr where cr.run_id=r.id and cr.ordinal<>w.ordinal and cr.request_revision is null)
  and w.next_check_at<=clock_timestamp() and w.deadline>clock_timestamp()
  order by w.next_check_at,w.run_id limit 1 for update of r skip locked`).Scan(&step.Run, &step.Ordinal, &project)
 		if err == pgx.ErrNoRows {

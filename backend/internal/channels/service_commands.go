@@ -119,6 +119,7 @@ const replaceProposalSQL = `
  calls=excluded.calls,input=excluded.input,expires_at=excluded.expires_at,origin_message_id=excluded.origin_message_id,origin_time=excluded.origin_time,
  await_lookup_receipt=excluded.await_lookup_receipt,await_calculation_receipt=excluded.await_calculation_receipt,
  receipt_run=excluded.receipt_run,receipt_step=excluded.receipt_step,receipt_revision=excluded.receipt_revision,receipt_kind=excluded.receipt_kind,
+ receipt_question_revision=excluded.receipt_question_revision,
  file_message_id='',file_key='',file_name='',file_time=0
  where channel_proposals.origin_time<=excluded.origin_time returning id`
 

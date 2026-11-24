@@ -26,12 +26,14 @@ func recordSourceQuote(ctx context.Context, tx pgx.Tx, id, actor string, q sourc
 	var text string
 	var locs []byte
 	err := tx.QueryRow(ctx, `select sv.extracted,coalesce(sv.extraction_locations,'[]'::jsonb) from feedback f join artifacts a on a.id=f.artifact_id
-	join runs r on r.id=a.run_id join plan_sources ps on (ps.project_id,ps.plan_version)=(a.project_id,r.plan_version)
-	join sources s on (s.id,s.project_id)=(ps.source_id,a.project_id) and s.revoked_at is null
-	join source_versions sv on (sv.source_id,sv.version)=(s.id,ps.source_version)
+	join runs r on r.id=a.run_id
+	join sources s on (s.id,s.project_id)=($2,a.project_id) and s.revoked_at is null
+	join source_versions sv on (sv.source_id,sv.version)=(s.id,$3)
 	where f.id=$1 and s.id=$2 and sv.version=$3 and sv.extracted is not null and distribution_readable(a.id,f.base_version,$4)
+	and (exists(select from plan_sources ps where (ps.project_id,ps.plan_version,ps.source_id,ps.source_version)=(a.project_id,r.plan_version,s.id,sv.version))
+	  or exists(select from artifact_step_receipts(a.id,f.base_version) p where (p.source_id,p.source_version)=(s.id,sv.version) and $5>p.excerpt_start and $6<=p.excerpt_end))
 	and (not exists(select from artifact_files af where (af.artifact_id,af.version)=(a.id,f.base_version)) or verified_document_format(a.id,f.base_version) is not null)
-	for share of s,sv`, id, q.Source, q.Version, actor).Scan(&text, &locs)
+	for share of s,sv`, id, q.Source, q.Version, actor, q.Start, q.End).Scan(&text, &locs)
 	if err != nil {
 		return err
 	}

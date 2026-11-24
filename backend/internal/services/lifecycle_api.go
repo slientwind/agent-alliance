@@ -84,6 +84,7 @@ type apiAction struct {
 	ExcerptStart                             *int                         `json:"excerptStart,omitempty"`
 	Attachment                               *Attachment                  `json:"attachment,omitempty"`
 	Excerpt                                  string                       `json:"excerpt,omitempty"`
+	ReceiptRevision                          int                          `json:"receiptRevision,omitempty"`
 	Action, Reason, Body, Artifact, Position string
 	Expected, Step, Version                  int
 }
@@ -100,7 +101,7 @@ func (s Server) action(w http.ResponseWriter, r *http.Request) error {
 	if utf8.RuneCountInString(in.Body) > 4000 || utf8.RuneCountInString(in.Position) > 1000 || utf8.RuneCountInString(in.Reason) > 1000 {
 		return web.Fail(422, "操作说明过长")
 	}
-	if in.Action != "submit_receipt" && in.Action != "submit_lookup_receipt" && (in.Attachment != nil || in.Excerpt != "" || in.ExcerptStart != nil) {
+	if in.Action != "submit_receipt" && in.Action != "submit_lookup_receipt" && (in.Attachment != nil || in.Excerpt != "" || in.ExcerptStart != nil || in.ReceiptRevision != 0) {
 		return web.Fail(422, "请使用补交原件动作提交附件")
 	}
 	if in.Action == "correct_columns" {
@@ -174,7 +175,9 @@ func (s Server) action(w http.ResponseWriter, r *http.Request) error {
 			if in.Action == "submit_lookup_receipt" {
 				kind = projects.LookupReceipt
 			}
-			revision, err := projects.ApplySourceReceipt(ctx, tx, id, v.Actor, fmt.Sprintf("api/%s/%x", id, web.Hash(key)), kind, projects.ReceiptSelection{Expected: in.Expected, Step: in.Step, Excerpt: in.Excerpt, ExcerptStart: in.ExcerptStart}, &projects.ReceiptFile{Name: in.Attachment.Name, Text: string(in.Attachment.Data)})
+			revision, err := projects.ApplySourceReceipt(ctx, tx, id, v.Actor, fmt.Sprintf("api/%s/%x", id, web.Hash(key)), kind, projects.ReceiptSelection{
+				Expected: in.Expected, Step: in.Step, ReceiptRevision: in.ReceiptRevision, Excerpt: in.Excerpt, ExcerptStart: in.ExcerptStart,
+			}, &projects.ReceiptFile{Name: in.Attachment.Name, Text: string(in.Attachment.Data)})
 			if err != nil {
 				return err
 			}
@@ -323,13 +326,14 @@ const progressSQL = `select jsonb_build_object(
  when r.status='blocked' and exists(select from run_tool_choices choice where choice.run_id=r.id and choice.choice=0 and choice.manual_choice is null) then 'select_tool'
  when r.status='blocked' and exists(select from lookup_index_waits w where w.run_id=r.id and w.active) then
    (select case when w.deadline>clock_timestamp() then 'wait_source_index' else 'resume' end from lookup_index_waits w where w.run_id=r.id and w.active)
- when r.status='blocked' and exists(select from calculation_requests cr where cr.run_id=r.id) then
-   (select case when cr.kind='lookup' then 'submit_lookup_receipt' else 'submit_receipt' end from calculation_requests cr where cr.run_id=r.id order by cr.ordinal limit 1)
+ when exists(select from current_source_receipt_requests cr where cr.run_id=r.id) then
+   (select case when cr.kind='lookup' then 'submit_lookup_receipt' else 'submit_receipt' end from current_source_receipt_requests cr where cr.run_id=r.id order by cr.ordinal limit 1)
  when jsonb_array_length(repair.requests)>0 then 'correct_columns'
  when repair.needs_human then 'review_columns'
  when run_failure_confirmable(r.id) then 'review_failure_receipt' when r.status='blocked' then 'restore_prerequisite' when r.status='reconcile' then 'check_original_receipt' when r.status='paused' then 'resume_or_cancel' when p.stage='delivered' then 'download' end,
  'columnCorrections',repair.requests,
- 'receiptRequest',(select jsonb_build_object('step',cr.ordinal,'reason',cr.reason,'kind',cr.kind) from calculation_requests cr where cr.run_id=r.id and r.status='blocked' order by cr.ordinal limit 1),
+ 'receiptRequests',` + projects.SourceReceiptRequestsSQL + `,
+ 'receiptRequest',(select jsonb_strip_nulls(jsonb_build_object('step',cr.ordinal,'reason',cr.reason,'kind',cr.kind,'receiptRevision',cr.request_revision)) from current_source_receipt_requests cr where cr.run_id=r.id order by cr.ordinal limit 1),
  'indexWait',` + projects.LookupIndexWaitSQL + `,
  'finalReviewer',reviewer.display_name,
  'steps',array(select jsonb_strip_nulls(jsonb_build_object('step',n.ordinal,'name',ar.name,'revision',n.agent_revision,'toolChoice',n.choice,'status',case when n.lookup_phase='synthesize' and evidence_follow_up_skipped(r.id,n.ordinal) then 'skipped' else coalesce(i.status,case when n.lookup_phase in ('answer','answer_calc') and a.id is not null then 'skipped' else 'pending' end) end,

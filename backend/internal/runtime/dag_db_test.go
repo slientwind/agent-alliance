@@ -120,6 +120,7 @@ func TestIndependentDAGDispatchPostgres(t *testing.T) {
 	env.SetTestTimeout(20 * time.Second)
 	env.RegisterActivity(a.Topology)
 	env.RegisterActivity(a.EnableStepRemoteInput)
+	env.RegisterActivity(a.EnableStepSourceReceipts)
 	env.RegisterActivity(a.ExecuteStep)
 	env.ExecuteWorkflow(Collaborate, run)
 	if err := env.GetWorkflowError(); err != nil {

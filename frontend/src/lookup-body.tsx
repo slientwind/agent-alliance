@@ -25,9 +25,11 @@ export function LookupBody({
             </span>
           );
         const [, prefix, number, version, start, end, text] = mark;
-        const pin = project.plan?.sources.filter(s=>!s.receiptStep || s.receiptStep===artifact.ordinal)[Number(number) - 1];
+        const pins = artifact.sourcePins ?? project.plan?.sources.filter(s => !s.receiptStep || s.receiptStep === artifact.ordinal);
+        const pin = pins?.[Number(number) - 1];
         const source =
           pin &&
+          (!artifact.sourcePins || pin.version === Number(version)) &&
           !artifact.sourceChanges.some(
             (change) => change.source === pin.id && change.revoked,
           ) &&

@@ -67,11 +67,11 @@ type attachmentJob struct {
 
 const attachmentTargetFields = `coalesce(service_id::text,''),coalesce(version,0),coalesce(calls,0),input,
  await_lookup_receipt,await_calculation_receipt,
- coalesce(receipt_run::text,''),coalesce(receipt_step,0),coalesce(receipt_revision,0),coalesce(receipt_kind,'')`
+ coalesce(receipt_run::text,''),coalesce(receipt_step,0),coalesce(receipt_revision,0),coalesce(receipt_kind,''),coalesce(receipt_question_revision,0)`
 
 func (j *attachmentJob) targetFields() []any {
 	return []any{&j.service, &j.version, &j.calls, &j.input, &j.wait.Lookup, &j.wait.Calculation,
-		&j.receipt.run, &j.receipt.step, &j.receipt.revision, &j.receipt.kind}
+		&j.receipt.run, &j.receipt.step, &j.receipt.revision, &j.receipt.kind, &j.receipt.question}
 }
 
 func (f Feishu) confirmProposal(ctx context.Context, tx pgx.Tx, actor, binding, event, chat, id string) (channelReply, error) {
@@ -101,11 +101,11 @@ func (f Feishu) confirmProposal(ctx context.Context, tx pgx.Tx, actor, binding, 
 	}
 	_, err = tx.Exec(ctx, `insert into channel_attachment_jobs(id,event_id,tenant,chat_id,member_id,binding_id,
  service_id,version,calls,input,file_message_id,file_key,file_name,expires_at,await_lookup_receipt,await_calculation_receipt,
- receipt_run,receipt_step,receipt_revision,receipt_kind)
+ receipt_run,receipt_step,receipt_revision,receipt_kind,receipt_question_revision)
  values($1,$2,$3,$4,$5,$6,nullif($7,'')::uuid,nullif($8,0),nullif($9,0),$10,$11,$12,$13,$14,$15,$16,
- nullif($17,'')::uuid,nullif($18,0),case when $17<>'' then $19::integer end,nullif($20,''))`,
+ nullif($17,'')::uuid,nullif($18,0),case when $17<>'' then $19::integer end,nullif($20,''),nullif($21,0))`,
 		id, event, f.Tenant, chat, actor, binding, job.service, job.version, job.calls, job.input, job.message, job.key,
-		job.name, job.expires, job.wait.Lookup, job.wait.Calculation, job.receipt.run, job.receipt.step, job.receipt.revision, job.receipt.kind)
+		job.name, job.expires, job.wait.Lookup, job.wait.Calculation, job.receipt.run, job.receipt.step, job.receipt.revision, job.receipt.kind, job.receipt.question)
 	return channelReply{kind: "attachment_pending"}, err
 }
 
@@ -154,7 +154,7 @@ func (j attachmentJob) apply(ctx context.Context, tx pgx.Tx, file *services.Atta
 			return err
 		}
 		_, err = projects.ApplySourceReceipt(ctx, inner, j.receipt.run, j.actor, "feishu/receipt/"+j.id, j.receipt.kind,
-			projects.ReceiptSelection{Step: j.receipt.step, Expected: j.receipt.revision, Excerpt: j.input},
+			projects.ReceiptSelection{Step: j.receipt.step, Expected: j.receipt.revision, ReceiptRevision: j.receipt.question, Excerpt: j.input},
 			&projects.ReceiptFile{Name: file.Name, Text: string(file.Data)})
 		reply = channelReply{project: project, note: "补件已登记，原任务继续执行。"}
 		return err

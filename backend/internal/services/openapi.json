@@ -986,13 +986,31 @@
               },
               "reason": {
                 "type": "string"
+              },
+              "receiptRevision": {
+                "type": "integer",
+                "minimum": 1
               }
             },
             "required": [
               "step",
               "reason"
             ],
-            "description": "按指定步骤补交原件。calculation 需要金额和币种，lookup 需要可引用的原句。"
+            "description": "兼容入口，列出第一项原件补件。calculation 需要金额和币种，lookup 需要可引用的原句。"
+          },
+          "receiptRequests": {
+            "type": "array",
+            "description": "当前可提交的原件补件待办。并行步骤各自携带 receiptRevision，提交时必须回传。",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": { "type": "string", "enum": ["calculation", "lookup"] },
+                "step": { "type": "integer", "minimum": 1 },
+                "reason": { "type": "string" },
+                "receiptRevision": { "type": "integer", "minimum": 1 }
+              },
+              "required": ["kind", "step", "reason"]
+            }
           }
         },
         "required": [
@@ -1161,6 +1179,11 @@
                 "type": "integer",
                 "minimum": 1,
                 "description": "原句首字符在附件正文中的位置，从 1 开始，按 Unicode 字符计数。提供位置时须同时提供 excerpt。"
+              },
+              "receiptRevision": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "当前步骤的补件修订。待办包含此字段时必须按原值提交。"
               }
             },
             "dependentRequired": { "excerptStart": ["excerpt"] },

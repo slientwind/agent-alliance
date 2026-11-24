@@ -15,9 +15,9 @@ import (
 )
 
 type runReceipt struct {
-	run            string
-	step, revision int
-	kind           projects.ReceiptKind
+	run                      string
+	step, revision, question int
+	kind                     projects.ReceiptKind
 }
 
 const receiptContextSQL = ` and (receipt_run is null or exists(
@@ -27,16 +27,16 @@ const receiptContextSQL = ` and (receipt_run is null or exists(
 
 const eligibleReceiptSQL = `
  from runs r join projects p on (p.id,p.plan_version)=(r.project_id,r.plan_version)
- join calculation_requests cr on cr.run_id=r.id
+ join current_source_receipt_requests cr on cr.run_id=r.id
  join project_members m on (m.project_id,m.member_id)=(p.id,r.actor)
- where r.actor=$1 and p.owner=$1 and r.app_id is null and r.status='blocked'
+ where r.actor=$1 and p.owner=$1 and r.app_id is null
  and ((cr.kind='lookup' and r.await_lookup_receipt) or (cr.kind='calculation' and r.await_calculation_receipt))`
 
 func (r runReceipt) currentProject(ctx context.Context, tx pgx.Tx, actor string) (string, error) {
 	var project string
 	err := tx.QueryRow(ctx, `select p.id`+eligibleReceiptSQL+`
- and r.id=$2 and r.control_revision=$3 and cr.ordinal=$4 and cr.kind=$5`,
-		actor, r.run, r.revision, r.step, r.kind).Scan(&project)
+ and r.id=$2 and r.control_revision=$3 and cr.ordinal=$4 and cr.kind=$5 and coalesce(cr.request_revision,0)=$6`,
+		actor, r.run, r.revision, r.step, r.kind, r.question).Scan(&project)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", web.Fail(409, "此任务的待补件步骤已变化或不再可用")
 	}
@@ -54,14 +54,14 @@ func (r runReceipt) currentProject(ctx context.Context, tx pgx.Tx, actor string)
 }
 
 func waitingReceipts(ctx context.Context, tx pgx.Tx, actor, project string) ([]runReceipt, error) {
-	rows, err := tx.Query(ctx, `select r.id,cr.ordinal,r.control_revision,cr.kind`+eligibleReceiptSQL+
+	rows, err := tx.Query(ctx, `select r.id,cr.ordinal,r.control_revision,cr.kind,coalesce(cr.request_revision,0)`+eligibleReceiptSQL+
 		` and p.id=$2 order by cr.ordinal`, actor, project)
 	if err != nil {
 		return nil, err
 	}
 	waiting, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (runReceipt, error) {
 		var receipt runReceipt
-		err := row.Scan(&receipt.run, &receipt.step, &receipt.revision, &receipt.kind)
+		err := row.Scan(&receipt.run, &receipt.step, &receipt.revision, &receipt.kind, &receipt.question)
 		return receipt, err
 	})
 	if err != nil || len(waiting) == 0 {
@@ -148,8 +148,8 @@ func (f Feishu) proposeRunReceipt(ctx context.Context, tx pgx.Tx, actor string, 
 	}
 	var id string
 	err = tx.QueryRow(ctx, `insert into channel_proposals(tenant,chat_id,member_id,input,origin_message_id,origin_time,
- receipt_run,receipt_step,receipt_revision,receipt_kind) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`+replaceProposalSQL,
-		f.Tenant, msg.Chat, actor, text, msg.ID, sentAt(msg), target.run, target.step, target.revision, target.kind).Scan(&id)
+ receipt_run,receipt_step,receipt_revision,receipt_kind,receipt_question_revision) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,nullif($11,0))`+replaceProposalSQL,
+		f.Tenant, msg.Chat, actor, text, msg.ID, sentAt(msg), target.run, target.step, target.revision, target.kind, target.question).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return channelReply{note: "该指令早于当前预览，请查看最新消息后继续。"}, nil
 	}
@@ -159,9 +159,9 @@ func (f Feishu) proposeRunReceipt(ctx context.Context, tx pgx.Tx, actor string, 
 func (f Feishu) runReceiptMessage(ctx context.Context, tx pgx.Tx, actor, chat, id string) (string, error) {
 	var target runReceipt
 	var excerpt, file string
-	err := tx.QueryRow(ctx, `select receipt_run,receipt_step,receipt_revision,receipt_kind,input,file_name
+	err := tx.QueryRow(ctx, `select receipt_run,receipt_step,receipt_revision,receipt_kind,coalesce(receipt_question_revision,0),input,file_name
  from channel_proposals where tenant=$1 and chat_id=$2 and member_id=$3 and id=$4 and receipt_run is not null and expires_at>now()`+receiptContextSQL,
-		f.Tenant, chat, actor, id).Scan(&target.run, &target.step, &target.revision, &target.kind, &excerpt, &file)
+		f.Tenant, chat, actor, id).Scan(&target.run, &target.step, &target.revision, &target.kind, &target.question, &excerpt, &file)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "该补件预览已失效，请发送“进度”查看当前任务。", nil
 	}

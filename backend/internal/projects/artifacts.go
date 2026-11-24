@@ -208,13 +208,31 @@ func (s Server) deliver(w http.ResponseWriter, r *http.Request, u identity.Membe
 		if _, err := tx.Exec(ctx, "insert into delivery_items select $1,id,current_version from artifacts where project_id=$2 and (not $3 or id=any($4::uuid[]))", delivery, p.ID, in.Partial, accepted); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `insert into delivery_source_evidence(delivery_id,source_id,pinned,observed,revoked,assessments,revision_inputs,calculation_receipt,lookup_receipt)
+		if _, err := tx.Exec(ctx, `with receipt_pins as (
+ select distinct r.* from delivery_items i
+ cross join lateral artifact_step_receipts(i.artifact_id,i.version) r where i.delivery_id=$1
+ ), scoped as (
+ select source_id,min(source_version) source_version,jsonb_agg(jsonb_build_object(
+ 'run',run_id,'step',ordinal,'revision',request_revision,'version',source_version,
+ 'kind',kind,'from',excerpt_start+1,'to',excerpt_end) order by request_revision) receipts
+ from receipt_pins group by source_id
+ )
+ insert into delivery_source_evidence(delivery_id,source_id,pinned,observed,revoked,assessments,revision_inputs,calculation_receipt,lookup_receipt,step_receipts)
  select $1,s.id,ps.source_version,s.current_version,s.revoked_at is not null,
  coalesce((select jsonb_agg(jsonb_build_object('artifact',c.artifact_id,'version',c.artifact_version,'id',a.id,'reviewer',a.actor,'decision',a.decision,'time',a.created_at) order by c.artifact_id) from changed_artifact_sources c join source_assessments a on a.id=c.assessment where c.project_id=p.id and c.source_id=s.id and c.decision='retain'),'[]'),
  coalesce((select jsonb_agg(cr.receipt order by cr.artifact_id,cr.applied_version) from change_source_receipts cr join delivery_items di on di.artifact_id=cr.artifact_id and di.delivery_id=$1 where cr.source_id=s.id and cr.applied_version<=di.version),'[]')
   ,case when ps.receipt_kind='calculation' then receipt.pin end
   ,case when ps.receipt_kind='lookup' then receipt.pin end
- from projects p join plan_sources ps on(ps.project_id,ps.plan_version)=(p.id,p.plan_version) join sources s on s.id=ps.source_id
+  ,coalesce(scoped.receipts,'[]'::jsonb)
+ from projects p
+ join lateral (
+   select source_id,source_version,receipt_step,receipt_order,excerpt_start,excerpt_end,receipt_kind
+   from plan_sources where (project_id,plan_version)=(p.id,p.plan_version)
+   union all
+   select x.source_id,x.source_version,null,null,null,null,null from scoped x
+   where not exists(select from plan_sources pin where (pin.project_id,pin.plan_version,pin.source_id)=(p.id,p.plan_version,x.source_id))
+ ) ps on true join sources s on (s.id,s.project_id)=(ps.source_id,p.id)
+ left join scoped on scoped.source_id=s.id
  cross join lateral(select case when ps.receipt_step is not null then
    jsonb_build_object('step',ps.receipt_step,'plan',ps.receipt_order,'from',ps.excerpt_start+1,'to',ps.excerpt_end) end as pin) receipt
  where p.id=$2`, delivery, p.ID); err != nil {

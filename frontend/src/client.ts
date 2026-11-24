@@ -190,8 +190,16 @@ export type FeedbackItem = {
     actor: string;
   }[];
 };
+export type SourceReceiptRequest = {
+  step: number;
+  reason: string;
+  kind?: "calculation" | "lookup";
+  receiptRevision?: number;
+};
+
 export type Artifact = {
   verifiedWord?:boolean;
+  sourcePins?: { id: string; version: number }[] | null;
   reviewNotesReadable: boolean;
   sourceChanges: {
     source: string;
@@ -513,7 +521,8 @@ export type Project = Summary & {
     id: string;
     status: string;
     controlRevision: number;
-    receiptRequest?: { step: number; reason: string; kind?: "calculation" | "lookup" } | null;
+    receiptRequest?: SourceReceiptRequest | null;
+    receiptRequests?: SourceReceiptRequest[];
     indexWait?: { step: number; until: string; automatic: boolean } | null;
     lookupPending?: boolean;
     calculationPending?: boolean;

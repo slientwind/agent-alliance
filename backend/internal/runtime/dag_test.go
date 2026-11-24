@@ -18,6 +18,7 @@ func dagTestEnvironment(nodes []Node) (*testsuite.TestWorkflowEnvironment, Activ
 	env.RegisterActivity(a.ExecuteStep)
 	env.OnActivity(a.Topology, mock.Anything, "run").Return(nodes, nil).Once()
 	env.OnGetVersion("step-remote-input", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion).Maybe()
+	env.OnGetVersion("step-source-receipts", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion).Maybe()
 	return env, a
 }
 
@@ -93,7 +94,7 @@ func TestDAGRetainsAnEarlyReceiptAndWakesOnlyItsBranch(t *testing.T) {
 			t.Error("receipt arriving before Wait was lost")
 		}
 		secondSignalled.Store(true)
-		env.SignalWorkflow("control", remoteReceiptSignal(2))
+		env.SignalWorkflow("control", sourceReceiptPrefix+"2")
 	}, 15*time.Second)
 	env.ExecuteWorkflow(Collaborate, "run")
 	if err := env.GetWorkflowError(); err != nil {
@@ -123,11 +124,13 @@ func TestDAGEnablesStepRemoteInputBeforeDispatch(t *testing.T) {
 	var a Activities
 	env.RegisterActivity(a.Topology)
 	env.RegisterActivity(a.EnableStepRemoteInput)
+	env.RegisterActivity(a.EnableStepSourceReceipts)
 	env.RegisterActivity(a.ExecuteStep)
 	env.OnActivity(a.Topology, mock.Anything, "run").Return([]Node{{Ordinal: 1}, {Ordinal: 2}}, nil).Once()
 	enabled := env.OnActivity(a.EnableStepRemoteInput, mock.Anything, "run").Return(nil).Once()
+	receipts := env.OnActivity(a.EnableStepSourceReceipts, mock.Anything, "run").NotBefore(enabled).Return(nil).Once()
 	for ordinal := 1; ordinal <= 2; ordinal++ {
-		env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", ordinal}).NotBefore(enabled).Return(Result{}, nil).Once()
+		env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", ordinal}).NotBefore(receipts).Return(Result{}, nil).Once()
 	}
 	env.ExecuteWorkflow(Collaborate, "run")
 	if err := env.GetWorkflowError(); err != nil {
