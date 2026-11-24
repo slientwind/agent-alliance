@@ -71,6 +71,7 @@ import { TracePolicies } from "./trace-policy";
 import { Services } from "./services";
 import { Preferences, extractionNotice, upload } from "./knowledge";
 import { MyManagementScopes } from "./management-scopes";
+import { applyDraftDelta, type DraftFragment, type SessionDrafts } from "./live-drafts";
 import "./style.css";
 const Work = lazy(() => import("./work").then(({ Work }) => ({ default: Work })));
 
@@ -505,6 +506,7 @@ function App() {
   });
   const visibleProject = p?.id;
   const [streamInterrupted, setStreamInterrupted] = useState(false);
+  const [sessionDrafts, setSessionDrafts] = useState<(SessionDrafts & { project: string })>();
   const restoreThread = useCallback((thread: HTMLDivElement | null) => {
     const request = restore.current;
     if (!thread || !visibleProject || request?.id !== visibleProject) return;
@@ -535,6 +537,7 @@ function App() {
   }
   useEffect(() => {
     setStreamInterrupted(false);
+    setSessionDrafts(undefined);
     if (!visibleProject) return;
     const id = visibleProject;
     let fetching = false;
@@ -542,6 +545,8 @@ function App() {
     let active = true;
     let connected = false;
     let interruption: number | undefined;
+    let stream: EventSource | undefined;
+    let draftView: SessionDrafts = { run: "", drafts: [] };
     const sync = async (force = false) => {
       if (!active || (!force && document.hidden) || current.current !== id) return;
       if (fetching) {
@@ -562,28 +567,58 @@ function App() {
       }
     };
     const check = () => void sync();
-    const stream = typeof EventSource === "undefined" ? undefined :
-      new EventSource("/api/projects/" + encodeURIComponent(id) + "/events");
-    if (stream) {
-      stream.onopen = () => {
-        if (!active) return;
+    const showDrafts = (view: SessionDrafts) => {
+      draftView = view;
+      setSessionDrafts({ ...view, project: id });
+    };
+    const subscribe = () => {
+      const connection = new EventSource("/api/projects/" + encodeURIComponent(id) + "/session-events");
+      stream = connection;
+      const currentConnection = () => active && stream === connection && current.current === id;
+      connection.onopen = () => {
+        if (!currentConnection()) return;
         connected = true;
         window.clearTimeout(interruption);
         setStreamInterrupted(false);
       };
-      stream.onerror = () => {
-        if (!active) return;
+      connection.onerror = () => {
+        if (!currentConnection()) return;
         connected = false;
+        if (connection.readyState === EventSource.CLOSED) showDrafts({ run: "", drafts: [] });
         window.clearTimeout(interruption);
         interruption = window.setTimeout(() => setStreamInterrupted(true), 1500);
         void sync(true);
       };
-      stream.addEventListener("project.changed", check);
-      stream.addEventListener("access-ended", () => {
-        stream.close();
+      connection.addEventListener("session.snapshot", event => {
+        if (!currentConnection()) return;
+        showDrafts(JSON.parse(event.data) as SessionDrafts);
+        void sync();
+      });
+      connection.addEventListener("draft.delta", event => {
+        if (!currentConnection()) return;
+        const fragment = JSON.parse(event.data) as DraftFragment & { run: string };
+        const next = fragment.run === draftView.run && applyDraftDelta(draftView.drafts, fragment);
+        if (next) {
+          if (next !== draftView.drafts) showDrafts({ run: fragment.run, drafts: next });
+          return;
+        }
+        connection.close();
+        connected = false;
+        showDrafts({ run: "", drafts: [] });
+        subscribe();
+      });
+      connection.addEventListener("project.changed", () => {
+        if (currentConnection()) check();
+      });
+      connection.addEventListener("access-ended", () => {
+        if (!currentConnection()) return;
+        showDrafts({ run: "", drafts: [] });
+        connection.close();
+        connected = false;
         void sync(true);
       });
-    }
+    };
+    if (typeof EventSource !== "undefined") subscribe();
     // The snapshot also covers legacy state with no change notification,
     // such as deadline countdowns and external catalog changes.
     let nextSnapshot = Date.now() + 15000;
@@ -846,6 +881,7 @@ function App() {
           <Work
             key={p.id}
             threadRef={restoreThread}
+            drafts={sessionDrafts?.project === p.id && sessionDrafts.run === p.run?.id ? sessionDrafts.drafts : []}
             uploadedPins={planningUpload?.project === p.id ? planningUpload.pins : undefined}
             planningSubmitted={(pins) => setPlanningUpload(current => current?.pins === pins ? null : current)}
             revisions={revisions[p.id]}

@@ -2,7 +2,7 @@ import { AggregationScope } from "./aggregation-scope";
 import { fileFormats } from "./output-operations";
 import { PlanningInputs, planningRequestKey, selectedPins, type PlanningPin } from "./planning-inputs";
 import { LookupBody } from "./lookup-body";
-import { LiveDrafts } from "./live-drafts";
+import { LiveDrafts, type DraftFragment } from "./live-drafts";
 import type { BudgetDraft } from "./budget-request-form";
 import type { DraftField } from "./project-drafts";
 import { ReviewPolicy } from "./review-reminders";
@@ -45,6 +45,7 @@ import { Sources, type Source, type Preference } from "./knowledge";
 type Props = {
   p: Project;
   threadRef: (thread: HTMLDivElement | null) => void;
+  drafts: DraftFragment[];
   uploadedPins?: PlanningPin[];
   planningSubmitted: (uploads?: PlanningPin[]) => void;
   revisions?: Record<string, RevisionDraft>;
@@ -68,7 +69,7 @@ type Props = {
   reloadCatalog: () => Promise<void>;
 };
 export function Work({
-  p, threadRef, uploadedPins, planningSubmitted,
+  p, threadRef, drafts, uploadedPins, planningSubmitted,
   revisions,
   changeRevision,
   budgetDraft,
@@ -237,7 +238,7 @@ export function Work({
         </article>
       ))}
       {p.run?.draftAvailable && ["queued", "running", "reconcile"].includes(p.run.status) && (
-        <LiveDrafts key={p.run.id} project={p.id} run={p.run.id} />
+        <LiveDrafts drafts={drafts} />
       )}
       {p.stage === "adopted" && (
         <p role="status">

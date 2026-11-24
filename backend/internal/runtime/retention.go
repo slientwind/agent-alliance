@@ -25,6 +25,9 @@ func (a Activities) CleanRetention(ctx context.Context) {
                 or not run_working_set_usable(run_id,ordinal,attempt_no)`); err != nil && ctx.Err() == nil {
 			slog.Warn("expired text preview cleanup pending")
 		}
+		if _, err := a.Catalog.DB.Exec(ctx, "delete from project_session_events where created_at<=now()-interval '1 hour'"); err != nil && ctx.Err() == nil {
+			slog.Warn("expired conversation event cleanup pending")
+		}
 		if _, err := a.Catalog.DB.Exec(ctx, `update lookup_turns set decision=null,outcome='invalidated'
             where decision is not null and not run_working_set_usable(run_id,ordinal,attempt_no)`); err != nil && ctx.Err() == nil {
 			slog.Warn("invalidated lookup cleanup pending")
