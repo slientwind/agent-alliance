@@ -15,6 +15,7 @@ export type Member = {
 };
 export type Model = {
   operation: "text" | "png" | "vision" | "image-edit";
+  streamText?: boolean;
   teamName?: string;
   estimate?: string | null;
   team: string;
@@ -483,6 +484,7 @@ export type Project = Summary & {
     receiptRequest?: { step: number; reason: string; kind?: "calculation" | "lookup" } | null;
     indexWait?: { step: number; until: string; automatic: boolean } | null;
     lookupPending?: boolean;
+    draftAvailable?: boolean;
     canResolveToolChoice?: boolean;
     canConcludeFailure?: boolean;
     attempts: {

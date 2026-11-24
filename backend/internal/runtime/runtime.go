@@ -74,6 +74,7 @@ func Collaborate(ctx workflow.Context, run string) error {
 
 type Activities struct{ Catalog resources.Catalog }
 type contextData struct {
+	memberDraft                                            bool
 	routing                                                toolChoice
 	project, actor, agent, brief, prior, prompt            string
 	revision, maximum                                      int
@@ -110,7 +111,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 	err := database.WithTx(ctx, db, func(tx pgx.Tx) error {
 		var runState string
 		var selector, choice *int
-		err := tx.QueryRow(ctx, `select r.project_id,r.actor,n.agent_id,n.agent_revision,p.brief,r.status,r.max_calls,n.lookup_phase,r.await_calculation_receipt,r.await_lookup_receipt,exists(select from nodes next where n.lookup_phase='search' and (next.project_id,next.plan_version,next.ordinal)=(n.project_id,n.plan_version,n.ordinal+1) and next.lookup_phase='answer_calc'),exists(select from change_batches where run_id=r.id),n.selector,n.choice,r.plan_version,r.control_revision from runs r join plans p on(p.project_id,p.version)=(r.project_id,r.plan_version) join effective_run_nodes n on n.run_id=r.id where r.id=$1 and n.ordinal=$2 for update of r`, step.Run, step.Ordinal).Scan(&d.project, &d.actor, &d.agent, &d.revision, &d.brief, &runState, &d.maximum, &d.lookupPhase, &d.awaitReceipt, &d.awaitLookupReceipt, &d.searchForCalculation, &d.change, &selector, &choice, &d.planVersion, &d.controlRevision)
+		err := tx.QueryRow(ctx, `select r.project_id,r.actor,n.agent_id,n.agent_revision,p.brief,r.status,r.max_calls,n.lookup_phase,r.await_calculation_receipt,r.await_lookup_receipt,exists(select from nodes next where n.lookup_phase='search' and (next.project_id,next.plan_version,next.ordinal)=(n.project_id,n.plan_version,n.ordinal+1) and next.lookup_phase='answer_calc'),exists(select from change_batches where run_id=r.id),n.selector,n.choice,r.plan_version,r.control_revision,r.service_id is null from runs r join plans p on(p.project_id,p.version)=(r.project_id,r.plan_version) join effective_run_nodes n on n.run_id=r.id where r.id=$1 and n.ordinal=$2 for update of r`, step.Run, step.Ordinal).Scan(&d.project, &d.actor, &d.agent, &d.revision, &d.brief, &runState, &d.maximum, &d.lookupPhase, &d.awaitReceipt, &d.awaitLookupReceipt, &d.searchForCalculation, &d.change, &selector, &choice, &d.planVersion, &d.controlRevision, &d.memberDraft)
 		if err != nil {
 			return err
 		}
@@ -433,11 +434,16 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 	if err != nil || !invoke {
 		return result, err
 	}
+	streamText := d.memberDraft && d.model.StreamText && !d.change && d.lookupPhase == "" &&
+		d.routing.target == 0 && d.prior == ""
 	chain := compose.NewChain[string, resources.Reply]()
 	chain.AppendLambda(compose.InvokableLambda(func(ctx context.Context, brief string) (resources.Reply, error) {
 		msgs := []resources.Message{{Role: "system", Content: d.prompt}, {Role: "user", Content: brief}}
 		if d.prior != "" {
 			msgs = append(msgs, resources.Message{Role: "user", Content: "上一步成果供参考：\n" + d.prior})
+		}
+		if streamText {
+			return a.streamDraft(ctx, step, dispatchedAttempt, d.controlRevision, d.model, msgs)
 		}
 		return d.model.Generate(ctx, msgs)
 	}))
@@ -595,6 +601,16 @@ func (a Activities) executeStep(ctx context.Context, step Step, lookupTurns bool
 		if !grant {
 			result.Wait = true
 			return setState(ctx, tx, step, d.project, "blocked", "delegation_expired", "提交成果前应用或成员委托已失效")
+		}
+		if streamText {
+			if err := tx.QueryRow(ctx, `select exists(select from project_members m join members u on u.id=m.member_id
+                where m.project_id=$1 and u.id=$2 and u.enabled)`, d.project, d.actor).Scan(&grant); err != nil {
+				return err
+			}
+			if !grant {
+				result.Wait = true
+				return setState(ctx, tx, step, d.project, "blocked", "resource_denied", "提交成果前项目访问已失效")
+			}
 		}
 		if ok, err := checkAgentEvidence(ctx, tx, step, &result, d); !ok || err != nil {
 			return err

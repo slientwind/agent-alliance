@@ -20,6 +20,10 @@ func (a Activities) CleanRetention(ctx context.Context) {
 		if _, err := a.Catalog.DB.Exec(ctx, "select purge_due_preferences()"); err != nil && ctx.Err() == nil {
 			slog.Warn("preference retention cleanup pending")
 		}
+		if _, err := a.Catalog.DB.Exec(ctx, `delete from run_draft_fragments
+            where created_at <= now()-interval '1 hour'`); err != nil && ctx.Err() == nil {
+			slog.Warn("expired text preview cleanup pending")
+		}
 		_, err := a.Catalog.DB.Exec(ctx, `delete from trace_events e using runs r where r.id=e.run_id and r.trace_expires_at <= now()`)
 		if err == nil {
 			_, err = a.Catalog.DB.Exec(ctx, "delete from trace_grants g using runs r where r.id=g.run_id and (g.expires_at<=now() or r.trace_expires_at<=now())")

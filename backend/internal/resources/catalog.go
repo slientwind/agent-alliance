@@ -57,11 +57,12 @@ func (c Catalog) Routes(m *http.ServeMux, s identity.Server) {
 }
 
 type ModelInfo struct {
-	Operation string `json:"operation"`
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Model     string `json:"model"`
-	Revision  int    `json:"revision"`
+	Operation  string `json:"operation"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Model      string `json:"model"`
+	Revision   int    `json:"revision"`
+	StreamText bool   `json:"streamText"`
 }
 
 func (c Catalog) listModels(w http.ResponseWriter, r *http.Request, u identity.Member) error {
@@ -73,11 +74,11 @@ func (c Catalog) listModels(w http.ResponseWriter, r *http.Request, u identity.M
 		CredentialBlocked bool    `json:"credentialBlocked"`
 		BudgetBlocked     bool    `json:"budgetBlocked"`
 	}
-	rows, err := c.DB.Query(r.Context(), `select r.operation,m.id,m.name,r.model,r.revision,m.team_id,payer.name,r.estimate_cny::text,r.key_blocked,
+	rows, err := c.DB.Query(r.Context(), `select r.operation,m.id,m.name,r.model,r.revision,r.stream_text,m.team_id,payer.name,r.estimate_cny::text,r.key_blocked,
       (coalesce(b.calls>=b.call_limit,false) or budget_amount_short(b.used,coalesce(r.estimate_cny,0),r.estimate_cny is null,b.limit_cny)) as budget_blocked
       from model_resources m join teams payer on payer.id=m.team_id join team_members t on t.team_id=m.team_id and t.member_id=$1
       join resource_budget_status b on b.model_id=m.id
-      cross join lateral(select revision,operation,model,estimate_cny,key_blocked from model_revisions where resource_id=m.id order by revision desc limit 1) r
+      cross join lateral(select revision,operation,model,estimate_cny,key_blocked,stream_text from model_revisions where resource_id=m.id order by revision desc limit 1) r
       where m.enabled order by budget_blocked,m.name,m.id`, u.ID)
 	if err != nil {
 		return err
@@ -93,6 +94,7 @@ func (c Catalog) saveModel(w http.ResponseWriter, r *http.Request, u identity.Me
 		ID, Name, Endpoint, Model, Key, Team, Operation string
 		Estimate                                        *string
 		Expected                                        int
+		StreamText                                      *bool
 	}
 	if err := web.Read(r, &in); err != nil {
 		return err
@@ -109,6 +111,7 @@ func (c Catalog) saveModel(w http.ResponseWriter, r *http.Request, u identity.Me
 	ctx := r.Context()
 	id := in.ID
 	rev := 0
+	streamText := false
 	err := database.WithTx(ctx, c.DB, func(tx pgx.Tx) error {
 		if err := identity.RequireAdmin(ctx, tx, u.ID); err != nil {
 			return err
@@ -126,7 +129,7 @@ func (c Catalog) saveModel(w http.ResponseWriter, r *http.Request, u identity.Me
 				return err
 			}
 			var previousOperation string
-			if err := tx.QueryRow(ctx, "select revision,operation from model_revisions where resource_id=$1 order by revision desc limit 1", id).Scan(&rev, &previousOperation); err != nil {
+			if err := tx.QueryRow(ctx, "select revision,operation,stream_text from model_revisions where resource_id=$1 order by revision desc limit 1", id).Scan(&rev, &previousOperation, &streamText); err != nil {
 				return err
 			}
 			if in.Operation == "" {
@@ -136,12 +139,21 @@ func (c Catalog) saveModel(w http.ResponseWriter, r *http.Request, u identity.Me
 		if rev != in.Expected {
 			return web.Fail(409, "资源修订已更新")
 		}
+		if in.Operation != "text" {
+			streamText = false
+		}
+		if in.StreamText != nil {
+			streamText = *in.StreamText
+		}
+		if streamText && in.Operation != "text" {
+			return web.Fail(422, "仅文本对话可启用逐段预览")
+		}
 		rev++
 		secret, err := c.Vault.Seal(in.Key, fmt.Sprintf("model/%s/%d", id, rev))
 		if err != nil {
 			return err
 		}
-		if _, err = tx.Exec(ctx, "insert into model_revisions(resource_id,revision,endpoint,model,encrypted_key,estimate_cny,operation) values($1,$2,$3,$4,$5,$6,$7)", id, rev, in.Endpoint, in.Model, secret, in.Estimate, in.Operation); err != nil {
+		if _, err = tx.Exec(ctx, "insert into model_revisions(resource_id,revision,endpoint,model,encrypted_key,estimate_cny,operation,stream_text) values($1,$2,$3,$4,$5,$6,$7,$8)", id, rev, in.Endpoint, in.Model, secret, in.Estimate, in.Operation, streamText); err != nil {
 			return err
 		}
 		if _, err = tx.Exec(ctx, "update model_resources set name=$1 where id=$2", in.Name, id); err != nil {
@@ -152,7 +164,7 @@ func (c Catalog) saveModel(w http.ResponseWriter, r *http.Request, u identity.Me
 	if err != nil {
 		return err
 	}
-	return web.JSON(w, 201, ModelInfo{in.Operation, id, in.Name, in.Model, rev})
+	return web.JSON(w, 201, ModelInfo{in.Operation, id, in.Name, in.Model, rev, streamText})
 }
 
 type AgentInfo struct {
@@ -385,7 +397,7 @@ func (c Catalog) resolve(ctx context.Context, q Query, project, actor, id string
 	var secret, override []byte
 	var instructions, rid string
 	var rr int
-	err = q.QueryRow(ctx, `select mr.estimate_cny::text,mr.endpoint,mr.model,mr.encrypted_key,r.key_override,r.instructions,r.resource_id,r.resource_revision,mr.key_generation,mr.operation from agent_revisions r join agents a on a.id=r.agent_id join model_resources src on src.id=r.resource_id and (src.enabled or $4) and not src.emergency join model_revisions mr on (mr.resource_id,mr.revision)=(r.resource_id,r.resource_revision) where src.team_id=a.team_id and r.agent_id=$1 and r.revision=$2 and project_agent_access(nullif($5,'')::uuid,a.id,r.revision,$3) and (not a.disabled or $4) and not a.emergency and (not mr.key_blocked or r.key_override is not null)`, id, rev, actor, accepted, project).Scan(&m.Estimate, &m.Endpoint, &m.Name, &secret, &override, &instructions, &rid, &rr, &m.KeyGeneration, &m.OutputOperation)
+	err = q.QueryRow(ctx, `select mr.estimate_cny::text,mr.endpoint,mr.model,mr.encrypted_key,r.key_override,r.instructions,r.resource_id,r.resource_revision,mr.key_generation,mr.operation,mr.stream_text from agent_revisions r join agents a on a.id=r.agent_id join model_resources src on src.id=r.resource_id and (src.enabled or $4) and not src.emergency join model_revisions mr on (mr.resource_id,mr.revision)=(r.resource_id,r.resource_revision) where src.team_id=a.team_id and r.agent_id=$1 and r.revision=$2 and project_agent_access(nullif($5,'')::uuid,a.id,r.revision,$3) and (not a.disabled or $4) and not a.emergency and (not mr.key_blocked or r.key_override is not null)`, id, rev, actor, accepted, project).Scan(&m.Estimate, &m.Endpoint, &m.Name, &secret, &override, &instructions, &rid, &rr, &m.KeyGeneration, &m.OutputOperation, &m.StreamText)
 	if err != nil {
 		return m, "", err
 	}

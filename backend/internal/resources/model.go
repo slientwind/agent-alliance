@@ -68,6 +68,7 @@ type Model struct {
 	OutputOperation string
 	ResourceID      string
 	KeyGeneration   int
+	StreamText      bool
 
 	SourceRevision                                 int
 	Policy                                         RemotePolicy
@@ -115,36 +116,54 @@ func (m Model) Generate(ctx context.Context, messages []Message) (Reply, error) 
 	if ProducesPNG(m.OutputOperation) {
 		return m.generateImage(ctx, messages)
 	}
+	resp, err := m.requestText(ctx, messages, false)
+	if err != nil {
+		return Reply{}, err
+	}
+	defer resp.Body.Close()
+	return decodeTextReply(resp.Body)
+}
+
+func (m Model) requestText(ctx context.Context, messages []Message, stream bool) (*http.Response, error) {
 	var providerMessages any = messages
 	if m.OutputOperation == VisionOperation {
 		var err error
 		providerMessages, err = visionMessages(messages, m.Pictures)
 		if err != nil {
-			return Reply{}, err
+			return nil, err
 		}
 	}
-	body, err := json.Marshal(map[string]any{"model": m.Name, "messages": providerMessages, "max_tokens": 1800})
+	request := map[string]any{"model": m.Name, "messages": providerMessages, "max_tokens": 1800}
+	if stream {
+		request["stream"] = true
+		request["stream_options"] = map[string]bool{"include_usage": true}
+	}
+	body, err := json.Marshal(request)
 	if err != nil {
-		return Reply{}, err
+		return nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, "POST", strings.TrimRight(m.Endpoint, "/")+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return Reply{}, err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+m.Key)
 	client, err := providerClient()
 	if err != nil {
-		return Reply{}, err
+		return nil, err
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return Reply{}, errors.New("模型请求结果待核对")
+		return nil, errors.New("模型请求结果待核对")
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return Reply{}, ProviderStatus(resp.StatusCode)
+		resp.Body.Close()
+		return nil, ProviderStatus(resp.StatusCode)
 	}
+	return resp, nil
+}
+
+func decodeTextReply(body io.Reader) (Reply, error) {
 	var result struct {
 		Choices []struct {
 			Message      Message
@@ -154,7 +173,7 @@ func (m Model) Generate(ctx context.Context, messages []Message) (Reply, error) 
 			Total int `json:"total_tokens"`
 		}
 	}
-	if err = json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&result); err != nil || len(result.Choices) == 0 || strings.TrimSpace(result.Choices[0].Message.Content) == "" {
+	if err := json.NewDecoder(io.LimitReader(body, 4<<20)).Decode(&result); err != nil || len(result.Choices) == 0 || strings.TrimSpace(result.Choices[0].Message.Content) == "" {
 		return Reply{}, errors.New("供应商响应缺少有效正文")
 	}
 	choice := result.Choices[0]

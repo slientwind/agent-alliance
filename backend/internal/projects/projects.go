@@ -48,6 +48,7 @@ const access = " from projects p join project_members m on m.project_id=p.id whe
 
 func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 	m.Handle("GET /api/projects/{id}/events", web.Handler(s.events(g)))
+	m.Handle("GET /api/projects/{id}/runs/{run}/draft-events", s.draftEvents(g))
 	actions := map[string]identity.Action{
 		"GET /api/projects/{id}/artifacts/{artifact}/feedback/{feedback}/source-quote": s.feedbackQuote,
 		"GET /api/projects/{id}/artifacts/{artifact}/source-comparison/{source}":       s.sourceComparison,
@@ -284,6 +285,10 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
     from change_batches cb join runs r on r.id=cb.run_id left join invocations i on i.run_id=r.id left join invocation_files ff on ff.run_id=r.id where cb.feedback_id=f.id and f.notes_readable),'[]'),
     'events',(select jsonb_agg(jsonb_build_object('action',action,'reason',case when f.notes_readable then ev.reason end,'version',artifact_version,'actor',m.display_name) order by ev.revision) from feedback_events ev join members m on m.id=ev.actor where ev.feedback_id=f.id)) order by f.created_at) from feedback_access f where f.artifact_id=a.id),'[]'),'file',(select filename from artifact_files where artifact_id=a.id and version=v.version and distribution_readable(a.id,v.version,$1))) order by a.ordinal) from artifacts a join artifact_access rights on rights.id=a.id join artifact_versions v on(v.artifact_id,v.version)=(a.id,a.current_version) left join reviews e on (e.artifact_id,e.version)=(a.id,a.current_version) where a.project_id=p.id),'[]'),
  'run',(select jsonb_build_object('id',r.id,'status',r.status,'controlRevision',r.control_revision,'canResolveToolChoice',p.owner=$1 or (r.app_id is not null and r.delegated_by is null and p.final_reviewer=$1 and m.can_review),'receiptRequest',(select jsonb_build_object('step',ordinal,'reason',reason,'kind',kind) from calculation_requests where run_id=r.id and r.status='blocked' order by ordinal limit 1),'indexWait',`+LookupIndexWaitSQL+`,
+ 'draftAvailable',r.actor=$1 and r.service_id is null and exists(select from effective_run_nodes en
+     join agent_revisions ar on(ar.agent_id,ar.revision)=(en.agent_id,en.agent_revision)
+     join model_revisions mr on(mr.resource_id,mr.revision)=(ar.resource_id,ar.resource_revision)
+     where en.run_id=r.id and en.lookup_phase='' and mr.stream_text),
  'lookupPending',r.status='running' and exists(select from lookup_turns t where t.run_id=r.id and t.decision is not null),
  'canConcludeFailure',run_failure_confirmable(r.id),'attempts',(select coalesce(jsonb_agg(jsonb_build_object('step',ordinal,'status',status,'callReview',`+callReviewSummarySQL+`,'remote',`+remoteSummarySQL+`,'tokens',case when m.can_view_costs or p.owner=$1 then tokens end,'diagnostic',case when r.trace_expires_at is null or r.trace_expires_at>clock_timestamp() then diagnostic end) order by ordinal),'[]') from invocations i where run_id=r.id)) from runs r where project_id=p.id and not exists(select from change_batches cb where cb.run_id=r.id) order by created_at desc limit 1))`+access+"and p.id=$2", u.ID, id).Scan(&result)
 	if err != nil {

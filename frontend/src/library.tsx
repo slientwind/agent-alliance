@@ -30,7 +30,7 @@ export function Models({
         <p key={m.id}>
           <strong>{m.name}</strong> ·{" "}
           {{ png: "文生图 PNG", text: "文本", vision: "视觉理解", "image-edit": "参考图编辑" }[m.operation]} · {m.model} · v
-          {m.revision}
+          {m.revision}{m.streamText && " · 支持逐段预览"}
         </p>
       ))}
       <form
@@ -38,11 +38,12 @@ export function Models({
           e.preventDefault();
           const form = e.currentTarget;
           try {
-            const fields = Object.fromEntries(new FormData(form));
+            const { StreamText, ...fields } = Object.fromEntries(new FormData(form));
             await api("resources", "POST", {
               ...fields,
               Team: team,
               Estimate: fields.Estimate || null,
+              StreamText: StreamText === "on",
             });
             form.reset();
             await refresh();
@@ -64,6 +65,9 @@ export function Models({
             <option value="vision">视觉理解 · PNG 或 JPEG 转文本</option>
             <option value="image-edit">参考图编辑 · 单张 PNG</option>
           </select>
+        </label>
+        <label>
+          <input name="StreamText" type="checkbox" /> 桌面逐段预览（仅文本模型）
         </label>
         <label>
           模型服务根地址（含版本路径）

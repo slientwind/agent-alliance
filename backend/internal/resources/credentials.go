@@ -36,7 +36,7 @@ func ObserveKeyRejection(ctx context.Context, tx pgx.Tx, m Model, err error) err
 }
 func (c Catalog) manageModels(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	rows, err := c.DB.Query(r.Context(), `select jsonb_build_object('id',m.id,'team',m.team_id,'teamName',t.name,'name',m.name,'enabled',m.enabled,'emergency',m.emergency,'lifecycle',m.lifecycle,
- 'revisions',(select jsonb_agg(jsonb_build_object('revision',v.revision,'model',v.model,'operation',v.operation,'endpoint',v.endpoint,'estimate',v.estimate_cny::text,'generation',v.key_generation,'blocked',v.key_blocked) order by v.revision desc) from model_revisions v where v.resource_id=m.id))
+ 'revisions',(select jsonb_agg(jsonb_build_object('revision',v.revision,'model',v.model,'operation',v.operation,'streamText',v.stream_text,'endpoint',v.endpoint,'estimate',v.estimate_cny::text,'generation',v.key_generation,'blocked',v.key_blocked) order by v.revision desc) from model_revisions v where v.resource_id=m.id))
  from model_resources m join teams t on t.id=m.team_id join team_members tm on tm.team_id=m.team_id and tm.member_id=$1
  where ($2='' or m.team_id=nullif($2,'')::uuid) order by t.name,m.name,m.id`, u.ID, r.URL.Query().Get("team"))
 	if err != nil {

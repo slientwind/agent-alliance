@@ -4,6 +4,7 @@ import { api, type Model } from "./client";
 
 export type Revision = {
   operation: Model["operation"];
+  streamText?: boolean;
   revision: number;
   model: string;
   endpoint: string;
@@ -403,6 +404,7 @@ function RevisionMaintenance({
                       endpoint: data.get("endpoint"),
                       model: data.get("model"),
                       operation: data.get("operation"),
+                      streamText: data.has("streamText"),
                       key: data.get("key"),
                       estimate: data.get("estimate") || null,
                     });
@@ -414,6 +416,9 @@ function RevisionMaintenance({
                 <label>
                   新修订服务地址
                   <input type="url" required name="endpoint" />
+                </label>
+                <label>
+                  <input name="streamText" type="checkbox" defaultChecked={revision.streamText} /> 桌面逐段预览（仅文本模型）
                 </label>
                 <label>
                   新修订模型操作
