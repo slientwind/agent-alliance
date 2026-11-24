@@ -237,7 +237,7 @@ export function ServiceEntry({ id, member }: { id: string; member: string }) {
               <ol>
                 {entry.steps.map((s, i) => (
                   <li key={i}>
-                    {s.name} v{s.revision}{s.lookupPhase === "search" ? " · 检索依据" : s.lookupPhase === "answer_calc" ? " · 引文金额核算" : s.lookupPhase === "answer" ? " · 据原文回答" : ""}
+                    {s.name} v{s.revision}{s.lookupPhase === "search" ? " · 检索依据" : s.lookupPhase === "answer_calc" ? " · 引文金额核算" : s.lookupPhase === "answer" ? " · 据原文回答" : s.lookupPhase === "synthesize" ? " · 有新增原文时续答" : ""}
                     {s.toolChoice && (
                       <>
                         <small><AggregationScope config={s.toolChoice.primaryConfig} /></small>

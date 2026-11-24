@@ -29,7 +29,8 @@ func normalizeDeliveryRequirements(contract DeliveryContract, nodes []executionN
 	}
 	ordinals := make([]int, 0, len(nodes))
 	for i, node := range nodes {
-		if node.phase != "search" {
+		followed := node.phase == "answer" && i+1 < len(nodes) && nodes[i+1].phase == "synthesize"
+		if node.phase != "search" && !followed {
 			ordinals = append(ordinals, i+1)
 		}
 	}

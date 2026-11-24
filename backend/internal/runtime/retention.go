@@ -28,8 +28,10 @@ func (a Activities) CleanRetention(ctx context.Context) {
 		if _, err := a.Catalog.DB.Exec(ctx, "delete from project_session_events where created_at<=now()-interval '1 hour'"); err != nil && ctx.Err() == nil {
 			slog.Warn("expired conversation event cleanup pending")
 		}
-		if _, err := a.Catalog.DB.Exec(ctx, `update lookup_turns set decision=null,outcome='invalidated'
-            where decision is not null and not run_working_set_usable(run_id,ordinal,attempt_no)`); err != nil && ctx.Err() == nil {
+		if _, err := a.Catalog.DB.Exec(ctx, `update lookup_turns set decision=null,refinement_evidence=null,
+            outcome=case when decision is not null then 'invalidated' else outcome end
+            where (decision is not null or refinement_evidence is not null)
+              and not run_working_set_usable(run_id,ordinal,attempt_no)`); err != nil && ctx.Err() == nil {
 			slog.Warn("invalidated lookup cleanup pending")
 		}
 		if _, err := a.Catalog.DB.Exec(ctx, `update invocations i set result=null from run_working_sets s

@@ -554,7 +554,7 @@ export function Work({
               return (
               <li key={i}>
                 {n.toolChoice ? <strong>汇总报表</strong> : (
-                  <>{n.name} · v{n.revision}{n.lookupPhase === "search" ? " · 检索依据" : n.lookupPhase === "answer_calc" ? " · 引文金额核算" : n.lookupPhase === "answer" ? " · 据原文回答" : ""}</>
+                  <>{n.name} · v{n.revision}{n.lookupPhase === "search" ? " · 检索依据" : n.lookupPhase === "answer_calc" ? " · 引文金额核算" : n.lookupPhase === "answer" ? " · 据原文回答" : n.lookupPhase === "synthesize" ? " · 有新增原文时续答" : ""}</>
                 )}
                 <small>
                   {n.dependsOn.length

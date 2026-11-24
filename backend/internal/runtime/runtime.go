@@ -339,6 +339,26 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			} else if !d.change {
 				d.lookupGoal = planBrief
 			}
+		case "synthesize":
+			d.lookupFiles = files
+			d.hits, err = synthesisEvidence(ctx, tx, step, files)
+			if err != nil {
+				var changed web.Problem
+				if errors.As(err, &changed) {
+					result.Wait = true
+					return setState(ctx, tx, step, d.project, "blocked", "lookup_synthesis_input_changed", changed.Message)
+				}
+				return err
+			}
+			if len(d.hits) == 0 {
+				if d.change {
+					d.hits = checkedAnswerCitations(d.baseBody, files)
+				} else {
+					return skipSynthesis(ctx, tx, step, d, refs, &result)
+				}
+			}
+			d.prior = lookupContext(d.hits, files)
+			d.prompt += "\n" + synthesisInstructions
 		case "answer", "answer_calc":
 			d.lookupFiles = files
 			d.hits = verifiedHits(d.prior, files)
@@ -561,6 +581,11 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			if lookupDecision == nil {
 				reply.Text, lookupOutcome = groundedAnswer(reply.Text, d.hits, d.lookupFiles)
 			}
+		case "synthesize":
+			if reply.FinishReason != "" && reply.FinishReason != "stop" {
+				reply.Text = ""
+			}
+			reply.Text, lookupOutcome = answerFromEvidence(reply.Text, d.hits, d.lookupFiles, false)
 		}
 	}
 	selectedTool := 0
@@ -783,6 +808,20 @@ func commitOutput(ctx context.Context, tx pgx.Tx, step Step, d contextData, text
 		}
 		return err
 	}
+	if d.lookupPhase == "answer" {
+		var internal bool
+		err := tx.QueryRow(ctx, `select exists(select from node_edges e join nodes next using(project_id,plan_version,ordinal)
+			where (e.project_id,e.plan_version,e.depends_on)=($1,$2,$3) and next.lookup_phase='synthesize')`,
+			d.project, d.planVersion, step.Ordinal).Scan(&internal)
+		if err != nil {
+			return err
+		}
+		if internal {
+			_, err := tx.Exec(ctx, `insert into invocations(run_id,ordinal,status,result,ended_at)
+				values($1,$2,'completed',$3,now()) on conflict(run_id,ordinal) do nothing`, step.Run, step.Ordinal, text)
+			return err
+		}
+	}
 	var exists bool
 	if err := tx.QueryRow(ctx, "select exists(select from artifacts where run_id=$1 and ordinal=$2)", step.Run, step.Ordinal).Scan(&exists); err != nil {
 		return err
@@ -791,7 +830,7 @@ func commitOutput(ctx context.Context, tx pgx.Tx, step Step, d contextData, text
 		return nil
 	}
 	var id string
-	if err := tx.QueryRow(ctx, `insert into artifacts(project_id,run_id,ordinal,name) select $1,$2,$3,name||case $6::text when 'search' then ' · 检索依据' when 'answer' then ' · 据原文回答' when 'answer_calc' then ' · 原文与金额核算' else '' end from agent_revisions where agent_id=$4 and revision=$5 returning id`, d.project, step.Run, step.Ordinal, d.agent, d.revision, d.lookupPhase).Scan(&id); err != nil {
+	if err := tx.QueryRow(ctx, `insert into artifacts(project_id,run_id,ordinal,name) select $1,$2,$3,name||case $6::text when 'search' then ' · 检索依据' when 'answer' then ' · 据原文回答' when 'synthesize' then ' · 据原文回答' when 'answer_calc' then ' · 原文与金额核算' else '' end from agent_revisions where agent_id=$4 and revision=$5 returning id`, d.project, step.Run, step.Ordinal, d.agent, d.revision, d.lookupPhase).Scan(&id); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, "insert into artifact_versions(artifact_id,version,body,reason) values($1,1,$2,'初稿')", id, text); err != nil {
@@ -800,11 +839,13 @@ func commitOutput(ctx context.Context, tx pgx.Tx, step Step, d contextData, text
 	if _, err := tx.Exec(ctx, "insert into artifact_files select $1,1,object_hash,filename,media_type from invocation_files where run_id=$2 and ordinal=$3", id, step.Run, step.Ordinal); err != nil {
 		return err
 	}
-	var total int
-	if err := tx.QueryRow(ctx, "select count(*) from artifacts where run_id=$1", step.Run).Scan(&total); err != nil {
+	var total, internal int
+	if err := tx.QueryRow(ctx, `select (select count(*) from artifacts where run_id=$1),
+		(select count(*) from nodes where (project_id,plan_version)=($2,$3) and lookup_phase='synthesize')`,
+		step.Run, d.project, d.planVersion).Scan(&total, &internal); err != nil {
 		return err
 	}
-	if total == d.maximum {
+	if total == d.maximum-internal {
 		if _, err := tx.Exec(ctx, "update runs set status='completed' where id=$1", step.Run); err != nil {
 			return err
 		}

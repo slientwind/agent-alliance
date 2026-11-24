@@ -25,7 +25,7 @@ func saveToolChoices(ctx context.Context, tx pgx.Tx, project string, version int
 	}
 	businessSteps := make([]int, 0, len(nodes))
 	for i, n := range nodes {
-		if n.phase != "answer" && n.phase != "answer_calc" {
+		if n.phase != "answer" && n.phase != "answer_calc" && n.phase != "synthesize" {
 			businessSteps = append(businessSteps, i+1)
 		}
 	}

@@ -33,7 +33,7 @@ func checkStepReplacements(ctx context.Context, tx pgx.Tx, project string, from,
  select n.plan_version,n.agent_id,n.agent_revision,
         row_number() over(partition by n.plan_version order by n.ordinal) as step
  from nodes n where n.project_id=$1 and n.plan_version in ($2,$3)
-   and n.lookup_phase not in ('answer','answer_calc')
+   and n.lookup_phase not in ('answer','answer_calc','synthesize')
  )
  select exists(
  select from business_steps original join business_steps replacement on replacement.plan_version=$3 and replacement.step=$5

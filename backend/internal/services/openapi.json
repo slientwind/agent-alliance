@@ -595,9 +595,10 @@
                     "",
                     "search",
                     "answer",
-                    "answer_calc"
+                    "answer_calc",
+                    "synthesize"
                   ],
-                  "description": "search 与 answer 表示同一文本 Agent 先检索再回答。answer_calc 可依据引文核算同币种金额。发起此类服务须提供 attachment。"
+                  "description": "search 与 answer 表示同一文本 Agent 先检索再回答。answer_calc 可依据引文核算同币种金额。synthesize 在补查取得新依据时追加一次作答。发起此类服务须提供 attachment。"
                 },
                 "toolChoice": {
                   "type": ["object", "null"],

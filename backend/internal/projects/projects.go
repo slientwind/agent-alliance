@@ -323,7 +323,7 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
      and (t.action_kind is null or t.action_kind='refine_lookup')),
  'calculationPending',r.status='running' and exists(select from lookup_turns t where t.run_id=r.id and t.decision is not null
      and t.action_kind='calculate_amounts'),
- 'canConcludeFailure',run_failure_confirmable(r.id),'attempts',(select coalesce(jsonb_agg(jsonb_build_object('step',ordinal,'status',status,
+ 'canConcludeFailure',run_failure_confirmable(r.id),'attempts',(select coalesce(jsonb_agg(jsonb_build_object('step',ordinal,'status',case when evidence_follow_up_skipped(i.run_id,i.ordinal) then 'skipped' else status end,
  'workingSet',case when r.actor=$1 then (select jsonb_build_object(
     'sources',count(*) filter(where d.kind='source'),'preferences',count(*) filter(where d.kind='preference'),
     'rules',count(*) filter(where d.kind='rule'),
@@ -448,6 +448,7 @@ type PlanInput struct {
 	ReplacementBase  int
 	SourceLookup     bool
 	CalculationSteps []int
+	FollowUpSteps    []int
 	LookupSteps      []int
 	Brief            string
 	Suggestion       string

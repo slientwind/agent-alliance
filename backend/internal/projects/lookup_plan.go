@@ -39,10 +39,17 @@ func executionNodes(in PlanInput) ([]executionNode, error) {
 		}
 		calculate[ordinal] = true
 	}
-	if count+len(lookup) > 12 {
+	followUp := map[int]bool{}
+	for _, ordinal := range in.FollowUpSteps {
+		if !lookup[ordinal] || calculate[ordinal] || followUp[ordinal] {
+			return nil, web.Fail(422, "依据新增原文继续作答需要原文问答步骤")
+		}
+		followUp[ordinal] = true
+	}
+	if count+len(lookup)+len(followUp) > 12 {
 		return nil, web.Fail(422, "方案展开后最多 12 次能力调用")
 	}
-	result := make([]executionNode, 0, count+len(lookup))
+	result := make([]executionNode, 0, count+len(lookup)+len(followUp))
 	last := make([]int, count+1)
 	for i, id := range in.Agents {
 		node := executionNode{agent: id}
@@ -73,6 +80,11 @@ func executionNodes(in PlanInput) ([]executionNode, error) {
 			node.dependencies = []int{len(result)}
 		}
 		result = append(result, node)
+		if followUp[i+1] {
+			node.phase = "synthesize"
+			node.dependencies = []int{len(result)}
+			result = append(result, node)
+		}
 		last[i+1] = len(result)
 	}
 	return result, nil

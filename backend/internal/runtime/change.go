@@ -28,8 +28,8 @@ func changeContext(ctx context.Context, tx pgx.Tx, run string, d *contextData) (
 		return permitted, current, nil
 	}
 	d.brief += fmt.Sprintf("\n请仅修改下面这份成果，返回完整修订稿。\n基准稿：\n%s\n反馈位置：%s\n修改要求：%s", base, position, instruction)
+	d.baseBody = base
 	if d.excerpt != "" {
-		d.baseBody = base
 		d.brief += fmt.Sprintf("\n修改范围已固定。仅返回以下原文片段的替换文本，平台负责保留其余部分：\n%s", d.excerpt)
 	}
 	d.prior = prior

@@ -89,12 +89,7 @@ func (a Activities) prepareLocalAction(step Step, attempt int, d contextData, re
 }
 
 func (a Activities) sealLookupAction(action ActionRef, d contextData, input lookupTurnInput) ([]byte, error) {
-	for _, hit := range d.hits {
-		input.Citations = append(input.Citations, indexCitation{
-			Source: d.lookupFiles[hit.source].ID, Version: hit.version,
-			Start: hit.start, End: hit.end, Hash: receiptDigest([]byte(hit.text)),
-		})
-	}
+	input.Citations = lookupCitationRefs(d.hits, d.lookupFiles)
 	encoded, err := json.Marshal(input)
 	if err != nil {
 		return nil, err
@@ -335,9 +330,18 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef) (R
 			return invalid("首轮引文的资料位置或版本已变化，请核对后重新发起。")
 		}
 		var text, outcome string
+		var observed []byte
 		switch kind {
 		case "", refineLookupAction:
-			text, outcome = refineLookup(input.Terms, first, files)
+			var fresh []lookupHit
+			text, outcome, fresh = refineLookupObserved(input.Terms, first, files)
+			if len(fresh) > 0 {
+				hits := append(fresh, first...)
+				observed, err = json.Marshal(lookupCitationRefs(hits[:min(len(hits), 6)], files))
+				if err != nil {
+					return err
+				}
+			}
 		case calculateAction:
 			operands := moneyOperands(first, files)
 			if input.Calculation == nil || !input.Calculation.Valid(len(operands)) {
@@ -350,8 +354,8 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef) (R
 		if _, err = tx.Exec(ctx, "update invocations set result=$3 where run_id=$1 and ordinal=$2", step.Run, step.Ordinal, text); err != nil {
 			return err
 		}
-		if _, err = tx.Exec(ctx, `update lookup_turns set decision=null,outcome=$4
-            where run_id=$1 and ordinal=$2 and attempt_no=$3`, step.Run, step.Ordinal, action.Attempt, outcome); err != nil {
+		if _, err = tx.Exec(ctx, `update lookup_turns set decision=null,outcome=$4,refinement_evidence=$5::jsonb
+            where run_id=$1 and ordinal=$2 and attempt_no=$3`, step.Run, step.Ordinal, action.Attempt, outcome, observed); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, "insert into trace_events(run_id,ordinal,kind,code) values($1,$2,'checkpoint',$3)", step.Run, step.Ordinal, outcome); err != nil {

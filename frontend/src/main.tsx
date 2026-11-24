@@ -677,6 +677,7 @@ function App() {
     await api("projects/" + project + "/plan", "POST", {
       expected: plan.baseRevision,
       calculationSteps: plan.steps.flatMap((step,i)=>step.lookup && step.calculate ? [i+1] : []),
+      followUpSteps: plan.steps.flatMap((step,i)=>step.lookup && step.followUp ? [i+1] : []),
       lookupSteps: plan.steps.flatMap((step,i)=>step.lookup ? [i+1] : []),
       brief: plan.brief,
       agents: plan.steps.map((s) => s.agent),

@@ -45,13 +45,8 @@ func searchForGoal(decision string, files []knowledge.InputSource, moneyGoal str
 	if !decodeLookup(decision, &request) || request.Terms == nil || (len(request.Terms) > 6 && (moneyGoal == "" || len(request.Terms) > 12)) {
 		return invalidLookup, "lookup_invalid_request"
 	}
-	return searchForTerms(request.Terms, files, moneyGoal, fallback, nil)
-}
-
-type lookupLocation struct{ source, version, start, end int }
-
-func (h lookupHit) location() lookupLocation {
-	return lookupLocation{h.source, h.version, h.start, h.end}
+	body, outcome, _ := searchForTerms(request.Terms, files, moneyGoal, fallback, nil)
+	return body, outcome
 }
 
 func normalizeLookupTerms(request []string) []string {
@@ -73,17 +68,17 @@ func normalizeLookupTerms(request []string) []string {
 	return terms
 }
 
-func searchForTerms(request []string, files []knowledge.InputSource, moneyGoal string, fallback func() (knowledge.SemanticLookup, error), prior map[lookupLocation]bool) (string, string) {
+func searchForTerms(request []string, files []knowledge.InputSource, moneyGoal string, fallback func() (knowledge.SemanticLookup, error), prior []lookupHit) (string, string, []lookupHit) {
 	terms := normalizeLookupTerms(request)
 	if len(terms) == 0 {
 		if len(request) > 0 {
-			return invalidLookup, "lookup_invalid_request"
+			return invalidLookup, "lookup_invalid_request", nil
 		}
-		return clarifyLookup, "lookup_ask"
+		return clarifyLookup, "lookup_ask", nil
 	}
 	queries, inputs, err := prepareLookup(terms, files)
 	if err != nil {
-		return invalidLocation, "lookup_invalid_source"
+		return invalidLocation, "lookup_invalid_source", nil
 	}
 	hits := lookupCandidates(queries, inputs, files)
 	if moneyGoal != "" {
@@ -96,7 +91,7 @@ func searchForTerms(request []string, files []knowledge.InputSource, moneyGoal s
 	if len(hits) == 0 && fallback != nil {
 		match, err := fallback()
 		if err != nil {
-			return b.String() + noEvidence, "lookup_semantic_unavailable"
+			return b.String() + noEvidence, "lookup_semantic_unavailable", nil
 		}
 		var fresh bool
 		hits, fresh = semanticLookupHits(match.Hits, files)
@@ -108,21 +103,21 @@ func searchForTerms(request []string, files []knowledge.InputSource, moneyGoal s
 			fmt.Fprintln(&b, semanticEvidence)
 		} else if match.IndexPending {
 			fmt.Fprintln(&b, semanticIndexPending)
-			return b.String() + noEvidence, "lookup_semantic_index_pending"
+			return b.String() + noEvidence, "lookup_semantic_index_pending", nil
 		}
 	}
 	if len(hits) == 0 {
-		return b.String() + noEvidence, "lookup_empty_search"
+		return b.String() + noEvidence, "lookup_empty_search", nil
 	}
 	if len(prior) > 0 {
 		fresh := hits[:0]
 		for _, hit := range hits {
-			if !prior[hit.location()] {
+			if !alreadyCovered(hit, prior) {
 				fresh = append(fresh, hit)
 			}
 		}
 		if len(fresh) == 0 {
-			return "", "lookup_no_progress"
+			return "", "lookup_no_progress", nil
 		}
 		hits = fresh
 	}
@@ -156,7 +151,17 @@ func searchForTerms(request []string, files []knowledge.InputSource, moneyGoal s
 		file := files[h.source]
 		fmt.Fprintf(&b, "\n%s v%d · 第 %d–%d 字\n%s\n", strings.Join(strings.Fields(file.Name), " "), file.Version, h.start+1, h.end, h.line())
 	}
-	return strings.TrimSpace(b.String()), outcome
+	return strings.TrimSpace(b.String()), outcome, ordered
+}
+
+func alreadyCovered(hit lookupHit, known []lookupHit) bool {
+	for _, previous := range known {
+		if hit.source == previous.source && hit.version == previous.version &&
+			hit.start >= previous.start && hit.end <= previous.end {
+			return true
+		}
+	}
+	return false
 }
 
 // Use the captured run input as the authority for a citation, never an index
@@ -242,6 +247,10 @@ func lookupContext(hits []lookupHit, files []knowledge.InputSource) string {
 }
 
 func groundedAnswer(raw string, hits []lookupHit, files []knowledge.InputSource) (string, string) {
+	return answerFromEvidence(raw, hits, files, true)
+}
+
+func answerFromEvidence(raw string, hits []lookupHit, files []knowledge.InputSource, canRefine bool) (string, string) {
 	if len(hits) == 0 {
 		return noEvidence, "lookup_no_evidence"
 	}
@@ -253,6 +262,9 @@ func groundedAnswer(raw string, hits []lookupHit, files []knowledge.InputSource)
 		return "模型未给出可核对的回答，请审核以下原文。\n" + lookupContext(hits, files), "lookup_unverified"
 	}
 	if len(decision.Terms) > 0 {
+		if !canRefine {
+			return "本次补查已结束，请核对已取得的原文或补充资料。\n" + lookupContext(hits, files), "lookup_refinement_limit"
+		}
 		return refineLookup(decision.Terms, hits, files)
 	}
 	if decision.Question != "" {
@@ -272,6 +284,11 @@ func groundedAnswer(raw string, hits []lookupHit, files []knowledge.InputSource)
 }
 
 func refineLookup(terms []string, first []lookupHit, files []knowledge.InputSource) (string, string) {
+	body, outcome, _ := refineLookupObserved(terms, first, files)
+	return body, outcome
+}
+
+func refineLookupObserved(terms []string, first []lookupHit, files []knowledge.InputSource) (string, string, []lookupHit) {
 	searchable := files
 	for i, file := range files {
 		if file.ReceiptStep != 0 {
@@ -279,17 +296,13 @@ func refineLookup(terms []string, first []lookupHit, files []knowledge.InputSour
 			break
 		}
 	}
-	prior := make(map[lookupLocation]bool, len(first))
-	for _, hit := range first {
-		prior[hit.location()] = true
-	}
-	body, outcome := searchForTerms(terms, searchable, "", nil, prior)
+	body, outcome, fresh := searchForTerms(terms, searchable, "", nil, first)
 	switch outcome {
 	case "lookup_searched":
-		return "根据首轮引文追加检索，以下新依据供核对。\n" + body, "lookup_refined"
+		return "根据首轮引文追加检索，以下新依据供核对。\n" + body, "lookup_refined", fresh
 	case "lookup_no_progress", "lookup_empty_search":
-		return "追加检索未取得新依据。请核对已有原文，并补充缺少的资料。\n" + lookupContext(first, files), "lookup_no_progress"
+		return "追加检索未取得新依据。请核对已有原文，并补充缺少的资料。\n" + lookupContext(first, files), "lookup_no_progress", nil
 	default:
-		return "根据首轮引文追加检索，以下结果供核对。\n" + body, outcome
+		return "根据首轮引文追加检索，以下结果供核对。\n" + body, outcome, nil
 	}
 }

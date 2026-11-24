@@ -10,7 +10,7 @@ const fields = [
   ["name", "名称"], ["instructions", "执行要求"], ["inputs", "输入约定"], ["outcomes", "交付约定"],
 ] as const;
 
-const phases = { search: "检索原文", answer: "据原文回答", answer_calc: "引文核算", "": "" };
+const phases = { search: "检索原文", answer: "据原文回答", answer_calc: "引文核算", synthesize: "有新增原文时续答", "": "" };
 
 function StepDescription({ step }: { step?: Step }) {
   if (!step) return <span>无此步骤</span>;
