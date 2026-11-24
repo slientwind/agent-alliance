@@ -787,9 +787,13 @@ func blockUnavailableAgent(ctx context.Context, tx pgx.Tx, step Step, d contextD
 }
 
 func checkAgentEvidence(ctx context.Context, tx pgx.Tx, step Step, result *Result, d contextData) (bool, error) {
-	var verified bool
-	if err := tx.QueryRow(ctx, "select agent_verified($1,$2)", d.agent, d.revision).Scan(&verified); err != nil {
+	var verified, buildUsable bool
+	if err := tx.QueryRow(ctx, "select agent_verified($1,$2),plan_workflow_build_usable($3,$4,$1,$2)", d.agent, d.revision, d.project, d.planVersion).Scan(&verified, &buildUsable); err != nil {
 		return false, err
+	}
+	if !buildUsable {
+		result.Wait = true
+		return false, setState(ctx, tx, step, d.project, "blocked", "template_build_changed", "此步骤的构建清单与方案采用的模板版本不一致，请联系维护人")
 	}
 	if !verified {
 		result.Wait = true

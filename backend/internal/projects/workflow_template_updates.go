@@ -16,9 +16,16 @@ func (s Server) previewWorkflowTemplateUpdate(w http.ResponseWriter, r *http.Req
  'projectRevision',p.revision,'planVersion',p.plan_version,'fromVersion',b.version,'published',v.version=t.published_version,
  'canAdopt',p.owner=$1 and p.stage in ('brief','plan') and not exists(select from runs where project_id=p.id),
  'changedSteps',array(select pos+1 from generate_series(0,greatest(jsonb_array_length(prior.nodes),jsonb_array_length(v.nodes))-1) pos
-   where prior.nodes->pos is distinct from v.nodes->pos order by pos),
+   where prior.nodes->pos is distinct from v.nodes->pos or exists(
+     select from (values(v.nodes->pos),(v.nodes->pos->'toolChoice')) ref(doc)
+     join workflow_template_builds fresh on (fresh.template_id,fresh.version,fresh.agent_id,fresh.agent_revision)=
+       (v.template_id,v.version,(ref.doc->>'agent')::uuid,(ref.doc->>'revision')::int)
+     left join workflow_template_builds old on (old.template_id,old.version,old.agent_id,old.agent_revision)=
+       (prior.template_id,prior.version,fresh.agent_id,fresh.agent_revision)
+     where fresh.build_digest is distinct from old.build_digest
+   ) order by pos),
  'target',jsonb_build_object('id',v.template_id,'version',v.version,'name',v.name,'instructions',v.instructions,
-   'inputs',v.inputs,'outcomes',v.outcomes,'requiresSources',v.requires_sources,'nodes',`+workflowTemplateNodes+`))
+   'inputs',v.inputs,'outcomes',v.outcomes,'requiresSources',v.requires_sources,'manifestDigest',v.manifest_digest,'nodes',`+workflowTemplateNodes+`))
  from projects p join project_members pm on pm.project_id=p.id and pm.member_id=$1
  join project_workflow_template_binding b on b.project_id=p.id
  join workflow_templates t on t.id=b.template_id
@@ -111,7 +118,7 @@ func (s Server) adoptWorkflowTemplateUpdate(w http.ResponseWriter, r *http.Reque
 		if requiresSources && len(in.Plan.Sources) == 0 {
 			return web.Fail(422, "新版模板要求选择本项目的可读资料")
 		}
-		if err := SavePlan(ctx, tx, p.ID, u.ID, in.Plan); err != nil {
+		if err := savePlan(ctx, tx, p.ID, u.ID, in.Plan, in.ToVersion); err != nil {
 			return err
 		}
 		result = templateUpdateReceipt{Version: in.ToVersion, PlanVersion: p.PlanVersion + 1, ProjectRevision: p.Revision + 1}

@@ -191,6 +191,8 @@ export function WorkflowTemplates({ initialGoal, openProject, back, initialTempl
     }
   }
 
+  const unavailableBuild = !!selected?.manifestDigest && selected.nodes.some(node => !node.ready || (node.toolChoice && !node.toolChoice.ready));
+
   return (
     <>
       {back && <button type="button" disabled={busy} onClick={back}>返回 Agent 列表</button>}
@@ -211,12 +213,15 @@ export function WorkflowTemplates({ initialGoal, openProject, back, initialTempl
           <p className="preserve">{selected.instructions}</p>
           <p><strong>输入</strong> {selected.inputs}</p>
           <p><strong>交付</strong> {selected.outcomes}</p>
+          {selected.manifestDigest && <small>构建清单 {selected.manifestDigest.slice(0, 12)}</small>}
           <ol>
             {selected.nodes.map((node, i) => (
               <li key={i}>
                 <strong>{node.name || "待选择 Agent"}{node.name && " · v" + node.revision}</strong>
                 <small>{outputOperations[node.operation] || node.operation}{node.lookupPhase === "search" ? " · 检索原文" : node.lookupPhase === "answer" ? " · 据原文回答" : node.lookupPhase === "answer_calc" ? " · 引文核算" : node.lookupPhase === "synthesize" ? " · 有新增原文时续答" : ""}{node.dependsOn.length ? " · 引用步骤 " + node.dependsOn.join("、") : " · 可独立开始"}</small>
-                {(!node.ready || (node.toolChoice && !node.toolChoice.ready)) && <small>需在新方案核对可用的 Agent。</small>}
+                {node.buildMatches === false || node.toolChoice?.buildMatches === false
+                  ? <small>构建清单已变化，请选择当前可用的修订。</small>
+                  : (!node.ready || (node.toolChoice && !node.toolChoice.ready)) && <small>需在新方案核对可用的 Agent。</small>}
               </li>
             ))}
           </ol>
@@ -229,12 +234,13 @@ export function WorkflowTemplates({ initialGoal, openProject, back, initialTempl
           )}
           {selected.version === selected.currentVersion && (
             <div className="actions">
+              {unavailableBuild && selected.publishedVersion !== selected.version && <p>更新模板中的 Agent 或备选工具后可申请发布。</p>}
               {selected.owner && selected.requestedVersion !== selected.version && selected.publishedVersion !== selected.version && (
-                <button disabled={busy} onClick={() => void publication("request")}>申请发布给团队</button>
+                <button disabled={busy || unavailableBuild} onClick={() => void publication("request")}>申请发布给团队</button>
               )}
               {selected.canPublish && selected.requestedVersion === selected.version && (
                 <>
-                  <button disabled={busy} onClick={() => void publication("publish")}>发布该版本</button>
+                  <button disabled={busy || unavailableBuild} onClick={() => void publication("publish")}>发布该版本</button>
                   <label>退回原因<input value={reason} maxLength={1000} disabled={busy} onChange={e => setReason(e.target.value)} /></label>
                   <button disabled={busy || !reason.trim()} onClick={() => void publication("return")}>退回发布申请</button>
                 </>

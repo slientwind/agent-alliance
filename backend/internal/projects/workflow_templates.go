@@ -18,20 +18,24 @@ import (
 // Candidate identifiers and names are projected only through current access.
 const workflowTemplateNodes = `coalesce((select jsonb_agg(jsonb_build_object(
  'agent',coalesce(a.id::text,''),'name',coalesce(a.name,''),'revision',(n.doc->>'revision')::int,
- 'ready',coalesce(a.ready,false),'operation',n.doc->>'operation','vision',coalesce((n.doc->>'vision')::boolean,false),'editsImage',coalesce((n.doc->>'editsImage')::boolean,false),'lookupPhase',n.doc->>'lookupPhase','dependsOn',n.doc->'dependsOn',
+ 'ready',coalesce(a.ready,false),'buildMatches',a.build_matches,'operation',n.doc->>'operation','vision',coalesce((n.doc->>'vision')::boolean,false),'editsImage',coalesce((n.doc->>'editsImage')::boolean,false),'lookupPhase',n.doc->>'lookupPhase','dependsOn',n.doc->'dependsOn',
  'toolChoice',case when n.doc->'toolChoice' is distinct from 'null'::jsonb then jsonb_build_object(
  'selector',(n.doc->'toolChoice'->>'selector')::int,'agent',coalesce(b.id::text,''),'name',coalesce(b.name,''),
- 'revision',(n.doc->'toolChoice'->>'revision')::int,'ready',coalesce(b.ready,false)) end
+ 'revision',(n.doc->'toolChoice'->>'revision')::int,'ready',coalesce(b.ready,false),'buildMatches',b.build_matches) end
  ) order by n.ordinal) from jsonb_array_elements(v.nodes) with ordinality n(doc,ordinal)
- left join lateral(select a.id,ar.name,coalesce(a.published_revision=ar.revision and agent_admissible(a.id,ar.revision,$1),false) ready
+ left join lateral(select a.id,ar.name,build.matches as build_matches,
+   coalesce(a.published_revision=ar.revision and agent_admissible(a.id,ar.revision,$1) and build.matches,false) ready
  from agents a join agent_revisions ar on ar.agent_id=a.id and ar.revision=(n.doc->>'revision')::int
+ cross join lateral(select workflow_build_usable(v.template_id,v.version,a.id,ar.revision) matches) build
  where a.id=(n.doc->>'agent')::uuid and not a.removed and project_agent_access(null,a.id,ar.revision,$1)) a on true
- left join lateral(select a.id,ar.name,coalesce(a.published_revision=ar.revision and agent_admissible(a.id,ar.revision,$1),false) ready
+ left join lateral(select a.id,ar.name,build.matches as build_matches,
+   coalesce(a.published_revision=ar.revision and agent_admissible(a.id,ar.revision,$1) and build.matches,false) ready
  from agents a join agent_revisions ar on ar.agent_id=a.id and ar.revision=(n.doc->'toolChoice'->>'revision')::int
+ cross join lateral(select workflow_build_usable(v.template_id,v.version,a.id,ar.revision) matches) build
  where a.id=(n.doc->'toolChoice'->>'agent')::uuid and not a.removed and project_agent_access(null,a.id,ar.revision,$1)) b on true),'[]')`
 
 const projectWorkflowTemplateSQL = `(select jsonb_build_object('id',v.template_id,'version',v.version,'name',v.name,
- 'instructions',v.instructions,'inputs',v.inputs,'outcomes',v.outcomes,'requiresSources',v.requires_sources,'nodes',` + workflowTemplateNodes + `,
+ 'instructions',v.instructions,'inputs',v.inputs,'outcomes',v.outcomes,'requiresSources',v.requires_sources,'manifestDigest',v.manifest_digest,'nodes',` + workflowTemplateNodes + `,
  'updateVersion',nullif(greatest(offered_workflow_template_version(u.template_id,$1),v.version),v.version))
  from project_workflow_template_binding u join workflow_template_versions v on(v.template_id,v.version)=(u.template_id,u.version) where u.project_id=p.id)`
 
@@ -65,7 +69,7 @@ func (s Server) workflowTemplateDetail(w http.ResponseWriter, r *http.Request, u
 	}
 	var result json.RawMessage
 	err = s.DB.QueryRow(r.Context(), `select jsonb_build_object(`+templateSummary+`,
- 'instructions',v.instructions,'inputs',v.inputs,'outcomes',v.outcomes,'requiresSources',v.requires_sources,'nodes',`+workflowTemplateNodes+`) `+
+ 'instructions',v.instructions,'inputs',v.inputs,'outcomes',v.outcomes,'requiresSources',v.requires_sources,'manifestDigest',v.manifest_digest,'nodes',`+workflowTemplateNodes+`) `+
 		templateCatalogScope+` and t.id=$2 and v.version=$3`, u.ID, r.PathValue("template"), ver).Scan(&result)
 	if err != nil {
 		return err
@@ -167,6 +171,9 @@ func (s Server) saveWorkflowTemplate(w http.ResponseWriter, r *http.Request, u i
  values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,exists(select from plan_sources where(project_id,plan_version)=($8,$9)))`, result.ID, result.Version, in.Name, in.Instructions, in.Inputs, in.Outcomes, nodes, project, p.PlanVersion, u.ID, key, sig); err != nil {
 			return err
 		}
+		if err := compileWorkflow(ctx, tx, result); err != nil {
+			return err
+		}
 		return database.Audit(ctx, tx, u.ID, "workflow_template.save", result.ID, map[string]any{"version": result.Version, "project": project, "plan": p.PlanVersion})
 	})
 	if err != nil {
@@ -221,6 +228,9 @@ func (s Server) workflowTemplatePublication(w http.ResponseWriter, r *http.Reque
 			if t.published == in.Version || t.requested == in.Version {
 				return nil
 			}
+			if err := checkWorkflowPublication(ctx, tx, id, in.Version, u.ID); err != nil {
+				return err
+			}
 			update = "requested_version=current_version,decision_reason=''"
 		case "publish", "return":
 			if t.role != "admin" {
@@ -233,6 +243,9 @@ func (s Server) workflowTemplatePublication(w http.ResponseWriter, r *http.Reque
 				return web.Fail(409, "该修订没有待处理的发布申请")
 			}
 			if in.Action == "publish" {
+				if err := checkWorkflowPublication(ctx, tx, id, in.Version, u.ID); err != nil {
+					return err
+				}
 				update = "published_version=current_version,requested_version=0,decision_reason=''"
 			} else {
 				if !validTemplateText(in.Reason, 1000) {

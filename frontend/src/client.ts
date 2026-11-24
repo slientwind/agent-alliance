@@ -328,18 +328,20 @@ export type WorkflowTemplate = {
   inputs: string;
   outcomes: string;
   requiresSources: boolean;
+  manifestDigest?: string | null;
   updateVersion?: number | null;
   nodes: {
     agent: string;
     name: string;
     revision: number;
     ready: boolean;
+    buildMatches?: boolean | null;
     operation: string;
     vision?: boolean;
     editsImage?: boolean;
     lookupPhase?: "search" | "answer" | "answer_calc" | "synthesize" | "";
     dependsOn: number[];
-    toolChoice?: { selector: number; agent: string; name: string; revision: number; ready: boolean } | null;
+    toolChoice?: { selector: number; agent: string; name: string; revision: number; ready: boolean; buildMatches?: boolean | null } | null;
   }[];
 };
 

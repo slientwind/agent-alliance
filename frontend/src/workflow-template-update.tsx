@@ -77,6 +77,7 @@ export function WorkflowTemplateVersionReview({ project, owner, hasDraft, busy, 
         <>
           <h3>模板 v{preview.fromVersion} 与 v{preview.target.version}</h3>
           {!preview.published && <p>新版是你维护的个人草稿。</p>}
+          {preview.target.manifestDigest && <small>新版构建清单 {preview.target.manifestDigest.slice(0, 12)}</small>}
           {stale && <p role="status">项目或可用版本已变化，请重新比较。</p>}
           {fields.filter(([field]) => current[field] !== preview.target[field]).map(([field, name]) => (
             <div key={field}>
@@ -93,6 +94,7 @@ export function WorkflowTemplateVersionReview({ project, owner, hasDraft, busy, 
               {changed.map(i => <li key={i} value={i + 1}>
                 <div>{project.plan ? "当前方案" : "原模板"} · <StepDescription step={baseNodes[i]} /></div>
                 <div>新版 · <StepDescription step={preview.target.nodes[i]} /></div>
+                {sameStep(baseNodes[i], preview.target.nodes[i]) && <small>此步骤的构建清单已变化。</small>}
               </li>)}
             </ol>
           ) : <p>步骤及依赖一致。</p>}

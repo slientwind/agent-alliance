@@ -8,13 +8,14 @@ type Step = {
   lookup?: boolean;
   calculate?: boolean;
   followUp?: boolean;
-  toolChoice?: {agent: string; name: string; revision: number; selector: string};
+  toolChoice?: {agent: string; name: string; revision: number; selector: string; buildMatches?: boolean | null};
   key: string;
   agent: string;
   name: string;
   revision: number;
   inputs: string[];
   requiredOperation?: string;
+  templateBuildChanged?: boolean;
   operation?: string;
   outline?: boolean;
   vision?: boolean;
@@ -57,6 +58,7 @@ export function currentPlan(project: Project): PlanDraft {
       name: node.name || "待选择 Agent",
       revision: node.revision,
       requiredOperation: template ? node.operation : undefined,
+      templateBuildChanged: "buildMatches" in node && node.buildMatches === false,
       operation: node.operation,
       outline: "outline" in node ? node.outline : undefined,
       vision: node.vision,
@@ -290,9 +292,9 @@ export function PlanEditor({
     }
   }
   const invalidToolChoice = steps.some(step => step.toolChoice &&
-    (!csvOnly || selectorFor(step)?.key !== step.toolChoice.selector ||
+    (step.toolChoice.buildMatches === false || !csvOnly || selectorFor(step)?.key !== step.toolChoice.selector ||
       (step.requiredOperation && !agents.some(a => a.id === step.toolChoice?.agent && a.published === step.toolChoice.revision))));
-  const unavailableTemplateStep = steps.some(step => step.requiredOperation && !agents.some(agent =>
+  const unavailableTemplateStep = steps.some(step => step.templateBuildChanged || step.requiredOperation && !agents.some(agent =>
     agent.id === step.agent && agent.published === step.revision && agent.publishedOperation === step.requiredOperation &&
     !!agent.publishedVision === !!step.vision && !!agent.publishedImageEdit === !!step.editsImage && (!step.lookup || agent.publishedLookup),
   ));
@@ -329,6 +331,7 @@ export function PlanEditor({
         agent: agent.id,
         name: agent.publishedName || agent.name,
         revision: agent.published,
+        templateBuildChanged: current.templateBuildChanged && current.agent === agent.id && current.revision === agent.published,
         operation: current.operation ?? agent.publishedOperation,
         outline: current.outline ?? agent.publishedOutline,
       } : current),

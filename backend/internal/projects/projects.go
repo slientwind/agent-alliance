@@ -476,6 +476,10 @@ func (s Server) plan(w http.ResponseWriter, r *http.Request, u identity.Member) 
 	return nil
 }
 func SavePlan(ctx context.Context, tx pgx.Tx, project, actor string, in PlanInput) error {
+	return savePlan(ctx, tx, project, actor, in, 0)
+}
+
+func savePlan(ctx context.Context, tx pgx.Tx, project, actor string, in PlanInput, templateVersion int) error {
 	if web.Blank(in.Brief) || len(in.Agents) < 1 || len(in.Agents) > 12 {
 		return web.Fail(422, "请提供目标和 1 到 12 个已发布 Agent")
 	}
@@ -567,6 +571,9 @@ func SavePlan(ctx context.Context, tx pgx.Tx, project, actor string, in PlanInpu
 		return err
 	}
 	if err := saveToolChoices(ctx, tx, p.ID, ver, actor, nodes, in.ToolChoices); err != nil {
+		return err
+	}
+	if err := bindWorkflowBuilds(ctx, tx, p.ID, ver, templateVersion); err != nil {
 		return err
 	}
 
@@ -699,6 +706,9 @@ func (s Server) start(w http.ResponseWriter, r *http.Request, u identity.Member)
 // CheckAdmission rechecks the fixed plan before a new run is accepted. In-flight runs
 // subsequently use the normal-stop/emergency-stop distinction at each operation.
 func CheckAdmission(ctx context.Context, tx pgx.Tx, project string, version int, actor string) error {
+	if err := checkWorkflowBuilds(ctx, tx, project, version); err != nil {
+		return err
+	}
 	if err := checkPlanPictures(ctx, tx, project, version, true); err != nil {
 		return err
 	}

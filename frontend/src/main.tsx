@@ -1257,7 +1257,7 @@ function App() {
               refresh={catalog}
               manage={() => setPanel("library")}
               openTemplates={() => setPanel("templates")}
-              openWorkflowTemplates={openWorkflowTemplates}
+              openWorkflowTemplates={() => openWorkflowTemplates()}
               configure={() => setPanel("setup")}
               selection={pickedAgents}
               goal={draft}
