@@ -559,7 +559,7 @@ export function Work({
               return (
               <li key={i}>
                 {n.toolChoice ? <strong>汇总报表</strong> : (
-                  <>{n.name} · v{n.revision}{n.lookupPhase === "search" ? " · 检索依据" : n.lookupPhase === "answer_calc" ? " · 引文金额核算" : n.lookupPhase === "answer" ? " · 据原文回答" : n.lookupPhase === "synthesize" ? " · 有新增原文时续答" : ""}</>
+                  <>{n.name} · v{n.revision}{n.lookupPhase === "search" ? " · 检索依据" : n.lookupPhase === "answer_calc" ? " · 引文金额核算" : n.lookupPhase === "answer" ? " · 据原文回答" : n.lookupPhase === "review_evidence" ? " · 再次核对新依据" : n.lookupPhase === "synthesize" ? " · 有新增原文时续答" : ""}</>
                 )}
                 <small>
                   {n.dependsOn.length
@@ -569,6 +569,7 @@ export function Work({
                 <small>
                   {n.lookupPhase === "answer_calc"
                     ? "从引文选择 2 至 6 项同币种金额求和，或用两项算差额。金额最多两位小数，交付包含算式与原文。"
+                    : n.lookupPhase === "review_evidence" ? "有新依据时才再次核对。可直接回答、指出缺项，或在获准资料中补查。"
                     : n.vision ? "读取本次引用的图片，提交可审核的文本。"
                       : n.editsImage ? "使用方案中的原件作为参考图，提交 PNG。"
                         : outputOperations[n.operation] || "成果操作范围待核实"}

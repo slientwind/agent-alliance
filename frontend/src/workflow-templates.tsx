@@ -252,7 +252,7 @@ export function WorkflowTemplates({ initialGoal, openProject, back, initialTempl
             {selected.nodes.map((node, i) => (
               <li key={i}>
                 <strong>{node.name || "待选择 Agent"}{node.name && " · v" + node.revision}</strong>
-                <small>{outputOperations[node.operation] || node.operation}{node.lookupPhase === "search" ? " · 检索原文" : node.lookupPhase === "answer" ? " · 据原文回答" : node.lookupPhase === "answer_calc" ? " · 引文核算" : node.lookupPhase === "synthesize" ? " · 有新增原文时续答" : ""}{node.dependsOn.length ? " · 引用步骤 " + node.dependsOn.join("、") : " · 可独立开始"}</small>
+                <small>{outputOperations[node.operation] || node.operation}{node.lookupPhase === "search" ? " · 检索原文" : node.lookupPhase === "answer" ? " · 据原文回答" : node.lookupPhase === "answer_calc" ? " · 引文核算" : node.lookupPhase === "review_evidence" ? " · 再次核对新依据" : node.lookupPhase === "synthesize" ? " · 有新增原文时续答" : ""}{node.dependsOn.length ? " · 引用步骤 " + node.dependsOn.join("、") : " · 可独立开始"}</small>
                 {node.buildMatches === false || node.toolChoice?.buildMatches === false
                   ? <small>构建清单已变化，请选择当前可用的修订。</small>
                   : (!node.ready || (node.toolChoice && !node.toolChoice.ready)) && <small>需在新方案核对可用的 Agent。</small>}

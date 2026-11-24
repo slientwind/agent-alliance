@@ -9,6 +9,7 @@ type Step = {
   lookup?: boolean;
   calculate?: boolean;
   followUp?: boolean;
+  evidenceReview?: boolean;
   toolChoice?: {agent: string; name: string; revision: number; selector: string; buildMatches?: boolean | null};
   key: string;
   agent: string;
@@ -47,9 +48,10 @@ export function currentPlan(project: Project): PlanDraft {
   const template = project.plan ? null : project.workflowTemplate;
   const goal = project.messages.filter((m) => m.kind === "user").map((m) => m.body).join("\n");
   for (const node of project.plan?.nodes ?? template?.nodes ?? []) {
-    if (node.lookupPhase === "answer" || node.lookupPhase === "answer_calc" || node.lookupPhase === "synthesize") {
+    if (node.lookupPhase === "answer" || node.lookupPhase === "answer_calc" || node.lookupPhase === "review_evidence" || node.lookupPhase === "synthesize") {
       const step = steps[steps.length - 1];
       if (node.lookupPhase === "synthesize") step.followUp = true;
+      else if (node.lookupPhase === "review_evidence") step.evidenceReview = true;
       else step.calculate = node.lookupPhase === "answer_calc";
       keys.push(keys[keys.length - 1]);
       continue;
@@ -139,7 +141,7 @@ function DraftSummary({
             {s.editsImage && " · 编辑参考图"}
             {s.toolChoice && " 或 " + s.toolChoice.name + " · v" + s.toolChoice.revision}
             {s.lookup && (s.calculate ? " · 引文金额核算" : " · 检索原文后回答")} ·{" "}
-            {s.followUp && "补查有新依据时续答 · "}
+            {s.followUp && (s.evidenceReview ? "允许再次核对新依据 · " : "补查有新依据时续答 · ")}
             {s.inputs.length
               ? "引用步骤 " +
                 s.inputs
@@ -278,7 +280,8 @@ export function PlanEditor({
   );
   const staleReplacement = replacements.length > 0 && value.baseVersion !== project.planVersion;
   const hasSources = Object.values(documents).some((v) => v > 0);
-  const calls = steps.length + steps.filter(s => s.lookup).length + steps.filter(s => s.lookup && s.followUp).length;
+  const calls = steps.length + steps.filter(s => s.lookup).length + steps.filter(s => s.lookup && s.followUp).length +
+    steps.filter(s => s.lookup && s.followUp && s.evidenceReview).length;
   const selectedFiles = Object.entries(documents).filter(([, version]) => version > 0);
   const picturePin = (id: string, version: number) =>
     sources.some(source => source.id === id && source.version === version && source.picture) ||
@@ -388,6 +391,7 @@ export function PlanEditor({
           ...(replacements.length > 0 && { replacements, replacementBase: value.baseVersion }),
           calculationSteps: steps.flatMap((step, i) => step.lookup && step.calculate ? [i + 1] : []),
           followUpSteps: steps.flatMap((step, i) => step.lookup && step.followUp ? [i + 1] : []),
+          evidenceReviewSteps: steps.flatMap((step, i) => step.lookup && step.followUp && step.evidenceReview ? [i + 1] : []),
           lookupSteps: steps.flatMap((step, i) => (step.lookup ? [i + 1] : [])),
           brief: value.brief,
           agents: steps.map((s) => s.agent),
@@ -602,7 +606,7 @@ export function PlanEditor({
                       edit({
                         steps: steps.map((t) =>
                           t.key === s.key
-                            ? { ...t, lookup: e.target.checked, calculate: false, followUp: false }
+                            ? { ...t, lookup: e.target.checked, calculate: false, followUp: false, evidenceReview: false }
                             : t,
                         ),
                       })
@@ -614,7 +618,7 @@ export function PlanEditor({
               {s.lookup && (
                 <label>
                   <input type="checkbox" checked={!!s.calculate} onChange={e =>
-                    edit({steps: steps.map(t => t.key === s.key ? {...t, calculate: e.target.checked, followUp: false} : t)})
+                    edit({steps: steps.map(t => t.key === s.key ? {...t, calculate: e.target.checked, followUp: false, evidenceReview: false} : t)})
                   } />
                   允许按原文金额求和或算差额
                 </label>
@@ -622,8 +626,15 @@ export function PlanEditor({
               {s.lookup && !s.calculate && (
                 <label>
                   <input type="checkbox" checked={!!s.followUp} disabled={!s.followUp && calls >= 12}
-                    onChange={e => edit({steps: steps.map(t => t.key === s.key ? {...t, followUp: e.target.checked} : t)})} />
+                    onChange={e => edit({steps: steps.map(t => t.key === s.key ? {...t, followUp: e.target.checked, evidenceReview: false} : t)})} />
                   补查有新依据时续答（最多追加一次调用）
+                </label>
+              )}
+              {s.lookup && !s.calculate && s.followUp && (
+                <label>
+                  <input type="checkbox" checked={!!s.evidenceReview} disabled={!s.evidenceReview && calls >= 12}
+                    onChange={e => edit({steps: steps.map(t => t.key === s.key ? {...t, evidenceReview: e.target.checked} : t)})} />
+                  允许再次核对并补查（最多再追加一次调用）
                 </label>
               )}
               {(s.toolChoice || alternatives.length > 0) && (

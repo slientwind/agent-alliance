@@ -39,7 +39,7 @@ type Preview = {
   target: VersionContract;
   blockers: { code: string; message: string }[];
 };
-const phaseLabels: Record<string, string> = { search: "原文检索", answer: "原文答复", answer_calc: "引文金额核算", synthesize: "有新增原文时续答" };
+const phaseLabels: Record<string, string> = { search: "原文检索", answer: "原文答复", answer_calc: "引文金额核算", review_evidence: "再次核对新依据", synthesize: "有新增原文时续答" };
 
 function VersionDetails({ value, label }: { value: VersionContract; label: string }) {
   const allowed = value.requiresCSV ? "CSV" : value.allowsDocuments ? "TXT、Markdown、CSV、JSON、Word、Excel、PowerPoint、PDF" : "TXT、Markdown、CSV、JSON";

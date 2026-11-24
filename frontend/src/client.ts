@@ -349,7 +349,7 @@ export type WorkflowTemplate = {
     operation: string;
     vision?: boolean;
     editsImage?: boolean;
-    lookupPhase?: "search" | "answer" | "answer_calc" | "synthesize" | "";
+    lookupPhase?: "search" | "answer" | "answer_calc" | "review_evidence" | "synthesize" | "";
     dependsOn: number[];
     toolChoice?: { selector: number; agent: string; name: string; revision: number; ready: boolean; buildMatches?: boolean | null } | null;
   }[];
@@ -509,7 +509,7 @@ export type Project = Summary & {
       outline?: boolean;
       vision?: boolean;
       editsImage?: boolean;
-      lookupPhase?: "search" | "answer" | "answer_calc" | "synthesize" | "";
+      lookupPhase?: "search" | "answer" | "answer_calc" | "review_evidence" | "synthesize" | "";
       toolChoice?: {
         selector: number;
         primaryConfig: AggregationConfig;

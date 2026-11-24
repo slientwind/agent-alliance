@@ -31,6 +31,7 @@ type lookupTurnInput struct {
 	SearchBatches [][]string                   `json:",omitempty"`
 	Calculation   *harness.CalculationDecision `json:",omitempty"`
 	Citations     []indexCitation
+	AlreadyKnown  []indexCitation `json:",omitempty"`
 }
 
 type ActionKind string
@@ -85,7 +86,7 @@ func (a Activities) prepareBatchedRefinement(step Step, attempt int, d contextDa
 
 func (a Activities) prepareLocalAction(step Step, attempt int, d contextData, reply string) (ActionKind, []byte, error) {
 	switch d.lookupPhase {
-	case "answer":
+	case "answer", "review_evidence":
 		body, err := a.prepareRefinement(ActionRef{Step: step, Attempt: attempt, Kind: refineLookupAction}, d, reply)
 		return refineLookupAction, body, err
 	case "answer_calc":
@@ -102,6 +103,7 @@ func (a Activities) prepareLocalAction(step Step, attempt int, d contextData, re
 
 func (a Activities) sealLookupAction(action ActionRef, d contextData, input lookupTurnInput) ([]byte, error) {
 	input.Citations = lookupCitationRefs(d.hits, d.lookupFiles)
+	input.AlreadyKnown = lookupCitationRefs(d.knownLookupEvidence, d.lookupFiles)
 	encoded, err := json.Marshal(input)
 	if err != nil {
 		return nil, err
@@ -129,17 +131,24 @@ func saveLookupTurn(ctx context.Context, tx pgx.Tx, step Step, d contextData, at
 		return err
 	}
 	var disposition any
+	var initial []byte
 	if revoked {
 		decision, disposition = nil, "invalidated"
+	} else if kind == refineLookupAction {
+		var err error
+		initial, err = json.Marshal(lookupCitationRefs(d.hits, d.lookupFiles))
+		if err != nil {
+			return err
+		}
 	}
 	var agent, revision, decidedControl any
 	if kind != "" {
 		agent, revision, decidedControl = d.agent, d.revision, d.controlRevision
 	}
 	if _, err := tx.Exec(ctx, `insert into lookup_turns(run_id,ordinal,attempt_no,plan_version,decision,outcome,
-		  action_kind,agent_id,agent_revision,decided_control_revision,observe_before_commit,action_count)
-		values($1,$2,$3,$4,$5,$6,nullif($7,''),$8,$9,$10,$11,$12) on conflict do nothing`, step.Run, step.Ordinal, attempt,
-		d.planVersion, decision, disposition, kind, agent, revision, decidedControl, observe, actionCount); err != nil {
+		  action_kind,agent_id,agent_revision,decided_control_revision,observe_before_commit,action_count,initial_evidence)
+		values($1,$2,$3,$4,$5,$6,nullif($7,''),$8,$9,$10,$11,$12,$13::jsonb) on conflict do nothing`, step.Run, step.Ordinal, attempt,
+		d.planVersion, decision, disposition, kind, agent, revision, decidedControl, observe, actionCount, initial); err != nil {
 		return err
 	}
 	if actionCount > 1 && !revoked {
@@ -303,17 +312,15 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 		}
 		invalid := func(reason string) error {
 			result.Wait = true
-			if _, err := tx.Exec(ctx, `update lookup_turns set decision=null,outcome='invalidated',refinement_evidence=null
+			if _, err := tx.Exec(ctx, `update lookup_turns set decision=null,outcome='invalidated',refinement_evidence=null,initial_evidence=null
                 where run_id=$1 and ordinal=$2 and attempt_no=$3`, step.Run, step.Ordinal, action.Attempt); err != nil {
 				return err
 			}
 			return setState(ctx, tx, step, d.project, "blocked", "lookup_turn_invalidated", reason)
 		}
-		expectedPhase := "answer"
-		if kind == calculateAction {
-			expectedPhase = "answer_calc"
-		}
-		if len(sealed) == 0 || savedPlan != d.planVersion || d.lookupPhase != expectedPhase ||
+		validPhase := (kind == calculateAction && d.lookupPhase == "answer_calc") ||
+			(kind != calculateAction && (d.lookupPhase == "answer" || d.lookupPhase == "review_evidence"))
+		if len(sealed) == 0 || savedPlan != d.planVersion || !validPhase ||
 			(kind != "" && (savedAgent != d.agent || savedRevision != d.revision || decidedControl > control)) {
 			return invalid("续查依据或方案已变化，请核对后重新发起。")
 		}
@@ -375,6 +382,13 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 			return invalid("首轮引文的资料位置或版本已变化，请核对后重新发起。")
 		}
 		prior := first
+		if len(input.AlreadyKnown) > 0 {
+			known, ok := reopenLookupTurn(input.AlreadyKnown, files)
+			if !ok {
+				return invalid("已核对的原文位置或版本已变化，请核对后继续。")
+			}
+			prior = append(append([]lookupHit{}, first...), known...)
+		}
 		progress := lookupBatchProgress{count: actionCount}
 		if action.Round > 0 {
 			if len(input.SearchBatches) != actionCount || len(input.SearchBatches[action.Round-1]) == 0 {
@@ -390,7 +404,7 @@ func (a Activities) executeLocalAction(ctx context.Context, action ActionRef, co
 					if !ok {
 						return invalid("此前补查的原文已变化，请重新核对。")
 					}
-					prior = append(append([]lookupHit{}, first...), found...)
+					prior = append(append([]lookupHit{}, prior...), found...)
 				}
 			}
 		}

@@ -615,9 +615,10 @@
                     "search",
                     "answer",
                     "answer_calc",
+                    "review_evidence",
                     "synthesize"
                   ],
-                  "description": "search 与 answer 表示同一文本 Agent 先检索再回答。answer_calc 可依据引文核算同币种金额。synthesize 在补查取得新依据时追加一次作答。发起此类服务须提供 attachment。"
+                  "description": "search 与 answer 表示同一文本 Agent 先检索再回答。answer_calc 可依据引文核算同币种金额。review_evidence 在前轮获得新依据后核对并可提出一次只读补查。synthesize 只有在前轮留下新增依据时才调用模型。发起此类服务须提供 attachment。"
                 },
                 "toolChoice": {
                   "type": ["object", "null"],
@@ -902,6 +903,9 @@
                 },
                 "status": {
                   "type": "string"
+                },
+                "lookupPhase": {
+                  "enum": ["search", "answer", "answer_calc", "review_evidence", "synthesize"]
                 },
                 "canSupplement": {
                   "type": "boolean"

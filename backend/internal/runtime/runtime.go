@@ -102,6 +102,7 @@ type contextData struct {
 	lookupFiles                                            []knowledge.InputSource
 	operands                                               []moneyOperand
 	hits                                                   []lookupHit
+	knownLookupEvidence                                    []lookupHit
 	change                                                 bool
 	replacement, excerpt, baseBody                         string
 	changeArtifact                                         string
@@ -224,7 +225,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			}
 		}
 		if mode != fixedStep && invocationStatus == "completed" && recorded == nil &&
-			(d.lookupPhase == "answer" || mode >= durableLocalActions && d.lookupPhase == "answer_calc") {
+			(d.lookupPhase == "answer" || mode >= durableLocalActions && (d.lookupPhase == "answer_calc" || d.lookupPhase == "review_evidence")) {
 			found, err := resumeLookupTurn(ctx, tx, step, d, attempt, &result)
 			if found || err != nil {
 				return err
@@ -381,9 +382,10 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			} else if !d.change {
 				d.lookupGoal = planBrief
 			}
-		case "synthesize":
+		case "review_evidence", "synthesize":
 			d.lookupFiles = files
-			d.hits, err = synthesisEvidence(ctx, tx, step, files)
+			review := d.lookupPhase == "review_evidence"
+			d.hits, d.knownLookupEvidence, err = synthesisEvidence(ctx, tx, step, files, review)
 			if err != nil {
 				var changed web.Problem
 				if errors.As(err, &changed) {
@@ -400,7 +402,14 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 				}
 			}
 			d.prior = lookupContext(d.hits, files)
-			d.prompt += "\n" + synthesisInstructions
+			if review {
+				d.prompt += "\n" + evidenceReviewInstructions + "\n" + answerInstructions
+				if mode == batchedLookupActions && !d.change && !m.External && m.Tool == nil && m.OutputOperation == "text" {
+					d.prompt += "\n" + batchedLookupInstructions
+				}
+			} else {
+				d.prompt += "\n" + synthesisInstructions
+			}
 		case "answer", "answer_calc":
 			d.lookupFiles = files
 			d.hits = verifiedHits(d.prior, files)
@@ -612,7 +621,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			} else {
 				reply.Text, lookupOutcome = calculationAnswer(reply.Text, d.hits, d.lookupFiles, d.operands)
 			}
-		case "answer":
+		case "answer", "review_evidence":
 			if reply.FinishReason != "" && reply.FinishReason != "stop" {
 				reply.Text = ""
 			}
@@ -867,9 +876,9 @@ func commitOutput(ctx context.Context, tx pgx.Tx, step Step, d contextData, text
 		return err
 	}
 	var intermediate bool
-	if d.lookupPhase == "answer" {
+	if d.lookupPhase == "answer" || d.lookupPhase == "review_evidence" {
 		err := tx.QueryRow(ctx, `select exists(select from node_edges e join nodes next using(project_id,plan_version,ordinal)
-			where (e.project_id,e.plan_version,e.depends_on)=($1,$2,$3) and next.lookup_phase='synthesize')`,
+			where (e.project_id,e.plan_version,e.depends_on)=($1,$2,$3) and next.lookup_phase in ('review_evidence','synthesize'))`,
 			d.project, d.planVersion, step.Ordinal).Scan(&intermediate)
 		if err != nil {
 			return err
@@ -906,7 +915,7 @@ func commitOutput(ctx context.Context, tx pgx.Tx, step Step, d contextData, text
 	}
 	var total, internal int
 	if err := tx.QueryRow(ctx, `select (select count(*) from artifacts where run_id=$1),
-		(select count(*) from nodes where (project_id,plan_version)=($2,$3) and lookup_phase='synthesize')`,
+		(select count(*) from nodes where (project_id,plan_version)=($2,$3) and lookup_phase in ('review_evidence','synthesize'))`,
 		step.Run, d.project, d.planVersion).Scan(&total, &internal); err != nil {
 		return err
 	}
@@ -1064,7 +1073,7 @@ func (a Activities) Topology(ctx context.Context, run string) ([]Node, error) {
 	rows, err := a.Catalog.DB.Query(ctx, `select n.ordinal,case when cb.run_id is not null then array[]::integer[] else array(
         select e.depends_on from node_edges e where(e.project_id,e.plan_version,e.ordinal)=(n.project_id,n.plan_version,n.ordinal)
         and not exists(select from rule_branch_steps b where (b.run_id,b.ordinal)=(r.id,e.depends_on) and b.mode='reuse')
-		order by e.depends_on) end,agent_output_operation(ar)='png',n.lookup_phase='answer' and cb.run_id is null,n.lookup_phase='answer_calc' and cb.run_id is null
+        order by e.depends_on) end,agent_output_operation(ar)='png',n.lookup_phase in ('answer','review_evidence') and cb.run_id is null,n.lookup_phase='answer_calc' and cb.run_id is null
         from runs r left join change_batches cb on cb.run_id=r.id left join artifacts target on target.id=cb.artifact_id
         join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version)
         join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision)

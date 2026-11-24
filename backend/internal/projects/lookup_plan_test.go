@@ -33,3 +33,27 @@ func TestEvidenceFollowUpExpansion(t *testing.T) {
 		}
 	}
 }
+
+func TestEvidenceReviewBudgetsBothRoundsAndMapsTheFinalOutput(t *testing.T) {
+	in := PlanInput{
+		Agents: []string{"research", "document"}, AgentRevisions: []int{2, 1},
+		LookupSteps: []int{1}, FollowUpSteps: []int{1}, EvidenceReviewSteps: []int{1},
+		Sources: []SourcePin{{ID: "source", Version: 3}},
+	}
+	nodes, err := executionNodes(in)
+	if err != nil || len(nodes) != 5 || nodes[2].phase != "review_evidence" || nodes[3].phase != "synthesize" ||
+		*nodes[2].revision != 2 || !reflect.DeepEqual(nodes[2].dependencies, []int{2}) ||
+		!reflect.DeepEqual(nodes[3].dependencies, []int{3}) || !reflect.DeepEqual(nodes[4].dependencies, []int{4}) ||
+		!reflect.DeepEqual(deliveryOrdinals(nodes), []int{4, 5}) {
+		t.Fatalf("unexpected bounded review plan: %+v %v", nodes, err)
+	}
+	for _, invalid := range []PlanInput{
+		{Agents: in.Agents, AgentRevisions: in.AgentRevisions, Sources: in.Sources, LookupSteps: []int{1}, EvidenceReviewSteps: []int{1}},
+		{Agents: in.Agents, AgentRevisions: in.AgentRevisions, Sources: in.Sources, LookupSteps: []int{1}, FollowUpSteps: []int{1}, EvidenceReviewSteps: []int{1, 1}},
+		{Agents: make([]string, 10), AgentRevisions: []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, Sources: in.Sources, LookupSteps: []int{1}, FollowUpSteps: []int{1}, EvidenceReviewSteps: []int{1}},
+	} {
+		if _, err := executionNodes(invalid); err == nil {
+			t.Fatalf("accepted review outside the fixed plan: %+v", invalid)
+		}
+	}
+}

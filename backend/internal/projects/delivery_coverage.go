@@ -26,7 +26,8 @@ type DeliveryContract struct {
 func deliveryOrdinals(nodes []executionNode) []int {
 	ordinals := make([]int, 0, len(nodes))
 	for i, node := range nodes {
-		followed := node.phase == "answer" && i+1 < len(nodes) && nodes[i+1].phase == "synthesize"
+		followed := (node.phase == "answer" || node.phase == "review_evidence") && i+1 < len(nodes) &&
+			(nodes[i+1].phase == "review_evidence" || nodes[i+1].phase == "synthesize")
 		if node.phase != "search" && !followed {
 			ordinals = append(ordinals, i+1)
 		}

@@ -46,10 +46,18 @@ func executionNodes(in PlanInput) ([]executionNode, error) {
 		}
 		followUp[ordinal] = true
 	}
-	if count+len(lookup)+len(followUp) > 12 {
+	reviewEvidence := map[int]bool{}
+	for _, ordinal := range in.EvidenceReviewSteps {
+		if !followUp[ordinal] || reviewEvidence[ordinal] {
+			return nil, web.Fail(422, "再次核对需要绑定已选择新增原文续答的步骤")
+		}
+		reviewEvidence[ordinal] = true
+	}
+	expanded := count + len(lookup) + len(followUp) + len(reviewEvidence)
+	if expanded > 12 {
 		return nil, web.Fail(422, "方案展开后最多 12 次能力调用")
 	}
-	result := make([]executionNode, 0, count+len(lookup)+len(followUp))
+	result := make([]executionNode, 0, expanded)
 	last := make([]int, count+1)
 	for i, id := range in.Agents {
 		node := executionNode{agent: id}
@@ -80,6 +88,11 @@ func executionNodes(in PlanInput) ([]executionNode, error) {
 			node.dependencies = []int{len(result)}
 		}
 		result = append(result, node)
+		if reviewEvidence[i+1] {
+			node.phase = "review_evidence"
+			node.dependencies = []int{len(result)}
+			result = append(result, node)
+		}
 		if followUp[i+1] {
 			node.phase = "synthesize"
 			node.dependencies = []int{len(result)}

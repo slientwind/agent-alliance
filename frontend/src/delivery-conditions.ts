@@ -7,13 +7,16 @@ export type DeliveryStep = {
   inputs: string[];
   lookup?: boolean;
   followUp?: boolean;
+  evidenceReview?: boolean;
   calculate?: boolean;
   completion?: string;
 };
 
 export function deliveryOutputs<T extends { lookupPhase?: string }>(nodes: T[]) {
   return nodes.flatMap((node, index) => {
-    const followed = node.lookupPhase === "answer" && nodes[index + 1]?.lookupPhase === "synthesize";
+    const next = nodes[index + 1]?.lookupPhase;
+    const followed = (node.lookupPhase === "answer" || node.lookupPhase === "review_evidence") &&
+      (next === "review_evidence" || next === "synthesize");
     return node.lookupPhase !== "search" && !followed ? [{ node, ordinal: index + 1 }] : [];
   });
 }
@@ -24,7 +27,7 @@ export function conditionItems(steps: { completion?: string }[]): DeliveryContra
 }
 
 function agentAndMode(step: DeliveryStep) {
-  return JSON.stringify([step.agent, step.revision, !!step.lookup, !!step.followUp, !!step.calculate]);
+  return JSON.stringify([step.agent, step.revision, !!step.lookup, !!step.followUp, !!step.calculate, !!step.evidenceReview]);
 }
 
 function stepSignatures(steps: DeliveryStep[]) {

@@ -397,10 +397,10 @@ var progressSQL = `select jsonb_build_object(
  'ruleRebuildUrl','/api/v1/runs/'||r.id||'/rule-rebuild',
  'replacementRun',(select b.run_id from rule_branch_rebuilds b where b.source_run=r.id),
  'finalReviewer',reviewer.display_name,
- 'steps',array(select jsonb_strip_nulls(jsonb_build_object('step',n.ordinal,'name',ar.name,'revision',n.agent_revision,'toolChoice',n.choice,'status',case when branch.mode='reuse' then 'reused'
+ 'steps',array(select jsonb_strip_nulls(jsonb_build_object('step',n.ordinal,'name',ar.name,'revision',n.agent_revision,'lookupPhase',nullif(n.lookup_phase,''),'toolChoice',n.choice,'status',case when branch.mode='reuse' then 'reused'
    when o.payload is not null then 'checking_observation'
    when t.action_count>1 then 'refining_evidence'
-   when n.lookup_phase='synthesize' and evidence_follow_up_skipped(r.id,n.ordinal) then 'skipped' else coalesce(i.status,case when n.lookup_phase in ('answer','answer_calc') and a.id is not null then 'skipped' else 'pending' end) end,
+   when n.lookup_phase in ('review_evidence','synthesize') and evidence_follow_up_skipped(r.id,n.ordinal) then 'skipped' else coalesce(i.status,case when n.lookup_phase in ('answer','answer_calc') and a.id is not null then 'skipped' else 'pending' end) end,
  'lookupBatch',case when t.action_count>1 then jsonb_build_object('current',t.action_cursor,'total',t.action_count) end,
  'canSupplement',r.status in('queued','running','blocked','paused') and i.run_id is null and a.id is null and not coalesce(branch.finished,false) and ar.tool is null and (select count(*) from service_supplements x where(x.run_id,x.ordinal)=(r.id,n.ordinal))<8,
  'artifact',a.id,'version',a.current_version,'needsSourceReview',case when a.id is not null then source_check_needed(a.id) end,'needsTakeoverReview',case when a.id is not null then takeover_review_needed(p.id,a.id,a.current_version) end,'approved',case when a.id is not null then exists(select from reviews rv where(rv.artifact_id,rv.version)=(a.id,a.current_version)) end))

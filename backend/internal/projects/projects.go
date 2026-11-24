@@ -497,6 +497,7 @@ type PlanInput struct {
 	SourceLookup           bool
 	CalculationSteps       []int
 	FollowUpSteps          []int
+	EvidenceReviewSteps    []int `json:",omitempty"`
 	LookupSteps            []int
 	Brief                  string
 	Suggestion             string
