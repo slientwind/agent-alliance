@@ -521,6 +521,7 @@ export type Project = Summary & {
         selected: 0 | 1 | 2 | null;
         manual?: boolean;
         canConfirm?: boolean;
+        waitScope?: "step" | "run" | null;
       } | null;
       dependsOn: number[];
     }[];

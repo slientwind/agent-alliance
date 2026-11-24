@@ -310,10 +310,12 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
  'nodes',(select jsonb_agg(jsonb_build_object('agent',n.agent_id,'name',a.name,'revision',n.agent_revision,'operation',agent_output_operation(a),'vision',agent_uses_picture(a) and not agent_edits_picture(a),'editsImage',agent_edits_picture(a),'outline',coalesce(a.tool @> '{"operation":"pptx","contract":"pptx-outline-v1"}'::jsonb,false),'lookupPhase',n.lookup_phase,'toolChoice',
  (select jsonb_build_object('selector',c.selector,'agent',v.agent_id,'name',v.name,'revision',v.revision,'primaryConfig',aggregate_scope(a.tool),'config',aggregate_scope(v.tool),
    'selected',coalesce(pick.manual_choice,pick.choice),'manual',pick.manual_choice is not null,
-   'canConfirm',exists(select from active_tool_choice_waits w where(w.run_id,w.ordinal)=(pick.run_id,pick.ordinal))) from plan_tool_choices c join agent_revisions v on (v.agent_id,v.revision)=(c.alternative,c.alternative_revision)
+   'canConfirm',wait.run_id is not null,
+   'waitScope',case when wait.step_scoped then 'step' when wait.run_id is not null then 'run' end) from plan_tool_choices c join agent_revisions v on (v.agent_id,v.revision)=(c.alternative,c.alternative_revision)
    left join run_tool_choices pick on (pick.run_id,pick.ordinal)=((select r.id from runs r
       where(r.project_id,r.plan_version)=(p.id,p.plan_version) and not exists(select from change_batches cb where cb.run_id=r.id)
       order by r.created_at desc limit 1),n.ordinal)
+   left join active_tool_choice_waits wait on (wait.run_id,wait.ordinal)=(pick.run_id,pick.ordinal)
    where(c.project_id,c.plan_version,c.ordinal)=(n.project_id,n.plan_version,n.ordinal)), 'dependsOn',coalesce((select jsonb_agg(depends_on order by depends_on) from node_edges e where(e.project_id,e.plan_version,e.ordinal)=(n.project_id,n.plan_version,n.ordinal)),'[]')) order by ordinal) from nodes n join agent_revisions a on(a.agent_id,a.revision)=(n.agent_id,n.agent_revision) where n.project_id=p.id and n.plan_version=p.plan_version)) from plans where project_id=p.id and version=p.plan_version),
  'feedbackOriginals',coalesce((select jsonb_object_agg(s.id,s.original) from project_feedback_submissions s where s.project_id=p.id
  and not exists(select from feedback_access f where f.submission_id=s.id and not f.notes_readable)),'{}'),

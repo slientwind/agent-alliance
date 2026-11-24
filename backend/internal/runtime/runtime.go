@@ -22,6 +22,7 @@ import (
 	"go.temporal.io/sdk/workflow"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 	"time"
 )
@@ -139,7 +140,8 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 	err := database.WithTx(ctx, db, func(tx pgx.Tx) error {
 		var runState string
 		var selector, choice *int
-		err := tx.QueryRow(ctx, `select r.project_id,r.actor,n.agent_id,n.agent_revision,p.brief,r.status,r.max_calls,n.lookup_phase,r.await_calculation_receipt,r.await_lookup_receipt,exists(select from nodes next where n.lookup_phase='search' and (next.project_id,next.plan_version,next.ordinal)=(n.project_id,n.plan_version,n.ordinal+1) and next.lookup_phase='answer_calc'),exists(select from change_batches where run_id=r.id),n.selector,n.choice,r.plan_version,r.control_revision,r.service_id is null from runs r join plans p on(p.project_id,p.version)=(r.project_id,r.plan_version) join effective_run_nodes n on n.run_id=r.id where r.id=$1 and n.ordinal=$2 for update of r`, step.Run, step.Ordinal).Scan(&d.project, &d.actor, &d.agent, &d.revision, &d.brief, &runState, &d.maximum, &d.lookupPhase, &d.awaitReceipt, &d.awaitLookupReceipt, &d.searchForCalculation, &d.change, &selector, &choice, &d.planVersion, &d.controlRevision, &d.memberDraft)
+		var stepToolChoice bool
+		err := tx.QueryRow(ctx, `select r.project_id,r.actor,n.agent_id,n.agent_revision,p.brief,r.status,r.max_calls,n.lookup_phase,r.await_calculation_receipt,r.await_lookup_receipt,exists(select from nodes next where n.lookup_phase='search' and (next.project_id,next.plan_version,next.ordinal)=(n.project_id,n.plan_version,n.ordinal+1) and next.lookup_phase='answer_calc'),exists(select from change_batches where run_id=r.id),n.selector,n.choice,r.plan_version,r.control_revision,r.service_id is null,r.step_tool_choice from runs r join plans p on(p.project_id,p.version)=(r.project_id,r.plan_version) join effective_run_nodes n on n.run_id=r.id where r.id=$1 and n.ordinal=$2 for update of r`, step.Run, step.Ordinal).Scan(&d.project, &d.actor, &d.agent, &d.revision, &d.brief, &runState, &d.maximum, &d.lookupPhase, &d.awaitReceipt, &d.awaitLookupReceipt, &d.searchForCalculation, &d.change, &selector, &choice, &d.planVersion, &d.controlRevision, &d.memberDraft, &stepToolChoice)
 		if err != nil {
 			return err
 		}
@@ -231,15 +233,8 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			}
 		}
 		if selector != nil && (choice == nil || *choice == 0) {
-			if choice != nil && !d.change {
-				if _, err := tx.Exec(ctx, `insert into run_tool_choice_waits(run_id,ordinal,control_revision) values($1,$2,$3)
-                    on conflict(run_id) do update set (ordinal,control_revision)=(excluded.ordinal,excluded.control_revision)`,
-					step.Run, step.Ordinal, d.controlRevision); err != nil {
-					return err
-				}
-			}
 			result.Wait = true
-			return setState(ctx, tx, step, d.project, "blocked", "tool_choice_unavailable", "Agent 未选出已授权的工具。经办人可从原候选中选择一个，继续本次运行。")
+			return parkToolChoice(ctx, tx, step, d, choice != nil && !d.change, stepToolChoice)
 		}
 		if !d.change {
 			if err := d.routing.load(ctx, tx, step.Run, step.Ordinal); err != nil {
@@ -1079,6 +1074,7 @@ type Node struct {
 	Image               bool
 	LookupAnswer        bool
 	Calculation         bool
+	ToolChoice          bool
 	observeLocalActions bool
 	batchLookupActions  bool
 }
@@ -1087,7 +1083,8 @@ func (a Activities) Topology(ctx context.Context, run string) ([]Node, error) {
 	rows, err := a.Catalog.DB.Query(ctx, `select n.ordinal,case when cb.run_id is not null then array[]::integer[] else array(
         select e.depends_on from node_edges e where(e.project_id,e.plan_version,e.ordinal)=(n.project_id,n.plan_version,n.ordinal)
         and not exists(select from rule_branch_steps b where (b.run_id,b.ordinal)=(r.id,e.depends_on) and b.mode='reuse')
-        order by e.depends_on) end,agent_output_operation(ar)='png',n.lookup_phase in ('answer','review_evidence') and cb.run_id is null,n.lookup_phase='answer_calc' and cb.run_id is null
+        order by e.depends_on) end,agent_output_operation(ar)='png',n.lookup_phase in ('answer','review_evidence') and cb.run_id is null,n.lookup_phase='answer_calc' and cb.run_id is null,
+        cb.run_id is null and exists(select from plan_tool_choices c where (c.project_id,c.plan_version,c.ordinal)=(n.project_id,n.plan_version,n.ordinal))
         from runs r left join change_batches cb on cb.run_id=r.id left join artifacts target on target.id=cb.artifact_id
         join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version)
         join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision)
@@ -1115,13 +1112,20 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 		}
 	}
 	if workflow.GetVersion(ctx, "independent-dag-dispatch", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+		parallel := hasParallelSteps(nodes)
 		if len(nodes) > 1 && workflow.GetVersion(ctx, "step-remote-input", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
 			if err := workflow.ExecuteActivity(ctx, "EnableStepRemoteInput", run).Get(ctx, nil); err != nil {
 				return err
 			}
 		}
-		if hasParallelSteps(nodes) && workflow.GetVersion(ctx, "step-source-receipts", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+		if parallel && workflow.GetVersion(ctx, "step-source-receipts", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
 			if err := workflow.ExecuteActivity(ctx, "EnableStepSourceReceipts", run).Get(ctx, nil); err != nil {
+				return err
+			}
+		}
+		if parallel && slices.ContainsFunc(nodes, func(node Node) bool { return node.ToolChoice }) &&
+			workflow.GetVersion(ctx, "step-tool-choices", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+			if err := workflow.ExecuteActivity(ctx, "EnableStepToolChoices", run).Get(ctx, nil); err != nil {
 				return err
 			}
 		}

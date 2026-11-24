@@ -580,7 +580,10 @@ export function Work({
                   </small>
                 )}
                 {n.toolChoice && n.operation !== "aggregate" && <small>步骤 {n.toolChoice.selector} 负责选择</small>}
-                {n.toolChoice?.selected === 0 && <strong>待人工选择</strong>}
+                {n.toolChoice?.selected === 0 && <strong>
+                  {n.toolChoice.waitScope === "step" ? "待人工选择 · 其他就绪步骤可继续"
+                    : n.toolChoice.canConfirm === false ? "Agent 未选出工具" : "待人工选择"}
+                </strong>}
                 {!!n.toolChoice?.selected && (
                   <strong>{n.toolChoice.manual ? "人工选定 " : "本次使用 "}{chosen.name} v{chosen.revision}</strong>
                 )}
@@ -591,7 +594,8 @@ export function Work({
                     <p>{n.toolChoice.name} v{n.toolChoice.revision} · <AggregationScope config={n.toolChoice.config} /></p>
                   </details>
                 )}
-                {p.run?.status === "blocked" && p.run.canResolveToolChoice && (n.toolChoice?.canConfirm ?? n.toolChoice?.selected === 0) && n.toolChoice && (
+                {p.run?.canResolveToolChoice && n.toolChoice &&
+                  (n.toolChoice.canConfirm ?? (p.run.status === "blocked" && n.toolChoice.selected === 0)) && (
                   <div className="actions">
                     {[n.name, n.toolChoice.name].map((name, index) => (
                       <button

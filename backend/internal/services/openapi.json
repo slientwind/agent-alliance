@@ -899,7 +899,11 @@
                 "toolChoice": {
                   "type": "integer",
                   "enum": [0, 1, 2],
-                  "description": "仅自动汇总步骤在产生选择回执后返回。0 等待人工选择，1 或 2 为实际选定的候选。"
+                  "description": "有选择回执的工具步骤返回此字段。0 表示模型弃权，1 或 2 为实际选定的候选。能否人工确认以 toolChoiceWaitScope 为准。"
+                },
+                "toolChoiceWaitScope": {
+                  "enum": ["step", "run"],
+                  "description": "可人工确认的当前工具待办。step 表示独立步骤等待，执行状态仍可为 running；run 表示旧路径的整次运行阻塞。请交由 humanActionUrl 对应项目内的有权成员处理。"
                 },
                 "status": {
                   "type": "string"

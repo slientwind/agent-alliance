@@ -9,6 +9,7 @@ import (
 
 	"alliance/internal/harness"
 	"alliance/internal/knowledge"
+	"alliance/internal/projects"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -85,4 +86,41 @@ func (c toolChoice) record(ctx context.Context, tx pgx.Tx, step Step, choice int
 	}
 	_, err := tx.Exec(ctx, `insert into trace_events(run_id,ordinal,kind,code) values ($1,$2,'checkpoint',$3)`, step.Run, step.Ordinal, code)
 	return err
+}
+
+// EnableStepToolChoices is recorded before the first dispatch of a new
+// parallel workflow. Running legacy histories retain their run-level blocker.
+func (a Activities) EnableStepToolChoices(ctx context.Context, run string) error {
+	_, err := a.Catalog.DB.Exec(ctx, "update runs set step_tool_choice=true where id=$1 and not step_tool_choice", run)
+	return err
+}
+
+func parkToolChoice(ctx context.Context, tx pgx.Tx, step Step, d contextData, recorded, isolated bool) error {
+	if recorded && isolated {
+		tag, err := tx.Exec(ctx, `insert into step_tool_choice_waits(run_id,ordinal,opened_at_control) values($1,$2,$3)
+            on conflict(run_id,ordinal) do nothing`, step.Run, step.Ordinal, d.controlRevision)
+		if err != nil || tag.RowsAffected() == 0 {
+			return err
+		}
+		if _, err = tx.Exec(ctx, "update runs set status='running' where id=$1 and status='queued'", step.Run); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `insert into trace_events(run_id,ordinal,kind,code)
+            values($1,$2,'checkpoint','tool_step_choice_waiting')`, step.Run, step.Ordinal); err != nil {
+			return err
+		}
+		if err = projects.TouchRun(ctx, tx, step.Run, d.project, "running"); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, "select record_service_event($1,'step','tool_choice_waiting',$2)", step.Run, step.Ordinal)
+		return err
+	}
+	if recorded {
+		if _, err := tx.Exec(ctx, `insert into run_tool_choice_waits(run_id,ordinal,control_revision) values($1,$2,$3)
+            on conflict(run_id) do update set (ordinal,control_revision)=(excluded.ordinal,excluded.control_revision)`,
+			step.Run, step.Ordinal, d.controlRevision); err != nil {
+			return err
+		}
+	}
+	return setState(ctx, tx, step, d.project, "blocked", "tool_choice_unavailable", "Agent 未选出已授权的工具。经办人可从原候选中选择一个，继续本次运行。")
 }

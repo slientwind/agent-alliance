@@ -139,6 +139,62 @@ func TestDAGEnablesStepRemoteInputBeforeDispatch(t *testing.T) {
 	env.AssertExpectations(t)
 }
 
+func TestDAGToolChoiceVersionAndBranchWake(t *testing.T) {
+	for _, legacy := range []bool{false, true} {
+		name := "new workflow"
+		if legacy {
+			name = "recorded workflow history"
+		}
+		t.Run(name, func(t *testing.T) {
+			env, a := dagTestEnvironment([]Node{
+				{Ordinal: 1}, {Ordinal: 2, Dependencies: []int{1}, ToolChoice: true},
+				{Ordinal: 3, Dependencies: []int{1}, ToolChoice: true}, {Ordinal: 4, Dependencies: []int{1}},
+				{Ordinal: 5, Dependencies: []int{2, 3, 4}},
+			})
+			first := env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", 1}).Return(Result{}, nil).Once()
+			if legacy {
+				env.OnGetVersion("step-tool-choices", workflow.DefaultVersion, 1).Return(workflow.DefaultVersion).Once()
+			} else {
+				env.RegisterActivity(a.EnableStepToolChoices)
+				enabled := env.OnActivity(a.EnableStepToolChoices, mock.Anything, "run").Return(nil).Once()
+				first.NotBefore(enabled)
+			}
+			var independent, resumedFirst, secondSignalled atomic.Bool
+			waitA := env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", 2}).Return(Result{Wait: true}, nil).Once()
+			waitB := env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", 3}).Return(Result{Wait: true}, nil).Once()
+			doneA := env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", 2}).NotBefore(waitA).
+				Run(func(mock.Arguments) { resumedFirst.Store(true) }).Return(Result{}, nil).Once()
+			doneB := env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", 3}).NotBefore(waitB).
+				Run(func(mock.Arguments) {
+					if !secondSignalled.Load() {
+						t.Error("confirming the first tool woke the second")
+					}
+				}).Return(Result{}, nil).Once()
+			doneC := env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", 4}).
+				Run(func(mock.Arguments) { independent.Store(true) }).Return(Result{}, nil).Once()
+			env.OnActivity(a.ExecuteStep, mock.Anything, Step{"run", 5}).NotBefore(doneA, doneB, doneC).Return(Result{}, nil).Once()
+			env.RegisterDelayedCallback(func() {
+				if !independent.Load() {
+					t.Error("independent work did not finish before confirmation")
+				}
+				env.SignalWorkflow("control", sourceReceiptPrefix+"2")
+			}, time.Second)
+			env.RegisterDelayedCallback(func() {
+				if !resumedFirst.Load() {
+					t.Error("the first confirmation did not resume its step")
+				}
+				secondSignalled.Store(true)
+				env.SignalWorkflow("control", sourceReceiptPrefix+"3")
+			}, 3*time.Second)
+			env.ExecuteWorkflow(Collaborate, "run")
+			if err := env.GetWorkflowError(); err != nil {
+				t.Fatal(err)
+			}
+			env.AssertExpectations(t)
+		})
+	}
+}
+
 func TestDAGDrainsDispatchedActivitiesOnStop(t *testing.T) {
 	env, a := dagTestEnvironment([]Node{{Ordinal: 1}, {Ordinal: 2}, {Ordinal: 3, Dependencies: []int{2}}})
 	var receiptReturned atomic.Bool

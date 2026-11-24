@@ -41,6 +41,7 @@ func main() {
 	w.RegisterActivity(a.Topology)
 	w.RegisterActivity(a.EnableStepRemoteInput)
 	w.RegisterActivity(a.EnableStepSourceReceipts)
+	w.RegisterActivity(a.EnableStepToolChoices)
 	if err := w.Start(); err != nil {
 		log.Fatal(err)
 	}

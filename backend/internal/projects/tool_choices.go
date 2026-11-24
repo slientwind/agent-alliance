@@ -87,19 +87,19 @@ func (s Server) confirmToolChoice(w http.ResponseWriter, r *http.Request, u iden
 	var controlRevision int
 	err := database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {
 		var project, state, agent string
-		var aggregate bool
+		var aggregate, stepScoped bool
 		var current, revision, modelChoice int
 		var prior *int
 		err := tx.QueryRow(ctx, `select r.project_id,r.status,r.control_revision,routed.choice,routed.manual_choice,
       case when $4=2 then c.alternative else n.agent_id end,case when $4=2 then c.alternative_revision else n.agent_revision end,
-      ar.tool->>'operation'='aggregate'
+      ar.tool->>'operation'='aggregate',r.step_tool_choice
    from runs r join projects p on p.id=r.project_id join project_members pm on (pm.project_id,pm.member_id)=(p.id,$2)
    join members m on m.id=pm.member_id and m.enabled
    join run_tool_choices routed on routed.run_id=r.id and routed.ordinal=$3
    join plan_tool_choices c on(c.project_id,c.plan_version,c.ordinal)=(r.project_id,r.plan_version,routed.ordinal)
    join nodes n on(n.project_id,n.plan_version,n.ordinal)=(c.project_id,c.plan_version,c.ordinal)
    join agent_revisions ar on (ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision)
-   where r.id=$1 and m.kind='person' and (p.owner=$2 or (r.app_id is not null and r.delegated_by is null and p.final_reviewer=$2 and pm.can_review)) for update of r,routed for share of pm,m`, run, u.ID, in.Step, in.Choice).Scan(&project, &state, &current, &modelChoice, &prior, &agent, &revision, &aggregate)
+   where r.id=$1 and m.kind='person' and (p.owner=$2 or (r.app_id is not null and r.delegated_by is null and p.final_reviewer=$2 and pm.can_review)) for update of r,routed for share of pm,m`, run, u.ID, in.Step, in.Choice).Scan(&project, &state, &current, &modelChoice, &prior, &agent, &revision, &aggregate, &stepScoped)
 		if err != nil {
 			return err
 		}
@@ -111,18 +111,23 @@ func (s Server) confirmToolChoice(w http.ResponseWriter, r *http.Request, u iden
 			operation = "汇总"
 		}
 		reason := fmt.Sprintf("手动选择%s步骤 %d 的候选 %d", operation, in.Step, in.Choice)
+		action, requiredState := "resume", "blocked"
+		if stepScoped {
+			action, requiredState = "tool.step.choice", "running"
+		}
+		sign := web.Hash(fmt.Sprintf("%s/%s/%d/%s", run, action, in.Expected, reason))
 		if prior != nil {
 			if *prior != in.Choice {
 				return web.Fail(409, "工具已经选定")
 			}
 			if err := tx.QueryRow(ctx, `select revision from controls where run_id=$1 and actor=$2 and request_key=$3 and signature=$4`,
-				run, u.ID, key, web.Hash(fmt.Sprintf("%s/resume/%d/%s", run, in.Expected, reason))).Scan(&controlRevision); err == pgx.ErrNoRows {
+				run, u.ID, key, sign).Scan(&controlRevision); err == pgx.ErrNoRows {
 				return web.Fail(409, "工具已经选定")
 			} else {
 				return err
 			}
 		}
-		if state != "blocked" || current != in.Expected {
+		if state != requiredState || current != in.Expected {
 			return web.Fail(409, "运行状态已变化，请刷新后核对")
 		}
 		var waiting bool
@@ -131,6 +136,15 @@ func (s Server) confirmToolChoice(w http.ResponseWriter, r *http.Request, u iden
 		}
 		if !waiting {
 			return web.Fail(409, "该步骤尚未进入工具选择待办，请核对当前阻塞原因")
+		}
+		if stepScoped {
+			var allowed bool
+			if err := tx.QueryRow(ctx, identity.RunGrantSQL, run).Scan(&allowed); err != nil {
+				return err
+			}
+			if !allowed {
+				return web.Fail(403, "此任务的服务授权已失效")
+			}
 		}
 		var admitted bool
 		if err := tx.QueryRow(ctx, "select agent_admissible($1,$2,$3)", agent, revision, u.ID).Scan(&admitted); err != nil {
@@ -142,9 +156,31 @@ func (s Server) confirmToolChoice(w http.ResponseWriter, r *http.Request, u iden
 		if _, err := tx.Exec(ctx, `update run_tool_choices set manual_choice=$3, manual_by=$4 where run_id=$1 and ordinal=$2`, run, in.Step, in.Choice, u.ID); err != nil {
 			return err
 		}
-		controlRevision, err = controlTx(ctx, tx, run, u.ID, key, "resume", in.Expected, reason, true)
-		if err != nil {
-			return err
+		if stepScoped {
+			tag, err := tx.Exec(ctx, `insert into controls(run_id,actor,request_key,signature,action,reason,revision,wake_ordinal)
+                values($1,$2,$3,$4,$5,$6,$7,$8) on conflict(actor,request_key) do nothing`,
+				run, u.ID, key, sign, action, reason, current, in.Step)
+			if err != nil {
+				return err
+			}
+			if tag.RowsAffected() == 0 {
+				return web.Fail(409, "此请求编号已用于其他操作")
+			}
+			controlRevision = current
+			if err = TouchRun(ctx, tx, run, project, state); err != nil {
+				return err
+			}
+			if _, err = tx.Exec(ctx, "select record_service_event($1,'step','tool_choice_confirmed',$2)", run, in.Step); err != nil {
+				return err
+			}
+			if err = database.Audit(ctx, tx, u.ID, action, run, map[string]any{"step": in.Step, "choice": in.Choice, "revision": current}); err != nil {
+				return err
+			}
+		} else {
+			controlRevision, err = controlTx(ctx, tx, run, u.ID, key, "resume", in.Expected, reason, true)
+			if err != nil {
+				return err
+			}
 		}
 		if _, err := tx.Exec(ctx, `insert into trace_events(run_id,ordinal,kind,code) values($1,$2,'checkpoint','tool_choice_confirmed')`, run, in.Step); err != nil {
 			return err

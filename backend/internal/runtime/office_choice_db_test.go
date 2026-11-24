@@ -16,6 +16,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -275,5 +276,108 @@ func TestOfficeChoicePostgres(t *testing.T) {
 	}
 	if len(requests) != 0 {
 		t.Fatal("replay or stopped revision dispatched an extra tool call")
+	}
+
+	const parallelGoal = "并行工具选择截断测试"
+	parallel := uuid.NewString()
+	lookupTestSQL(t, ctx, db, "insert into projects(id,owner,final_reviewer,team_id,title) values($1,$2,$2,$3,$4)", parallel, owner, team, parallelGoal)
+	lookupTestSQL(t, ctx, db, "insert into project_memberships(project_id,member_id,can_review) values($1,$2,true) on conflict do nothing", parallel, owner)
+	parallelPath := "/api/projects/" + parallel
+	post(parallelPath+"/plan", projects.PlanInput{Expected: 1, Brief: parallelGoal,
+		Agents: []string{selector, mainTool, selector, mainTool, selector, selector}, AgentRevisions: []int{1, 1, 1, 1, 1, 1},
+		Dependencies: [][]int{{}, {1}, {}, {3}, {}, {2, 4, 5}},
+		ToolChoices: []projects.ToolChoicePin{
+			{Step: 2, Selector: 1, Alternative: alternative, Revision: 1},
+			{Step: 4, Selector: 3, Alternative: alternative, Revision: 1},
+		},
+	}, "", 204)
+	run := readID(post(parallelPath+"/runs", map[string]int{"expected": 2, "authorizeCalls": 6}, uuid.NewString(), 202))
+	if nodes, err := worker.Topology(ctx, run); err != nil || len(nodes) != 6 || !hasParallelSteps(nodes) ||
+		!nodes[1].ToolChoice || !nodes[3].ToolChoice || nodes[4].ToolChoice {
+		t.Fatalf("workflow topology did not identify selectable steps: %+v %v", nodes, err)
+	}
+	if err := worker.EnableStepToolChoices(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	start(run, 1, false)
+	start(run, 2, true)
+	start(run, 2, true)
+	start(run, 3, false)
+	start(run, 4, true)
+	start(run, 5, false)
+	readRun := func(state string, waiting []int, control, totalCalls int) {
+		t.Helper()
+		var data struct {
+			Run  struct{ Status string }
+			Plan struct {
+				Nodes []struct {
+					ToolChoice *struct {
+						CanConfirm bool
+						WaitScope  string
+					}
+				}
+			}
+		}
+		body := call("GET", parallelPath, nil, "", 200)
+		if err := json.Unmarshal(body, &data); err != nil || data.Run.Status != state {
+			t.Fatalf("incorrect project status: %v %s", err, body)
+		}
+		var open []int
+		for i, n := range data.Plan.Nodes {
+			if n.ToolChoice != nil && n.ToolChoice.CanConfirm {
+				if n.ToolChoice.WaitScope != "step" {
+					t.Fatalf("step %d has scope %s", i+1, n.ToolChoice.WaitScope)
+				}
+				open = append(open, i+1)
+			}
+		}
+		var actualControl, actualCalls int
+		err := db.QueryRow(ctx, `select control_revision,(select count(*) from spend where run_id=r.id)
+          from runs r where r.id=$1`, run).Scan(&actualControl, &actualCalls)
+		if !slices.Equal(open, waiting) || err != nil || actualControl != control || actualCalls != totalCalls {
+			t.Fatalf("waits=%v/%v, control=%d/%d, calls=%d/%d, err=%v", open, waiting, actualControl, control, actualCalls, totalCalls, err)
+		}
+	}
+	readRun("running", []int{2, 4}, 1, 3)
+	var waitTraces, independentCandidate int
+	err = db.QueryRow(ctx, `select
+        (select count(*) from trace_events where run_id=$1 and code='tool_step_choice_waiting'),
+        (select count(*) from artifacts where run_id=$1 and ordinal=5)`, run).Scan(&waitTraces, &independentCandidate)
+	if err != nil || waitTraces != 2 || independentCandidate != 1 {
+		t.Fatalf("wait delivery/retry: traces=%d independent=%d err=%v", waitTraces, independentCandidate, err)
+	}
+
+	runPath := "/api/runs/" + run
+	choose := func(ordinal, choice, expected int, key string, status int) []byte {
+		t.Helper()
+		return post(runPath+"/tool-choice", map[string]int{"step": ordinal, "choice": choice, "expected": expected}, key, status)
+	}
+	post(runPath+"/control", map[string]any{"action": "pause", "expected": 1, "reason": "核对全局暂停"}, "pause-choice", 202)
+	readRun("paused", nil, 2, 3)
+	choose(2, 1, 2, "during-pause", 409)
+	post(runPath+"/control", map[string]any{"action": "resume", "expected": 2, "reason": "核对全局恢复"}, "resume-choice", 202)
+	readRun("running", []int{2, 4}, 3, 3)
+	choose(2, 1, 1, "old-card", 409)
+	first := choose(2, 1, 3, "choose-a", 202)
+	if replay := choose(2, 1, 3, "choose-a", 202); !bytes.Equal(first, replay) {
+		t.Fatalf("step confirmation changed on replay: %s / %s", first, replay)
+	}
+	choose(4, 2, 3, "choose-a", 409)
+	readRun("running", []int{4}, 3, 3)
+	start(run, 2, false)
+	start(run, 4, true)
+	readRun("running", []int{4}, 3, 4)
+	choose(4, 2, 3, "choose-b", 202)
+	var scopedWakes []int
+	err = db.QueryRow(ctx, `select array_agg(wake_ordinal order by wake_ordinal) from controls
+        where run_id=$1 and revision=3 and action='tool.step.choice' and sent_at is null`, run).Scan(&scopedWakes)
+	if err != nil || !slices.Equal(scopedWakes, []int{2, 4}) {
+		t.Fatalf("confirmation outbox: %v %v", scopedWakes, err)
+	}
+	start(run, 4, false)
+	start(run, 6, false)
+	readRun("completed", nil, 3, 6)
+	if len(requests) != 2 {
+		t.Fatalf("expected two connector calls, got %d", len(requests))
 	}
 }
