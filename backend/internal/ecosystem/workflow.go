@@ -147,18 +147,35 @@ func saveCandidates(ctx context.Context, tx pgx.Tx, src source, items []candidat
 		 insert into ecosystem_catalog(source_id,source_revision,upstream_key,upstream_version,upstream_digest,
 		  kind,name,description,homepage,package_url,metadata,upstream_updated_at)
 		 values($1,$2,$3,$4,$5,$6,$7,$8,nullif($9,''),nullif($10,''),$11,$12)
-		 on conflict(source_id,upstream_key,upstream_version,upstream_digest) do nothing returning id
+		 on conflict(source_id,upstream_key,upstream_version,upstream_digest) do nothing returning id,discovered_at
 		), refreshed as (
 		 update ecosystem_catalog set last_seen_at=clock_timestamp()
 		 where (source_id,upstream_key,upstream_version,upstream_digest)=($1,$3,$4,$5)
-		  and not exists(select from inserted) returning id
+		  and not exists(select from inserted) returning id,discovered_at
+		), candidate as (
+		 select * from inserted union all select * from refreshed
 		), reviewed as (
 		 insert into ecosystem_candidate_reviews(catalog_id,status,content_hash,snapshot,report)
-		 select id,$13,nullif($14,''),$15,$16 from (
-		  select id from inserted union all select id from refreshed
-		 ) candidate
+		 select id,$13,nullif($14,''),$15,$16 from candidate
 		 on conflict(catalog_id) do update set status=excluded.status,content_hash=excluded.content_hash,
 		   snapshot=excluded.snapshot,report=excluded.report,checked_at=clock_timestamp()
+		), noticed as (
+		 insert into ecosystem_update_notices(prior_package,new_catalog,summary)
+		 select prior.id,c.id,jsonb_build_object('contentChanged',$6='skill' and nullif($14,'') is distinct from prior.hash,
+		  'descriptionChanged',prior.description<>$8,'metadataChanged',$6<>'skill' and prior.metadata<>$11::jsonb,
+		  'reviewStatus',$13::text,'license',$16::jsonb->>'license')
+		 from candidate c cross join lateral (
+		  select p.id,p.content_hash as hash,old.description,old.metadata
+		  from ecosystem_catalog old join enterprise_approved_packages p on p.catalog_id=old.id
+		  where old.source_id=$1 and old.upstream_key=$3 and old.kind=$6 and p.revoked_at is null
+		   and p.review_digest is not null and old.id<>c.id and old.discovered_at<c.discovered_at
+		   and (old.upstream_updated_at is null or $12::timestamptz is null or old.upstream_updated_at<=$12)
+		   and ($6<>'skill' or old.metadata->>'repository'=$11::jsonb->>'repository')
+		  order by old.discovered_at desc,p.id limit 1
+		 ) prior
+		 where not exists(select from enterprise_approved_packages p where p.catalog_id=c.id)
+		  and ($6<>'skill' or nullif($14,'') is distinct from prior.hash)
+		 on conflict(prior_package,new_catalog) do nothing
 		) select exists(select from inserted)`,
 			src.ID, src.Revision, item.Key, item.Version, item.Digest, item.Kind, item.Name, item.Description,
 			item.Homepage, item.PackageURL, item.Metadata, item.Updated,

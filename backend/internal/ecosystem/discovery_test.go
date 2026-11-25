@@ -366,6 +366,63 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 	if context, err := ContextForRun(ctx, db, run); err != nil || !strings.Contains(context, "Organize the approved columns.") {
 		t.Fatalf("General Agent did not load the pinned Skill: %q %v", context, err)
 	}
+	const updates = "/api/admin/ecosystem/updates"
+	call("GET", updates, "", "", 403, employeeToken)
+	scanRevision := func(version string, document []byte) {
+		t.Helper()
+		src, scan, err := a.claimScan(ctx, scanOccurrence{Source: public, Key: "fixture/upgrade/" + version + "/" + uuid.NewString()})
+		if err != nil || scan == "" {
+			t.Fatalf("could not claim update scan: %s %v", scan, err)
+		}
+		var batch feedBatch
+		err = addCandidate(&batch, candidate{Key: "skills/report/SKILL.md", Version: version, Kind: "skill", Name: "report",
+			Description: "Updated report template", Metadata: map[string]any{"repository": src.Endpoint}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		batch.Items[0].inspection = ecosysteminspect.Inspect(ecosysteminspect.Input{Kind: "skill", License: "MIT",
+			Files: map[string][]byte{"SKILL.md": document}}, time.Now())
+		if err := a.saveScan(ctx, src, scan, batch); err != nil {
+			t.Fatal(err)
+		}
+	}
+	unchanged, changed := strings.Repeat("c", 40), strings.Repeat("d", 40)
+	scanRevision(unchanged, skillText)
+	if notices := string(call("GET", updates, "", "", 200)); strings.Contains(notices, unchanged) {
+		t.Fatalf("unrelated repository commit generated a notice: %s", notices)
+	}
+	newText := append(append([]byte(nil), skillText...), []byte("\nAdd the Q4 comparison.")...)
+	scanRevision(changed, newText)
+	scanRevision(changed, newText)
+	var notices []struct {
+		ID, Version, PriorVersion string
+		Summary                   struct{ ContentChanged bool }
+	}
+	if err := json.Unmarshal(call("GET", updates, "", "", 200), &notices); err != nil {
+		t.Fatal(err)
+	}
+	var noticeID string
+	for _, notice := range notices {
+		if notice.Version != changed || notice.PriorVersion != commit {
+			continue
+		}
+		if noticeID != "" || !notice.Summary.ContentChanged {
+			t.Fatalf("invalid change summary: %+v", notice)
+		}
+		noticeID = notice.ID
+	}
+	if noticeID == "" {
+		t.Fatalf("new version did not generate a notice: %+v", notices)
+	}
+	if context, err := ContextForRun(ctx, db, run); err != nil || strings.Contains(context, "Q4 comparison") || !strings.Contains(context, "Organize the approved columns.") {
+		t.Fatalf("scan affected the running frozen version: %q %v", context, err)
+	}
+	for range 2 {
+		call("PUT", updates+"/"+noticeID+"/acknowledge", "", "", 204)
+	}
+	if notices := string(call("GET", updates, "", "", 200)); strings.Contains(notices, noticeID) {
+		t.Fatalf("acknowledged notice was shown again: %s", notices)
+	}
 	call("PUT", bindingPath, `{"enabled":false,"expected":1}`, "", 200, employeeToken)
 	call("PUT", bindingPath, enable, "", 409, employeeToken)
 	var usable bool

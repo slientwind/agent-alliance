@@ -16,6 +16,16 @@ type Candidate = {
   requestedBy?: number;
 };
 
+type UpdateNotice = {
+  id: string;
+  catalog: string;
+  name: string;
+  source: string;
+  priorVersion: string;
+  version: string;
+  summary: { contentChanged: boolean; descriptionChanged: boolean; metadataChanged: boolean; reviewStatus: string; license?: string };
+};
+
 const labels: Record<string, string> = {
   clean: "检查通过", review_required: "需要复核", blocked: "已阻断",
   license_review: "许可证需要人工复核", invalid_path: "不安全的文件路径",
@@ -33,6 +43,7 @@ const path = "admin/ecosystem/catalog";
 
 export function EcosystemApprovals() {
   const [items, setItems] = useState<Candidate[]>([]);
+  const [updates, setUpdates] = useState<UpdateNotice[]>([]);
   const [review, setReview] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
@@ -41,7 +52,11 @@ export function EcosystemApprovals() {
 
   useEffect(() => {
     let active = true;
-    api<Candidate[]>(path).then(value => { if (active) setItems(value); })
+    Promise.all([api<Candidate[]>(path), api<UpdateNotice[]>("admin/ecosystem/updates")]).then(([candidates, notices]) => {
+      if (!active) return;
+      setItems(candidates);
+      setUpdates(notices);
+    })
       .catch(error => { if (active) setError((error as Error).message); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -54,7 +69,23 @@ export function EcosystemApprovals() {
     try {
       await api(`${path}/${item.id}/${decision}`, "POST", { expected: item.reviewDigest, reason: (review[item.id] || "").trim() });
       setItems(current => current.map(row => row.id === item.id ? { ...row, approved: decision === "approve", requestedBy: 0 } : row));
+      if (decision === "approve") setUpdates(current => current.filter(notice => notice.catalog !== item.id));
       setStatus(decision === "approve" ? `${item.name} 已准入并固化版本` : `${item.name} 的准入申请已退回`);
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function acknowledge(notice: UpdateNotice) {
+    setBusy(notice.id);
+    setError("");
+    setStatus("");
+    try {
+      await api(`admin/ecosystem/updates/${notice.id}/acknowledge`, "PUT");
+      setUpdates(current => current.filter(row => row.id !== notice.id));
+      setStatus(`${notice.name} 的版本提醒已读`);
     } catch (error) {
       setError((error as Error).message);
     } finally {
@@ -67,8 +98,22 @@ export function EcosystemApprovals() {
       {loading && <p role="status">正在读取体检结果…</p>}
       {error && <p role="alert">{error}</p>}
       {status && <p role="status">{status}</p>}
+      {updates.length > 0 && <section aria-label="上游版本提醒">
+        <h2>上游版本提醒</h2>
+        {updates.map(notice => <article className="card" key={notice.id} aria-label={`${notice.name} 版本提醒`}>
+          <h3>{notice.name}</h3>
+          <p>{notice.source} · {notice.priorVersion} → {notice.version}</p>
+          <p>{[notice.summary.contentChanged && "Skill 文件已变化", notice.summary.descriptionChanged && "说明已更新",
+            notice.summary.metadataChanged && "服务配置已更新", labels[notice.summary.reviewStatus],
+            notice.summary.license && `许可证 ${labels[notice.summary.license] || notice.summary.license}`].filter(Boolean).join(" · ")}</p>
+          <div className="row">
+            {items.some(item => item.id === notice.catalog) && <a href={`#ecosystem-candidate-${notice.catalog}`}>查看新版准入</a>}
+            <button type="button" disabled={!!busy} onClick={() => void acknowledge(notice)}>标为已读</button>
+          </div>
+        </article>)}
+      </section>}
       {!loading && !error && !items.length && <p>暂无可复核的生态条目。</p>}
-      {[...items].sort((first, second) => (second.requestedBy || 0) - (first.requestedBy || 0)).map(item => <article className="card" key={item.id} aria-label={item.name}>
+      {[...items].sort((first, second) => (second.requestedBy || 0) - (first.requestedBy || 0)).map(item => <article className="card" key={item.id} id={`ecosystem-candidate-${item.id}`} aria-label={item.name}>
         <h2>{item.name}</h2>
         <p>{item.source} · {item.version} · {item.approved ? "已准入" : labels[item.review.status]}</p>
         {!!item.requestedBy && <p>{item.requestedBy} 人申请准入</p>}

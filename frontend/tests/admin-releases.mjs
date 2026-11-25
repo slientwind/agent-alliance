@@ -15,6 +15,10 @@ try {
   await page.route("**/api/**", route => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (request.method() === "PUT" && path === "/api/admin/ecosystem/updates/update/acknowledge") {
+      requests.push({ path });
+      return route.fulfill({ status: 204 });
+    }
     if (request.method() === "POST") {
       requests.push({ path, body: request.postDataJSON() });
       if (path.startsWith("/api/admin/ecosystem/")) return route.fulfill({ status: 201, json: { id: "approved" } });
@@ -41,6 +45,8 @@ try {
           review: { status: "blocked", license: "MIT", activity: "recent", findings: [{ code: "unsafe_command" }] },
           reviewDigest: digest },
       ],
+      "/api/admin/ecosystem/updates": [{ id: "update", catalog: "candidate", name: "报告 Skill", source: "公开仓库",
+        priorVersion: "v0", version: "v1", summary: { contentChanged: true, reviewStatus: "review_required", license: "MIT" } }],
     };
     return route.fulfill({ json: data[path] ?? [] });
   });
@@ -56,6 +62,11 @@ try {
   await request.getByRole("button", { name: "退回", exact: true }).click();
   await page.getByText("外部采购助手 已退回").waitFor();
   await page.getByRole("button", { name: "生态准入" }).click();
+  const update = page.getByRole("article", { name: "报告 Skill 版本提醒" });
+  await update.getByText("公开仓库 · v0 → v1").waitFor();
+  await update.getByText(/Skill 文件已变化/).waitFor();
+  await update.getByRole("button", { name: "标为已读" }).click();
+  await page.getByText("报告 Skill 的版本提醒已读").waitFor();
   const candidate = page.getByRole("article", { name: "报告 Skill" });
   await candidate.getByText("查看体检报告").click();
   await candidate.getByText("许可证需要人工复核").waitFor();
@@ -68,6 +79,7 @@ try {
     { path: "/api/admin/studio/releases/studio", body: { action: "approve", digest, reason: "" } },
     { path: "/api/agents/external/release-requests/verify", body: { action: "return", revision: 2,
       buildDigest: "build", evidenceDigest: "evidence", reason: "请补充一条公开规则查询样例" } },
+    { path: "/api/admin/ecosystem/updates/update/acknowledge" },
     { path: "/api/admin/ecosystem/catalog/candidate/approve", body: { expected: digest, reason: "已确认企业使用许可" } },
   ]);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
