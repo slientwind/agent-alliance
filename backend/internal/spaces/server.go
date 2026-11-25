@@ -8,6 +8,7 @@ import (
 
 	"alliance/internal/database"
 	"alliance/internal/identity"
+	"alliance/internal/knowledge"
 	"alliance/internal/web"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -15,7 +16,8 @@ import (
 )
 
 type Server struct {
-	DB *pgxpool.Pool
+	DB      *pgxpool.Pool
+	Objects knowledge.Objects
 }
 
 type Space struct {
@@ -35,6 +37,7 @@ func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("GET /api/spaces", auth.Protect(false, s.list))
 	mux.Handle("GET /api/spaces/{id}", auth.Protect(false, s.detail))
 	mux.Handle("PUT /api/spaces/{id}", auth.Protect(false, s.configure))
+	s.publicationRoutes(mux, auth)
 }
 
 const fields = `s.id,s.kind,s.slug,s.name,s.description,
