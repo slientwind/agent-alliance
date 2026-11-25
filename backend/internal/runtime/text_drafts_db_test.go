@@ -155,6 +155,16 @@ func TestTextDraftPostgresSSE(t *testing.T) {
 			if !strings.Contains(firstFrame, "id: 1\n") || strings.Contains(firstFrame, second) {
 				t.Fatalf("incorrect first frame %q", firstFrame)
 			}
+			if test == "edited preference" {
+				peer, peerToken := registerDraftPeer(t, sub, db, project)
+				lookupTestSQL(t, sub, db, "insert into team_members select team_id,$2 from projects where id=$1", project, peer)
+				peerStream, closePeer := openDraftResponse(t, sub, api.URL+"/api/projects/"+project+"/session-events", peerToken, "")
+				frame := readDraftFrame(t, peerStream, func(frame string) bool { return strings.Contains(frame, "event: session.snapshot") })
+				closePeer()
+				if !strings.Contains(frame, `"drafts":[]`) || strings.Contains(frame, first) {
+					t.Fatalf("a draft informed by private preferences leaked to a teammate: %q", frame)
+				}
+			}
 			resumed, closeResumed := openDraftResponse(t, sub, stream, token, "100")
 			defer closeResumed()
 			reset := readDraftFrame(t, resumed, func(frame string) bool { return strings.Contains(frame, "event: draft.snapshot") })
@@ -234,15 +244,20 @@ func verifyProjectSessionStream(t *testing.T, ctx context.Context, db *pgxpool.P
 		t.Fatalf("invalid initial snapshot or cursor: %q", snapshot)
 	}
 
-	peer, peerToken := uuid.NewString(), web.Token()
-	lookupTestSQL(t, ctx, db, "insert into members(id,email,display_name,password_hash,role) values($1,$2,'Peer','unused','member')", peer, peer+"@example.invalid")
-	lookupTestSQL(t, ctx, db, "insert into project_members(project_id,member_id,can_review) values($1,$2,true)", project, peer)
-	lookupTestSQL(t, ctx, db, "insert into sessions(token_hash,member_id,expires_at) values($1,$2,now()+interval '1 minute')", web.Hash(peerToken), peer)
+	_, peerToken := registerDraftPeer(t, ctx, db, project)
 	peerStream, stopPeer := openDraftResponse(t, ctx, url, peerToken, oldCursor)
 	defer stopPeer()
 	peerFrame := readDraftFrame(t, peerStream, func(frame string) bool { return strings.Contains(frame, "event: session.snapshot") })
 	if !strings.Contains(peerFrame, `"drafts":[]`) || strings.Contains(peerFrame, first) {
 		t.Fatalf("another member could read a private draft: %q", peerFrame)
+	}
+	viewer, viewerToken := registerDraftPeer(t, ctx, db, project)
+	lookupTestSQL(t, ctx, db, "insert into team_members select team_id,$2 from projects where id=$1", project, viewer)
+	shared, closeShared := openDraftResponse(t, ctx, url, viewerToken, oldCursor)
+	defer closeShared()
+	firstShared := readDraftFrame(t, shared, func(frame string) bool { return strings.Contains(frame, "event: session.snapshot") })
+	if !strings.Contains(firstShared, first) || strings.Contains(firstShared, second) {
+		t.Fatalf("authorized teammate did not receive the draft snapshot: %q", firstShared)
 	}
 	const note = "项目内正文通过授权详情读取"
 	const backlog = 35
@@ -262,6 +277,15 @@ func verifyProjectSessionStream(t *testing.T, ctx context.Context, db *pgxpool.P
 		}
 	}
 	close(produce)
+	sharedDelta := readDraftFrame(t, shared, func(frame string) bool { return strings.Contains(frame, "event: draft.delta") })
+	if !strings.Contains(sharedDelta, second) || strings.Contains(sharedDelta, first) {
+		t.Fatalf("authorized teammate did not receive only the new delta: %q", sharedDelta)
+	}
+	lookupTestSQL(t, ctx, db, "delete from team_members t using projects p where p.id=$1 and (p.team_id,t.member_id)=(t.team_id,$2)", project, viewer)
+	cleared := readDraftFrame(t, shared, func(frame string) bool { return strings.Contains(frame, "event: session.snapshot") })
+	if !strings.Contains(cleared, `"drafts":[]`) || strings.Contains(cleared, first) || strings.Contains(cleared, second) {
+		t.Fatalf("cleared teammate view retained draft contents: %q", cleared)
+	}
 	for _, reader := range []*bufio.Scanner{resumed, parallel} {
 		frame := readDraftFrame(t, reader, func(frame string) bool { return strings.Contains(frame, "event: draft.delta") })
 		if !strings.Contains(frame, second) || strings.Contains(frame, first) || !strings.Contains(frame, fmt.Sprintf("\"offset\":%d", len(first))) {
@@ -306,6 +330,15 @@ func verifyProjectSessionStream(t *testing.T, ctx context.Context, db *pgxpool.P
 			t.Fatalf("draft remained after the candidate was committed: %q", terminal)
 		}
 	}
+}
+
+func registerDraftPeer(t *testing.T, ctx context.Context, db *pgxpool.Pool, project string) (string, string) {
+	t.Helper()
+	peer, token := uuid.NewString(), web.Token()
+	lookupTestSQL(t, ctx, db, "insert into members(id,email,display_name,password_hash,role) values($1,$2,'Peer','unused','member')", peer, peer+"@example.invalid")
+	lookupTestSQL(t, ctx, db, "insert into project_members(project_id,member_id,can_review) values($1,$2,true)", project, peer)
+	lookupTestSQL(t, ctx, db, "insert into sessions(token_hash,member_id,expires_at) values($1,$2,now()+interval '1 minute')", web.Hash(token), peer)
+	return peer, token
 }
 
 func openDraftResponse(t *testing.T, ctx context.Context, url, token, cursor string) (*bufio.Scanner, func()) {

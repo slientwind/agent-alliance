@@ -74,12 +74,12 @@ func readDraftBatch(ctx context.Context, tx pgx.Tx, project, run, actor string, 
 
 func readDraftWindow(ctx context.Context, tx pgx.Tx, project, run, actor string) (draftWindow, error) {
 	var window draftWindow
-	var state string
-	err := tx.QueryRow(ctx, `select r.draft_seq,r.status,r.control_revision from runs r
-        join project_members m on m.project_id=r.project_id and m.member_id=r.actor
+	var state, runner string
+	err := tx.QueryRow(ctx, `select r.draft_seq,r.status,r.control_revision,r.actor from runs r
+        join project_members m on m.project_id=r.project_id and m.member_id=$3
         join members u on u.id=m.member_id and u.enabled
-        where r.id=$1 and r.project_id=$2 and r.actor=$3 and r.service_id is null`, run, project, actor).
-		Scan(&window.head, &state, &window.control)
+        where r.id=$1 and r.project_id=$2 and r.service_id is null`, run, project, actor).
+		Scan(&window.head, &state, &window.control, &runner)
 	if err != nil {
 		return window, err
 	}
@@ -92,11 +92,12 @@ func readDraftWindow(ctx context.Context, tx pgx.Tx, project, run, actor string)
                   and agent_revision_ready(n.agent_id,n.agent_revision)
                   and project_agent_access($2,n.agent_id,n.agent_revision,$3)
                   and agent_skills_usable(n.agent_id,n.agent_revision,$3)
+                  and ($3=$5 or collaborative_draft_readable(i.run_id,i.ordinal,i.attempt_no,$3))
                   and run_working_set_usable(i.run_id,i.ordinal,i.attempt_no)
                   and exists(select from run_draft_fragments f where
                       (f.run_id,f.ordinal,f.attempt_no)=(i.run_id,i.ordinal,i.attempt_no)
                       and f.control_revision=$4 and f.byte_offset=0 and f.created_at>now()-interval '1 hour')
-            order by i.ordinal`, run, project, actor, window.control)
+            order by i.ordinal`, run, project, actor, window.control, runner)
 		if err != nil {
 			return window, err
 		}
@@ -116,7 +117,6 @@ func readDraftWindow(ctx context.Context, tx pgx.Tx, project, run, actor string)
 			window.attempts = nil
 		}
 	}
-	// Only the viewer's own active, authorized attempts enter a snapshot.
 	window.scope = fmt.Sprintf("%d/%s/%v", window.control, state, window.attempts)
 	return window, nil
 }

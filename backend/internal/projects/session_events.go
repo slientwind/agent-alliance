@@ -111,7 +111,7 @@ func readSessionBatch(ctx context.Context, tx pgx.Tx, project, actor string, cur
 	var review, costs, owner bool
 	err := tx.QueryRow(ctx, `select coalesce(h.seq,0),coalesce(retained.seq-1,h.seq,0),
 		m.can_review,m.can_view_costs,p.owner=$2,
-		coalesce(case when current_run.actor=$2 and current_run.service_id is null
+		coalesce(case when current_run.service_id is null
 			and current_run.draft_seq>0 and current_run.status in ('running','reconcile') then current_run.id::text end,''),
 		coalesce(case when p.stage in ('running','review') then (select string_agg(a.id::text||'/'||a.current_version||'/'||block.reason,',' order by a.id)
 			from artifacts a cross join lateral (select artifact_draft_block_reason(a.id,a.current_version) reason) block
@@ -128,7 +128,7 @@ func readSessionBatch(ctx context.Context, tx pgx.Tx, project, actor string, cur
 		left join project_session_heads h on h.project_id=p.id
 		left join lateral (select seq from project_session_events
 			where project_id=p.id and created_at>now()-interval '1 hour' order by seq limit 1) retained on true
-		left join lateral (select r.id,r.actor,r.service_id,r.draft_seq,r.status from runs r where r.project_id=p.id
+		left join lateral (select r.id,r.service_id,r.draft_seq,r.status from runs r where r.project_id=p.id
 			and not exists(select from change_batches c where c.run_id=r.id) order by r.created_at desc,r.id desc limit 1) current_run on true
 		where p.id=$1`, project, actor).Scan(&head, &floor, &review, &costs, &owner, &run, &heldDrafts, &reviewEvidence, &remoteEvidence, &upstreamEvidence)
 	if err != nil {
@@ -144,6 +144,8 @@ func readSessionBatch(ctx context.Context, tx pgx.Tx, project, actor string, cur
 	draftScope := ""
 	if len(window.attempts) > 0 {
 		draftScope = run + "/" + window.scope
+	} else {
+		run = ""
 	}
 	hash := sha256.Sum256([]byte(fmt.Sprintf("%s/%t/%t/%t/%s/%s/%s/%s/%s", actor, review, costs, owner, draftScope, heldDrafts, reviewEvidence, remoteEvidence, upstreamEvidence)))
 	scope := hex.EncodeToString(hash[:])
