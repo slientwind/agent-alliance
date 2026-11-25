@@ -82,7 +82,7 @@ func (s Server) readAgentGrants(w http.ResponseWriter, r *http.Request, u identi
 	err := s.DB.QueryRow(r.Context(), `select coalesce(jsonb_agg(jsonb_build_object(
  'id',g.id,'project',p.id,'projectName',case when pm.member_id is not null then p.title end,
  'agent',g.agent_id,'name',v.name,'revision',g.revision,'team',t.name,'description',g.description,'calls',g.call_limit,
- 'used',(select count(*) from project_agent_calls where grant_id=g.id),'expires',g.expires_at,
+ 'used',project_agent_grant_usage(g.id),'expires',g.expires_at,
  'resourceApproved',g.resource_approver is not null,'budgetApproved',g.budget_approver is not null,
  'canRenew',pm.member_id is not null and tm.member_id is not null and g.resource_approver is not null and g.budget_approver is not null and agent_admissible(a.id,v.revision,u.id),
  'remotePolicy',case when v.card is not null then v.remote_policy end,

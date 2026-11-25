@@ -51,6 +51,7 @@ type CallIdentity struct {
 	RunID        string
 	AgentID      string
 	Turn         int
+	Authorize    func(context.Context) error
 }
 
 type RoutedResult struct {
@@ -84,6 +85,11 @@ func (g Gateway) Call(ctx context.Context, actor CallIdentity, in Request) (Rout
 	}
 	cutoff := time.Now().Add(window)
 	for index, model := range order {
+		if actor.Authorize != nil {
+			if err := actor.Authorize(ctx); err != nil {
+				return RoutedResult{}, err
+			}
+		}
 		if g.Policy != nil {
 			decision, err := g.Policy.Decide(ctx, policy.Request{Purpose: policy.Model, Actor: actor.MemberID,
 				Team: actor.TeamID, Run: actor.RunID, Destination: model.Endpoint, LocalHTTP: model.Kind == "vllm" || model.Kind == "ollama"})
@@ -130,7 +136,7 @@ func (g Gateway) Call(ctx context.Context, actor CallIdentity, in Request) (Rout
 			deadline = cutoff
 		}
 		attempt := Attempt{OperationKey: key, RunID: actor.RunID, AgentID: actor.AgentID, Turn: actor.Turn, Number: number, Fallback: model.ModelID != preferred}
-		out, retry, err := g.callModel(ctx, model, in, permit, attempt, deadline)
+		out, retry, err := g.callModel(ctx, model, in, permit, attempt, deadline, actor.Authorize)
 		if err == nil {
 			return out, nil
 		}
@@ -142,7 +148,7 @@ func (g Gateway) Call(ctx context.Context, actor CallIdentity, in Request) (Rout
 	return RoutedResult{}, last
 }
 
-func (g Gateway) callModel(ctx context.Context, model Candidate, in Request, permit Permit, attempt Attempt, deadline time.Time) (RoutedResult, bool, error) {
+func (g Gateway) callModel(ctx context.Context, model Candidate, in Request, permit Permit, attempt Attempt, deadline time.Time, authorize func(context.Context) error) (RoutedResult, bool, error) {
 	attempt.Started = time.Now()
 	call, cancel := context.WithCancel(ctx)
 	var mu sync.Mutex
@@ -184,7 +190,13 @@ func (g Gateway) callModel(ctx context.Context, model Candidate, in Request, per
 			}
 		}
 	}
-	result, callErr := g.Provider.Call(call, model, in)
+	var result Result
+	var callErr error
+	if authorize != nil && authorize(call) != nil {
+		callErr = ProviderError{Unsent: true}
+	} else {
+		result, callErr = g.Provider.Call(call, model, in)
+	}
 	mu.Lock()
 	returned = true
 	retryAllowed, expired := !visible, timedOut

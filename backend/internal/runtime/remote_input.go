@@ -151,7 +151,7 @@ func (a Activities) prepareRemoteInput(ctx context.Context, tx pgx.Tx, job *remo
 		return web.Fail(409, memory.Unavailable)
 	}
 	if model.ProjectGrant != "" {
-		if err := tx.QueryRow(ctx, `select call_limit>(select count(*) from project_agent_calls where grant_id=g.id)
+		if err := tx.QueryRow(ctx, `select call_limit>project_agent_grant_usage(g.id)
             from project_agent_grants g where id=$1`, model.ProjectGrant).Scan(&permitted); err != nil {
 			return err
 		}

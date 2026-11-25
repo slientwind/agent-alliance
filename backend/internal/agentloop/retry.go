@@ -52,6 +52,10 @@ func (s Server) retryRun(w http.ResponseWriter, r *http.Request, actor identity.
 			// StartTx reloads and validates the exact publication.
 			in.Tier = ""
 		}
+		in.Delegates, err = loadDelegateSpec(ctx, tx, oldRun)
+		if err != nil {
+			return err
+		}
 		rows, err := tx.Query(ctx, `select source_id,source_version from plan_sources where (project_id,plan_version)=($1,$2)
 		 order by source_id`, project, sourcePlan)
 		if err != nil {

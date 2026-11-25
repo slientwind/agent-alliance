@@ -112,6 +112,8 @@ flowchart TB
    - 停滞指纹 = `hash(tool_name + normalized_args + source_revisions + unresolved_objects)`；连续 2 轮无新增观察或证据覆盖时自动跳出循环，给出可读的缺口说明而非空烧 Token。
    - 压缩策略：永远保留 `System Prompt`、最新用户纠偏、未闭合的 `tool_call / tool_result` 配对及来源版本号；超长工具输出先转存对象卷，仅向模型注入摘要 + 行号引用。
 
+普通对话可在 `POST /api/projects/{id}/general-runs` 的 `delegates` 中登记固定版本的文本 Agent。单项接受 `id`、`revision`、可选的 `children` 数组及 `fallback: { id, revision }`。任务最多登记 8 个位置、嵌套 3 层，共进行至多 8 次子 Agent 调用。跨团队使用须具备该项目的有效授权，费用记入发起任务的模型额度。子 Agent 收到由上级指定的任务文字，每次调用与采纳结果均复核整个委派链。权限失效后的回执保留用于核对，输出不会进入后续任务。
+
 ### 3.2 隔离沙箱工作区（Workspace Sandbox Pool）与 MCP 层
 
 - **沙箱隔离规格（已确认：基于现有 Docker Compose 实现）**：

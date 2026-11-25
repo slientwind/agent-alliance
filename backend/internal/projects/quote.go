@@ -35,7 +35,7 @@ const planQuoteSQL = `(
     from candidate_costs group by agent_id,agent_revision) c
    left join effective_project_agent_grants g on(g.project_id,g.agent_id,g.revision)=(p.id,c.agent_id,c.agent_revision)
    where not project_agent_access(null,c.agent_id,c.agent_revision,p.owner)
-   and (g.id is null or c.needed+(select count(*) from project_agent_calls where grant_id=g.id)>g.call_limit)),
+   and (g.id is null or c.needed+project_agent_grant_usage(g.id)>g.call_limit)),
   'resourceShort',exists(select from (select budget_id,count(*) needed,coalesce(sum(amount),0) cost,count(*) filter(where amount is null) unknown from resource_costs group by budget_id) c
     join resource_budget_status rb on rb.id=c.budget_id where rb.calls+c.needed>rb.call_limit or budget_amount_short(rb.used,c.cost,c.unknown>0,rb.limit_cny)),
   'teamShort',exists(

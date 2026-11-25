@@ -116,7 +116,7 @@ func evaluate(ctx context.Context, tx pgx.Tx, request Request) (Decision, error)
 		 where r.id=$1 and (nullif($2,'')::uuid is null or m.id=nullif($2,'')::uuid)
 		 and (nullif($3,'')::uuid is null or r.charge_team=nullif($3,'')::uuid)
 		 and (nullif($4,'')::uuid is null or r.project_id=nullif($4,'')::uuid)
-		 and r.status='running' and general_run_inputs_usable(r.id))`,
+		 and r.status='running' and general_run_inputs_usable(r.id) and general_delegate_observations_usable(r.id))`,
 			request.Run, request.Actor, request.Team, request.Project).Scan(&permitted)
 		if err != nil {
 			return Decision{}, err

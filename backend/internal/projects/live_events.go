@@ -44,7 +44,7 @@ func (s Server) liveWindow(ctx context.Context, project, member string) (liveWin
 		var status string
 		var general, mayRead bool
 		err := tx.QueryRow(ctx, `select coalesce(r.id::text,''),coalesce(r.status,''),coalesce(r.control_revision,0),g.run_id is not null,
-		 coalesce(g.run_id is not null and general_run_inputs_usable(r.id)
+		 coalesce(g.run_id is not null and general_run_inputs_usable(r.id) and general_delegate_observations_usable(r.id)
 		  and run_review_notes_readable(r.id,$2)
 		  and (g.studio_release is null or studio_release_usable(g.studio_release,$2,p.id))
 		  and not exists(select from plan_rules pr where (pr.project_id,pr.plan_version)=(p.id,r.plan_version)

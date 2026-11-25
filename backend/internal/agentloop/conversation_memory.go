@@ -39,6 +39,7 @@ func previousEpisodes(ctx context.Context, tx pgx.Tx, run string, offset, limit 
 		join artifacts a on a.run_id=previous.id and a.ordinal=$4
 		join artifact_versions v on (v.artifact_id,v.version)=(a.id,a.current_version)
 		where g.goal_message_seq=recent.seq and general_memory_origin_readable($1,previous.id,a.id,v.version)
+		  and general_delegate_observations_usable(previous.id)
 		order by previous.created_at desc,previous.id desc limit 1
 	) answer on true order by recent.seq desc`, run, offset, limit, maxModelTurns*maxToolsPerTurn+1)
 	if err != nil {
@@ -57,7 +58,7 @@ func (a Activities) readConversationMemory(ctx context.Context, tx pgx.Tx, run s
 	var cipher []byte
 	err := tx.QueryRow(ctx, `select s.cipher from general_memory_snapshots s where s.run_id=$1 and s.state='ready'
 	 and not exists(select from general_memory_origins o where o.run_id=s.run_id
-	  and not general_memory_origin_readable(s.run_id,o.origin_run,o.artifact_id,o.version))`, run).Scan(&cipher)
+	  and not (general_memory_origin_readable(s.run_id,o.origin_run,o.artifact_id,o.version) and general_delegate_observations_usable(o.origin_run)))`, run).Scan(&cipher)
 	if err == nil {
 		text, openErr := a.Vault.Open(cipher, memoryScope(run))
 		if openErr == nil {
@@ -226,7 +227,7 @@ func (a Activities) refreshOneConversationMemory(ctx context.Context) error {
 		if state == "ready" {
 			var valid bool
 			err := tx.QueryRow(ctx, `select not exists(select from general_memory_origins o where o.run_id=$1
-			 and not general_memory_origin_readable(o.run_id,o.origin_run,o.artifact_id,o.version))`, run).Scan(&valid)
+			 and not (general_memory_origin_readable(o.run_id,o.origin_run,o.artifact_id,o.version) and general_delegate_observations_usable(o.origin_run)))`, run).Scan(&valid)
 			if err != nil {
 				return err
 			}

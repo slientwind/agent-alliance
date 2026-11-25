@@ -23,7 +23,7 @@ func (s Server) activity(w http.ResponseWriter, r *http.Request, viewer identity
 	  from general_agent_turns where run_id=r.id
 	  union all
 	  select turn,position,
-	   case when external_agent is not null then 'external' when mcp_server is not null then 'connected'
+	   case when external_agent is not null or tool_name='delegate_task' then 'external' when mcp_server is not null then 'connected'
 	    when tool_name='read_sources' then 'sources' when tool_name='web_search' then 'search'
 	    when tool_name in ('create_docx','create_xlsx','create_pptx','create_pdf','create_text','create_csv') then 'file'
 	    when tool_name in ('generate_image','edit_image','analyze_image') then 'image'

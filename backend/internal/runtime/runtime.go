@@ -630,8 +630,11 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			d.prior = ""
 		}
 		if m.ProjectGrant != "" {
+			if _, err := tx.Exec(ctx, "select id from project_agent_grants where id=$1 for update", m.ProjectGrant); err != nil {
+				return err
+			}
 			var available bool
-			if err = tx.QueryRow(ctx, `select call_limit>(select count(*) from project_agent_calls where grant_id=g.id) from project_agent_grants g where id=$1`, m.ProjectGrant).Scan(&available); err != nil {
+			if err = tx.QueryRow(ctx, `select call_limit>project_agent_grant_usage(g.id) from project_agent_grants g where id=$1`, m.ProjectGrant).Scan(&available); err != nil {
 				return err
 			}
 			if !available {

@@ -52,6 +52,7 @@ type StartInput struct {
 	Direct        bool                     `json:"directExternal,omitempty"`
 	Capabilities  *[]string                `json:"capabilities,omitempty"`
 	StudioRelease string                   `json:"studioRelease,omitempty"`
+	Delegates     []delegateSpec           `json:"delegates,omitempty"`
 }
 
 func (s Server) start(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
@@ -81,6 +82,13 @@ func (s Server) StartTx(ctx context.Context, tx pgx.Tx, project, actor, key stri
 		}
 	}
 	if err := validateExternalSelection(in); err != nil {
+		return "", err
+	}
+	if len(in.Delegates) > 0 && (in.Direct || in.StudioRelease != "") {
+		return "", web.Fail(422, "请在普通对话中配置委派顺序")
+	}
+	delegates, err := flattenDelegates(in.Delegates)
+	if err != nil {
 		return "", err
 	}
 	var enabled []string
@@ -217,6 +225,9 @@ func (s Server) StartTx(ctx context.Context, tx pgx.Tx, project, actor, key stri
 			run, project, initialMessage, conversationRecent); err != nil {
 			return "", err
 		}
+	}
+	if err := bindDelegates(ctx, tx, run, project, actor, delegates); err != nil {
+		return "", err
 	}
 	if err := s.bindExternalAgents(ctx, tx, run, actor, in.External, in.StudioRelease == ""); err != nil {
 		return "", err

@@ -134,6 +134,14 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		task.team, task.actor = d.team, d.actor
 		gate := harness.ToolGate{Risk: tool.risk, Authorized: d.authorized && capability.Allows(d.capabilities, tool.cap), QuotaAvailable: true,
 			EstimatedCost: &knownFree, BatchSize: 1}
+		if task.name == delegateTool && task.server == "" && task.external == "" {
+			gate.Risk = harness.ReadOnly
+			choices, err := delegateChoices(ctx, tx, ref.RunID, "")
+			if err != nil {
+				return err
+			}
+			gate.Authorized = gate.Authorized && len(choices) > 0
+		}
 		if task.name == searchTool.Function.Name {
 			if a.Search == nil {
 				return a.recordObservation(ctx, tx, ref, "rejected", "本次任务未启用联网搜索。", "", "")
@@ -243,6 +251,18 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 	}
 	if task.external != "" {
 		return a.executeExternal(ctx, ref, task)
+	}
+	if task.name == delegateTool && task.server == "" {
+		var head runData
+		err := database.WithTx(ctx, a.DB, func(tx pgx.Tx) error {
+			var err error
+			head, err = loadRun(ctx, tx, ref.RunID)
+			return err
+		})
+		if err != nil {
+			return result, err
+		}
+		return a.executeDelegation(ctx, ref, head, task.args)
 	}
 	var reply resources.Reply
 	var toolErr error
