@@ -1178,7 +1178,7 @@ func (a Activities) Dispatch(ctx context.Context, c client.Client) {
 				}
 				sub, cancel := context.WithTimeout(ctx, 4*time.Second)
 				defer cancel()
-				_, err = c.ExecuteWorkflow(sub, client.StartWorkflowOptions{ID: "run/" + id, TaskQueue: Queue(), WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE, WorkflowExecutionErrorWhenAlreadyStarted: true}, Collaborate, id)
+				_, err = c.ExecuteWorkflow(sub, client.StartWorkflowOptions{ID: "run/" + id, TaskQueue: GeneralQueue(), WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE, WorkflowExecutionErrorWhenAlreadyStarted: true}, GeneralWorkflowName, PlannedRunInput(id))
 				var duplicate *serviceerror.WorkflowExecutionAlreadyStarted
 				if err != nil && !errors.As(err, &duplicate) {
 					_, err = tx.Exec(ctx, "update outbox set attempts=attempts+1,next_at=now()+interval '5 seconds' where run_id=$1", id)
@@ -1260,7 +1260,7 @@ func (a Activities) Topology(ctx context.Context, run string) ([]Node, error) {
 }
 func scheduleDAG(ctx workflow.Context, run string) error {
 	var nodes []Node
-	if err := workflow.ExecuteActivity(ctx, "Topology", run).Get(ctx, &nodes); err != nil {
+	if err := readPlanResult(ctx, schedulePlanActivity(ctx, "Topology", run), &nodes); err != nil {
 		return err
 	}
 	lookupTurns := workflow.GetVersion(ctx, "read-only-lookup-turns", workflow.DefaultVersion, 1) != workflow.DefaultVersion
@@ -1276,18 +1276,18 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 	if workflow.GetVersion(ctx, "independent-dag-dispatch", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
 		parallel := hasParallelSteps(nodes)
 		if len(nodes) > 1 && workflow.GetVersion(ctx, "step-remote-input", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
-			if err := workflow.ExecuteActivity(ctx, "EnableStepRemoteInput", run).Get(ctx, nil); err != nil {
+			if err := readPlanResult(ctx, schedulePlanActivity(ctx, "EnableStepRemoteInput", run), nil); err != nil {
 				return err
 			}
 		}
 		if parallel && workflow.GetVersion(ctx, "step-source-receipts", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
-			if err := workflow.ExecuteActivity(ctx, "EnableStepSourceReceipts", run).Get(ctx, nil); err != nil {
+			if err := readPlanResult(ctx, schedulePlanActivity(ctx, "EnableStepSourceReceipts", run), nil); err != nil {
 				return err
 			}
 		}
 		if parallel && slices.ContainsFunc(nodes, func(node Node) bool { return node.ToolChoice }) &&
 			workflow.GetVersion(ctx, "step-tool-choices", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
-			if err := workflow.ExecuteActivity(ctx, "EnableStepToolChoices", run).Get(ctx, nil); err != nil {
+			if err := readPlanResult(ctx, schedulePlanActivity(ctx, "EnableStepToolChoices", run), nil); err != nil {
 				return err
 			}
 		}
@@ -1308,7 +1308,7 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 			}
 		}
 		if parallel && workflow.GetVersion(ctx, "step-dispatch-waits", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
-			if err := workflow.ExecuteActivity(ctx, "EnableStepDispatchWaits", run).Get(ctx, nil); err != nil {
+			if err := readPlanResult(ctx, schedulePlanActivity(ctx, "EnableStepDispatchWaits", run), nil); err != nil {
 				return err
 			}
 		}
@@ -1359,7 +1359,7 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 		wait := false
 		for _, item := range active {
 			var outcome Result
-			if err := item.future.Get(ctx, &outcome); err != nil {
+			if err := readPlanResult(ctx, item.future, &outcome); err != nil {
 				return err
 			}
 			if outcome.Action != nil || outcome.Observation != nil {
@@ -1368,14 +1368,14 @@ func scheduleDAG(ctx workflow.Context, run string) error {
 						outcome = Result{Wait: true}
 						break
 					}
-					if err := advanceLocalActivity(ctx, run, item.node, outcome).Get(ctx, &outcome); err != nil {
+					if err := readPlanResult(ctx, advanceLocalActivity(ctx, run, item.node, outcome), &outcome); err != nil {
 						return err
 					}
 				}
 			}
 			if outcome.LookupAttempt > 0 {
 				action := lookupAction{Step: Step{run, item.node.Ordinal}, Attempt: outcome.LookupAttempt}
-				if err := workflow.ExecuteActivity(ctx, "ExecuteLookupAction", action).Get(ctx, &outcome); err != nil {
+				if err := readPlanResult(ctx, schedulePlanActivity(ctx, "ExecuteLookupAction", action), &outcome); err != nil {
 					return err
 				}
 			}

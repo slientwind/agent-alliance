@@ -52,6 +52,7 @@ func main() {
 	}
 	a := runtime.Activities{Catalog: catalog, Hot: projectStream}
 	w := worker.New(c, runtime.Queue(), worker.Options{})
+	// Poll historical histories that already started with the old activity names.
 	w.RegisterWorkflow(runtime.Collaborate)
 	w.RegisterActivity(a.ExecuteStep)
 	w.RegisterActivity(a.AdvanceTextStep)
@@ -80,10 +81,10 @@ func main() {
 		log.Fatal(err)
 	}
 	defer w.Stop()
-	general := agentloop.Activities{DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Gateway: app.ModelGateway(catalog), Hot: projectStream}
+	general := agentloop.Activities{Planned: &a, DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Gateway: app.ModelGateway(catalog), Hot: projectStream}
 	general.MCP = &mcphub.Runtime{DB: catalog.DB, Client: mcphub.Client{Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB}}}
 	general.Search = &websearch.Runtime{DB: catalog.DB, Client: websearch.Client{Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB}}}
-	generalQueue := runtime.Queue() + "-general"
+	generalQueue := runtime.GeneralQueue()
 	generalWorker := worker.New(c, generalQueue, worker.Options{})
 	generalWorker.RegisterWorkflowWithOptions(agentloop.GeneralAgentWorkflow, workflow.RegisterOptions{Name: agentloop.WorkflowName})
 	generalWorker.RegisterActivityWithOptions(general.AdvanceTurn, activity.RegisterOptions{Name: agentloop.AdvanceTurnActivity})

@@ -1,6 +1,8 @@
 package agentloop
 
 import (
+	"alliance/internal/runtime"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -9,9 +11,9 @@ import (
 )
 
 const (
-	WorkflowName        = "GeneralAgentWorkflow"
-	AdvanceTurnActivity = "GeneralAgent.AdvanceTurn"
-	ExecuteToolActivity = "GeneralAgent.ExecuteTool"
+	WorkflowName        = runtime.GeneralWorkflowName
+	AdvanceTurnActivity = runtime.GeneralAdvanceName
+	ExecuteToolActivity = runtime.GeneralExecuteName
 	maxModelTurns       = 8
 	maxToolsPerTurn     = 4
 	maxActions          = 24
@@ -21,23 +23,27 @@ type TurnRef struct {
 	RunID      string
 	Turn       int
 	StopReason string
+	Planned    *runtime.PlannedCall `json:",omitempty"`
 }
 
 type ToolRef struct {
 	RunID    string
 	Turn     int
 	Position int
+	Planned  *runtime.PlannedCall `json:",omitempty"`
 }
 
 type TurnResult struct {
-	Done  bool
-	Wait  bool
-	Tools int
+	Done    bool
+	Wait    bool
+	Tools   int
+	Planned *json.RawMessage `json:",omitempty"`
 }
 
 type ToolResult struct {
 	Done, Wait, Recheck bool
 	PollSeconds         int
+	Planned             *json.RawMessage `json:",omitempty"`
 }
 
 // GeneralAgentWorkflow passes only durable identifiers through Temporal. The
@@ -47,6 +53,9 @@ func GeneralAgentWorkflow(ctx workflow.Context, run string) error {
 		StartToCloseTimeout: 2 * time.Minute,
 		RetryPolicy:         &temporal.RetryPolicy{MaximumAttempts: 3, InitialInterval: time.Second},
 	})
+	if planned, ok := runtime.PlannedRunID(run); ok {
+		return runtime.RunApprovedPlan(ctx, planned)
+	}
 	signals := workflow.GetSignalChannel(ctx, "control")
 	var remaining = maxActions
 	for turn := 1; turn <= maxModelTurns; turn++ {

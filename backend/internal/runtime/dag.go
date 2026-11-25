@@ -114,7 +114,7 @@ func scheduleIndependentSteps(ctx workflow.Context, run string, nodes []Node, lo
 		}
 		step := &steps[readyIndex]
 		var outcome Result
-		err := step.future.Get(ctx, &outcome)
+		err := readPlanResult(ctx, step.future, &outcome)
 		step.future = nil
 		if stopping {
 			continue
@@ -135,7 +135,7 @@ func scheduleIndependentSteps(ctx workflow.Context, run string, nodes []Node, lo
 		case outcome.LookupAttempt > 0 && !step.legacyCheck:
 			step.legacyCheck = true
 			action := lookupAction{Step: Step{run, nodes[readyIndex].Ordinal}, Attempt: outcome.LookupAttempt}
-			step.future = workflow.ExecuteActivity(ctx, "ExecuteLookupAction", action)
+			step.future = schedulePlanActivity(ctx, "ExecuteLookupAction", action)
 		case outcome.Wait || outcome.LookupAttempt > 0:
 			step.waiting = true
 		default:
@@ -162,7 +162,7 @@ func startDAGStep(ctx workflow.Context, run string, node Node, lookupTurns, loca
 		ctx = workflow.WithStartToCloseTimeout(ctx, resources.ImageTimeout+30*time.Second)
 	}
 	if node.focusedEvidence || node.requirementEvidence {
-		return workflow.ExecuteActivity(ctx, focusedTurnActivity(node), FocusedEvidenceTurn{Step: Step{run, node.Ordinal}, Questions: node.EvidenceQuestions})
+		return schedulePlanActivity(ctx, focusedTurnActivity(node), FocusedEvidenceTurn{Step: Step{run, node.Ordinal}, Questions: node.EvidenceQuestions})
 	}
 	activity := "ExecuteStep"
 	if node.CheckpointEvidence || localActions && (node.LookupAnswer || node.Calculation) {
@@ -172,7 +172,7 @@ func startDAGStep(ctx workflow.Context, run string, node Node, lookupTurns, loca
 	} else if node.CheckpointText {
 		activity = "AdvanceTextStep"
 	}
-	return workflow.ExecuteActivity(ctx, activity, Step{run, node.Ordinal})
+	return schedulePlanActivity(ctx, activity, Step{run, node.Ordinal})
 }
 
 func focusedTurnActivity(node Node) string {
@@ -211,28 +211,28 @@ func advanceLocalActivity(ctx workflow.Context, run string, node Node, outcome R
 		if outcome.Observation != nil {
 			next.Action, next.ConsumeObservation = outcome.Observation, true
 		}
-		return workflow.ExecuteActivity(ctx, focusedTurnActivity(node), next)
+		return schedulePlanActivity(ctx, focusedTurnActivity(node), next)
 	}
 	if outcome.TextReply != nil {
 		if node.CheckpointEvidence {
 			if node.EvidenceQuestions {
-				return workflow.ExecuteActivity(ctx, "CommitEvidenceQuestion", *outcome.TextReply)
+				return schedulePlanActivity(ctx, "CommitEvidenceQuestion", *outcome.TextReply)
 			}
-			return workflow.ExecuteActivity(ctx, "CommitEvidenceReply", *outcome.TextReply)
+			return schedulePlanActivity(ctx, "CommitEvidenceReply", *outcome.TextReply)
 		}
-		return workflow.ExecuteActivity(ctx, "CommitTextReply", *outcome.TextReply)
+		return schedulePlanActivity(ctx, "CommitTextReply", *outcome.TextReply)
 	}
 	if outcome.RevisitTurn {
-		return workflow.ExecuteActivity(ctx, localTurnActivity(node), Step{run, node.Ordinal})
+		return schedulePlanActivity(ctx, localTurnActivity(node), Step{run, node.Ordinal})
 	}
 	if outcome.Observation != nil {
 		if node.CheckpointEvidence {
-			return workflow.ExecuteActivity(ctx, "CommitEvidenceObservation", *outcome.Observation)
+			return schedulePlanActivity(ctx, "CommitEvidenceObservation", *outcome.Observation)
 		}
-		return workflow.ExecuteActivity(ctx, "CommitLocalObservation", *outcome.Observation)
+		return schedulePlanActivity(ctx, "CommitLocalObservation", *outcome.Observation)
 	}
 	if node.CheckpointEvidence {
-		return workflow.ExecuteActivity(ctx, "ExecuteEvidenceAction", *outcome.Action)
+		return schedulePlanActivity(ctx, "ExecuteEvidenceAction", *outcome.Action)
 	}
-	return workflow.ExecuteActivity(ctx, "ExecuteAction", *outcome.Action)
+	return schedulePlanActivity(ctx, "ExecuteAction", *outcome.Action)
 }

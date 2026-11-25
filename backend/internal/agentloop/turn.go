@@ -12,6 +12,7 @@ import (
 	"alliance/internal/memory"
 	"alliance/internal/projects"
 	"alliance/internal/resources"
+	"alliance/internal/runtime"
 	"alliance/internal/web"
 	"alliance/internal/websearch"
 	"context"
@@ -26,6 +27,7 @@ import (
 )
 
 type Activities struct {
+	Planned *runtime.Activities
 	DB      *pgxpool.Pool
 	Vault   resources.Vault
 	Objects knowledge.Objects
@@ -75,6 +77,13 @@ func actionScope(ref ToolRef) string {
 }
 
 func (a Activities) AdvanceTurn(ctx context.Context, ref TurnRef) (TurnResult, error) {
+	if ref.Planned != nil {
+		if a.Planned == nil {
+			return TurnResult{}, errors.New("approved-plan worker is unavailable")
+		}
+		planned, err := a.Planned.ProcessApprovedPlan(ctx, *ref.Planned, false)
+		return TurnResult{Planned: &planned}, err
+	}
 	var anchor bool
 	if err := a.DB.QueryRow(ctx, "select exists(select from general_anchor_edits where run_id=$1)", ref.RunID).Scan(&anchor); err != nil {
 		return TurnResult{}, err
@@ -329,7 +338,7 @@ func (a Activities) contextForTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, 
 			}
 			items = append(items, item)
 		} else {
-			body, err := a.Vault.Open(cipher, actionScope(ToolRef{ref.RunID, turn, position})+"/observation")
+			body, err := a.Vault.Open(cipher, actionScope(ToolRef{RunID: ref.RunID, Turn: turn, Position: position})+"/observation")
 			if err != nil {
 				return nil, nil, nil, err
 			}

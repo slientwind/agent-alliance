@@ -115,7 +115,7 @@ func (a Activities) directExternalTurn(ctx context.Context, tx pgx.Tx, ref TurnR
 	if err != nil {
 		return TurnResult{}, err
 	}
-	cipher, err := a.Vault.Seal(string(args), actionScope(ToolRef{ref.RunID, 1, 1})+"/arguments")
+	cipher, err := a.Vault.Seal(string(args), actionScope(ToolRef{RunID: ref.RunID, Turn: 1, Position: 1})+"/arguments")
 	if err != nil {
 		return TurnResult{}, err
 	}

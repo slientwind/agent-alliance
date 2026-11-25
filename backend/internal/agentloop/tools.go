@@ -80,6 +80,13 @@ type toolWork struct {
 }
 
 func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, error) {
+	if ref.Planned != nil {
+		if a.Planned == nil {
+			return ToolResult{}, errors.New("approved-plan worker is unavailable")
+		}
+		planned, err := a.Planned.ProcessApprovedPlan(ctx, *ref.Planned, true)
+		return ToolResult{Planned: &planned}, err
+	}
 	var result ToolResult
 	var task toolWork
 	started := false
