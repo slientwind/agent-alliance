@@ -4,7 +4,6 @@ import (
 	"alliance/internal/egress"
 	"alliance/internal/knowledge"
 	"alliance/internal/skills"
-	"alliance/internal/web"
 	"bytes"
 	"context"
 	"crypto/aes"
@@ -17,7 +16,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 )
 
 type Vault struct{ aead cipher.AEAD }
@@ -113,6 +111,7 @@ type Model struct {
 	StreamText       bool
 	RemoteOperations *RemoteOperations
 	ExternalTrace    ExternalTrace
+	Adapter          *AdapterSpec
 	Tools            []ToolDefinition
 	MaxTokens        int
 	TokenLimitField  string
@@ -148,19 +147,7 @@ func (m Model) Generate(ctx context.Context, messages []Message) (Reply, error) 
 		if !m.RemoteOperations.CanStart() {
 			return Reply{}, errors.New("此发布修订的远端提交与成果验证已失效")
 		}
-		var parts []map[string]string
-		for _, msg := range messages {
-			if msg.Role == "user" {
-				parts = append(parts, map[string]string{"kind": "text", "text": msg.Content})
-			}
-		}
-		id := m.Operation
-		if id == "" {
-			id = web.Token()
-		}
-		sub, stop := context.WithTimeout(ctx, time.Duration(m.Policy.ExecutionSeconds)*time.Second)
-		defer stop()
-		return m.remote(sub, "message/send", nil, map[string]any{"message": map[string]any{"kind": "message", "messageId": id, "role": "user", "parts": parts}, "configuration": map[string]any{"blocking": true, "acceptedOutputModes": []string{"text/plain"}}})
+		return m.generateExternal(ctx, messages, nil)
 	}
 	if !Endpoint(m.Endpoint) {
 		return Reply{}, errors.New("invalid provider endpoint")

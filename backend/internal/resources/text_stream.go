@@ -17,6 +17,9 @@ var errTextStreamInterrupted = errors.New("文本流未返回完整答复")
 // StreamTextReply calls the opted-in text endpoint once. Some compatible
 // providers return an ordinary JSON reply to the same request.
 func (m Model) StreamTextReply(ctx context.Context, messages []Message, emit func(string)) (Reply, error) {
+	if m.External && m.Adapter != nil && m.Adapter.Stream && m.RemoteOperations.CanStart() {
+		return m.generateExternal(ctx, messages, emit)
+	}
 	if !m.StreamText || m.OutputOperation != "text" || m.External || m.Tool != nil || !Endpoint(m.Endpoint) {
 		return Reply{}, errors.New("文本流未配置")
 	}

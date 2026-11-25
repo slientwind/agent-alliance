@@ -85,7 +85,8 @@
 
 ### 模块 C：外部 Agent 多协议/框架模板接入（Adapter Hub）
 - [ ] **多协议适配器与一键模板**
-  - [ ] 扩展外部适配层支持：`openai_compat`（内置 **Dify / Coze / FastGPT / LangGraph** 预置字段映射模板，支持 SSE 流式）、`a2a_jsonrpc`（复用既有实现）、`async_webhook`（可配 Submit/Poll/Cancel + JSONPath 提取，兼容 Manus 等第三方商业 Agent）。
+  - [x] 扩展外部适配层支持 `openai_compat`，提供 Dify、Coze、FastGPT、LangGraph 的预置字段和 SSE 接收，复用既有 `a2a_jsonrpc`。
+  - [ ] 接入 `async_webhook`，支持配置 Submit/Poll/Cancel 和 JSONPath 提取，兼容 Manus 等商业 Agent。
   - [x] 每次外部请求统一注入标准追踪头：`X-Alliance-Run-Id`、`X-Alliance-Turn-Id`、`X-Alliance-User-Id`、`traceparent`。
   - [ ] 实现**可选用量与 Trace 回传解析器**：优先解析标准 `usage` 或响应头 `X-Alliance-Usage` / `X-Alliance-Trace-Url`；未上报明确记为 `cost_disclosure = 'undisclosed'`。
 - [ ] **两档准入与双调用形态**

@@ -43,6 +43,8 @@ func (c Catalog) Routes(m *http.ServeMux, s identity.Server) {
 	m.Handle("GET /api/agents/{id}/cards/{revision}", s.Protect(false, c.cardRevision))
 	m.Handle("POST /api/agents/cards/preview", s.Protect(false, c.discoverCard))
 	m.Handle("POST /api/agents/cards", s.Protect(false, c.external))
+	m.Handle("GET /api/agents/adapter-templates", s.Protect(false, c.adapterTemplates))
+	m.Handle("POST /api/agents/adapters", s.Protect(false, c.saveAdapter))
 	m.Handle("POST /api/admin/catalog/{kind}/{id}", s.Protect(true, c.state))
 	m.Handle("GET /api/agents/{id}/evidence", s.Protect(false, c.evidence))
 	m.Handle("GET /api/agents/{id}/evidence/{trial}/sample", s.Protect(false, c.trialSample))
@@ -444,6 +446,10 @@ func (c Catalog) resolve(ctx context.Context, q Query, project, actor, id string
 		}
 		m.Name = card.Name
 		m.External = true
+		if card.Protocol != "0.3.0" && card.Adapter != nil && card.Adapter.Protocol == card.Protocol {
+			m.Adapter = card.Adapter
+			m.OutputOperation, m.StreamText = "text", m.Adapter.Stream
+		}
 		m.outbound = egress.Policy{DB: c.DB}
 		if err := json.Unmarshal(policy, &m.Policy); err != nil {
 			return m, "", err

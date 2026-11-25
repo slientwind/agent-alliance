@@ -34,12 +34,13 @@ func (p RemotePolicy) valid() bool {
 }
 
 type AgentCard struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Version     string `json:"version"`
-	Protocol    string `json:"protocolVersion"`
-	URL         string `json:"url"`
-	Transport   string `json:"preferredTransport"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Version     string       `json:"version"`
+	Protocol    string       `json:"protocolVersion"`
+	URL         string       `json:"url"`
+	Transport   string       `json:"preferredTransport"`
+	Adapter     *AdapterSpec `json:"allianceAdapter,omitempty"`
 	Interfaces  []struct {
 		URL       string `json:"url"`
 		Transport string `json:"transport"`
@@ -58,16 +59,19 @@ func (c Catalog) PermittedAgentEndpoint(ctx context.Context, raw string) bool {
 func permittedAgentEndpoint(ctx context.Context, policy egress.Policy, raw string) bool {
 	return Endpoint(raw) && policy.Allowed(ctx, raw, false)
 }
+
+type externalDraft struct {
+	ID, Team       string
+	Expected       int
+	Endpoint       string
+	Card           json.RawMessage
+	Key            string
+	KeepCredential bool
+	Policy         RemotePolicy
+}
+
 func (c Catalog) external(w http.ResponseWriter, r *http.Request, u identity.Member) error {
-	var in struct {
-		ID, Team       string
-		Expected       int
-		Endpoint       string
-		Card           json.RawMessage
-		Key            string
-		KeepCredential bool
-		Policy         RemotePolicy
-	}
+	var in externalDraft
 	in.Policy = defaultRemotePolicy()
 	if err := web.Read(r, &in); err != nil {
 		return err
@@ -83,9 +87,14 @@ func (c Catalog) external(w http.ResponseWriter, r *http.Request, u identity.Mem
 	if in.Key != "" && in.Endpoint == "" && (endpoint != card.URL || (card.Transport != "" && card.Transport != "JSONRPC")) {
 		return web.Fail(422, "请明确选择接收此凭据的备用 JSONRPC 地址")
 	}
+	return c.saveExternal(w, r, u, in, card, endpoint)
+}
+
+func (c Catalog) saveExternal(w http.ResponseWriter, r *http.Request, u identity.Member, in externalDraft, card AgentCard, endpoint string) error {
+	ctx := r.Context()
 	id := in.ID
 	rev := 0
-	err = database.WithTx(ctx, c.DB, func(tx pgx.Tx) error {
+	err := database.WithTx(ctx, c.DB, func(tx pgx.Tx) error {
 		if id == "" {
 			var err error
 			id, err = createTeamAgent(ctx, tx, u.ID, in.Team)
@@ -117,12 +126,14 @@ func (c Catalog) external(w http.ResponseWriter, r *http.Request, u identity.Mem
 				return web.Fail(422, "请明确选择沿用或替换凭据")
 			}
 			var oldKey []byte
-			var oldURL string
-			if err := tx.QueryRow(ctx, "select key_override,rpc_endpoint from agent_revisions where agent_id=$1 and revision=$2 and card is not null", id, rev-1).Scan(&oldKey, &oldURL); err != nil {
+			var oldURL, oldProtocol, oldTemplate string
+			if err := tx.QueryRow(ctx, `select key_override,rpc_endpoint,coalesce(card->>'protocolVersion',''),
+				coalesce(card#>>'{allianceAdapter,template}','') from agent_revisions where agent_id=$1 and revision=$2 and card is not null`,
+				id, rev-1).Scan(&oldKey, &oldURL, &oldProtocol, &oldTemplate); err != nil {
 				return err
 			}
 			if len(oldKey) > 0 {
-				if oldURL != endpoint {
+				if oldURL != endpoint || oldProtocol != card.Protocol || (card.Adapter != nil && oldTemplate != card.Adapter.Template) {
 					return web.Fail(422, "端点变化，请重新提供凭据或明确选择无需凭据")
 				}
 				key, err := c.Vault.Open(oldKey, fmt.Sprintf("agent/%s/%d", id, rev-1))
@@ -174,7 +185,7 @@ type RemoteWait struct {
 func (e *RemoteWait) Error() string { return "外部任务状态：" + e.State }
 
 func (m Model) SupplementRemote(ctx context.Context, receipt RemoteWait, messageID, input string) (Reply, error) {
-	if !m.External || receipt.Task == "" || receipt.Context == "" || messageID == "" || web.Blank(input) {
+	if !m.External || m.Adapter != nil || receipt.Task == "" || receipt.Context == "" || messageID == "" || web.Blank(input) {
 		return Reply{}, errors.New("需要原远端任务、上下文及本次已登记的补件")
 	}
 	if m.RemoteOperations != nil && !m.RemoteOperations.CanSupplement() {
@@ -190,7 +201,7 @@ func (m Model) SupplementRemote(ctx context.Context, receipt RemoteWait, message
 }
 
 func (m Model) CheckRemote(ctx context.Context, receipt RemoteWait, cancel bool) (Reply, error) {
-	if !m.External || receipt.Task == "" {
+	if !m.External || m.Adapter != nil || receipt.Task == "" {
 		return Reply{}, errors.New("需要已登记的外部任务编号")
 	}
 	if !m.RemoteOperations.CanFollow(cancel) {
@@ -338,7 +349,7 @@ func (c Catalog) cardRevision(w http.ResponseWriter, r *http.Request, u identity
 
 func (c Catalog) parseCard(ctx context.Context, raw json.RawMessage, selected string) (AgentCard, string, error) {
 	var card AgentCard
-	if json.Unmarshal(raw, &card) != nil || card.Protocol != "0.3.0" || card.Name == "" || card.Version == "" || card.URL == "" || len(card.Skills) == 0 {
+	if json.Unmarshal(raw, &card) != nil || card.Adapter != nil || card.Protocol != "0.3.0" || card.Name == "" || card.Version == "" || card.URL == "" || len(card.Skills) == 0 {
 		return card, "", web.Fail(422, "需要包含版本、主端点和技能的 A2A 0.3.0 Agent Card")
 	}
 	for _, skill := range card.Skills {
