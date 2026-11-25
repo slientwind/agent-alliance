@@ -402,3 +402,12 @@ func (a Activities) saveArtifact(ctx context.Context, tx pgx.Tx, run, project, n
 	}
 	return id, nil
 }
+
+func (a Activities) saveFinalReply(ctx context.Context, tx pgx.Tx, run, project, name string, reply resources.Reply) (string, error) {
+	id, err := a.saveArtifact(ctx, tx, run, project, name, maxModelTurns*maxToolsPerTurn+1, reply)
+	if err != nil {
+		return "", err
+	}
+	_, err = tx.Exec(ctx, "update general_agent_runs set final_reply=$2 where run_id=$1", run, id)
+	return id, err
+}

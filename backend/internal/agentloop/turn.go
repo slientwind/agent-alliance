@@ -356,7 +356,7 @@ func (a Activities) saveTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, d runD
 			(reply.FinishReason != "stop" && reply.FinishReason != "") {
 			return TurnResult{Done: true}, finishGeneralRun(ctx, tx, ref.RunID, d, "failed", "模型未完成本次答复，请缩小范围后重试。")
 		}
-		if _, err := a.saveArtifact(ctx, tx, ref.RunID, d.project, "任务答复", maxModelTurns*maxToolsPerTurn+1, reply); err != nil {
+		if _, err := a.saveFinalReply(ctx, tx, ref.RunID, d.project, "任务答复", reply); err != nil {
 			return TurnResult{}, err
 		}
 		cipher, err := a.Vault.Seal(reply.Text, runScope(ref.RunID, ref.Turn))

@@ -3,6 +3,7 @@ import { fileFormats } from "./output-operations";
 import { PlanningInputs, planningRequestKey, selectedPins, type PlanningPin } from "./planning-inputs";
 import { LookupBody } from "./lookup-body";
 import { ToolApprovals } from "./tool-approval";
+import { ReplyActions } from "./reply-actions";
 import { MarkdownText } from "./markdown-text";
 import { StatusIcon } from "./status-icon";
 import { LiveDrafts, type DraftFragment } from "./live-drafts";
@@ -73,6 +74,8 @@ type Props = {
   refresh: () => Promise<void>;
   openLibrary: () => void;
   openWorkflowTemplates: (template?: WorkflowTemplateReference) => void;
+  openStudio: (id: string) => void;
+  scheduleReply: (seed: { title: string; goal: string; team: string }) => void;
   onRecoveryDelivered: (id: string) => void;
   reloadCatalog: () => Promise<void>;
 };
@@ -91,6 +94,8 @@ export function Work({
   refresh,
   openLibrary,
   openWorkflowTemplates,
+  openStudio,
+  scheduleReply,
   onRecoveryDelivered,
   reloadCatalog,
 }: Props) {
@@ -1043,6 +1048,10 @@ export function Work({
           ) : p.plan?.nodes[a.ordinal - 1]?.lookupPhase
             ? <LookupBody artifact={a} project={p} sources={sources} />
             : <div className="preserve">{a.body}</div>}
+          {a.replyRun && <ReplyActions artifact={a} project={p} owner={p.owner === user.id} busy={busy}
+            refresh={refresh} openStudio={openStudio}
+            schedule={() => scheduleReply({ title: p.title, goal: p.plan?.brief ||
+              p.messages.filter(message => message.kind === "user").at(-1)?.body || p.title, team: p.team })} />}
           {a.upstreamEvidenceReady != null &&
             !p.deliveryCoverage?.items.some(item => item.artifact === a.id && item.upstreamEvidenceReady !== undefined &&
               (p.stage !== "delivered" || item.upstreamEvidenceStep)) && (

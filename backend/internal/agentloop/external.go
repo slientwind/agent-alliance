@@ -307,7 +307,7 @@ func (a Activities) executeExternal(ctx context.Context, ref ToolRef, task toolW
 		}
 		var artifact string
 		if d.direct {
-			artifact, err = a.saveArtifact(ctx, tx, ref.RunID, d.project, "外部 Agent 答复", maxModelTurns*maxToolsPerTurn+1, reply)
+			artifact, err = a.saveFinalReply(ctx, tx, ref.RunID, d.project, "外部 Agent 答复", reply)
 			if err != nil {
 				return err
 			}

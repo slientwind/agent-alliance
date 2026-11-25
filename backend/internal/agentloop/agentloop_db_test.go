@@ -211,8 +211,57 @@ func TestGeneralRunDispatchesTrustedToolsAndStoresArtifacts(t *testing.T) {
 		}
 	}
 	checkPastAnswer(true)
+	var replyArtifact string
+	if err := db.QueryRow(ctx, `select a.id from general_agent_runs g join artifacts a on a.id=g.final_reply where g.run_id=$1 and a.run_id=g.run_id`,
+		run).Scan(&replyArtifact); err != nil || replyArtifact == "" {
+		t.Fatalf("general run is missing its reply artifact: %s %v", replyArtifact, err)
+	}
+	exec("update runs set status='failed' where id=$1", followup)
+	exec("update projects set stage='brief' where id=$1", project)
+	if err := db.QueryRow(ctx, "select revision from projects where id=$1", project).Scan(&revision); err != nil {
+		t.Fatal(err)
+	}
+	retry := func(expected int, key string) (string, error) {
+		t.Helper()
+		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/", strings.NewReader(fmt.Sprintf(`{"expected":%d}`, expected)))
+		req.SetPathValue("id", project)
+		req.SetPathValue("run", run)
+		req.Header.Set("Idempotency-Key", key)
+		response := httptest.NewRecorder()
+		if err := (Server{DB: db, Vault: vault}).retryRun(response, req, identity.Member{ID: owner}); err != nil {
+			return "", err
+		}
+		var body struct{ ID string }
+		err := json.Unmarshal(response.Body.Bytes(), &body)
+		return body.ID, err
+	}
+	retried, err := retry(revision, "fixture-retry")
+	if err != nil || retried == "" || retried == run {
+		t.Fatalf("could not restart the selected reply: %s %v", retried, err)
+	}
+	if again, err := retry(revision, "fixture-retry"); err != nil || again != retried {
+		t.Fatalf("retry did not replay the same run: %s %v", again, err)
+	}
+	var replayedGoal, replayedSource string
+	var signalCount int
+	if err := db.QueryRow(ctx, `select plan.brief,s.source_id,(select count(*) from run_quality_signals
+	 where (run_id,actor,kind)=($2,$3,'reply_regenerated')) from runs r
+	 join plans plan on (plan.project_id,plan.version)=(r.project_id,r.plan_version)
+	 join plan_sources s on (s.project_id,s.plan_version)=(r.project_id,r.plan_version) where r.id=$1`,
+		retried, run, owner).Scan(&replayedGoal, &replayedSource, &signalCount); err != nil ||
+		replayedGoal != initialGoal || replayedSource != source || signalCount != 1 {
+		t.Fatalf("retry did not retain its prompt, source, and single signal: %q %q %d %v", replayedGoal, replayedSource, signalCount, err)
+	}
 	exec("update sources set revoked_at=now() where id=$1", source)
 	checkPastAnswer(false)
+	exec("update runs set status='cancelled' where id=$1", retried)
+	exec("update projects set stage='brief' where id=$1", project)
+	if err := db.QueryRow(ctx, "select revision from projects where id=$1", project).Scan(&revision); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := retry(revision, "revoked-retry"); err == nil {
+		t.Fatal("retry silently ignored a withdrawn source")
+	}
 }
 
 func sampleWorkbook(t *testing.T) []byte {

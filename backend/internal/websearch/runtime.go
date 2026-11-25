@@ -45,6 +45,24 @@ func Available(ctx context.Context, db interface {
 	return available, err
 }
 
+func ReplayQuery(ctx context.Context, tx pgx.Tx, vault resources.Vault, run string) (string, error) {
+	var cipher []byte
+	var available bool
+	err := tx.QueryRow(ctx, `select q.query_cipher,exists(select from web_search_integration s
+	 where s.enabled and s.revision=q.service_revision) from general_agent_web_search q where q.run_id=$1`, run).
+		Scan(&cipher, &available)
+	if err == pgx.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if !available {
+		return "", web.Fail(409, "联网搜索服务已变化，请重新输入公开搜索词")
+	}
+	return vault.Open(cipher, queryScope(run))
+}
+
 func (runtime Runtime) Search(ctx context.Context, run string) ([]Result, error) {
 	var config Config
 	var queryCipher []byte

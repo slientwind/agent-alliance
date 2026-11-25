@@ -193,6 +193,7 @@ function App() {
   const [searchDraft, setSearchDraft] = useState<{ project: string; query: string }>();
   const [externalAgents, setExternalAgents] = useState<ExternalAgent[]>([]);
   const [externalPicker, setExternalPicker] = useState<{ project: string; choice?: ExternalChoice }>();
+  const [automationSeed, setAutomationSeed] = useState<{ title: string; goal: string; team: string }>();
   const [studioPicker, setStudioPicker] = useState<{ project: string; assistant: PublishedAssistant | null }>();
   const studioAssistant = studioPicker?.project === (p?.id || "") ? studioPicker.assistant : p?.run?.studioAssistant;
   function openWorkflowTemplates(template?: WorkflowTemplateReference) {
@@ -373,6 +374,7 @@ function App() {
       setExternalAgents([]);
       setExternalPicker(undefined);
       setStudioPicker(undefined);
+      setAutomationSeed(undefined);
     }
   }, [user]);
   const catalog = useCallback(async () => {
@@ -1120,7 +1122,8 @@ function App() {
       {panel === "services" && (
         <>
           <Suspense fallback={<p role="status">正在加载定时委托…</p>}>
-            <AutomationSchedules teams={teams || []} tiers={availableTiers} openProject={id => void select(id)} />
+            <AutomationSchedules teams={teams || []} tiers={availableTiers} openProject={id => void select(id)}
+              seed={automationSeed} seedOpened={() => setAutomationSeed(undefined)} />
           </Suspense>
           <Services admin={user.role === "admin"} agents={agents} projects={list} />
         </>
@@ -1304,6 +1307,11 @@ function App() {
                 reloadCatalog={catalog}
                 openLibrary={() => setPanel("library")}
                 openWorkflowTemplates={openWorkflowTemplates}
+                openStudio={id => navigate("/agents/studio/" + encodeURIComponent(id))}
+                scheduleReply={seed => {
+                  setAutomationSeed(seed);
+                  setPanel("services");
+                }}
               />
               </Suspense>
             ) : current.current ? (

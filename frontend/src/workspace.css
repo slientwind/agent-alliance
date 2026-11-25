@@ -409,3 +409,6 @@
 .compose-external select { max-width: min(100%, 18rem); }
 .compose-external small { flex-basis: 100%; }
 .selected-studio { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; }
+.reply-actions { margin: .65rem 0; }
+.reply-actions button { display: inline-flex; align-items: center; gap: .35rem; min-height: 36px; }
+.reply-actions button[aria-pressed="true"] { background: var(--bg-active); }

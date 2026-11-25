@@ -92,10 +92,12 @@ function timingLabel(schedule: Schedule) {
   return frequency + " · " + schedule.zone;
 }
 
-export function AutomationSchedules({ teams, tiers, openProject }: {
+export function AutomationSchedules({ teams, tiers, openProject, seed, seedOpened }: {
   teams: { id: string; name: string; default?: boolean }[];
   tiers: ConversationTier[];
   openProject: (id: string) => void;
+  seed?: { title: string; goal: string; team: string };
+  seedOpened: () => void;
 }) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [history, setHistory] = useState<{ id: string; rows: Execution[] }>();
@@ -108,6 +110,13 @@ export function AutomationSchedules({ teams, tiers, openProject }: {
   const listRequest = useRef(0);
   const synchronizing = schedules.some(schedule => schedule.sync !== "ready");
   const firstTeam = teams.find(team => team.default)?.id || teams[0]?.id || "";
+  useEffect(() => {
+    if (!seed || !tiers.length || !firstTeam) return;
+    const team = teams.some(item => item.id === seed.team) ? seed.team : firstTeam;
+    setRequestKey(crypto.randomUUID());
+    setDraft({ ...blank(team, tiers[0]), title: seed.title.slice(0, 120), goal: seed.goal.slice(0, 5000) });
+    seedOpened();
+  }, [seed, tiers, teams, firstTeam, seedOpened]);
   const reload = useCallback(async () => {
     const request = ++listRequest.current;
     const rows = await api<Schedule[]>("automations");

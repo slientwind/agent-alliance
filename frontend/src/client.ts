@@ -203,6 +203,7 @@ export type SourceReceiptRequest = {
 };
 
 export type Artifact = {
+  replyRun?: string | null;
   draftBlock?: "preference" | "rule" | null;
   upstreamEvidenceReady?: boolean | null;
   verifiedWord?:boolean;

@@ -28,6 +28,7 @@ type Server struct {
 func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("GET /api/general-tiers", auth.Protect(false, s.tiers))
 	mux.Handle("POST /api/projects/{id}/general-runs", auth.Protect(false, s.start))
+	mux.Handle("POST /api/projects/{id}/general-runs/{run}/retry", auth.Protect(false, s.retryRun))
 	mux.Handle("GET /api/projects/{id}/tool-approvals", auth.Protect(false, s.toolApprovals))
 	mux.Handle("POST /api/projects/{id}/tool-approvals/{approval}", auth.Protect(false, s.decideToolApproval))
 }
