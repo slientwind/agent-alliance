@@ -81,7 +81,11 @@ func TestSpaceModelAndScopedRoutesPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	exec("update spaces set name='私人工作',custom_instructions='PRIVATE-FIXTURE' where id=$1", private)
-	exec("update spaces set name='采购团队',custom_instructions='TEAM-INTERNAL',default_template_id=$2 where id=$1", shared, uuid.NewString())
+	template := uuid.NewString()
+	exec("insert into objects(hash,size_bytes) values(repeat('e',64),10) on conflict do nothing")
+	exec(`insert into corporate_templates(id,space_id,doc_type,name,object_hash,author,is_default)
+		values($1,$2,'docx','团队母版',repeat('e',64),$3,true)`, template, shared, owner)
+	exec("update spaces set name='采购团队',custom_instructions='TEAM-INTERNAL',default_template_id=$2 where id=$1", shared, template)
 	exec("insert into space_members(space_id,member_id,role) values($1,$2,'space_admin'),($1,$3,'guest')", shared, owner, guest)
 	reject("23514", "insert into spaces(kind,slug,name) values('personal',$1,'不合规')", uuid.NewString())
 	reject("23505", "insert into spaces(kind,owner_member_id,slug,name) values('personal',$1,$2,'重复')", owner, uuid.NewString())

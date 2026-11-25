@@ -5,6 +5,7 @@ import (
 	"alliance/internal/app"
 	"alliance/internal/automations"
 	"alliance/internal/billing"
+	"alliance/internal/brandkit"
 	"alliance/internal/channels"
 	"alliance/internal/ecosystem"
 	"alliance/internal/egress"
@@ -59,6 +60,7 @@ func main() {
 	s.Routes(mux)
 	spaces.Server{DB: c.DB, Objects: knowledge.ConfiguredObjects()}.Routes(mux, s)
 	glossary.Server{DB: c.DB}.Routes(mux, s)
+	brandkit.Server{DB: c.DB, Objects: knowledge.ConfiguredObjects()}.Routes(mux, s)
 	bots := &channels.Bots{DB: c.DB, Vault: c.Vault}
 	bots.Routes(ctx, mux, s)
 	mail := mailrelay.Relay{DB: c.DB, Vault: c.Vault, Egress: egress.Policy{DB: c.DB}, Public: os.Getenv("PUBLIC_BASE_URL")}
