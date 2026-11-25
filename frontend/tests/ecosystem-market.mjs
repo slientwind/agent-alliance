@@ -35,6 +35,14 @@ try {
     return route.fulfill({ json: data[path] ?? [] });
   });
   await page.goto("/agents");
+  await page.getByRole("heading", { name: "团队能力库" }).waitFor();
+  await page.getByRole("link", { name: "生态发现市场" }).click();
+  await page.waitForURL("**/agents?view=ecosystem");
+  await page.getByRole("heading", { name: "生态发现市场" }).waitFor();
+  assert.equal(await page.getByRole("link", { name: "生态发现市场" }).getAttribute("aria-current"), "page");
+  assert.equal(await page.getByRole("link", { name: "构建助手" }).getAttribute("href"), "/agents/studio");
+  assert.equal(await page.getByRole("link", { name: "接入外部 Agent" }).getAttribute("href"), "/agents/connect");
+  await page.reload();
   const selection = page.getByRole("article", { name: "报表助手 Skill v1" });
   await selection.getByRole("button", { name: "加载到我的助手" }).click();
   await page.getByText("报表助手 Skill 已加载到我的助手").waitFor();

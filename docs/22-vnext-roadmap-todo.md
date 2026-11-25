@@ -173,9 +173,9 @@
 - [ ] **视觉设计系统重写（[`frontend/src/style.css`](../frontend/src/style.css)）**
   - [x] 全面替换为 [21-vnext-uiux-spec.md](21-vnext-uiux-spec.md) 的 **暖灰白纸面 + 深墨绿强调色 Design Tokens**，支持 `data-theme="light|dark"` 一键切换与持久化。
   - [x] 统一全站 Lucide 线性图标（`16/18/20px`，`stroke-width: 1.65`）与 `tabular-nums` 等宽数字，淘汰黑白灰菱形/圆点编码。
-- [ ] **拆除巨型单文件与 `<dialog>` 弹窗后台（[`main.tsx`](../frontend/src/main.tsx) · [`work.tsx`](../frontend/src/work.tsx) · [`enterprise-workspace.tsx`](../frontend/src/enterprise-workspace.tsx)）**
+- [x] **拆除巨型单文件与 `<dialog>` 弹窗后台（[`main.tsx`](../frontend/src/main.tsx) · [`work.tsx`](../frontend/src/work.tsx) · [`enterprise-workspace.tsx`](../frontend/src/enterprise-workspace.tsx)）**
   - [x] 移除 `Overlay` `<dialog>` 承载重型页面的架构，采用常驻可折叠左侧栏（`248px / 56px`）与独立工作区路由：`/chat`、`/chat/:id`、`/agents`、`/automations`、`/inbox`、`/admin/*`。
-  - [ ] 将生态发现市场接入 `/agents`，将构建器与连接向导分别挂载到 `/agents/studio/:id` 与 `/agents/connect`。
+  - [x] 将生态发现市场接入 `/agents`，将构建器与连接向导分别挂载到 `/agents/studio/:id` 与 `/agents/connect`。
   - [x] 移除普通员工输入区的技术复选框与团队强制弹窗，使用圆角 Composer、`+` 附件、`@` Agent 入口及行内团队选择。已发布的协作方案仍可设置检索与计算步骤。
   - [x] 在 Composer 接入通用、快速与深度思考档位。可用时从普通对话直接启动通用执行，附件按版本传入。
   - [x] 在 Composer 接入联网开关及企业搜索服务。

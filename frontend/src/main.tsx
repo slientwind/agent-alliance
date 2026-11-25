@@ -72,6 +72,7 @@ import type { PublishedAssistant } from "./studio-client";
 import { ConversationModels, conversationTier, isConversationTier, usesGeneralConversation, type ConversationTier } from "./conversation-models";
 import { TaskCollaboration } from "./task-collaboration";
 import { WorkspaceSidebar } from "./workspace-sidebar";
+import { AgentSpace } from "./agent-space";
 import { chatPath, pageFromPath, projectFromPath, studioDraftFromPath, workspacePage } from "./workspace-routes";
 import "./style.css";
 import "./workspace.css";
@@ -83,7 +84,6 @@ const AutomationSchedules = lazy(() => import("./automation-schedules").then(({ 
 const ExternalConnect = lazy(() => import("./external-connect").then(({ ExternalConnect }) => ({ default: ExternalConnect })));
 const AdminReleases = lazy(() => import("./admin-releases").then(({ AdminReleases }) => ({ default: AdminReleases })));
 const EcosystemSources = lazy(() => import("./ecosystem-sources").then(({ EcosystemSources }) => ({ default: EcosystemSources })));
-const EcosystemMarket = lazy(() => import("./ecosystem-market").then(({ EcosystemMarket }) => ({ default: EcosystemMarket })));
 const StudioWorkspace = lazy(() => import("./studio-workspace").then(({ StudioWorkspace }) => ({ default: StudioWorkspace })));
 
 function Overlay({
@@ -1150,11 +1150,7 @@ function App() {
       {panel === "rules" && <TeamRules admin={user.role === "admin"} />}
       {panel === "prefs" && <Preferences agents={agents} />}
       {panel === "library" && (
-        <>
-          <div className="row">
-            <button type="button" onClick={() => setPanel("studio")}>构建助手</button>
-            <button type="button" onClick={() => setPanel("externalConnect")}>接入外部 Agent</button>
-          </div>
+        <AgentSpace directory={
           <Library
             useAgent={!current.current && !hasPicks && !busy ? a => chooseAgents([a], a.team) : undefined}
             teams={teams || []}
@@ -1164,8 +1160,7 @@ function App() {
             admin={user.role === "admin"}
             refresh={catalog}
           />
-          <Suspense fallback={<p role="status">正在加载生态目录…</p>}><EcosystemMarket /></Suspense>
-        </>
+        } />
       )}
       {panel === "studio" && (
         <Suspense fallback={<p role="status">正在加载构建器…</p>}>
