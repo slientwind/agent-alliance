@@ -293,6 +293,17 @@ func verifyHotStream(t *testing.T, ctx context.Context, db *pgxpool.Pool, url st
 	if !strings.Contains(sharedFrame, first) {
 		t.Fatalf("authorized teammate did not replay the live draft: %s", sharedFrame)
 	}
+	joined := readDraftFrame(t, owner, func(frame string) bool {
+		return strings.Contains(frame, "event: presence.joined") && strings.Contains(frame, viewer)
+	})
+	if !strings.Contains(joined, `"name":"Peer"`) || strings.Contains(joined, `"session"`) {
+		t.Fatalf("unexpected teammate presence event: %s", joined)
+	}
+	secondOwner, closeSecondOwner := openDraftResponse(t, ctx, url, token, "")
+	defer closeSecondOwner()
+	readDraftFrame(t, secondOwner, func(frame string) bool {
+		return strings.Contains(frame, "event: presence.joined") && strings.Contains(frame, viewer)
+	})
 	lookupTestSQL(t, ctx, db, "delete from project_members where project_id=$1 and member_id=$2", project, viewer)
 	close(produce)
 	readDraftFrame(t, shared, func(frame string) bool {
@@ -300,6 +311,9 @@ func verifyHotStream(t *testing.T, ctx context.Context, db *pgxpool.Pool, url st
 			t.Fatalf("withdrawn teammate received new text: %s", frame)
 		}
 		return strings.Contains(frame, "event: access-ended")
+	})
+	readDraftFrame(t, secondOwner, func(frame string) bool {
+		return strings.Contains(frame, "event: presence.left") && strings.Contains(frame, viewer)
 	})
 	secondFrame := readDraftFrame(t, owner, func(frame string) bool { return strings.Contains(frame, second) })
 	if !strings.Contains(secondFrame, fmt.Sprintf("\"offset\":%d", len(first))) {

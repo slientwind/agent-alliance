@@ -69,6 +69,7 @@ import { TaskCollaboration } from "./task-collaboration";
 import { WorkspaceSidebar } from "./workspace-sidebar";
 import { AgentSpace } from "./agent-space";
 import { AdminNavigation } from "./admin-navigation";
+import { PresenceStack, type OnlineMember } from "./presence-stack";
 import { chatPath, pageFromPath, projectFromPath, studioDraftFromPath, workspacePage } from "./workspace-routes";
 import "./style.css";
 import "./workspace.css";
@@ -570,6 +571,7 @@ function App() {
   const [commentRevision, setCommentRevision] = useState(0);
   const [sessionDrafts, setSessionDrafts] = useState<(SessionDrafts & { project: string })>();
   const [thinking, setThinking] = useState<{ project: string; run: string; text: string }>();
+  const [online, setOnline] = useState<{ project: string; members: OnlineMember[] }>();
   const restoreThread = useCallback((thread: HTMLDivElement | null) => {
     const request = restore.current;
     if (!thread || !visibleProject || request?.id !== visibleProject) return;
@@ -602,6 +604,7 @@ function App() {
     setStreamInterrupted(false);
     setSessionDrafts(undefined);
     setThinking(undefined);
+    setOnline(undefined);
     if (!visibleProject) return;
     const id = visibleProject;
     let fetching = false;
@@ -611,6 +614,7 @@ function App() {
     let interruption: number | undefined;
     let stream: EventSource | undefined;
     let liveStream: EventSource | undefined;
+    const liveMembers = new Map<string, OnlineMember>();
     let draftView: SessionDrafts = { run: "", drafts: [] };
     let liveView: SessionDrafts = { run: "", drafts: [] };
     const sync = async (force = false) => {
@@ -645,6 +649,8 @@ function App() {
       const liveCurrent = () => active && liveStream === live && current.current === id;
       const clear = () => {
         liveView = { run: "", drafts: [] };
+        liveMembers.clear();
+        setOnline(undefined);
         setThinking(undefined);
         renderDrafts();
       };
@@ -671,6 +677,18 @@ function App() {
         if (data.run === liveView.run) setThinking({ ...data, project: id });
       });
       live.addEventListener("comments.changed", () => { if (liveCurrent()) setCommentRevision(value => value + 1); });
+      live.addEventListener("presence.joined", event => {
+        if (!liveCurrent()) return;
+        const member = JSON.parse(event.data) as OnlineMember;
+        liveMembers.set(member.member, member);
+        setOnline({ project: id, members: [...liveMembers.values()] });
+      });
+      live.addEventListener("presence.left", event => {
+        if (!liveCurrent()) return;
+        const { member } = JSON.parse(event.data) as OnlineMember;
+        liveMembers.delete(member);
+        setOnline({ project: id, members: [...liveMembers.values()] });
+      });
       live.addEventListener("access-ended", () => {
         if (!liveCurrent()) return;
         clear();
@@ -733,6 +751,7 @@ function App() {
         if (!currentConnection()) return;
         liveStream?.close();
         liveView = { run: "", drafts: [] };
+        setOnline(undefined);
         setThinking(undefined);
         showDrafts({ run: "", drafts: [] });
         connection.close();
@@ -1313,7 +1332,10 @@ function App() {
           <>
             {p && <header className="conversation-bar">
               <strong>{p.title}</strong>
-              <TaskCollaboration key={p.id} project={p} user={user} refresh={refresh} />
+              <div className="conversation-participants">
+                {online?.project === p.id && <PresenceStack members={online.members} />}
+                <TaskCollaboration key={p.id} project={p} user={user} refresh={refresh} />
+              </div>
             </header>}
           <main className={p ? "chat" : "start"}>
             {err && <p role="alert">{err}</p>}

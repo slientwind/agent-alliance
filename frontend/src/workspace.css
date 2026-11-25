@@ -464,6 +464,21 @@
 .admin-navigation button[aria-current="page"] { background: var(--brand-soft); color: var(--ink); border-color: var(--brand); }
 .admin-navigation svg { width: 17px; height: 17px; flex: 0 0 auto; }
 
+.conversation-participants { display: flex; align-items: center; justify-content: end; flex-wrap: wrap; gap: 0.45rem; }
+.presence-stack { display: flex; list-style: none; margin: 0; padding: 0 0 0 0.2rem; }
+.presence-stack li {
+  display: grid;
+  place-items: center;
+  margin-left: -0.2rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  font-size: 0.72rem;
+  color: var(--ink);
+  background: var(--brand-soft);
+}
+
 @media (max-width: 900px) {
   .administrator-page { grid-template-columns: minmax(0, 1fr); }
   .admin-navigation { flex-direction: row; flex-wrap: wrap; }

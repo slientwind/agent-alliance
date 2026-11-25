@@ -3,7 +3,7 @@ import { chromium } from "playwright";
 
 const browser = await chromium.launch();
 try {
-  const page = await browser.newPage({ baseURL: process.env.SMOKE_ORIGIN || "http://127.0.0.1:15179" });
+  const page = await browser.newPage({ baseURL: process.env.SMOKE_ORIGIN || "http://127.0.0.1:15179", viewport: { width: 390, height: 844 } });
   await page.addInitScript(() => {
     window.testStreams = {};
     window.EventSource = class extends EventTarget {
@@ -43,6 +43,11 @@ try {
   await send("session-events", "session.snapshot", { run: "", drafts: [], hot: true });
   await page.waitForFunction(() => !!window.testStreams["live-events"]);
   await send("live-events", "hot.reset", { run, drafts: [] });
+  await send("live-events", "presence.joined", { member: "member", name: "测试用户" });
+  await send("live-events", "presence.joined", { member: "teammate", name: "陈子" });
+  await send("live-events", "presence.joined", { member: "teammate", name: "陈子" });
+  await page.getByRole("list", { name: "2 人在线" }).waitFor();
+  assert.equal(await page.getByRole("listitem", { name: "陈子" }).count(), 1);
   await send("live-events", "thinking.progress", { run, step: 1, attempt: 1, text: "正在处理这轮任务" });
   await page.getByText("正在处理这轮任务", { exact: true }).waitFor();
   const draft = { run, step: 1, attempt: 1, status: "submitted" };
@@ -53,6 +58,11 @@ try {
   await send("live-events", "hot.reset", { run: "", drafts: [] });
   await page.getByRole("region", { name: "回复草稿" }).waitFor({ state: "hidden" });
   assert.equal(await page.getByText("第一段与第二段", { exact: true }).count(), 0);
+  await page.getByRole("list", { name: "2 人在线" }).waitFor();
+  await send("live-events", "presence.left", { member: "teammate" });
+  await page.getByRole("list", { name: "1 人在线" }).waitFor();
+  assert.equal(await page.getByRole("listitem", { name: "陈子" }).count(), 0);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 } finally {
   await browser.close();
 }

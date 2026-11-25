@@ -104,4 +104,47 @@ func TestRedisStreamsFanoutKeepsDraftContentSealed(t *testing.T) {
 			t.Fatal("independent reader could not replay the sealed event")
 		}
 	}
+	checkPresence(t, writer, reader)
+	member, expiredTab := uuid.NewString(), uuid.NewString()
+	presenceKey := key + ":presence"
+	defer client.Del(context.Background(), presenceKey)
+	if err := client.ZAdd(ctx, presenceKey, redis.Z{Score: 1, Member: member + "/" + expiredTab}).Err(); err != nil {
+		t.Fatal("could not seed an expired Redis presence lease")
+	}
+	if active, err := reader.OnlineMembers(ctx, project); err != nil || len(active) != 0 {
+		t.Fatal("an expired Redis lease still counted as an online member")
+	}
+}
+
+func TestMemoryPresenceKeepsTheMemberUntilTheirLastTabCloses(t *testing.T) {
+	bus := hotstream.NewMemory()
+	checkPresence(t, bus, bus)
+}
+
+func checkPresence(t *testing.T, writer, reader hotstream.HotStreamBus) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	project, member, first, second := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
+	for _, tab := range []string{first, second} {
+		if err := writer.KeepPresence(ctx, project, member, tab); err != nil {
+			t.Fatal(err)
+		}
+	}
+	check := func(want int) {
+		t.Helper()
+		active, err := reader.OnlineMembers(ctx, project)
+		if err != nil || len(active) != want || want != 0 && active[0] != member {
+			t.Fatalf("got presence %v, want %d unique members: %v", active, want, err)
+		}
+	}
+	check(1)
+	if err := reader.RemovePresence(ctx, project, member, first); err != nil {
+		t.Fatal(err)
+	}
+	check(1)
+	if err := writer.RemovePresence(ctx, project, member, second); err != nil {
+		t.Fatal(err)
+	}
+	check(0)
 }

@@ -8,10 +8,11 @@ import (
 )
 
 type Memory struct {
-	mu      sync.Mutex
-	topics  map[string]*topic
-	seq     uint64
-	created chan struct{}
+	mu       sync.Mutex
+	topics   map[string]*topic
+	seq      uint64
+	created  chan struct{}
+	presence map[string]map[string]presenceLease
 }
 
 type topic struct {
@@ -21,7 +22,7 @@ type topic struct {
 }
 
 func NewMemory() *Memory {
-	return &Memory{topics: make(map[string]*topic), created: make(chan struct{})}
+	return &Memory{topics: make(map[string]*topic), created: make(chan struct{}), presence: make(map[string]map[string]presenceLease)}
 }
 
 func (bus *Memory) Publish(ctx context.Context, project string, event Event) error {

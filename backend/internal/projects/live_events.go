@@ -12,6 +12,7 @@ import (
 	"alliance/internal/hotstream"
 	"alliance/internal/identity"
 	"alliance/internal/web"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -115,24 +116,56 @@ func (s Server) liveEvents(auth identity.Server) web.Handler {
 		cursor := ""
 		opened := time.Now()
 		verified := opened
+		keepalive := opened
+		session := uuid.NewString()
+		roster := make(map[string]string)
+		lastLease := time.Time{}
+		lastRoster := time.Time{}
+		joined := false
+		defer func() {
+			if !joined {
+				return
+			}
+			cleanup, stop := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+			defer stop()
+			if s.Hot.RemovePresence(cleanup, project, member.ID, session) == nil {
+				_ = s.Hot.Publish(cleanup, project, hotstream.Event{Kind: hotstream.Leave, Member: member.ID, Session: session})
+			}
+		}()
+		keep := func() {
+			lease, stop := context.WithTimeout(ctx, time.Second)
+			defer stop()
+			if s.Hot.KeepPresence(lease, project, member.ID, session) == nil && !joined {
+				joined = true
+				_ = s.Hot.Publish(lease, project, hotstream.Event{Kind: hotstream.Join, Member: member.ID, Session: session})
+			}
+			lastLease = time.Now()
+		}
+		keep()
+		if !s.liveRoster(ctx, w, controller, project, roster) {
+			return nil
+		}
+		lastRoster = time.Now()
 		for ctx.Err() == nil {
 			batch, err := s.Hot.Read(ctx, project, cursor)
 			if err != nil {
 				return nil
 			}
 			refresh := time.Since(verified) >= 10*time.Second || len(batch) > 0
+			refreshRoster := time.Since(lastRoster) >= 5*time.Second
 			select {
 			case <-wake:
 				refresh = true
+				refreshRoster = true
 			default:
 			}
-			if !refresh {
+			if !refresh && !refreshRoster {
 				continue
 			}
 			before := window.scope()
-			member, err = auth.Authenticate(r.WithContext(ctx))
+			currentMember, err := auth.Authenticate(r.WithContext(ctx))
 			if err == nil {
-				window, err = s.liveWindow(ctx, project, member.ID)
+				window, err = s.liveWindow(ctx, project, currentMember.ID)
 			}
 			if err != nil {
 				var problem web.Problem
@@ -145,10 +178,16 @@ func (s Server) liveEvents(auth identity.Server) web.Handler {
 			if !same && !liveFrame(w, controller, "hot.reset", sessionSnapshot{Run: window.run, Drafts: []draftFragment{}}) {
 				return nil
 			}
-			if same && time.Since(verified) >= 10*time.Second && !liveFrame(w, controller, "", nil) {
-				return nil
+			if time.Since(keepalive) >= 10*time.Second {
+				if !liveFrame(w, controller, "", nil) {
+					return nil
+				}
+				keepalive = time.Now()
 			}
 			verified = time.Now()
+			if time.Since(lastLease) >= 10*time.Second {
+				keep()
+			}
 			for _, record := range batch {
 				cursor = record.ID
 				event := record.Event
@@ -160,15 +199,66 @@ func (s Server) liveEvents(auth identity.Server) web.Handler {
 					}}) {
 						return nil
 					}
-				case hotstream.Comment, hotstream.Join, hotstream.Leave:
+				case hotstream.Comment:
 					if !record.At.Before(opened) && !liveFrame(w, controller, event.Kind, event) {
 						return nil
 					}
+				case hotstream.Join, hotstream.Leave:
+					refreshRoster = true
 				}
+			}
+			if refreshRoster {
+				if !s.liveRoster(ctx, w, controller, project, roster) {
+					return nil
+				}
+				lastRoster = time.Now()
 			}
 		}
 		return nil
 	}
+}
+
+type presenceMember struct {
+	ID   string `json:"member"`
+	Name string `json:"name"`
+}
+
+func (s Server) liveRoster(ctx context.Context, w http.ResponseWriter, controller *http.ResponseController, project string, shown map[string]string) bool {
+	read, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	ids, err := s.Hot.OnlineMembers(read, project)
+	if err != nil {
+		return true
+	}
+	var members []presenceMember
+	if len(ids) > 0 {
+		rows, err := s.DB.Query(read, `select m.id,m.display_name from project_members p join members m on m.id=p.member_id and m.enabled
+		 where p.project_id=$1 and m.id=any($2::uuid[]) order by m.id`, project, ids)
+		if err != nil {
+			return true
+		}
+		members, err = pgx.CollectRows(rows, pgx.RowToStructByPos[presenceMember])
+		if err != nil {
+			return true
+		}
+	}
+	next := make(map[string]string, len(members))
+	for _, member := range members {
+		next[member.ID] = member.Name
+		if old, present := shown[member.ID]; (!present || old != member.Name) && !liveFrame(w, controller, hotstream.Join, member) {
+			return false
+		}
+	}
+	for id := range shown {
+		if _, present := next[id]; !present && !liveFrame(w, controller, hotstream.Leave, presenceMember{ID: id}) {
+			return false
+		}
+	}
+	clear(shown)
+	for id, name := range next {
+		shown[id] = name
+	}
+	return true
 }
 
 func liveFrame(w http.ResponseWriter, controller *http.ResponseController, kind string, value any) bool {

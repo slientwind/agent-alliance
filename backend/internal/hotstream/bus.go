@@ -38,7 +38,6 @@ type Event struct {
 	Text    string `json:"text,omitempty"`
 	Member  string `json:"member,omitempty"`
 	Session string `json:"session,omitempty"`
-	Name    string `json:"name,omitempty"`
 }
 
 type Record struct {
@@ -54,10 +53,13 @@ type Publisher interface {
 type HotStreamBus interface {
 	Publisher
 	Read(context.Context, string, string) ([]Record, error)
+	KeepPresence(context.Context, string, string, string) error
+	RemovePresence(context.Context, string, string, string) error
+	OnlineMembers(context.Context, string) ([]string, error)
 }
 
 func validate(project string, event Event) error {
-	if !validID(project) || len(event.Text) > maxText || len(event.Name) > 512 || !utf8.ValidString(event.Text+event.Name) || strings.ContainsRune(event.Text+event.Name, 0) {
+	if !validID(project) || len(event.Text) > maxText || !utf8.ValidString(event.Text) || strings.ContainsRune(event.Text, 0) {
 		return ErrEvent
 	}
 	switch event.Kind {
