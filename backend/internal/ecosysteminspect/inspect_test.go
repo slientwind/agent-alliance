@@ -60,14 +60,17 @@ func TestArchivePathAndModeAreCheckedWithoutExtraction(t *testing.T) {
 		name, code string
 		mode       os.FileMode
 		data       string
+		flags      uint16
 	}{
-		{"../SKILL.md", "invalid_path", 0600, "sample"},
-		{"SKILL.md", "symlink_or_special_file", os.ModeSymlink | 0777, "somewhere"},
-		{"SKILL.md", "entry_size_limit", 0600, strings.Repeat("A", 64<<10)},
+		{"../SKILL.md", "invalid_path", 0600, "sample", 0},
+		{"C:/SKILL.md", "invalid_path", 0600, "sample", 0},
+		{"SKILL.md", "symlink_or_special_file", os.ModeSymlink | 0777, "somewhere", 0},
+		{"SKILL.md", "entry_size_limit", 0600, strings.Repeat("A", 64<<10), 0},
+		{"SKILL.md", "encrypted_archive_entry", 0600, "sample", 1},
 	} {
 		var out bytes.Buffer
 		w := zip.NewWriter(&out)
-		header := zip.FileHeader{Name: tt.name, Method: zip.Deflate}
+		header := zip.FileHeader{Name: tt.name, Method: zip.Deflate, Flags: tt.flags}
 		header.SetMode(tt.mode)
 		part, err := w.CreateHeader(&header)
 		if err != nil {

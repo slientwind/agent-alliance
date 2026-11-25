@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"os"
 	"path"
 	"slices"
 	"strings"
@@ -14,7 +15,7 @@ import (
 )
 
 func safeName(name string) bool {
-	if len(name) == 0 || len(name) > 180 || path.Clean(name) != name || path.IsAbs(name) || strings.ContainsAny(name, "\\\x00\r\n") {
+	if len(name) == 0 || len(name) > 180 || path.Clean(name) != name || path.IsAbs(name) || strings.ContainsAny(name, ":\\\x00\r\n") {
 		return false
 	}
 	for _, segment := range strings.Split(name, "/") {
@@ -68,16 +69,22 @@ func walkArchive(raw []byte, inspect func(string, string)) error {
 		return errors.New("malformed_archive")
 	}
 	total := 0
+	seen := map[string]bool{}
 	for _, file := range reader.File {
 		name := strings.TrimSuffix(file.Name, "/")
-		if !safeName(name) {
+		key := strings.ToLower(name)
+		if !safeName(name) || seen[key] {
 			return errors.New("invalid_path")
+		}
+		seen[key] = true
+		if mode := file.Mode().Type(); mode != 0 && mode != os.ModeDir {
+			return errors.New("symlink_or_special_file")
+		}
+		if file.Flags&1 != 0 {
+			return errors.New("encrypted_archive_entry")
 		}
 		if file.FileInfo().IsDir() {
 			continue
-		}
-		if !file.Mode().IsRegular() {
-			return errors.New("symlink_or_special_file")
 		}
 		if file.UncompressedSize64 > skills.FileLimit {
 			return errors.New("entry_size_limit")

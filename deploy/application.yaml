@@ -64,9 +64,13 @@ services:
   ecosystem-inspector:
     image: alliance-workspace:local
     command: ["ecosystem-inspector"]
+    user: "10001:10001"
+    init: true
     networks: [ecosystem-inspection]
     environment:
       CONNECTOR_TOKEN: ${CONNECTOR_TOKEN:?Generate a private connector token}
+      GOMEMLIMIT: 64MiB
+      GOMAXPROCS: 1
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
