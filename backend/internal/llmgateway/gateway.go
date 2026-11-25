@@ -52,6 +52,13 @@ type CallIdentity struct {
 	AgentID      string
 	Turn         int
 	Authorize    func(context.Context) error
+	Prepare      func(context.Context, Candidate, Request) (PreparedRequest, error)
+}
+
+type PreparedRequest struct {
+	Request   Request
+	Authorize func(context.Context) error
+	Restore   func(context.Context, Result) (Result, error)
 }
 
 type RoutedResult struct {
@@ -101,7 +108,15 @@ func (g Gateway) Call(ctx context.Context, actor CallIdentity, in Request) (Rout
 				continue
 			}
 		}
-		estimate := in.estimate(model)
+		prepared := PreparedRequest{Request: in}
+		if actor.Prepare != nil {
+			var err error
+			prepared, err = actor.Prepare(ctx, model, in)
+			if err != nil {
+				return RoutedResult{}, err
+			}
+		}
+		estimate := prepared.Request.estimate(model)
 		permit, err := g.Resilience.Acquire(ctx, model, estimate.PromptTokens+estimate.CompletionTokens, time.Now())
 		if err != nil {
 			if !errors.Is(err, ErrRateLimited) && !errors.Is(err, ErrCircuitOpen) {
@@ -136,9 +151,23 @@ func (g Gateway) Call(ctx context.Context, actor CallIdentity, in Request) (Rout
 			deadline = cutoff
 		}
 		attempt := Attempt{OperationKey: key, RunID: actor.RunID, AgentID: actor.AgentID, Turn: actor.Turn, Number: number, Fallback: model.ModelID != preferred}
-		out, retry, err := g.callModel(ctx, model, in, permit, attempt, deadline, actor.Authorize)
+		authorize := actor.Authorize
+		if prepared.Authorize != nil {
+			authorize = func(check context.Context) error {
+				if actor.Authorize != nil {
+					if err := actor.Authorize(check); err != nil {
+						return err
+					}
+				}
+				return prepared.Authorize(check)
+			}
+		}
+		out, retry, err := g.callModel(ctx, model, prepared.Request, permit, attempt, deadline, authorize)
 		if err == nil {
-			return out, nil
+			if prepared.Restore != nil {
+				out.Result, err = prepared.Restore(ctx, out.Result)
+			}
+			return out, err
 		}
 		if !retry {
 			return RoutedResult{}, err

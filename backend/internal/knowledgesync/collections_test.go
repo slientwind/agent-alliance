@@ -203,6 +203,29 @@ func TestDirectorySyncResumesAndOnlyReadsChangedDocuments(t *testing.T) {
 	if err := db.QueryRow(ctx, `select id from kb_documents where collection_id=$1 and remote_id='long'`, id).Scan(&doc); err != nil {
 		t.Fatal(err)
 	}
+	citation := func(member string, file bool) (*httptest.ResponseRecorder, error) {
+		t.Helper()
+		w := httptest.NewRecorder()
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/citation", nil)
+		for key, value := range map[string]string{"space": space, "document": doc, "version": "1", "ordinal": "1"} {
+			r.SetPathValue(key, value)
+		}
+		if file {
+			r.Header.Set("Range", "bytes=0-5")
+			return w, s.readCitationFile(w, r, identity.Member{ID: member})
+		}
+		return w, s.readCitation(w, r, identity.Member{ID: member})
+	}
+	if response, err := citation(manager, false); err != nil || response.Code != 200 || !strings.Contains(response.Body.String(), `"startLine":1`) ||
+		!strings.Contains(response.Body.String(), `"fileUrl":`) {
+		t.Fatalf("unexpected citation details: %s %v", response.Body, err)
+	}
+	if response, err := citation(manager, true); err != nil || response.Code != http.StatusPartialContent || response.Body.Len() != 6 {
+		t.Fatalf("unexpected original file result: %d %v", response.Code, err)
+	}
+	if _, err := citation(colleague, true); err == nil {
+		t.Fatal("original file was delivered to an unmapped team member")
+	}
 	change := func(body string) error {
 		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/document", strings.NewReader(body))
 		r.SetPathValue("space", space)
@@ -234,6 +257,9 @@ func TestDirectorySyncResumesAndOnlyReadsChangedDocuments(t *testing.T) {
 	}
 	if got := listDocuments(manager); strings.Contains(got, "制度合集") {
 		t.Fatalf("new source ACL did not revoke unchanged contents: %s", got)
+	}
+	if _, err := citation(manager, false); err == nil {
+		t.Fatal("citation remained active after source ACL withdrawal")
 	}
 	fixture.version, fixture.changed = "2", "2027 年更新"
 	scan()

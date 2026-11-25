@@ -87,6 +87,7 @@ func main() {
 	defer w.Stop()
 	gateway := app.ModelGateway(catalog)
 	general := agentloop.Activities{Planned: &a, Intake: intake.Server{DB: catalog.DB, Vault: catalog.Vault, Gateway: gateway}, DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Gateway: gateway, Hot: projectStream}
+	general.KBInference = knowledge.ConfiguredKBInference()
 	general.MCP = &mcphub.Runtime{DB: catalog.DB, Client: mcphub.Client{Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB}}}
 	if socket, root := os.Getenv("BRAND_RENDERER_SOCKET"), os.Getenv("BRAND_TEMPLATE_ROOT"); socket != "" && root != "" {
 		general.BrandRenderer = &sandbox.BrandRenderer{Pool: sandbox.Pool{DB: catalog.DB}, Objects: knowledge.ConfiguredObjects(), Root: root, Socket: socket}

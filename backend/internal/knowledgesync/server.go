@@ -36,6 +36,7 @@ func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("POST /api/admin/integrations/knowledge/{id}/sync", auth.Protect(true, s.queue))
 	s.collectionRoutes(mux, auth)
 	s.lifecycleRoutes(mux, auth)
+	s.citationRoutes(mux, auth)
 	mux.Handle("GET /api/spaces/{space}/knowledge/search", auth.Protect(false, s.searchDocuments))
 }
 

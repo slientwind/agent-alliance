@@ -35,6 +35,7 @@ type Activities struct {
 	DB            *pgxpool.Pool
 	Vault         resources.Vault
 	Objects       knowledge.Objects
+	KBInference   knowledge.KBInference
 	MCP           *mcphub.Runtime
 	BrandRenderer *sandbox.BrandRenderer
 	Search        *websearch.Runtime
@@ -225,9 +226,13 @@ func (a Activities) AdvanceTurn(ctx context.Context, ref TurnRef) (TurnResult, e
 		request.EmitText, flush = hotstream.DraftEmitter(ctx, a.Hot, d.project, hotstream.Event{
 			Kind: hotstream.Draft, Run: ref.RunID, Step: ref.Turn, Attempt: 1, Control: d.control})
 	}
-	model, callErr := a.Gateway.Call(ctx, llmgateway.CallIdentity{
+	call := llmgateway.CallIdentity{
 		OperationKey: runScope(ref.RunID, ref.Turn), TeamID: d.team, MemberID: d.actor, RunID: ref.RunID, Turn: ref.Turn,
-	}, request)
+	}
+	if err := a.attachKnowledgeContext(ctx, ref, d, &call); err != nil {
+		return TurnResult{}, err
+	}
+	model, callErr := a.Gateway.Call(ctx, call, request)
 	if flush != nil {
 		flush()
 	}

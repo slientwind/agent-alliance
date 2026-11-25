@@ -202,6 +202,12 @@ func SearchKnowledge(ctx context.Context, db *pgxpool.Pool, inference KBInferenc
 	results := blendKnowledge(words, vectors)
 	if inference != nil && len(results) > 0 {
 		results = results[:min(len(results), 24)]
+		results, err = refreshKnowledgeHits(ctx, db, space, actor, results)
+		if err != nil {
+			return out, err
+		}
+	}
+	if inference != nil && len(results) > 0 {
 		texts := make([]string, len(results))
 		for i, hit := range results {
 			texts[i] = boundedKnowledgeText(strings.Join(hit.Breadcrumb, " > ")+"\n"+hit.Excerpt, 2000)
@@ -218,7 +224,11 @@ func SearchKnowledge(ctx context.Context, db *pgxpool.Pool, inference KBInferenc
 			sortKnowledge(results)
 		}
 	}
-	for _, hit := range results[:min(limit, len(results))] {
+	final, err := refreshKnowledgeHits(ctx, db, space, actor, results[:min(limit, len(results))])
+	if err != nil {
+		return out, err
+	}
+	for _, hit := range final {
 		hit.Excerpt = boundedKnowledgeText(hit.Excerpt, 2400)
 		out.Matches = append(out.Matches, hit.KnowledgeEvidence)
 	}
