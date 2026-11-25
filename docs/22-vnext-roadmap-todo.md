@@ -80,11 +80,11 @@
 - [x] **多源目录级增量同步（升级 [`backend/internal/knowledgesync/`](../backend/internal/knowledgesync/providers.go)）**
   - [x] 新增 `kb_collections` 与 `kb_documents`，将同步粒度从单文档 ID 扩展至**飞书知识库空间/云盘文件夹、钉钉文档库、企微文档、Confluence Space、SharePoint/S3 目录树**的递归增量同步（按 `revision/etag` 仅重算变更文档，放宽 256 KiB 限制至长文档分块流式摄入）。
   - [x] 增加文档生命周期与权威度字段：`doc_status`（`active 现行有效 / archived 历史归档 / deprecated 已作废`）、生效起止日期与源系统 ACL 主体映射。
-- [ ] **版面/表格保真切分与三路混合重排（升级 [`retrieval/server.py`](../retrieval/server.py) & [`knowledge/`](../backend/internal/knowledge/retrieval.go)）**
+- [x] **版面/表格保真切分与三路混合重排（升级 [`retrieval/server.py`](../retrieval/server.py) & [`knowledge/`](../backend/internal/knowledge/retrieval.go)）**
   - [x] 升级文档解析与切块器：保留多级章节标题面包屑（Breadcrumb），对 PDF 跨页表格与多 Sheet Excel 保持完整表头与行关联结构不切碎，扫描件 PDF 自动启用 OCR 识别。
   - [x] 实现 **`BM25 精确全文检索 + pgvector BGE-M3 向量检索 + Cross-Encoder Rerank`** 混合管线，自动叠加工效期权重并压制 `deprecated` 旧制度。
   - [x] 落地**双阶段实时 ACL 复核与页码级溯源**：SQL 召回层过滤空间与文档 ACL，送入模型前二次核验未撤权/未作废；返回精确页码/表格行锚点 `citation_anchor` 供前端点击高亮原文。
-  - [ ] 实现**「审签成果一键归档入知识库」**接口，支持将团队空间终审通过的正式成果直接沉淀为有效知识文档。
+  - [x] 实现**「审签成果一键归档入知识库」**接口，支持将团队空间终审通过的正式成果直接沉淀为有效知识文档。
 - [ ] **知识缺口与制度冲突雷达（Knowledge Gap & Conflict Radar）**
   - [ ] 新增 `kb_gap_events` 与后台定时聚类任务：自动捕获检索低置信度/无依据提问，剥离人名/单号等隐私后聚类生成 `kb_gap_clusters`，支持空间管理员一键指派责任人补齐 SOP 并同步飞书待办。
   - [ ] 新增跨文档冲突巡检任务：自动检测同一空间现行有效文档间对同一指标/金额标准的前后矛盾表述，生成 `kb_conflict_alerts` 预警。

@@ -328,6 +328,10 @@ func (s Server) storeDirectoryEntry(ctx context.Context, tx pgx.Tx, job collecti
 	if err != nil || tag.RowsAffected() == 0 || (item.Media != "text/plain" && item.Media != "text/markdown") {
 		return err
 	}
+	return s.storePlainDocumentChunks(ctx, tx, id, version, hash)
+}
+
+func (s Server) storePlainDocumentChunks(ctx context.Context, tx pgx.Tx, id string, version int, hash string) error {
 	obj, err := s.Objects.Open(hash)
 	if err != nil {
 		return err

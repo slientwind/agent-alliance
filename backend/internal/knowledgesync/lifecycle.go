@@ -41,6 +41,7 @@ func (s Server) lifecycleRoutes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("PUT /api/spaces/{space}/knowledge/documents/{document}", auth.Protect(false, s.changeDocumentLifecycle))
 	mux.Handle("GET /api/spaces/{space}/knowledge/collections/{collection}/principal-mappings", auth.Protect(false, s.getPrincipalMappings))
 	mux.Handle("PUT /api/spaces/{space}/knowledge/collections/{collection}/principal-mappings", auth.Protect(false, s.putPrincipalMappings))
+	mux.Handle("POST /api/spaces/{space}/knowledge/collections/{collection}/review-archive", auth.Protect(false, s.archiveReviewed))
 }
 
 func documentStatus(status string) bool {
