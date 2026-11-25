@@ -3,6 +3,7 @@ import { fileFormats } from "./output-operations";
 import { PlanningInputs, planningRequestKey, selectedPins, type PlanningPin } from "./planning-inputs";
 import { LookupBody } from "./lookup-body";
 import { MarkdownText } from "./markdown-text";
+import { StatusIcon } from "./status-icon";
 import { LiveDrafts, type DraftFragment } from "./live-drafts";
 import type { BudgetDraft } from "./budget-request-form";
 import type { DraftField } from "./project-drafts";
@@ -1076,6 +1077,7 @@ export function Work({
                 : "review-state pending"
             }
           >
+            <StatusIcon tone={a.approved && !a.draftBlock && !hasSourceReview(a) ? "success" : "pending"} />
             {a.draftBlock ? "待重做" : a.approved ? "已审核" : "待审核"}
             {p.stage === "review" && hasSourceReview(a) && " · 资料影响待核对"}
             {a.needsTakeoverReview && " · 待接管人核对当前版本"}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type Agent, type Project } from "./client";
 import { outputOperations } from "./output-operations";
+import { StatusIcon } from "./status-icon";
 
 type Grant = {
   id: string;
@@ -303,6 +304,7 @@ export function ProjectAgentGrants({
                   : "")
               }
             >
+              <StatusIcon tone={g.closed || g.projectEnded ? "neutral" : g.resourceApproved && g.budgetApproved && g.used < g.calls ? "success" : "pending"} />
               {g.closed
                 ? "授权已关闭"
                 : g.projectEnded

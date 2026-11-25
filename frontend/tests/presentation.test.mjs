@@ -60,3 +60,12 @@ test("the selected theme persists and still applies when storage is blocked", as
   assert.equal(root.dataset.theme, "light");
   assert.equal(readTheme({ getItem: () => "unknown" }), "light");
 });
+
+test("review status uses Lucide icons alongside the business label", async () => {
+  const { StatusIcon } = await server.ssrLoadModule("/src/status-icon.tsx");
+  const pending = renderToStaticMarkup(createElement(StatusIcon, { tone: "pending" }));
+  assert.match(pending, /lucide-clock3/);
+  assert.match(pending, /aria-hidden="true"/);
+  const completed = renderToStaticMarkup(createElement(StatusIcon, { tone: "success" }));
+  assert.match(completed, /lucide-circle-check/);
+});

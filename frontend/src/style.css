@@ -40,6 +40,7 @@
     sans-serif;
   color: var(--ink);
   background: var(--canvas);
+  font-variant-numeric: tabular-nums;
   font-synthesis: none;
 }
 :root[data-theme="dark"] {
@@ -129,13 +130,14 @@ header button,
   width: 44px;
   height: 44px;
 }
-header svg,
-.composer-tools svg {
+.lucide {
+  width: var(--icon-size, 18px);
+  height: var(--icon-size, 18px);
   stroke-width: 1.65;
+  flex-shrink: 0;
 }
-button svg {
-  width: 20px;
-  height: 20px;
+.send {
+  --icon-size: 20px;
 }
 button:hover:not(:disabled) {
   background: var(--inset);
@@ -467,21 +469,19 @@ dialog {
   gap: 0.5em;
   margin-top: 0.6rem;
 }
-.review-state::before {
-  content: "";
-  width: 0.55em;
-  height: 0.55em;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-}
 .review-state.pending {
-  color: var(--ink);
+  color: var(--amber);
   font-weight: 700;
 }
-.review-state.pending::before {
-  background: currentColor;
-  border-radius: 0;
-  transform: rotate(45deg);
+.status-icon {
+  --icon-size: 16px;
+  color: var(--secondary);
+}
+.status-icon-pending {
+  color: var(--amber);
+}
+.status-icon-success {
+  color: var(--brand);
 }
 .plan-steps {
   margin: 0;
