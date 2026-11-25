@@ -80,6 +80,7 @@ func main() {
 	go a.FollowRemote(ctx, c)
 	go a.CleanRetention(ctx)
 	go knowledge.MaintainPassages(ctx, catalog.DB)
+	go knowledge.ConfiguredObjects().ServeArtifactPreviews(ctx, catalog.DB)
 	go monitor.ServeRollups(ctx, catalog.DB)
 	go (monitor.Alerts{DB: catalog.DB, Vault: catalog.Vault}).Serve(ctx)
 	go telemetry.Serve(ctx, catalog.DB)

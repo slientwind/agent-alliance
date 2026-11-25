@@ -12,7 +12,11 @@ func (s Server) artifact(w http.ResponseWriter, r *http.Request, u identity.Memb
 	version, _ := strconv.Atoi(r.URL.Query().Get("version"))
 	return s.authorizedFile(w, r, func() (fileRef, error) {
 		var ref fileRef
-		err := s.DB.QueryRow(r.Context(), `select f.object_hash,f.filename,f.media_type from artifact_files f join artifacts a on a.id=f.artifact_id join project_members p on p.project_id=a.project_id where p.member_id=$1 and a.project_id=$2 and a.id=$3 and f.version=$4 and distribution_readable(a.id,f.version,$1)`, u.ID, r.PathValue("id"), r.PathValue("artifact"), version).Scan(&ref.hash, &ref.name, &ref.media)
+		err := s.DB.QueryRow(r.Context(), `select f.object_hash,f.filename,f.media_type,coalesce(j.preview_hash,''),coalesce(j.preview_media,'')
+			from artifact_files f join artifacts a on a.id=f.artifact_id join project_members p on p.project_id=a.project_id
+			left join artifact_preview_jobs j on (j.artifact_id,j.version)=(f.artifact_id,f.version) and j.state='ready'
+			where p.member_id=$1 and a.project_id=$2 and a.id=$3 and f.version=$4 and distribution_readable(a.id,f.version,$1)`,
+			u.ID, r.PathValue("id"), r.PathValue("artifact"), version).Scan(&ref.hash, &ref.name, &ref.media, &ref.previewHash, &ref.previewMedia)
 		return ref, err
 	})
 }

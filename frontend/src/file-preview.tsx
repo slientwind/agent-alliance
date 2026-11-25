@@ -7,7 +7,7 @@ import type {
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 export function canPreview(name: string, readable = false) {
-  return readable || /\.(pdf|docx|xlsx|pptx|png|jpe?g|webp)$/i.test(name);
+  return readable || /\.(pdf|docx|xlsx|pptx|png|jpe?g|webp|txt|md|csv|tsv|json)$/i.test(name);
 }
 export function FilePreview({ url, name, expanded = false }: { url: string; name: string; expanded?: boolean }) {
   const [open, setOpen] = useState(expanded);

@@ -43,12 +43,14 @@ services:
         condition: service_healthy
     restart: unless-stopped
   worker:
+    networks: [default, preview-internal]
     image: alliance-workspace:local
     command: ["worker"]
     volumes: [objects:/data/objects]
     environment:
       DATABASE_URL: postgres://alliance:${DB_PASSWORD}@database:5432/alliance?sslmode=disable
       RESOURCE_KEY: ${RESOURCE_KEY}
+      PREVIEW_URL: http://preview:18727
       AGENT_ALLOWED_HOSTS: ${AGENT_ALLOWED_HOSTS:-}
       CONNECTOR_URL: http://tools:18726
       CONNECTOR_TOKEN: ${CONNECTOR_TOKEN:?Generate a private connector token}
@@ -92,7 +94,7 @@ services:
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
-    tmpfs: [/tmp:size=192m,mode=1777]
+    tmpfs: ["/tmp:size=192m,mode=1777"]
     mem_limit: 768m
     cpus: 1.0
     pids_limit: 96
