@@ -13,6 +13,7 @@ import (
 	"alliance/internal/projects"
 	"alliance/internal/resources"
 	"alliance/internal/runtime"
+	"alliance/internal/sandbox"
 	"alliance/internal/web"
 	"alliance/internal/websearch"
 	"context"
@@ -31,13 +32,14 @@ type Activities struct {
 	Intake  interface {
 		Advance(context.Context, string) (bool, error)
 	}
-	DB      *pgxpool.Pool
-	Vault   resources.Vault
-	Objects knowledge.Objects
-	MCP     *mcphub.Runtime
-	Search  *websearch.Runtime
-	Hot     hotstream.Publisher
-	Gateway interface {
+	DB            *pgxpool.Pool
+	Vault         resources.Vault
+	Objects       knowledge.Objects
+	MCP           *mcphub.Runtime
+	BrandRenderer *sandbox.BrandRenderer
+	Search        *websearch.Runtime
+	Hot           hotstream.Publisher
+	Gateway       interface {
 		Call(context.Context, llmgateway.CallIdentity, llmgateway.Request) (llmgateway.RoutedResult, error)
 	}
 }

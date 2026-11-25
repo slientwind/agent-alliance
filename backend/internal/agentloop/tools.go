@@ -1,6 +1,7 @@
 package agentloop
 
 import (
+	"alliance/internal/brandkit"
 	"alliance/internal/capability"
 	"alliance/internal/database"
 	"alliance/internal/harness"
@@ -37,7 +38,7 @@ var registeredTools = []registeredTool{
 		`{"type":"object","properties":{"group":{"type":"string"},"amount":{"type":"string"},"filterColumn":{"type":"string"},"filterValue":{"type":"string"}},"required":["group","amount"],"additionalProperties":false}`, harness.FileGeneration, capability.Office},
 }
 
-const documentSchema = `{"type":"object","properties":{"title":{"type":"string","maxLength":200},"content":{"type":"string","maxLength":32000}},"required":["title","content"],"additionalProperties":false}`
+const documentSchema = `{"type":"object","properties":{"title":{"type":"string","maxLength":200},"content":{"type":"string","maxLength":32000},"templateId":{"type":"string","description":"所选官方母版编号，省略时使用空间默认母版"},"fields":{"type":"object","additionalProperties":{"type":"string"}}},"required":["title","content"],"additionalProperties":false}`
 
 var searchTool = resources.ToolDefinition{Type: "function", Function: resources.ToolSchema{
 	Name: "web_search", Description: "用用户单独填写的公开关键词搜索网页。返回网页标题、链接和摘要。无需提交参数。",
@@ -78,6 +79,9 @@ type toolWork struct {
 	sources                        []knowledge.InputSource
 	pictures                       []knowledge.Picture
 	team, actor                    string
+	brand                          *brandkit.Template
+	brandSpace                     string
+	document                       documentInput
 }
 
 func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, error) {
@@ -222,6 +226,13 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 				return a.handleExternalPreparation(ctx, tx, ref, d, &result, err)
 			}
 		}
+		if err := prepareBrand(ctx, tx, &task, d); err != nil {
+			var problem web.Problem
+			if errors.Is(err, harness.ErrToolArguments) || errors.As(err, &problem) {
+				return a.recordObservation(ctx, tx, ref, "rejected", "请核对母版和填充内容。", "", "", recoverToolObservation(task.name, err))
+			}
+			return err
+		}
 		if task.name == "read_sources" || task.name == "aggregate_csv" {
 			_, task.sources, err = knowledge.RunInputs(ctx, tx, ref.RunID, 0, false)
 			if err != nil {
@@ -276,6 +287,8 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		reply, toolErr = a.searchWeb(ctx, ref.RunID, task.args)
 	} else if lookupTool(task.name).cap == capability.Images {
 		reply, toolErr = a.imageAction(ctx, ref, task)
+	} else if task.brand != nil {
+		reply, toolErr = a.renderBrand(ctx, task)
 	} else {
 		reply, toolErr = invokeTrusted(ctx, task)
 	}
@@ -295,11 +308,31 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		if toolErr != nil {
 			return a.recordObservation(ctx, tx, ref, "rejected", "工具未完成。", "", "", recoverToolObservation(task.name, toolErr))
 		}
+		if task.brand != nil {
+			active, err := brandkit.Resolve(ctx, tx, task.brandSpace, d.actor, task.brand.Format, task.brand.ID)
+			if errors.Is(err, pgx.ErrNoRows) || (err == nil && active.Hash != task.brand.Hash) {
+				return a.recordObservation(ctx, tx, ref, "rejected", "官方母版在生成期间已停用。", "", "",
+					failureObservation(task.name, "template_unavailable", "请选择当前有效的官方母版。"))
+			}
+			if err != nil {
+				return err
+			}
+		}
 		var artifact, fileDigest string
 		if reply.File != nil {
 			artifact, err = a.saveArtifact(ctx, tx, ref.RunID, d.project, reply.File.Name, (ref.Turn-1)*maxToolsPerTurn+ref.Position, reply)
 			if err != nil {
 				return err
+			}
+			if task.brand != nil {
+				if _, err := tx.Exec(ctx, `insert into brand_render_receipts(artifact_id,template_id,template_revision)
+					values($1,$2,$3)`, artifact, task.brand.ID, task.brand.Version); err != nil {
+					return err
+				}
+				if _, err := tx.Exec(ctx, `insert into sandbox_artifacts(run_id,output_path,artifact_id)
+					values($1,$2,$3)`, ref.RunID, fmt.Sprintf("brand/%d/%d", ref.Turn, ref.Position), artifact); err != nil {
+					return err
+				}
 			}
 			fileDigest = fmt.Sprintf("%x", web.Hash(string(reply.File.Data)))
 		}
@@ -337,9 +370,8 @@ func invokeTrusted(ctx context.Context, task toolWork) (resources.Reply, error) 
 		}
 		return resources.Reply{Text: sourceExcerpts(task.sources, strings.TrimSpace(args.Query))}, nil
 	case "create_docx", "create_xlsx", "create_pptx":
-		var args struct{ Title, Content string }
-		if err := decodeToolArgs(task.args, &args); err != nil || strings.TrimSpace(args.Title) == "" || len([]rune(args.Title)) > 200 ||
-			strings.TrimSpace(args.Content) == "" || len(args.Content) > 64<<10 {
+		args, err := readDocumentInput(task.args)
+		if err != nil || args.TemplateID != "" || len(args.Fields) > 0 {
 			return resources.Reply{}, harness.ErrToolArguments
 		}
 		model := resources.Model{Tool: &resources.Tool{Operation: strings.TrimPrefix(task.name, "create_"), Config: map[string]string{"title": args.Title}}, ToolInput: args.Content}

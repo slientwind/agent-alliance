@@ -16,7 +16,7 @@ FROM alpine:3.23
 RUN apk add --no-cache ca-certificates && adduser -D -u 10001 alliance
 COPY --from=backend /out/ /usr/local/bin/
 COPY --from=frontend /src/dist/ /opt/alliance/web/
-RUN mkdir -p /data/objects && chown alliance /data/objects
+RUN mkdir -p /data/objects /data/templates /run/alliance-brand && chown alliance /data/objects /data/templates /run/alliance-brand
 USER alliance
 ENV API_ADDR=:8080 WEB_ROOT=/opt/alliance/web
 EXPOSE 8080

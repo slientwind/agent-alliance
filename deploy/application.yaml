@@ -48,7 +48,7 @@ services:
     networks: [default, preview-internal, ecosystem-inspection]
     image: alliance-workspace:local
     command: ["worker"]
-    volumes: [objects:/data/objects]
+    volumes: [objects:/data/objects, brand-templates:/data/templates, brand-socket:/run/alliance-brand:ro]
     environment:
       DATABASE_URL: postgres://alliance:${DB_PASSWORD}@database:5432/alliance?sslmode=disable
       RESOURCE_KEY: ${RESOURCE_KEY}
@@ -63,7 +63,9 @@ services:
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
       TEMPORAL_ADDR: temporal:7233
       OBJECT_ROOT: /data/objects
-    depends_on: [api, temporal]
+      BRAND_TEMPLATE_ROOT: /data/templates
+      BRAND_RENDERER_SOCKET: /run/alliance-brand/render.sock
+    depends_on: [api, temporal, brand-renderer]
     restart: unless-stopped
 
   ecosystem-inspector:
@@ -110,6 +112,22 @@ services:
     cpus: 1.0
     pids_limit: 64
     init: true
+  brand-renderer:
+    build: ../sandbox
+    image: alliance-sandbox:local
+    user: "10001:10001"
+    command: ["/opt/alliance/brand-renderer.py"]
+    network_mode: none
+    volumes: [brand-templates:/workspace/templates:ro, brand-socket:/run/alliance-brand]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:size=128m"]
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 32
+    init: true
+    restart: unless-stopped
   preview:
     build: ../preview
     environment:
@@ -132,3 +150,5 @@ networks:
     internal: true
 volumes:
   objects:
+  brand-templates:
+  brand-socket:

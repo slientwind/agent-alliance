@@ -106,9 +106,9 @@
 - [ ] **企业术语黑话与统一指标口径中心**
   - [x] 新增 `enterprise_glossary` 表与管理 API（区分全企公共底座与团队空间作用域），支持同义词/内部代号映射与标准财务/运营指标公式定义，支持从聊天纠偏一键沉淀。
   - [ ] 打通双路自动注入：检索知识库前自动做同义词查询扩展，调用业务数据语义视图时自动注入核定指标公式。
-- [ ] **官方品牌交付母版与沙箱原生套版引擎**
+- [x] **官方品牌交付母版与沙箱原生套版引擎**
   - [x] 新增 `corporate_templates` 表（支持上传 `.pptx` 品牌演示母版、`.docx` 红头合同/公文模板、`.xlsx` 标准核价/周报公式样表并设置空间默认母版）。
-  - [ ] 升级 `internal/sandbox` 与沙箱 Python 渲染套件：运行期只读挂载 `/workspace/templates:ro`，基于母版 Slide Layouts / Word Styles / Excel 公式区原生填充生成合规交付件。
+  - [x] 升级 `internal/sandbox` 与沙箱 Python 渲染套件：运行期只读挂载 `/workspace/templates:ro`，基于母版 Slide Layouts / Word Styles / Excel 公式区原生填充生成合规交付件。
 
 ### 模块 L：业务事件驱动唤醒网关（Business Event Webhook Triggers）
 - [ ] **Webhook 接入、验签与防风暴网关**

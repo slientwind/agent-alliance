@@ -9,7 +9,9 @@ RUN pip install --no-cache-dir --only-binary=:all: -r /tmp/alliance-sandbox-requ
     && pip check \
     && rm /tmp/alliance-sandbox-requirements.txt
 
-RUN mkdir -p /workspace/inputs /workspace/outputs
+COPY brand-renderer.py /opt/alliance/brand-renderer.py
+RUN mkdir -p /workspace/inputs /workspace/outputs /workspace/templates /run/alliance-brand \
+    && chown 10001:10001 /run/alliance-brand
 WORKDIR /workspace
 USER 65534:65534
 ENV HOME=/tmp MPLCONFIGDIR=/tmp/matplotlib MPLBACKEND=Agg OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1

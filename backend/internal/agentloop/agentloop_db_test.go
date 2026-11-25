@@ -7,6 +7,7 @@ import (
 	"alliance/internal/llmgateway"
 	"alliance/internal/projects"
 	"alliance/internal/resources"
+	"alliance/internal/sandbox"
 	"alliance/internal/web"
 	"archive/zip"
 	"bytes"
@@ -14,9 +15,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -36,6 +39,11 @@ func (g testGateway) Call(ctx context.Context, actor llmgateway.CallIdentity, in
 }
 
 func TestGeneralRunCorrectsConnectorFailureAndStoresArtifacts(t *testing.T) {
+	t.Run("trusted tool", func(t *testing.T) { checkGeneralRunArtifacts(t, false) })
+	t.Run("official template", func(t *testing.T) { checkGeneralRunArtifacts(t, true) })
+}
+
+func checkGeneralRunArtifacts(t *testing.T, branded bool) {
 	dsn := os.Getenv("ALLIANCE_LOOKUP_TEST_DATABASE")
 	if dsn == "" {
 		t.Skip("set ALLIANCE_LOOKUP_TEST_DATABASE to a scratch pgvector database")
@@ -119,7 +127,58 @@ func TestGeneralRunCorrectsConnectorFailureAndStoresArtifacts(t *testing.T) {
 		t.Fatalf("initial prompt was inserted again: %d %v", prompts, err)
 	}
 	var connectorCalls, modelCalls atomic.Int32
+	var rendererCalls atomic.Int32
 	workbook := sampleWorkbook(t)
+	var renderer *sandbox.BrandRenderer
+	var templateID string
+	wantConnectorCalls := int32(2)
+	if branded {
+		wantConnectorCalls = 1
+		templateID = uuid.NewString()
+		var hash string
+		if err := database.WithTx(ctx, db, func(tx pgx.Tx) error {
+			var err error
+			hash, _, err = objects.Put(ctx, tx, bytes.NewReader(workbook), 8192)
+			if err != nil {
+				return err
+			}
+			_, err = tx.Exec(ctx, `insert into corporate_templates(id,space_id,doc_type,name,object_hash,is_default,author)
+			select $1,space_id,'xlsx','Official workbook',$2,true,$3 from projects where id=$4`, templateID, hash, owner, project)
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		socketDir, err := os.MkdirTemp("/tmp", "aa-brand-")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.RemoveAll(socketDir) })
+		socket := filepath.Join(socketDir, "render.sock")
+		listener, err := net.Listen("unix", socket)
+		if err != nil {
+			t.Fatal(err)
+		}
+		root := t.TempDir()
+		fixture := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			rendererCalls.Add(1)
+			var in struct {
+				Digest, Format string
+				Fields         map[string]string
+			}
+			info, statErr := os.Stat(filepath.Join(root, hash))
+			if err := json.NewDecoder(r.Body).Decode(&in); err != nil || r.URL.Path != "/render" ||
+				in.Format != "xlsx" || in.Digest != hash || in.Fields["title"] != "Invoice" || in.Fields["content"] != "Total: 27" ||
+				statErr != nil || info.Mode().Perm() != 0444 {
+				t.Errorf("invalid renderer request or staged template: %+v %v %v", in, err, statErr)
+				http.Error(w, "invalid request", 400)
+				return
+			}
+			w.Write(workbook)
+		})}
+		go func() { _ = fixture.Serve(listener) }()
+		t.Cleanup(func() { _ = fixture.Close() })
+		renderer = &sandbox.BrandRenderer{Pool: sandbox.Pool{DB: db}, Objects: objects, Root: root, Socket: socket}
+	}
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		connectorCalls.Add(1)
 		var in struct{ Operation, Text string }
@@ -140,7 +199,7 @@ func TestGeneralRunCorrectsConnectorFailureAndStoresArtifacts(t *testing.T) {
 	defer mock.Close()
 	t.Setenv("CONNECTOR_URL", mock.URL)
 	t.Setenv("CONNECTOR_TOKEN", "loop-test-token")
-	a := Activities{DB: db, Vault: vault, Objects: objects, Gateway: testGateway(func(_ context.Context, actor llmgateway.CallIdentity, in llmgateway.Request) (llmgateway.RoutedResult, error) {
+	a := Activities{DB: db, Vault: vault, Objects: objects, BrandRenderer: renderer, Gateway: testGateway(func(_ context.Context, actor llmgateway.CallIdentity, in llmgateway.Request) (llmgateway.RoutedResult, error) {
 		if actor.RunID != run || actor.MemberID != owner || actor.TeamID != team || len(in.Tools) < 2 {
 			return llmgateway.RoutedResult{}, fmt.Errorf("unexpected model identity or tools")
 		}
@@ -183,12 +242,20 @@ func TestGeneralRunCorrectsConnectorFailureAndStoresArtifacts(t *testing.T) {
 	var candidateCount, fileCount int
 	if err := db.QueryRow(ctx, `select r.status,r.quality_track,(select count(*) from artifacts a where a.run_id=r.id),
 	 (select count(*) from artifact_files f join artifacts a on a.id=f.artifact_id where a.run_id=r.id) from runs r where r.id=$1`, run).
-		Scan(&state, &kind, &candidateCount, &fileCount); err != nil || state != "completed" || kind != "lightweight" || candidateCount != 2 || fileCount != 1 || connectorCalls.Load() != 2 || modelCalls.Load() != 3 {
+		Scan(&state, &kind, &candidateCount, &fileCount); err != nil || state != "completed" || kind != "lightweight" || candidateCount != 2 || fileCount != 1 || connectorCalls.Load() != wantConnectorCalls || modelCalls.Load() != 3 {
 		t.Fatalf("run=%s kind=%s artifacts=%d files=%d toolCalls=%d modelCalls=%d err=%v",
 			state, kind, candidateCount, fileCount, connectorCalls.Load(), modelCalls.Load(), err)
 	}
-	if replay, err := a.ExecuteTool(ctx, ToolRef{RunID: run, Turn: 2, Position: 1}); err != nil || !replay.Done || connectorCalls.Load() != 2 {
+	if replay, err := a.ExecuteTool(ctx, ToolRef{RunID: run, Turn: 2, Position: 1}); err != nil || !replay.Done || connectorCalls.Load() != wantConnectorCalls {
 		t.Fatalf("replayed a completed tool: %+v, %v", replay, err)
+	}
+	if branded {
+		var revision int
+		if err := db.QueryRow(ctx, `select r.template_revision from brand_render_receipts r
+		join sandbox_artifacts a on a.artifact_id=r.artifact_id where a.run_id=$1 and r.template_id=$2`, run, templateID).
+			Scan(&revision); err != nil || revision != 1 || rendererCalls.Load() != 1 {
+			t.Fatalf("invalid brand receipt or renderer retry: %d, %d, %v", revision, rendererCalls.Load(), err)
+		}
 	}
 	ownerToken := web.Token()
 	exec("insert into sessions(token_hash,member_id,expires_at) values($1,$2,now()+interval '1 minute')", web.Hash(ownerToken), owner)

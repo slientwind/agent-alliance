@@ -100,6 +100,12 @@ func (p Pool) acquire(ctx context.Context) (string, time.Duration, error) {
 
 // Run reserves a slot across all hosts connected to the same deployment.
 func (p Pool) Run(ctx context.Context, inputs, outputs string) error {
+	return p.withSlot(ctx, func(job context.Context, limit time.Duration) error {
+		return run(job, inputs, outputs, limit)
+	})
+}
+
+func (p Pool) withSlot(ctx context.Context, perform func(context.Context, time.Duration) error) error {
 	id, limit, err := p.acquire(ctx)
 	if err != nil {
 		return err
@@ -111,5 +117,5 @@ func (p Pool) Run(ctx context.Context, inputs, outputs string) error {
 	}()
 	job, cancel := context.WithTimeout(ctx, limit+5*time.Second)
 	defer cancel()
-	return run(job, inputs, outputs, limit)
+	return perform(job, limit)
 }
