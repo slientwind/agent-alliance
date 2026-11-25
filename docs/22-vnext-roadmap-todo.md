@@ -68,7 +68,7 @@
 
 ### 模块 B：全局模型网关（Model Gateway）与服务资源中心（Service Hub）
 - [ ] **全局模型资源池与 6 档位路由（仅服务平台内部，不对外发 Key）**
-  - [ ] 新增数据表：`model_providers`、`model_catalog`（含生效版本化 `input / output / cached / per_image` 微元单价）、`model_tier_routes`（`default / fast / reasoning / vision / image / embedding` 主备映射与权重）。
+  - [x] 新增数据表：`model_providers`、`model_catalog`（含生效版本化 `input / output / cached / per_image` 微元单价）、`model_tier_routes`（`default / fast / reasoning / vision / image / embedding` 主备映射与权重）。
   - [ ] 实现 `internal/llmgateway`：统一适配阿里百炼、火山方舟、DeepSeek、OpenAI、Anthropic、Gemini、本地 vLLM/Ollama；支持熔断、自动主备 Fallback（3s 内无感切换）、RPM/TPM 限流。
   - [ ] 实现精确 Token 计价引擎（微元整数运算防浮点误差）与**三级月度预算策略（Enterprise → Team → Member）**：L0 静默扣减，80% 触发软告警推送管理员，达硬上限才拦截。
   - [ ] 新增管理员接口：`/api/admin/models/tiers`、`/api/admin/models/providers`（含连通探测与影响面预览）、`/api/admin/models/pricing`。
