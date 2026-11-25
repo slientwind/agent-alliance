@@ -6,6 +6,7 @@ import (
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
 	"alliance/internal/memory"
+	"alliance/internal/resources"
 	"alliance/internal/web"
 	"context"
 	"errors"
@@ -159,6 +160,7 @@ func (a Activities) prepareRemoteInput(ctx context.Context, tx pgx.Tx, job *remo
 		}
 	}
 	job.model = model
+	job.model.ExternalTrace = resources.ExternalTrace{RunID: job.Run, ActorID: operator, Turn: job.Ordinal}
 	return nil
 }
 

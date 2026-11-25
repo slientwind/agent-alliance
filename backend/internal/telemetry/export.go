@@ -115,6 +115,11 @@ func spanID(run string, ordinal int) []byte {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%s/%d", run, ordinal)))
 	return sum[:8]
 }
+
+// TraceParent identifies the same run and step as the exported client span.
+func TraceParent(run string, ordinal int) string {
+	return "00-" + strings.ReplaceAll(run, "-", "") + "-" + hex.EncodeToString(spanID(run, ordinal)) + "-01"
+}
 func (e exporter) span(ctx context.Context, j job) (*trace.Span, error) {
 	tid, err := hex.DecodeString(strings.ReplaceAll(j.run, "-", ""))
 	if err != nil {

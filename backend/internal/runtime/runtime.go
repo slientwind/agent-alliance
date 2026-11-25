@@ -722,6 +722,9 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 	if err != nil || !invoke {
 		return result, err
 	}
+	if d.model.External {
+		d.model.ExternalTrace = resources.ExternalTrace{RunID: step.Run, ActorID: d.actor, Turn: step.Ordinal}
+	}
 	streamText := d.memberDraft && d.model.StreamText && !d.change && d.lookupPhase == "" &&
 		d.routing.target == 0 && d.prior == ""
 	chain := compose.NewChain[string, resources.Reply]()

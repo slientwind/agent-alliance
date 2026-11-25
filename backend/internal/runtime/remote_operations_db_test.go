@@ -61,6 +61,19 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 			_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"独立步骤成果"},"finish_reason":"stop"}],"usage":{"total_tokens":4}}`)
 			return
 		}
+		runID := r.Header.Get("X-Alliance-Run-Id")
+		turn, turnErr := strconv.Atoi(r.Header.Get("X-Alliance-Turn-Id"))
+		trace := strings.Split(r.Header.Get("traceparent"), "-")
+		if _, err := uuid.Parse(runID); err != nil {
+			t.Errorf("remote request has no run identity: %q", runID)
+		}
+		if _, err := uuid.Parse(r.Header.Get("X-Alliance-User-Id")); err != nil {
+			t.Error("remote request has no authorized actor identity")
+		}
+		if turnErr != nil || turn < 1 || len(trace) != 4 || trace[0] != "00" ||
+			trace[1] != strings.ReplaceAll(runID, "-", "") || len(trace[2]) != 16 || trace[3] != "01" {
+			t.Errorf("remote turn and trace do not match: %d %q", turn, trace)
+		}
 		var rpc struct {
 			ID, Method string
 			Params     struct {

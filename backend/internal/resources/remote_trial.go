@@ -249,6 +249,7 @@ func (c Catalog) trialReceipt(w http.ResponseWriter, r *http.Request, u identity
 		return web.JSON(w, 200, map[string]string{"id": id, "status": priorStatus, "output": priorBody})
 	}
 	operation := "query"
+	model.ExternalTrace = ExternalTrace{RunID: id, ActorID: u.ID, Turn: 1}
 	var reply Reply
 	var callErr error
 	if supplement {

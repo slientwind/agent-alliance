@@ -112,6 +112,7 @@ type Model struct {
 	KeyGeneration    int
 	StreamText       bool
 	RemoteOperations *RemoteOperations
+	ExternalTrace    ExternalTrace
 	Tools            []ToolDefinition
 	MaxTokens        int
 	TokenLimitField  string

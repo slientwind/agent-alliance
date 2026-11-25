@@ -244,6 +244,7 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 		return ready, err
 	}
 	queryCtx, stop := context.WithDeadline(ctx, job.deadline)
+	job.model.ExternalTrace = resources.ExternalTrace{RunID: job.Run, ActorID: job.actor, Turn: job.Ordinal}
 	reply, callErr := job.model.CheckRemote(queryCtx, job.receipt, job.cancel)
 	stop()
 	return true, a.applyRemoteOutcome(ctx, job, reply, callErr)

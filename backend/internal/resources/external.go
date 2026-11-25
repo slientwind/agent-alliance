@@ -220,6 +220,7 @@ func (m Model) remote(ctx context.Context, method string, expected *RemoteWait, 
 		return Reply{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	m.ExternalTrace.inject(req)
 	if m.Key != "" {
 		req.Header.Set("Authorization", "Bearer "+m.Key)
 	}
@@ -379,6 +380,7 @@ func (c Catalog) discoverCard(w http.ResponseWriter, r *http.Request, u identity
 		return err
 	}
 	req.Header.Set("Accept", "application/json")
+	(ExternalTrace{ActorID: u.ID}).inject(req)
 	base, err := providerClient()
 	if err != nil {
 		return err
