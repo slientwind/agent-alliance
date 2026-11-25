@@ -25,6 +25,7 @@ export function workspacePage(name: string) {
 
 export function pageFromPath(pathname: string): WorkspacePage | "" {
   const path = pathname.replace(/\/+$/, "");
+  if (path === "/admin/models") return "gateway";
   const match = (Object.keys(workspacePages) as WorkspacePage[]).find((name) => workspacePages[name].path === path);
   if (match) return match;
   if (path.startsWith("/admin/")) return "admin";

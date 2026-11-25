@@ -3,6 +3,7 @@ import { api } from "./client";
 import { exactCny, microCny } from "./format-money";
 import "./admin-monitor.css";
 import { ModelProviders, type ModelProvider } from "./model-providers";
+import { EvaluationPanel } from "./eval-preflight";
 
 type Route = { modelId: string; model: string; provider: string; priority: number; weight: number; enabled: boolean; health: string };
 type Tier = { tier: keyof typeof tiers; revision: number; routes: Route[] };
@@ -149,6 +150,7 @@ export function AdminGateway() {
       setProviders(items || []);
       setRouting((await api<Tier[]>(root + "tiers")) || []);
     }} />
+    <EvaluationPanel models={models} />
     <div className="admin-tier-grid">{routing.map(row => <TierCard key={row.tier + "/" + row.revision} row={row} models={models}
       saved={async name => { setRouting((await api<Tier[]>(root + "tiers")) || []); setTierNotice(`${name}档位已保存`); }} />)}</div>
     <section className="card" aria-label="模型单价">

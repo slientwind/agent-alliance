@@ -1,6 +1,7 @@
 package evalsuite
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -132,13 +133,26 @@ func (s Server) capture(w http.ResponseWriter, r *http.Request, actor identity.M
 		if count >= 50 {
 			return web.Fail(409, "体检集已有 50 条用例")
 		}
-		var refs []struct{ Ref string }
+		var refs []struct {
+			Ref string
+			knowledge.KnowledgeCitationKey
+		}
 		if err := json.Unmarshal(quotes, &refs); err != nil {
 			return err
 		}
 		citations := make([]string, 0, min(12, len(refs)))
+		keys := make([]knowledge.KnowledgeCitationKey, 0, min(12, len(refs)))
 		for _, ref := range refs[:min(12, len(refs))] {
 			citations = append(citations, ref.Ref)
+			keys = append(keys, ref.KnowledgeCitationKey)
+		}
+		fixture, err := knowledge.ResolveKnowledgeEvidence(ctx, tx, space, actor.ID, keys)
+		if err != nil {
+			return err
+		}
+		fixture, err = sanitizeFixture(ctx, tx, s.Vault, fixture)
+		if err != nil {
+			return err
 		}
 		goal, err = policy.AnonymizeKnowledgeQuestion(ctx, tx, s.Vault, goal)
 		if err != nil || goal == "" {
@@ -206,8 +220,8 @@ func (s Server) capture(w http.ResponseWriter, r *http.Request, actor identity.M
 				return web.Fail(422, "引用须来自已选成果的授权知识")
 			}
 		}
-		return tx.QueryRow(ctx, `insert into eval_cases(suite_id,artifact_id,artifact_version,input_prompt,assertions,captured_by)
-		 values($1,$2,$3,$4,$5,$6) returning id`, suite, input.Artifact, input.Version, goal, checks, actor.ID).Scan(&id)
+		return tx.QueryRow(ctx, `insert into eval_cases(suite_id,artifact_id,artifact_version,input_prompt,assertions,captured_by,fixture)
+		 values($1,$2,$3,$4,$5,$6,$7) returning id`, suite, input.Artifact, input.Version, goal, checks, actor.ID, fixture).Scan(&id)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return web.Fail(404, "找不到有权沉淀的团队成果")
@@ -218,8 +232,27 @@ func (s Server) capture(w http.ResponseWriter, r *http.Request, actor identity.M
 	return web.JSON(w, 201, map[string]string{"id": id})
 }
 
-const caseReadable = `distribution_readable(c.artifact_id,c.artifact_version,$2)
- and exists(select from artifacts a join project_members pm on pm.project_id=a.project_id where a.id=c.artifact_id and pm.member_id=$2)`
+const caseReadable = `eval_case_readable(c.artifact_id,c.artifact_version,$2)`
+
+func sanitizeFixture(ctx context.Context, tx pgx.Tx, vault resources.Vault, hits []knowledge.KnowledgeEvidence) ([]knowledge.KnowledgeEvidence, error) {
+	fields := make(map[string]any)
+	for _, hit := range hits {
+		if hit.Sensitivity == "public" || hit.Sensitivity == "internal" {
+			fields[hit.CitationKey().Label()] = hit.Excerpt
+		}
+	}
+	if err := policy.MaskSensitiveFields(ctx, tx, vault, fields); err != nil {
+		return nil, err
+	}
+	out := make([]knowledge.KnowledgeEvidence, 0, len(hits))
+	for _, hit := range hits {
+		if value, found := fields[hit.CitationKey().Label()]; found && value != "[已脱敏]" {
+			out = append(out, knowledge.KnowledgeEvidence{Document: hit.Document, Space: hit.Space, Version: hit.Version,
+				Ordinal: hit.Ordinal, Excerpt: value.(string), Sensitivity: hit.Sensitivity})
+		}
+	}
+	return out, nil
+}
 
 func (s Server) cases(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
 	space, suite := r.PathValue("space"), r.PathValue("suite")

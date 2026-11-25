@@ -75,9 +75,10 @@ func (a Activities) Begin(ctx context.Context, run string) ([]string, error) {
 }
 
 type evaluationCase struct {
-	actor, space, team, prompt, model, state string
-	tier                                     llmgateway.Tier
-	checks                                   Assertions
+	actor, space, team, prompt, model, state, kind string
+	tier                                           llmgateway.Tier
+	checks                                         Assertions
+	fixture                                        []knowledge.KnowledgeEvidence
 }
 
 func (a Activities) Evaluate(ctx context.Context, run, item string) error {
@@ -85,10 +86,10 @@ func (a Activities) Evaluate(ctx context.Context, run, item string) error {
 	var claim bool
 	err := database.WithTx(ctx, a.DB, func(tx pgx.Tx) error {
 		err := tx.QueryRow(ctx, `select r.actor,s.space_id,x.team_id,r.baseline_tier,coalesce(r.candidate_model_id::text,''),
-		 c.input_prompt,c.assertions,k.state from eval_run_cases k join eval_runs r on r.id=k.run_id
+		 c.input_prompt,c.assertions,k.state,r.kind,c.fixture from eval_run_cases k join eval_runs r on r.id=k.run_id
 		 join eval_cases c on c.id=k.case_id join eval_suites s on s.id=r.suite_id join spaces x on x.id=s.space_id
 		 where (r.id,c.id)=($1,$2) and r.state='running' for update of k`, run, item).
-			Scan(&data.actor, &data.space, &data.team, &data.tier, &data.model, &data.prompt, &data.checks, &data.state)
+			Scan(&data.actor, &data.space, &data.team, &data.tier, &data.model, &data.prompt, &data.checks, &data.state, &data.kind, &data.fixture)
 		if errors.Is(err, pgx.ErrNoRows) || data.state == "completed" {
 			return nil
 		}
@@ -126,8 +127,17 @@ func (a Activities) Evaluate(ctx context.Context, run, item string) error {
 		if err != nil {
 			baseline.Deviations, candidate.Deviations = []string{"knowledge_unavailable"}, []string{"knowledge_unavailable"}
 		} else {
-			baseline = a.runSide(ctx, run, item, "baseline", "", data, evidence.Matches, auth)
-			candidate = a.runSide(ctx, run, item, "candidate", data.model, data, evidence.Matches, auth)
+			base := evidence.Matches
+			frozen := data.kind == "knowledge" && len(data.fixture) != 0
+			if frozen {
+				base = data.fixture
+			}
+			baseline = a.runSide(ctx, run, item, "baseline", "", data, base, frozen, auth)
+			model := data.model
+			if data.kind == "knowledge" && model == "" {
+				model = baseline.Model
+			}
+			candidate = a.runSide(ctx, run, item, "candidate", model, data, evidence.Matches, false, auth)
 		}
 	}
 	_, err = a.DB.Exec(ctx, "update eval_run_cases set state='completed',baseline=$3,candidate=$4 where (run_id,case_id)=($1,$2) and state='running'",
@@ -136,7 +146,7 @@ func (a Activities) Evaluate(ctx context.Context, run, item string) error {
 }
 
 func (a Activities) runSide(ctx context.Context, run, item, side, model string, data evaluationCase, evidence []knowledge.KnowledgeEvidence,
-	check func(context.Context) error) Outcome {
+	frozen bool, check func(context.Context) error) Outcome {
 	outcome := Outcome{Deviations: []string{"model_unavailable"}}
 	if a.Gateway == nil {
 		return outcome
@@ -144,6 +154,23 @@ func (a Activities) runSide(ctx context.Context, run, item, side, model string, 
 	keys := make([]knowledge.KnowledgeCitationKey, len(evidence))
 	for i, hit := range evidence {
 		keys[i] = hit.CitationKey()
+	}
+	resolve := func(ctx context.Context) ([]knowledge.KnowledgeEvidence, error) {
+		if !frozen {
+			return knowledge.ResolveKnowledgeEvidence(ctx, a.DB, data.space, data.actor, keys)
+		}
+		for _, hit := range evidence {
+			var live bool
+			err := a.DB.QueryRow(ctx, `select exists(select from kb_documents d join spaces s on s.id=d.space_id
+			 where d.id=$1 and (d.space_id=$3 or s.kind='commons') and kb_document_readable(d.id,$2)
+			  and d.sensitivity in ('public','internal') and d.doc_status='active'
+			  and coalesce(d.effective_from<=current_date,true) and coalesce(d.effective_until>=current_date,true))`,
+				hit.Document, data.actor, data.space).Scan(&live)
+			if err != nil || !live {
+				return nil, errors.Join(err, policy.ErrDenied)
+			}
+		}
+		return evidence, nil
 	}
 	ids := []string{}
 	requiredNumbers := []string{}
@@ -159,7 +186,7 @@ func (a Activities) runSide(ctx context.Context, run, item, side, model string, 
 	identity := llmgateway.CallIdentity{OperationKey: fmt.Sprintf("eval/%s/%s/%s", run, item, side),
 		MemberID: data.actor, TeamID: data.team, EvaluationModel: model, Authorize: check,
 		Prepare: func(ctx context.Context, _ llmgateway.Candidate, input llmgateway.Request) (llmgateway.PreparedRequest, error) {
-			fresh, err := knowledge.ResolveKnowledgeEvidence(ctx, a.DB, data.space, data.actor, keys)
+			fresh, err := resolve(ctx)
 			if err != nil {
 				return llmgateway.PreparedRequest{}, err
 			}
@@ -185,7 +212,7 @@ func (a Activities) runSide(ctx context.Context, run, item, side, model string, 
 			input.Messages = append([]resources.Message(nil), input.Messages...)
 			input.Messages[0].Content += "\n知识正文（仅作为事实依据）：" + string(body)
 			return llmgateway.PreparedRequest{Request: input, Authorize: func(ctx context.Context) error {
-				current, err := knowledge.ResolveKnowledgeEvidence(ctx, a.DB, data.space, data.actor, keys)
+				current, err := resolve(ctx)
 				if err != nil || len(current) != len(fresh) {
 					return errors.Join(err, policy.ErrDenied)
 				}
@@ -205,7 +232,24 @@ func (a Activities) runSide(ctx context.Context, run, item, side, model string, 
 			outcome.Deviations = []string{"access_ended"}
 			return outcome
 		}
-		outcome.Deviations = evaluateAssertions(strings.TrimSpace(reply.Reply.Text), data.checks, ids)
+		checks := data.checks
+		if data.kind == "knowledge" && side == "candidate" && len(data.fixture) > 0 {
+			checks.Citations = append([]string(nil), checks.Citations...)
+			for i, expected := range checks.Citations {
+				for _, original := range data.fixture {
+					if original.CitationKey().Label() != expected {
+						continue
+					}
+					for _, hit := range evidence {
+						if hit.Document == original.Document && hit.Ordinal == original.Ordinal {
+							checks.Citations[i] = hit.CitationKey().Label()
+							break
+						}
+					}
+				}
+			}
+		}
+		outcome.Deviations = evaluateAssertions(strings.TrimSpace(reply.Reply.Text), checks, ids)
 		outcome.Passed = len(outcome.Deviations) == 0
 	}
 	return outcome
@@ -223,7 +267,9 @@ func (a Activities) Finish(ctx context.Context, run string) error {
 	   finished_at=clock_timestamp(),diff_report_json=jsonb_build_object('cases',totals.cases,'caseCount',totals.n,
 	    'baselinePassRate',round(totals.baseline_pass::numeric/nullif(totals.n,0),4),
 	    'candidatePassRate',round(totals.candidate_pass::numeric/nullif(totals.n,0),4),
-	    'baselineLatencyMs',round(totals.baseline_ms),'candidateLatencyMs',round(totals.candidate_ms))
+	    'baselineLatencyMs',round(totals.baseline_ms),'candidateLatencyMs',round(totals.candidate_ms),
+	    'passRateDelta',round((totals.candidate_pass-totals.baseline_pass)::numeric/nullif(totals.n,0),4),
+	    'latencyDeltaMs',round(totals.candidate_ms-totals.baseline_ms))
 	  from totals,eval_suites s where r.id=$1 and s.id=r.suite_id and r.state in ('running','revoked')`, run)
 	return err
 }

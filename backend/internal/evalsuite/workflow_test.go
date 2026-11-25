@@ -12,10 +12,12 @@ import (
 
 	"alliance/internal/database"
 	"alliance/internal/identity"
+	"alliance/internal/knowledge"
 	"alliance/internal/llmgateway"
 	"alliance/internal/resources"
 	"alliance/internal/web"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
@@ -78,6 +80,26 @@ func TestCaptureTeamTaskAndEvaluateThroughTemporal(t *testing.T) {
 	exec("insert into plans(project_id,version,brief,confirmed_by) values($1,1,'请核对商品出库总量，联系人 fixture.private@example.test',$2)", project, owner)
 	exec(`insert into runs(id,project_id,plan_version,actor,status,charge_team,request_key,request_hash,max_calls)
 	 values($1,$2,1,$3,'completed',$4,$1::uuid::text,$5,4)`, run, project, owner, team, web.Hash(run))
+	exec("insert into general_agent_runs(run_id,tier) values($1,'default')", run)
+	collection, doc := uuid.NewString(), uuid.NewString()
+	objects := knowledge.Objects{Root: t.TempDir()}
+	var hash string
+	if err := database.WithTx(ctx, db, func(tx pgx.Tx) error {
+		var err error
+		hash, _, err = objects.Put(ctx, tx, strings.NewReader("Fixture knowledge"), 1024)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	exec("insert into kb_collections(id,space_id,name,sync_provider,acl_mode,maintainer,sync_status) values($1,$2,'Shipping','manual','space',$3,'ready')",
+		collection, space, owner)
+	exec(`insert into kb_documents(id,collection_id,space_id,remote_id,title,media_type,source_revision,current_object_hash,maintainer)
+	 values($1,$2,$3,$1::uuid::text,'Shipping','text/plain','1',$4,$5)`, doc, collection, space, hash, owner)
+	exec(`insert into kb_document_versions(document_id,version,source_revision,object_hash,media_type,parsed_at,parse_status)
+	 values($1,1,'1',$2,'text/plain',clock_timestamp(),'ready')`, doc, hash)
+	exec(`insert into kb_chunks(document_id,version,ordinal,body,citation_anchor,lexemes,token_count)
+	 values($1,1,1,'出库采用旧口径 fixture-baseline。','{"kind":"lines","startLine":1,"endLine":1}','{"出库":1}',3)`, doc)
+	exec("insert into general_kb_evidence(run_id,turn,document_id,document_version,chunk_ordinal) values($1,1,$2,1,1)", run, doc)
 	exec(`insert into model_providers(id,name,kind,endpoint) values($1,$1::uuid::text,'openai','https://fixture.example.test/v1')`, provider)
 	exec(`insert into model_catalog(id,provider_id,upstream_model,capabilities,context_tokens,max_output_tokens)
 	 values($1,$2,'eval-candidate',array['text'],8192,512)`, model, provider)
@@ -125,6 +147,7 @@ func TestCaptureTeamTaskAndEvaluateThroughTemporal(t *testing.T) {
 		t.Fatal(err)
 	}
 	var calls atomic.Int32
+	var compareKnowledge atomic.Bool
 	a := Activities{Server: s, Gateway: fakeEvaluationModel(func(ctx context.Context, id llmgateway.CallIdentity, in llmgateway.Request) (llmgateway.RoutedResult, error) {
 		calls.Add(1)
 		if len(in.Tools) != 0 || strings.Contains(in.Messages[0].Content, "42") || id.RunID != "" {
@@ -141,11 +164,23 @@ func TestCaptureTeamTaskAndEvaluateThroughTemporal(t *testing.T) {
 			return llmgateway.RoutedResult{}, err
 		}
 		value := "42"
-		if id.EvaluationModel == model {
+		if strings.HasSuffix(id.OperationKey, "/candidate") {
 			value = "37"
 		}
+		var citation string
+		version := 1
+		if compareKnowledge.Load() {
+			marker := "fixture-baseline"
+			if strings.HasSuffix(id.OperationKey, "/candidate") {
+				marker, version = "fixture-candidate", 2
+			}
+			if !strings.Contains(prepared.Request.Messages[0].Content, marker) {
+				t.Errorf("side received the wrong knowledge snapshot: %s", prepared.Request.Messages[0].Content)
+			}
+		}
+		citation = (knowledge.KnowledgeCitationKey{Document: doc, Version: version, Ordinal: 1}).Label()
 		return llmgateway.RoutedResult{ModelID: id.EvaluationModel, Result: llmgateway.Result{Reply: resources.Reply{
-			Text: `{"answer":"已统计出库数量。","citations":[],"numbers":{"数量":` + value + `}}`,
+			Text: `{"answer":"已统计出库数量。","citations":["` + citation + `"],"numbers":{"数量":` + value + `}}`,
 		}}}, nil
 	})}
 	var temporalSuite testsuite.WorkflowTestSuite
@@ -162,5 +197,31 @@ func TestCaptureTeamTaskAndEvaluateThroughTemporal(t *testing.T) {
 		state != "completed" || !strings.Contains(report, `"candidatePassRate": 0.0000`) ||
 		!strings.Contains(report, `"baselinePassRate": 1.0000`) || !strings.Contains(report, `number:1`) || calls.Load() != 4 {
 		t.Fatalf("unexpected evaluation: %d %s %s %v", calls.Load(), state, report, err)
+	}
+	exec(`insert into kb_document_versions(document_id,version,source_revision,object_hash,media_type,parsed_at,parse_status)
+	 values($1,2,'2',$2,'text/plain',clock_timestamp(),'ready')`, doc, hash)
+	exec(`insert into kb_chunks(document_id,version,ordinal,body,citation_anchor,lexemes,token_count)
+	 values($1,2,1,'出库采用新口径 fixture-candidate。','{"kind":"lines","startLine":1,"endLine":1}','{"出库":1}',3)`, doc)
+	exec("update kb_documents set source_revision='2',content_version=2 where id=$1", doc)
+	compareKnowledge.Store(true)
+	w, r = request(`{"kind":"knowledge"}`, suite)
+	if err := s.start(w, r, user); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	env = temporalSuite.NewTestWorkflowEnvironment()
+	env.RegisterActivityWithOptions(a.Begin, activity.RegisterOptions{Name: BeginName})
+	env.RegisterActivityWithOptions(a.Evaluate, activity.RegisterOptions{Name: EvaluateName})
+	env.RegisterActivityWithOptions(a.Finish, activity.RegisterOptions{Name: FinishName})
+	env.ExecuteWorkflow(EvalWorkflow, created.ID)
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(ctx, "select state,diff_report_json::text from eval_runs where id=$1", created.ID).Scan(&state, &report); err != nil ||
+		state != "completed" || !strings.Contains(report, `"baselinePassRate": 1.0000`) ||
+		strings.Contains(report, "unverified_citation") || !strings.Contains(report, "number:1") || calls.Load() != 8 {
+		t.Fatalf("knowledge comparison did not retain the old baseline and test new facts: %d %s %s %v", calls.Load(), state, report, err)
 	}
 }
