@@ -1,6 +1,7 @@
 export const workspacePages = {
   history: { path: "/inbox", title: "待办与审核" },
   library: { path: "/agents", title: "Agent 广场" },
+  externalConnect: { path: "/agents/connect", title: "接入外部 Agent" },
   account: { path: "/account", title: "我的工作区" },
   prefs: { path: "/account/preferences", title: "个人偏好" },
   rules: { path: "/account/team-rules", title: "团队规则" },
@@ -23,7 +24,7 @@ export function pageFromPath(pathname: string): WorkspacePage | "" {
   const match = (Object.keys(workspacePages) as WorkspacePage[]).find((name) => workspacePages[name].path === path);
   if (match) return match;
   if (path.startsWith("/admin/")) return "admin";
-  if (path.startsWith("/agents/studio/") || path === "/agents/connect") return "library";
+  if (path.startsWith("/agents/studio/")) return "library";
   return "";
 }
 

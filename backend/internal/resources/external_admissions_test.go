@@ -123,6 +123,10 @@ func TestExternalAdmissionsPostgres(t *testing.T) {
 		}
 	}
 	assertPhase("draft")
+	if body := call(ownerToken, "GET", path+"/external-testers?revision=1", "", 200); !strings.Contains(body, tester) || strings.Contains(body, employee) {
+		t.Fatal(body)
+	}
+	call(testerToken, "GET", path+"/external-testers?revision=1", "", 404)
 	testers := fmt.Sprintf(`{"revision":1,"expected":1,"members":[%q]}`, tester)
 	call(ownerToken, "PUT", path+"/external-testers", testers, 200)
 	call(ownerToken, "PUT", path+"/external-testers", testers, 409)

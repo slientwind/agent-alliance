@@ -79,6 +79,7 @@ const ArtifactCanvas = lazy(() => import("./artifact-canvas").then(({ ArtifactCa
 const SearchIntegration = lazy(() => import("./search-integration").then(({ SearchIntegration }) => ({ default: SearchIntegration })));
 const MailIntegration = lazy(() => import("./mail-integration").then(({ MailIntegration }) => ({ default: MailIntegration })));
 const AutomationSchedules = lazy(() => import("./automation-schedules").then(({ AutomationSchedules }) => ({ default: AutomationSchedules })));
+const ExternalConnect = lazy(() => import("./external-connect").then(({ ExternalConnect }) => ({ default: ExternalConnect })));
 
 function Overlay({
   title,
@@ -1126,15 +1127,26 @@ function App() {
       {panel === "rules" && <TeamRules admin={user.role === "admin"} />}
       {panel === "prefs" && <Preferences agents={agents} />}
       {panel === "library" && (
-        <Library
-          useAgent={!current.current && !hasPicks && !busy ? a => chooseAgents([a], a.team) : undefined}
-          teams={teams || []}
-          teamError={teamError}
-          agents={agents}
-          models={models}
-          admin={user.role === "admin"}
-          refresh={catalog}
-        />
+        <>
+          <button type="button" onClick={() => setPanel("externalConnect")}>接入外部 Agent</button>
+          <Library
+            useAgent={!current.current && !hasPicks && !busy ? a => chooseAgents([a], a.team) : undefined}
+            teams={teams || []}
+            teamError={teamError}
+            agents={agents}
+            models={models}
+            admin={user.role === "admin"}
+            refresh={catalog}
+          />
+        </>
+      )}
+      {panel === "externalConnect" && (
+        <Suspense fallback={<p role="status">正在加载接入向导…</p>}>
+          <ExternalConnect teams={teams || []} preferredTeam={conversationTeam} refresh={catalog} openConversation={agent => {
+            if (agent) setExternalPicker({ project: "", choice: { agent, mode: "direct" } });
+            void select("");
+          }} />
+        </Suspense>
       )}
       {panel === "admin" && user.role === "admin" && (
         <>

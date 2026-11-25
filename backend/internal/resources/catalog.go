@@ -46,6 +46,7 @@ func (c Catalog) Routes(m *http.ServeMux, s identity.Server) {
 	m.Handle("GET /api/agents/adapter-templates", s.Protect(false, c.adapterTemplates))
 	m.Handle("POST /api/agents/adapters", s.Protect(false, c.saveAdapter))
 	m.Handle("GET /api/agents/admissions", s.Protect(false, c.externalAdmissions))
+	m.Handle("GET /api/agents/{id}/external-testers", s.Protect(false, c.externalTesterCandidates))
 	m.Handle("PUT /api/agents/{id}/external-testers", s.Protect(false, c.externalTesters))
 	m.Handle("GET /api/admin/external-agents/releases", s.Protect(true, c.externalVerificationQueue))
 	m.Handle("POST /api/admin/catalog/{kind}/{id}", s.Protect(true, c.state))

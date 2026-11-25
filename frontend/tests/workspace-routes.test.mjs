@@ -13,7 +13,7 @@ test("workspace routes cover the sidebar and preserve legacy chat links", async 
   assert.equal(pageFromPath("/inbox"), "history");
   assert.equal(pageFromPath("/agents"), "library");
   assert.equal(pageFromPath("/agents/studio/project-2"), "library");
-  assert.equal(pageFromPath("/agents/connect"), "library");
+  assert.equal(pageFromPath("/agents/connect"), "externalConnect");
   assert.equal(pageFromPath("/admin/monitor"), "admin");
   assert.equal(pageFromPath("/admin/setup"), "setup");
   assert.equal(pageFromPath("/automations"), "services");

@@ -10,6 +10,8 @@ export type ExternalAgent = {
   testersRevision: number;
   testers?: string[];
   template: string;
+  activeTrial?: string;
+  release?: { id: string; state: string; reason?: string };
 };
 
 export type ExternalChoice = { agent: ExternalAgent; mode: "direct" | "delegate" };

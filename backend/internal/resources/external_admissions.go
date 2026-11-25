@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"alliance/internal/database"
 	"alliance/internal/identity"
@@ -19,6 +20,14 @@ func (c Catalog) externalAdmissions(w http.ResponseWriter, r *http.Request, acto
 	 'published',a.published_revision=r.revision,'owner',a.owner=$1,'testersRevision',x.testers_revision,
 	 'testers',case when a.owner=$1 then array(select member_id from external_agent_testers t
 	  where (t.agent_id,t.revision)=(a.id,r.revision) order by member_id) end,
+	 'release',case when a.owner=$1 then (
+	  select jsonb_build_object('id',q.id,'state',q.state,'reason',q.reason)
+	  from agent_release_requests q where (q.agent_id,q.revision)=(a.id,r.revision)
+	  order by q.requested_at desc,q.id desc limit 1) end,
+	 'activeTrial',case when a.owner=$1 and d.phase='draft' then (
+	  select v.id from validations v where (v.agent_id,v.revision,v.actor)=(a.id,r.revision,$1)
+	    and v.admission_test and v.status='remote'
+	  order by v.created_at desc,v.id desc limit 1) end,
 	 'template',coalesce(r.card#>>'{allianceAdapter,template}','a2a')))
 	 from external_agent_admissions x
 	 join agent_revisions r using(agent_id,revision) join agents a on a.id=r.agent_id
@@ -28,6 +37,25 @@ func (c Catalog) externalAdmissions(w http.ResponseWriter, r *http.Request, acto
 	  or (d.phase in ('beta','pending_verify') and external_admission_can_use(a.id,r.revision,$1))
 	  or (d.phase='verified' and a.published_revision=r.revision and external_admission_can_use(a.id,r.revision,$1)))
 	 order by r.name,r.revision desc,a.id limit 250))`, actor.ID).Scan(&data)
+	if err != nil {
+		return err
+	}
+	return web.JSON(w, http.StatusOK, data)
+}
+
+func (c Catalog) externalTesterCandidates(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
+	revision, err := strconv.Atoi(r.URL.Query().Get("revision"))
+	if err != nil || revision < 1 {
+		return web.Fail(422, "请选择 Agent 版本")
+	}
+	var data json.RawMessage
+	err = c.DB.QueryRow(r.Context(), `select to_jsonb(array(select jsonb_build_object('id',u.id,'name',u.display_name)
+	 from team_members tm join members u on u.id=tm.member_id
+	 where tm.team_id=a.team_id and u.id<>$3 and u.enabled and u.kind='person'
+	 order by u.display_name,u.id)) from external_agent_admissions x join agents a on a.id=x.agent_id
+	 join team_members owner_membership on (owner_membership.team_id,owner_membership.member_id)=(a.team_id,$3)
+	 where (x.agent_id,x.revision,a.owner)=($1,$2,$3) and not a.disabled and not a.removed`,
+		r.PathValue("id"), revision, actor.ID).Scan(&data)
 	if err != nil {
 		return err
 	}

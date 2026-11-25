@@ -1,0 +1,18 @@
+.external-connect { max-width: 55rem; }
+.external-steps { display: flex; flex-wrap: wrap; gap: .4rem 1.25rem; margin: 0 0 1.2rem; padding-left: 1.5rem; }
+.external-steps [aria-current="step"] { font-weight: 700; }
+.external-templates { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: .75rem; margin-bottom: 1rem; }
+.external-templates button { display: flex; align-items: center; gap: .75rem; min-height: 4.25rem; text-align: left; }
+.external-templates button[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 2px; }
+.external-connect h2 { margin-bottom: 0; }
+.external-connections { padding: 0; display: grid; gap: .5rem; }
+.external-connections li { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
+.external-form, .external-webhook { display: grid; gap: .75rem; justify-items: start; }
+.external-form label { display: grid; gap: .35rem; width: min(100%, 34rem); }
+.external-form label.external-check { display: flex; align-items: center; gap: .5rem; }
+.external-form label.external-check input { width: auto; }
+.external-form fieldset { width: min(100%, 34rem); }
+.external-form details p, .external-reply { overflow-wrap: anywhere; }
+.external-reply { white-space: pre-wrap; max-width: 100%; }
+.external-webhook details { width: 100%; }
+.external-webhook details label { margin-top: .6rem; }
