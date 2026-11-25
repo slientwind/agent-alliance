@@ -66,7 +66,7 @@ func main() {
 		return web.JSON(w, 200, map[string]string{"status": "ready"})
 	}))
 	if root := os.Getenv("WEB_ROOT"); root != "" {
-		mux.Handle("GET /", http.FileServer(http.Dir(root)))
+		mux.Handle("GET /", spaHandler(os.DirFS(root)))
 	}
 	addr := os.Getenv("API_ADDR")
 	if addr == "" {
