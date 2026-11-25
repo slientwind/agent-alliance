@@ -13,6 +13,7 @@ export type ReviewTask = {
     | "deliver"
     | "coverage"
     | "distribution"
+    | "tool"
     | "suggested"
     | "required"
     | "investigate"
@@ -29,6 +30,7 @@ const actionLabels: Record<ReviewTask["kind"], string> = {
   deliver: "最终确认交付",
   coverage: "核对必交项和缺项安排",
   distribution: "查看资料撤权影响",
+  tool: "处理助手请求",
   suggested: "处理建议",
   required: "跟进修改",
   investigate: "核实验收问题",
@@ -36,6 +38,7 @@ const actionLabels: Record<ReviewTask["kind"], string> = {
 };
 export function taskAnchor(t: ReviewTask) {
   if (t.kind === "distribution") return "delivery-distribution";
+  if (t.kind === "tool") return "approval-" + t.subject;
   if (t.kind === "review") return "review-" + t.subject + "-" + t.version;
   if (t.kind === "deliver") return "deliver-" + t.revision;
   if (t.kind === "coverage") return "delivery-coverage";
@@ -139,7 +142,7 @@ export function ConversationHistory({
             value={inbox}
             onChange={(e) => setInbox(e.target.value as HistoryView)}
           >
-            <option value="review">成果审核</option>
+            <option value="review">任务与审核</option>
             <option value="budget">预算追加</option>
             <option value="grant">能力授权</option>
           </select>
@@ -193,7 +196,7 @@ export function ConversationHistory({
               ))
             ) : (
               <p role="status">
-                {needle ? "没有匹配的成果待办" : "当前没有需要你处理的成果"}
+                {needle ? "没有匹配的待办" : "当前没有需要你处理的待办"}
               </p>
             )
           ) : conversations.length ? (

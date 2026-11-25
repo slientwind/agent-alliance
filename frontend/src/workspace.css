@@ -387,3 +387,9 @@
     box-shadow: 12px 0 28px rgb(0 0 0 / 12%);
   }
 }
+.tool-approval-arguments {
+  max-height: 16rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

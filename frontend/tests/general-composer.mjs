@@ -12,6 +12,7 @@ try {
   const submitted = [];
   const decisions = [];
   let awaitingApproval = false;
+  const review = process.env.APPROVAL_LEVEL === "L2";
   const details = {
     id, title: "测试对话", stage: "brief", revision: 1, owner: "member", reviewer: "member", team: "team", planVersion: 0,
     messages: [], artifacts: [], participants: [], handoffs: [], sharedAgents: [], deliveries: [], distributionCases: [],
@@ -43,7 +44,8 @@ try {
     }
     if (path === approvalsPath) {
       return route.fulfill({ json: awaitingApproval
-        ? [{ id: "approval", level: "L1", revision: 1, tool: "reports", recipient: "records.example.test", turn: 1 }]
+        ? [{ id: "approval", level: review ? "L2" : "L1", revision: 1, tool: "reports", recipient: "records.example.test",
+            planVersion: 1, arguments: { query: "X".repeat(600) } }]
         : [] });
     }
     if (path === approvalsPath + "/approval" && request.method() === "POST") {
@@ -81,10 +83,13 @@ try {
   assert.equal((await dispatched).status(), 202);
   await page.waitForURL("**/chat/" + id);
   assert.deepEqual(submitted, [{ goal: "请检查采购金额", tier: "reasoning", expected: 1, sources: [{ id: source, revision: 1 }] }]);
-  const approval = page.getByRole("region", { name: "确认付费查询" });
+  const approval = page.getByRole("region", { name: review ? "审核写入请求" : "确认付费查询" });
   await approval.getByText("records.example.test", { exact: true }).waitFor();
+  await approval.getByText("查看发送内容", { exact: true }).click();
+  await approval.getByText(/"query":/).waitFor();
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   const decided = page.waitForResponse(response => response.url().endsWith(approvalsPath + "/approval"));
-  await approval.getByRole("button", { name: "确认并继续" }).click();
+  await approval.getByRole("button", { name: review ? "允许写入" : "确认并继续" }).click();
   assert.equal((await decided).status(), 204);
   assert.deepEqual(decisions, [{ expected: 1, accept: true }]);
   await approval.waitFor({ state: "hidden" });

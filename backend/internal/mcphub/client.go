@@ -238,8 +238,10 @@ func (s *Session) discover(ctx context.Context, includeUnconfigured bool) ([]Too
 				if err != nil {
 					return nil, err
 				}
-				registered.Allowed = ok
-				tools = append(tools, registered)
+				registered.Allowed = mode == "write" || (registered.ReadOnly && (mode == "read_only" || mode == "paid_read"))
+				if registered.Allowed || includeUnconfigured {
+					tools = append(tools, registered)
+				}
 			}
 		}
 		if reply.NextCursor == "" {

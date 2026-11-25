@@ -14,31 +14,56 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Approval decisions always belong to an enabled participant in the run's
-// team. L1 belongs to the initiator; L2 belongs to the current final reviewer.
-const currentToolApprover = `exists(select from members u
-	join team_members tm on (tm.team_id,tm.member_id)=(r.charge_team,u.id)
-	join project_members pm on (pm.project_id,pm.member_id)=(p.id,u.id)
-	where u.id=$2 and u.enabled and u.kind='person'
-	and ((q.level='L1' and r.actor=u.id) or (q.level='L2' and p.final_reviewer=u.id and pm.can_review)))`
-
 const approvalScope = ` from general_agent_tool_approvals q
 	join general_agent_actions a using(run_id,turn,position)
 	join runs r on r.id=q.run_id
 	join projects p on (p.id,p.plan_version)=(r.project_id,r.plan_version)
 	where p.id=$1 and r.status in ('running','paused') and a.state='queued'
-	and general_mcp_binding_current(r.id,a.mcp_server) and ` + currentToolApprover
+	and general_mcp_binding_current(r.id,a.mcp_server) and general_tool_approver(r.id,q.level,$2)`
+
+type toolApproval struct {
+	ID          string                `json:"id"`
+	Level       harness.AutonomyLevel `json:"level"`
+	Revision    int                   `json:"revision"`
+	Tool        string                `json:"tool"`
+	Recipient   string                `json:"recipient"`
+	PlanVersion int                   `json:"planVersion"`
+	Arguments   json.RawMessage       `json:"arguments,omitempty"`
+}
 
 func (s Server) toolApprovals(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
 	project := r.PathValue("id")
 	if _, err := uuid.Parse(project); err != nil {
 		return web.Fail(404, "找不到这段对话")
 	}
-	var approvals json.RawMessage
-	err := s.DB.QueryRow(r.Context(), `select coalesce(jsonb_agg(jsonb_build_object('id',q.id,'level',q.level,'revision',q.revision,
-	 'tool',a.mcp_tool_label,'recipient',a.mcp_recipient,'turn',q.turn) order by q.created_at,q.id),'[]')`+
-		approvalScope+` and q.state='pending'`, project, actor.ID).Scan(&approvals)
+	ctx := r.Context()
+	rows, err := s.DB.Query(ctx, `select q.id,q.level,q.revision,a.mcp_tool_label,a.mcp_recipient,p.plan_version,
+	 q.run_id,q.turn,q.position,case when r.actor=$2 then a.args_cipher end`+
+		approvalScope+` and q.state='pending' order by q.created_at,q.id`, project, actor.ID)
 	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	approvals := make([]toolApproval, 0)
+	for rows.Next() {
+		var approval toolApproval
+		var ref ToolRef
+		var cipher []byte
+		err := rows.Scan(&approval.ID, &approval.Level, &approval.Revision, &approval.Tool, &approval.Recipient, &approval.PlanVersion,
+			&ref.RunID, &ref.Turn, &ref.Position, &cipher)
+		if err != nil {
+			return err
+		}
+		if cipher != nil {
+			arguments, err := s.Vault.Open(cipher, actionScope(ref)+"/arguments")
+			if err != nil {
+				return err
+			}
+			approval.Arguments = json.RawMessage(arguments)
+		}
+		approvals = append(approvals, approval)
+	}
+	if err := rows.Err(); err != nil {
 		return err
 	}
 	return web.JSON(w, http.StatusOK, approvals)
@@ -133,13 +158,10 @@ func (a Activities) verifyApproval(ctx context.Context, ref ToolRef, level harne
 	var approved bool
 	err := a.DB.QueryRow(ctx, `select exists(select from general_agent_tool_approvals q
 	 join general_agent_actions a using(run_id,turn,position)
-	 join runs r on r.id=q.run_id join projects p on (p.id,p.plan_version)=(r.project_id,r.plan_version)
-	 join members u on u.id=q.decided_by and u.enabled and u.kind='person'
-	 join team_members tm on (tm.team_id,tm.member_id)=(r.charge_team,u.id)
-	 join project_members pm on (pm.project_id,pm.member_id)=(p.id,u.id)
+	 join runs r on r.id=q.run_id
 	 where (q.run_id,q.turn,q.position)=($1,$2,$3) and q.level=$4 and q.fingerprint=$5 and a.fingerprint=$5
 	  and r.status='running' and a.state='running' and q.state='approved' and
-	  ((q.level='L1' and r.actor=u.id) or (q.level='L2' and p.final_reviewer=u.id and pm.can_review)))`,
+	  general_tool_approver(r.id,q.level,q.decided_by))`,
 		ref.RunID, ref.Turn, ref.Position, level, fingerprint).Scan(&approved)
 	if err != nil {
 		return err

@@ -52,19 +52,19 @@
 ## 二、本次 vNext 新增核心功能 TODO List
 
 ### 模块 A：通用 Agent Loop + Docker Compose 隔离沙箱 + MCP 工具层
-- [ ] **通用执行引擎（Go Worker）**
+- [x] **通用执行引擎（Go Worker）**
   - [x] 实现统一 `GeneralAgentWorkflow` 与两类核心 Activity：`AdvanceTurn`（装配上下文 + 调模型网关 + Harness 纯决策）与 `ExecuteTool`（策略门禁 + 派发 + 观察落账）。
   - [x] 实现 **L0 / L1 / L2 自主策略评估器（`AutonomyPolicy`）**，根据工具注册风险、当前权限、费用和额度决定直接执行、确认、审核或拒绝。
   - [x] 将 L1 自主策略接入通用执行器，为付费 MCP 查询提供内联确认卡和持久化续跑。
   - [x] 实现通用停滞检测（比较工具名 + 规范化参数 + 来源版本 + 未决对象）与安全上下文压缩（保留 System、最新用户纠偏、未闭合 Tool Pair、来源引用）。
-- [ ] **Docker Compose 隔离容器沙箱池（Workspace Sandbox）**
+- [x] **Docker Compose 隔离容器沙箱池（Workspace Sandbox）**
   - [x] 在现有 `deploy/application.yaml` 下新增 `sandbox` 服务镜像与独立断网内部网络 `sandbox-internal`（`internal: true`），预装 Python 3.12、`pandas`、`openpyxl`、`python-docx`、`python-pptx`、`pypdf`、`matplotlib`、`pillow`、`duckdb` 及中文字体包。
   - [x] 实现按任务隔离目录挂载与执行限额：`/workspace/inputs:ro`、`/workspace/outputs:rw`、只读根文件系统、`cap_drop: [ALL]`、`no-new-privileges:true`、CPU/RAM/PID/60s 超时硬限、零凭据注入。
   - [x] 实现产物自动回收：扫描 `/workspace/outputs` 哈希登记为受控 Artifact 版本，并自动触发 `preview` 生成可预览视图。
-- [ ] **标准 MCP Client Hub**
+- [x] **标准 MCP Client Hub**
   - [x] 实现 Go MCP Client（`Streamable HTTP` 与旧版 `SSE`），支持 `tools/list`、转为模型工具 Schema、Vault 凭据代注入，以及只读 L0 与写入 L2 标注。管理员可维护目录并探测服务。
   - [x] 将企业目录中已授权的只读 MCP 工具按团队注入通用 Agent，执行前校验授权及工具版本。
-  - [ ] 将获授权的写入 MCP 工具接入通用 Agent，并接通 L2 工具的人工审核。
+  - [x] 将获授权的写入 MCP 工具接入通用 Agent，并接通 L2 工具的人工审核。
 - [ ] **后台与定时委托（`/automations`）**
   - [ ] 基于 Temporal Schedule 实现周期/定时任务管理（CRUD、启停、时区、数据游标、防重入）。
   - [ ] 分别记录「任务运行状态」与「飞书/邮件通知投递回执」，支持运行成功而通知失败时仅补发提醒。

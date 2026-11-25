@@ -45,7 +45,7 @@ func BindRun(ctx context.Context, tx pgx.Tx, run, team string) error {
 	return err
 }
 
-func (runtime Runtime) openRunServer(ctx context.Context, run, server string) (*Session, error) {
+func (runtime Runtime) openRunServer(ctx context.Context, run, server string, allowed func(context.Context) bool) (*Session, error) {
 	config := ServerConfig{ID: server}
 	query := allowedRunServers + " and s.id=$2"
 	err := runtime.DB.QueryRow(ctx, "select s.endpoint,s.transport,s.encrypted_bearer,s.tools,s.allow_private_http"+query, run, server).
@@ -54,7 +54,7 @@ func (runtime Runtime) openRunServer(ctx context.Context, run, server string) (*
 		return nil, ErrUnavailable
 	}
 	config.authorized = func(ctx context.Context) bool {
-		return runtime.DB.QueryRow(ctx, "select 1"+query, run, server).Scan(new(int)) == nil
+		return runtime.DB.QueryRow(ctx, "select 1"+query, run, server).Scan(new(int)) == nil && (allowed == nil || allowed(ctx))
 	}
 	return runtime.Client.Open(ctx, config)
 }
@@ -85,7 +85,7 @@ func (runtime Runtime) Discover(ctx context.Context, run string) []RunTool {
 		if err != nil {
 			continue
 		}
-		session, err := runtime.openRunServer(ctx, run, server.id)
+		session, err := runtime.openRunServer(ctx, run, server.id, nil)
 		if err != nil {
 			continue
 		}
@@ -96,7 +96,7 @@ func (runtime Runtime) Discover(ctx context.Context, run string) []RunTool {
 		}
 		for _, tool := range discovered {
 			size := len(tool.Definition.Function.Parameters) + len(tool.Definition.Function.Description) + len(tool.Definition.Function.Name)
-			if tool.Level == harness.L2 || size > remaining {
+			if size > remaining {
 				continue
 			}
 			digest, err := DefinitionDigest(tool)
@@ -114,7 +114,14 @@ func (runtime Runtime) Discover(ctx context.Context, run string) []RunTool {
 
 func (runtime Runtime) Call(ctx context.Context, run, server, alias, digest string, level harness.AutonomyLevel,
 	arguments json.RawMessage, approve func(context.Context) error) (json.RawMessage, error) {
-	session, err := runtime.openRunServer(ctx, run, server)
+	var allowed func(context.Context) bool
+	if level != harness.L0 {
+		if approve == nil {
+			return nil, ErrApproval
+		}
+		allowed = func(ctx context.Context) bool { return approve(ctx) == nil }
+	}
+	session, err := runtime.openRunServer(ctx, run, server, allowed)
 	if err != nil {
 		return nil, err
 	}
@@ -123,12 +130,6 @@ func (runtime Runtime) Call(ctx context.Context, run, server, alias, digest stri
 		current, err := DefinitionDigest(tool)
 		if err != nil || current != digest || tool.Level != level {
 			return errors.New("工具配置变更，需要重新选择")
-		}
-		if level != harness.L0 {
-			if approve == nil {
-				return ErrApproval
-			}
-			return approve(ctx)
 		}
 		return nil
 	})

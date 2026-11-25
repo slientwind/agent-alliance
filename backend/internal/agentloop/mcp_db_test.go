@@ -20,6 +20,7 @@ import (
 	"alliance/internal/knowledge"
 	"alliance/internal/llmgateway"
 	"alliance/internal/mcphub"
+	"alliance/internal/projects"
 	"alliance/internal/resources"
 	"alliance/internal/web"
 	"github.com/google/uuid"
@@ -67,6 +68,7 @@ func TestGeneralRunMCPToolsRespectTeamGrant(t *testing.T) {
 	}
 	addTool("lookup", &reads)
 	addTool("mutate", &writes)
+	addTool("unconfigured", &writes)
 	var paidReads atomic.Int32
 	addTool("paid_lookup", &paidReads)
 	srv := httptest.NewServer(mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return service },
@@ -91,6 +93,9 @@ func TestGeneralRunMCPToolsRespectTeamGrant(t *testing.T) {
 	exec(ctx, `insert into teams(id,name) values($1,$1::uuid::text)`, team)
 	exec(ctx, `insert into members(id,email,display_name,password_hash,role) values($1,$2,'mcp test','','member')`, owner, owner+"@example.test")
 	exec(ctx, `insert into team_members(team_id,member_id) values($1,$2)`, team, owner)
+	reviewer := uuid.NewString()
+	exec(ctx, `insert into members(id,email,display_name,password_hash,role) values($1,$2,'write reviewer','','member')`, reviewer, reviewer+"@example.test")
+	exec(ctx, `insert into team_members(team_id,member_id) values($1,$2)`, team, reviewer)
 	exec(ctx, `insert into model_providers(id,name,kind,endpoint) values($1,$1::uuid::text,'openai','https://fixture.example.test/v1')`, provider)
 	exec(ctx, `insert into model_catalog(id,provider_id,upstream_model,capabilities,context_tokens,max_output_tokens)
 		values($1,$2,'mcp-test-model',array['text','tool_call'],8192,512)`, model, provider)
@@ -104,15 +109,23 @@ func TestGeneralRunMCPToolsRespectTeamGrant(t *testing.T) {
 	exec(ctx, `insert into mcp_team_grants(server_id,team_id,enabled) values($1,$2,true)`, serverID, team)
 	runtime := &mcphub.Runtime{DB: db, Client: mcphub.Client{Vault: vault, Egress: egress.Policy{DB: db}}}
 
-	for _, mode := range []string{"granted", "revoked before call", "not granted", "accept paid", "skip paid", "revoke pending"} {
+	for _, mode := range []string{"granted", "revoked before call", "not granted", "accept paid", "skip paid", "revoke pending", "approve write", "deny write", "transfer review"} {
 		t.Run(mode, func(t *testing.T) {
 			paid := strings.HasSuffix(mode, "paid") || mode == "revoke pending"
-			if paid {
+			write := strings.HasSuffix(mode, "write") || mode == "transfer review"
+			if paid || write {
 				exec(ctx, `update mcp_team_grants set enabled=true,revision=revision+1 where (server_id,team_id)=($1,$2)`, serverID, team)
 			}
+			approver, target, level, outbound := owner, "paid_lookup", "L1", &paidReads
+			if write {
+				approver, target, level, outbound = reviewer, "mutate", "L2", &writes
+			}
 			project := uuid.NewString()
-			exec(ctx, `insert into projects(id,owner,team_id,final_reviewer,title) values($1,$2,$3,$2,'mcp fixture')`, project, owner, team)
+			exec(ctx, `insert into projects(id,owner,team_id,final_reviewer,title) values($1,$2,$3,$4,'mcp fixture')`, project, owner, team, approver)
 			exec(ctx, `insert into project_memberships(project_id,member_id,can_review) values($1,$2,true)`, project, owner)
+			if write {
+				exec(ctx, `insert into project_memberships(project_id,member_id,can_review) values($1,$2,true)`, project, reviewer)
+			}
 			var revision int
 			if err := db.QueryRow(ctx, "select revision from projects where id=$1", project).Scan(&revision); err != nil {
 				t.Fatal(err)
@@ -135,11 +148,11 @@ func TestGeneralRunMCPToolsRespectTeamGrant(t *testing.T) {
 					var alias string
 					for _, tool := range in.Tools {
 						switch {
-						case strings.Contains(tool.Function.Name, "_mutate"):
-							return llmgateway.RoutedResult{}, fmt.Errorf("write tool exposed as automatic: %q", tool.Function.Name)
-						case paid && strings.HasPrefix(tool.Function.Name, "mcp_paid_lookup_"):
+						case strings.Contains(tool.Function.Name, "_unconfigured"):
+							return llmgateway.RoutedResult{}, fmt.Errorf("unconfigured tool exposed: %q", tool.Function.Name)
+						case (paid || write) && strings.HasPrefix(tool.Function.Name, "mcp_"+target+"_"):
 							alias = tool.Function.Name
-						case !paid && strings.HasPrefix(tool.Function.Name, "mcp_lookup_"):
+						case !paid && !write && strings.HasPrefix(tool.Function.Name, "mcp_lookup_"):
 							alias = tool.Function.Name
 						}
 					}
@@ -159,8 +172,8 @@ func TestGeneralRunMCPToolsRespectTeamGrant(t *testing.T) {
 						}
 					case 2:
 						last := in.Messages[len(in.Messages)-1]
-						observed := mode == "granted" || mode == "accept paid"
-						granted := mode == "granted" || mode == "accept paid" || mode == "skip paid"
+						observed := mode == "granted" || mode == "accept paid" || mode == "approve write"
+						granted := mode == "granted" || (paid && mode != "revoke pending") || write
 						if last.ToolCallID != "mcp-read" || strings.Contains(last.Content, resultText) != observed ||
 							(alias != "") != granted {
 							return llmgateway.RoutedResult{}, fmt.Errorf("unexpected observation for %s: %v %s", mode, last, alias)
@@ -170,22 +183,19 @@ func TestGeneralRunMCPToolsRespectTeamGrant(t *testing.T) {
 					}
 					return llmgateway.RoutedResult{Result: llmgateway.Result{Reply: out}}, nil
 				})}
-			if paid {
+			if paid || write {
 				turn, err := a.AdvanceTurn(ctx, TurnRef{RunID: reply.ID, Turn: 1})
 				if err != nil || turn.Tools != 1 {
 					t.Fatalf("first turn: %+v %v", turn, err)
 				}
 				ref := ToolRef{RunID: reply.ID, Turn: 1, Position: 1}
-				before := paidReads.Load()
+				before := outbound.Load()
 				pending, err := a.ExecuteTool(ctx, ref)
-				if err != nil || !pending.Wait || !pending.Recheck || paidReads.Load() != before {
-					t.Fatalf("paid tool ran before confirmation: %+v %v", pending, err)
+				if err != nil || !pending.Wait || !pending.Recheck || outbound.Load() != before {
+					t.Fatalf("tool ran before confirmation: %+v %v", pending, err)
 				}
-				s := Server{DB: db}
-				list := func(user string) []struct {
-					ID, Level, Recipient, Tool string
-					Revision                   int
-				} {
+				s := Server{DB: db, Vault: vault}
+				list := func(user string) []toolApproval {
 					t.Helper()
 					r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
 					r.SetPathValue("id", project)
@@ -193,19 +203,26 @@ func TestGeneralRunMCPToolsRespectTeamGrant(t *testing.T) {
 					if err := s.toolApprovals(w, r, identity.Member{ID: user}); err != nil {
 						t.Fatal(err)
 					}
-					var items []struct {
-						ID, Level, Recipient, Tool string
-						Revision                   int
-					}
+					var items []toolApproval
 					if err := json.Unmarshal(w.Body.Bytes(), &items); err != nil {
 						t.Fatal(err)
 					}
 					return items
 				}
-				items := list(owner)
-				if len(items) != 1 || items[0].Level != "L1" || items[0].Tool != "paid_lookup" || items[0].Recipient != endpoint.Host ||
+				items := list(approver)
+				if len(items) != 1 || string(items[0].Level) != level || items[0].Tool != target || items[0].Recipient != endpoint.Host ||
+					(len(items[0].Arguments) > 0) != (approver == owner) ||
 					len(list(uuid.NewString())) != 0 {
 					t.Fatalf("unexpected approval list: %+v", items)
+				}
+				if write {
+					if len(list(owner)) != 0 {
+						t.Fatal("initiator saw a review assigned to a different reviewer")
+					}
+					tasks, err := projects.ReviewTodos(ctx, db, approver, project, nil)
+					if err != nil || len(tasks) != 1 || tasks[0].Kind != "tool" || tasks[0].Subject != items[0].ID {
+						t.Fatalf("write approval missing from pending tasks: %v %v", tasks, err)
+					}
 				}
 				decide := func(user string, revision int, accept bool) error {
 					r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/",
@@ -219,16 +236,16 @@ func TestGeneralRunMCPToolsRespectTeamGrant(t *testing.T) {
 				}
 				if mode == "revoke pending" {
 					exec(ctx, `update mcp_team_grants set enabled=false,revision=revision+1 where (server_id,team_id)=($1,$2)`, serverID, team)
-					if len(list(owner)) != 0 || decide(owner, items[0].Revision, true) == nil {
+					if len(list(approver)) != 0 || decide(approver, items[0].Revision, true) == nil {
 						t.Fatal("revocation left an actionable confirmation")
 					}
 				} else {
-					accept := mode == "accept paid"
-					if err := decide(owner, items[0].Revision+1, accept); err == nil {
+					accept := mode == "accept paid" || mode == "approve write" || mode == "transfer review"
+					if err := decide(approver, items[0].Revision+1, accept); err == nil {
 						t.Fatal("stale revision decided the request")
 					}
 					for range 2 {
-						if err := decide(owner, items[0].Revision, accept); err != nil {
+						if err := decide(approver, items[0].Revision, accept); err != nil {
 							t.Fatal(err)
 						}
 					}
@@ -243,14 +260,16 @@ func TestGeneralRunMCPToolsRespectTeamGrant(t *testing.T) {
 					}); err != nil || wakes != 1 {
 						t.Fatalf("decision failed to wake workflow: %d %v", wakes, err)
 					}
-					if accept {
+					if mode == "transfer review" {
+						exec(ctx, "update projects set final_reviewer=$2 where id=$1", project, owner)
+					} else if accept {
 						before++
 					}
 				}
 				for range 2 {
 					result, err := a.ExecuteTool(ctx, ref)
-					if err != nil || result.Wait || paidReads.Load() != before {
-						t.Fatalf("paid execution or retry: %+v reads=%d want=%d %v", result, paidReads.Load(), before, err)
+					if err != nil || result.Wait || outbound.Load() != before {
+						t.Fatalf("tool execution or retry: %+v calls=%d want=%d %v", result, outbound.Load(), before, err)
 					}
 				}
 				if result, err := a.AdvanceTurn(ctx, TurnRef{RunID: reply.ID, Turn: 2}); err != nil || !result.Done {
@@ -270,7 +289,7 @@ func TestGeneralRunMCPToolsRespectTeamGrant(t *testing.T) {
 			if err := db.QueryRow(ctx, "select status from runs where id=$1", reply.ID).Scan(&state); err != nil || state != "completed" {
 				t.Fatalf("run ended as %q: %v", state, err)
 			}
-			if reads.Load() != 1 || writes.Load() != 0 {
+			if reads.Load() != 1 || (!write && writes.Load() != 0) {
 				t.Fatalf("unexpected outbound dispatches: read=%d write=%d", reads.Load(), writes.Load())
 			}
 		})

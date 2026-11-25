@@ -92,6 +92,7 @@ func TestMCPTransportsDiscoverAndGateTools(t *testing.T) {
 				Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true}}, handler)
 			server.AddTool(&mcp.Tool{Name: "save", InputSchema: schema, Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true}}, handler)
 			server.AddTool(&mcp.Tool{Name: "unknown", InputSchema: schema, Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true}}, handler)
+			server.AddTool(&mcp.Tool{Name: "changed", InputSchema: schema}, handler)
 			newServer := func(*http.Request) *mcp.Server { return server }
 			var transportHandler http.Handler = mcp.NewStreamableHTTPHandler(newServer, &mcp.StreamableHTTPOptions{JSONResponse: tt.json})
 			if tt.transport == SSE {
@@ -119,7 +120,7 @@ func TestMCPTransportsDiscoverAndGateTools(t *testing.T) {
 			var blocked atomic.Bool
 			client := Client{Vault: vault, HTTP: endpoint.Client(), Egress: egress.Policy{DB: loopbackAllowlist{disabled: &blocked}}}
 			config := ServerConfig{ID: id, Endpoint: endpoint.URL, Transport: tt.transport, EncryptedBearer: secret,
-				AllowedTools: map[string]string{"lookup.records": "read_only", "save": "write"}}
+				AllowedTools: map[string]string{"lookup.records": "read_only", "save": "write", "changed": "read_only"}}
 			session, err := client.Open(t.Context(), config)
 			if err != nil {
 				t.Fatal(err)
@@ -138,12 +139,15 @@ func TestMCPTransportsDiscoverAndGateTools(t *testing.T) {
 				t.Fatalf("unexpected risk mapping: %v %v", read.Level, write.Level)
 			}
 			all, err := session.discover(t.Context(), true)
-			if err != nil || len(all) != 3 {
+			if err != nil || len(all) != 4 {
 				t.Fatalf("admin could not discover unconfigured capabilities: %v %v", all, err)
 			}
 			for _, tool := range all {
 				if tool.Name == "unknown" && (tool.Allowed || tool.Level != harness.L2) {
 					t.Fatal("self-declared read-only status granted automatic execution")
+				}
+				if tool.Name == "changed" && (tool.Allowed || tool.Level != harness.L2) {
+					t.Fatal("a tool with only read permission silently became writable")
 				}
 			}
 			args := json.RawMessage(`{"query":"采购"}`)

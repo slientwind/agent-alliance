@@ -7,7 +7,8 @@ type ToolApproval = {
   revision: number;
   tool: string;
   recipient: string;
-  turn: number;
+  planVersion: number;
+  arguments?: Record<string, unknown>;
 };
 
 export function ToolApprovals({
@@ -53,6 +54,13 @@ export function ToolApprovals({
           </h2>
           <p>助手准备向 <strong>{approval.recipient}</strong> 发送本次请求，使用 {approval.tool}。</p>
           <p>{approval.level === "L1" ? "该服务可能产生费用，金额由服务方确定。" : "允许后，服务可能修改业务记录。"}</p>
+          {approval.level === "L2" && <p>任务方案第 {approval.planVersion} 版</p>}
+          {approval.arguments && (
+            <details>
+              <summary>查看发送内容</summary>
+              <pre className="tool-approval-arguments">{JSON.stringify(approval.arguments, null, 2)}</pre>
+            </details>
+          )}
           <div className="row">
             <button type="button" disabled={!!busy} onClick={() => void decide(approval, true)}>
               {approval.level === "L1" ? "确认并继续" : "允许写入"}

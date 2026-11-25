@@ -6,6 +6,7 @@ import (
 	"alliance/internal/identity"
 	"alliance/internal/llmgateway"
 	"alliance/internal/mcphub"
+	"alliance/internal/resources"
 	"alliance/internal/web"
 	"encoding/json"
 	"net/http"
@@ -16,7 +17,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Server struct{ DB *pgxpool.Pool }
+type Server struct {
+	DB    *pgxpool.Pool
+	Vault resources.Vault
+}
 
 func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("GET /api/general-tiers", auth.Protect(false, s.tiers))
