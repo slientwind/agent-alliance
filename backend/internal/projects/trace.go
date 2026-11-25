@@ -98,6 +98,15 @@ const traceSpansSQL = `select jsonb_build_object('run',r.id,'traceId',replace(r.
 	 jsonb_build_object('promptTokens',c.prompt_tokens,'completionTokens',c.completion_tokens,'cachedTokens',c.cached_tokens,'costMicroCny',c.cost_micro_cny::text)
 	 else '{}'::jsonb end) from model_gateway_attempts g join model_gateway_charges c using(operation_key)
 	 join model_catalog m on m.id=g.model_id where g.run_id=r.id order by g.started_at,g.operation_key),
+ 'actionSpans',array(select jsonb_strip_nulls(jsonb_build_object(
+  'spanId',substr(encode(digest(r.id::text||'/tool/'||ga.turn||'/'||ga.position,'sha256'),'hex'),1,16),
+  'turn',ga.turn,'type',case when ga.external_agent is not null then 'external' else 'tool' end,
+  'name',coalesce(ga.external_label,ga.tool_name),'status',ga.state,'start',ga.started_at,'end',ga.finished_at))
+  from general_agent_actions ga where ga.run_id=r.id order by ga.turn,ga.position),
+ 'sandboxSpans',array(select jsonb_build_object('type','sandbox','spanId',substr(encode(digest(r.id::text||'/sandbox/'||sa.artifact_id,'sha256'),'hex'),1,16),
+  'status','completed','start',v.created_at,'end',v.created_at)
+  from sandbox_artifacts sa join artifact_versions v on (v.artifact_id,v.version)=(sa.artifact_id,sa.imported_version)
+  where sa.run_id=r.id order by v.created_at,sa.artifact_id),
  'externalReceipts',array(select jsonb_strip_nulls(jsonb_build_object('id',e.id,'step',e.turn,'attempt',e.attempt,
   'operation',e.operation,'costDisclosure',e.cost_disclosure,'receivedAt',e.received_at,
   'usage',case when exists(select from project_members pm join projects p on p.id=pm.project_id

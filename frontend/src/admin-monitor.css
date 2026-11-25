@@ -1,0 +1,61 @@
+.admin-monitor > *, .admin-gateway > * { margin-bottom: 1rem; }
+
+.admin-filters { align-items: end; }
+.admin-filters select { min-width: 8rem; }
+
+.admin-kpis, .admin-tier-grid, .admin-trends {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: 0.8rem;
+}
+
+.admin-kpis > div {
+  padding: 0.8rem 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.admin-kpis dt { color: var(--secondary); }
+.admin-kpis dd { margin: 0.35rem 0 0; }
+.admin-kpis dd:first-of-type { font-weight: 650; font-size: 1.3rem; overflow-wrap: anywhere; }
+.admin-trends > .card, .admin-tier-grid > .card { margin: 0; min-width: 0; }
+.admin-funnel, .admin-run-list, .trace-spans { list-style: none; padding: 0; }
+.admin-funnel li, .admin-run-list li { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
+.admin-run-list li { justify-content: space-between; }
+.admin-funnel li > span { width: 7rem; }
+.admin-funnel meter { flex: 1; min-width: 3rem; height: 1.2rem; }
+.admin-funnel meter::-webkit-meter-optimum-value { background: var(--brand); }
+.admin-trend svg { width: 100%; height: 3.7rem; color: var(--brand); }
+.admin-trend > div { margin-top: 0.65rem; }
+
+.admin-table { max-width: 100%; overflow-x: auto; margin: 0.65rem 0; }
+.admin-table table { width: 100%; border-collapse: collapse; }
+.admin-table :is(th, td) { padding: 0.6rem; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--border); }
+.admin-table thead th { color: var(--secondary); font-weight: 600; }
+.admin-tier { display: flex; flex-direction: column; gap: 0.6rem; }
+.admin-tier > button { align-self: start; margin-top: auto; }
+.admin-tier select { max-width: 100%; }
+.admin-price-form { display: grid; gap: 0.6rem; max-width: 25rem; padding-top: 0.6rem; }
+
+dialog.trace-drawer {
+  box-sizing: border-box;
+  position: fixed;
+  inset: 0 0 0 auto;
+  margin: 0;
+  height: 100dvh;
+  max-height: none;
+  width: min(39rem, 100%);
+  max-width: none;
+  padding: 1.25rem;
+  border-radius: 0;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+.trace-drawer > header { justify-content: space-between; }
+.trace-spans > li { margin-bottom: 0.8rem; }
+.trace-track { position: relative; height: 0.8rem; border-radius: 3px; background: var(--inset); margin: 0.25rem 0; overflow: hidden; }
+.trace-track span { position: absolute; height: 100%; min-width: 3px; background: var(--brand); }
+.trace-track[data-kind="tool"] span { background: var(--info); }
+.trace-track[data-kind="external"] span { background: var(--amber); }
+.trace-track[data-kind="sandbox"] span { background: var(--secondary); }

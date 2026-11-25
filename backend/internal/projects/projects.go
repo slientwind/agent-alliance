@@ -69,7 +69,7 @@ const access = " from projects p join project_members m on m.project_id=p.id whe
 
 func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 	m.Handle("GET /api/projects/{id}/events", web.Handler(s.events(g)))
-	m.Handle("GET /api/admin/monitor/trace/{run}", g.Protect(false, s.monitorTrace))
+	m.Handle("GET /api/admin/monitor/trace/{run}", g.Protect(true, s.monitorTrace))
 	m.Handle("GET /api/projects/{id}/runs/{run}/draft-events", s.draftEvents(g))
 	m.Handle("GET /api/projects/{id}/session-events", s.sessionEvents(g))
 	actions := map[string]identity.Action{

@@ -5,7 +5,9 @@ import (
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
 	"alliance/internal/llmgateway"
+	"alliance/internal/projects"
 	"alliance/internal/resources"
+	"alliance/internal/web"
 	"archive/zip"
 	"bytes"
 	"context"
@@ -170,6 +172,41 @@ func TestGeneralRunDispatchesTrustedToolsAndStoresArtifacts(t *testing.T) {
 	}
 	if replay, err := a.ExecuteTool(ctx, ToolRef{RunID: run, Turn: 1, Position: 2}); err != nil || !replay.Done || connectorCalls.Load() != 1 {
 		t.Fatalf("replayed a completed tool: %+v, %v", replay, err)
+	}
+	ownerToken := web.Token()
+	exec("insert into sessions(token_hash,member_id,expires_at) values($1,$2,now()+interval '1 minute')", web.Hash(ownerToken), owner)
+	mux := http.NewServeMux()
+	projects.Server{DB: db, Vault: vault}.Routes(mux, identity.Server{DB: db})
+	tracePath := "/api/admin/monitor/trace/" + run
+	trace := func(path string, status int) []byte {
+		t.Helper()
+		w := httptest.NewRecorder()
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, path, nil)
+		r.AddCookie(&http.Cookie{Name: "aa_session", Value: ownerToken})
+		mux.ServeHTTP(w, r)
+		if w.Code != status {
+			t.Fatalf("trace %s returned %d: %s", path, w.Code, w.Body.String())
+		}
+		return w.Body.Bytes()
+	}
+	trace(tracePath, 403)
+	var timeline struct {
+		Trace struct {
+			ActionSpans []struct {
+				Name       string
+				Start, End time.Time
+			}
+		}
+	}
+	data := trace("/api/projects/"+project+"/runs/"+run+"/trace", 200)
+	if err := json.Unmarshal(data, &timeline); err != nil || len(timeline.Trace.ActionSpans) != 2 {
+		t.Fatalf("missing tool trace durations: %s %v", data, err)
+	}
+	for i, want := range []string{"read_sources", "create_xlsx"} {
+		span := timeline.Trace.ActionSpans[i]
+		if span.Name != want || span.Start.IsZero() || span.End.Before(span.Start) {
+			t.Fatalf("invalid tool span: %+v", span)
+		}
 	}
 	if err := db.QueryRow(ctx, "select revision from projects where id=$1", project).Scan(&revision); err != nil {
 		t.Fatal(err)

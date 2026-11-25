@@ -218,7 +218,8 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		if _, err := tx.Exec(ctx, `update general_agent_runs set progress=$2 where run_id=$1`, ref.RunID, d.progress); err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `update general_agent_actions set state='running' where (run_id,turn,position)=($1,$2,$3)`, ref.RunID, ref.Turn, ref.Position)
+		_, err = tx.Exec(ctx, `update general_agent_actions set state='running',started_at=coalesce(started_at,clock_timestamp())
+		 where (run_id,turn,position)=($1,$2,$3)`, ref.RunID, ref.Turn, ref.Position)
 		started = err == nil
 		return err
 	})
@@ -377,7 +378,7 @@ func (a Activities) recordObservation(ctx context.Context, tx pgx.Tx, ref ToolRe
 	if state == "completed" && text != "在已选资料中未找到匹配片段。" {
 		digest = fmt.Sprintf("%x", web.Hash(fileDigest+"\x00"+text))
 	}
-	_, err = tx.Exec(ctx, `update general_agent_actions set state=$4,observation_cipher=$5,observation_hash=nullif($6,''),
+	_, err = tx.Exec(ctx, `update general_agent_actions set state=$4,observation_cipher=$5,observation_hash=nullif($6,''),finished_at=clock_timestamp(),
 	 artifact_id=nullif($7,'')::uuid where (run_id,turn,position)=($1,$2,$3)`, ref.RunID, ref.Turn, ref.Position, state, cipher, digest, artifact)
 	return err
 }

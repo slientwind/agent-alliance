@@ -73,6 +73,7 @@ import { ConversationModels, conversationTier, isConversationTier, usesGeneralCo
 import { TaskCollaboration } from "./task-collaboration";
 import { WorkspaceSidebar } from "./workspace-sidebar";
 import { AgentSpace } from "./agent-space";
+import { AdminNavigation } from "./admin-navigation";
 import { chatPath, pageFromPath, projectFromPath, studioDraftFromPath, workspacePage } from "./workspace-routes";
 import "./style.css";
 import "./workspace.css";
@@ -85,6 +86,9 @@ const ExternalConnect = lazy(() => import("./external-connect").then(({ External
 const AdminReleases = lazy(() => import("./admin-releases").then(({ AdminReleases }) => ({ default: AdminReleases })));
 const EcosystemSources = lazy(() => import("./ecosystem-sources").then(({ EcosystemSources }) => ({ default: EcosystemSources })));
 const StudioWorkspace = lazy(() => import("./studio-workspace").then(({ StudioWorkspace }) => ({ default: StudioWorkspace })));
+const AdminMonitor = lazy(() => import("./admin-monitor").then(({ AdminMonitor }) => ({ default: AdminMonitor })));
+const AdminGateway = lazy(() => import("./admin-gateway").then(({ AdminGateway }) => ({ default: AdminGateway })));
+const OutboundHosts = lazy(() => import("./outbound-hosts").then(({ OutboundHosts }) => ({ default: OutboundHosts })));
 
 function Overlay({
   title,
@@ -1185,25 +1189,20 @@ function App() {
         </Suspense>
       )}
       {panel === "admin" && user.role === "admin" && (
-        <>
-          <div className="row">
-            <button type="button" onClick={() => setPanel("integrations")}>企业服务</button>
-            <button type="button" onClick={() => setPanel("releases")}>发布审批</button>
-          </div>
-          <EnterpriseWorkspace
-            user={user}
-            models={models}
-            members={members}
-            configure={() => setPanel("setup")}
-            refreshCatalog={catalog}
-            refreshMembers={refreshMembers}
-          />
-        </>
+        <EnterpriseWorkspace user={user} models={models} members={members} configure={() => setPanel("setup")}
+          refreshCatalog={catalog} refreshMembers={refreshMembers} />
+      )}
+      {panel === "monitor" && user.role === "admin" && (
+        <Suspense fallback={<p role="status">正在打开运行监控…</p>}><AdminMonitor /></Suspense>
+      )}
+      {panel === "gateway" && user.role === "admin" && (
+        <Suspense fallback={<p role="status">正在打开模型网关…</p>}><AdminGateway /></Suspense>
       )}
       {panel === "integrations" && user.role === "admin" && (
         <Suspense fallback={<p role="status">正在加载企业服务…</p>}>
           <SearchIntegration />
           <MailIntegration />
+          <OutboundHosts />
           <EcosystemSources />
         </Suspense>
       )}
@@ -1215,6 +1214,7 @@ function App() {
     </>
   );
   const visiblePage = routePanel && !dialogPanel;
+  const administratorPage = routePanel !== "" && workspacePage(routePanel)?.path.startsWith("/admin");
   const canvasArtifact = !visiblePage && canvasTarget
     ? p?.artifacts.find(artifact => artifact.id === canvasTarget && artifact.reviewNotesReadable && !artifact.draftBlock)
     : undefined;
@@ -1242,10 +1242,12 @@ function App() {
               <h1>{title}</h1>
               <button onClick={() => setPanel("")}>返回对话</button>
             </header>
-            <div className="workspace-page-content">
-              {err && <p role="alert">{err}</p>}
-              {workspacePage(routePanel)?.path.startsWith("/admin") && user.role !== "admin"
-                ? <p role="alert">需要企业管理员权限</p> : pageContent}
+            <div className={"workspace-page-content" + (administratorPage && user.role === "admin" ? " administrator-page" : "")}>
+              {administratorPage && user.role === "admin" && <AdminNavigation open={setPanel} active={routePanel} />}
+              <div className="workspace-page-body">
+                {err && <p role="alert">{err}</p>}
+                {administratorPage && user.role !== "admin" ? <p role="alert">需要企业管理员权限</p> : pageContent}
+              </div>
             </div>
           </main>
         ) : (

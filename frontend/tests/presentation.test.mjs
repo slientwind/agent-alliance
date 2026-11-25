@@ -10,6 +10,15 @@ before(async () => {
 });
 after(async () => { await server.close(); });
 
+test("model prices round trip in micro-yuan without binary floating point", async () => {
+  const { exactCny, microCny } = await server.ssrLoadModule("/src/format-money.ts");
+  assert.equal(microCny("9007199254.740993"), "9007199254740993");
+  assert.equal(exactCny("9007199254740993"), "¥9,007,199,254.740993");
+  assert.equal(microCny("0"), "0");
+  assert.throws(() => microCny("1.0000001"), /6 位/);
+  assert.throws(() => microCny("-0.01"));
+});
+
 test("Markdown renders tables and highlighted code without loading embedded content", async () => {
   const { MarkdownText } = await server.ssrLoadModule("/src/markdown-text.tsx");
   const body = [

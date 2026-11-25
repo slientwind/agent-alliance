@@ -456,3 +456,15 @@
 .ecosystem-tags [data-tone="clean"] { color: var(--brand); background: var(--brand-soft); }
 .ecosystem-tags [data-tone="review_required"] { color: var(--amber); background: var(--amber-soft); }
 .ecosystem-tags [data-tone="blocked"] { color: var(--danger); background: var(--danger-soft); }
+
+.administrator-page { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: 1.15rem; }
+.workspace-page-body { min-width: 0; }
+.admin-navigation { display: flex; flex-direction: column; gap: 0.45rem; align-self: start; }
+.admin-navigation button { display: flex; align-items: center; gap: 0.45rem; text-align: left; }
+.admin-navigation button[aria-current="page"] { background: var(--brand-soft); color: var(--ink); border-color: var(--brand); }
+.admin-navigation svg { width: 17px; height: 17px; flex: 0 0 auto; }
+
+@media (max-width: 900px) {
+  .administrator-page { grid-template-columns: minmax(0, 1fr); }
+  .admin-navigation { flex-direction: row; flex-wrap: wrap; }
+}
