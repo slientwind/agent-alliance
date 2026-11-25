@@ -127,7 +127,7 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 				started, err = a.pollExternal(ctx, tx, ref, d, &task, &result)
 				return err
 			}
-			return a.recordObservation(ctx, tx, ref, "rejected", "上一次工具请求的结果无法确认。", "", "")
+			return a.recordObservation(ctx, tx, ref, "rejected", "上一次工具请求的结果无法确认。", "", "", failureObservation(task.name, "result_unconfirmed", "请核对此任务仍可用的选项。"))
 		}
 		knownFree := int64(0)
 		tool := lookupTool(task.name)
@@ -182,7 +182,7 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		}
 		decision := check.Autonomy
 		if !check.Allowed {
-			return a.recordObservation(ctx, tx, ref, "rejected", "该工具不可调用，或参数格式错误。", "", "")
+			return a.recordObservation(ctx, tx, ref, "rejected", "该工具不可调用，或参数格式错误。", "", "", failureObservation(task.name, "tool_unavailable", "请使用本任务中仍可用的工具。"))
 		}
 		if decision.Level != harness.L0 {
 			state, err := approvalState(ctx, tx, ref, d, task)
@@ -198,7 +198,7 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 			}
 		}
 		var covered int
-		if err := tx.QueryRow(ctx, `select count(distinct observation_hash) from general_agent_actions where run_id=$1`, ref.RunID).Scan(&covered); err != nil {
+		if err := tx.QueryRow(ctx, `select count(distinct observation_hash) from general_agent_actions where run_id=$1 and state='completed'`, ref.RunID).Scan(&covered); err != nil {
 			return err
 		}
 		if d.progress.BeforeAction(task.fingerprint, covered) {
@@ -273,7 +273,7 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 			return finishGeneralRun(ctx, tx, ref.RunID, d, "failed", "工具执行期间权限或选定资料已变化。")
 		}
 		if toolErr != nil {
-			return a.recordObservation(ctx, tx, ref, "rejected", "工具未完成，请核对参数或选择其他可用工具。", "", "")
+			return a.recordObservation(ctx, tx, ref, "rejected", "工具未完成。", "", "", recoverToolObservation(task.name, toolErr))
 		}
 		var artifact, fileDigest string
 		if reply.File != nil {
@@ -380,8 +380,12 @@ func boundedText(text string, maxBytes int) string {
 	return text
 }
 
-func (a Activities) recordObservation(ctx context.Context, tx pgx.Tx, ref ToolRef, state, text, artifact, fileDigest string) error {
-	body, err := json.Marshal(map[string]string{"status": state, "text": text, "artifact": artifact})
+func (a Activities) recordObservation(ctx context.Context, tx pgx.Tx, ref ToolRef, state, text, artifact, fileDigest string, failure ...toolFailure) error {
+	data := map[string]any{"status": state, "text": text, "artifact": artifact}
+	if len(failure) != 0 {
+		data["error"] = failure[0]
+	}
+	body, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}

@@ -234,7 +234,8 @@ func (a Activities) handleExternalPreparation(ctx context.Context, tx pgx.Tx, re
 }
 
 func (a Activities) rejectExternal(ctx context.Context, tx pgx.Tx, ref ToolRef, d runData, result *ToolResult, note string) error {
-	if err := a.recordObservation(ctx, tx, ref, "rejected", note, "", ""); err != nil {
+	if err := a.recordObservation(ctx, tx, ref, "rejected",
+		note, "", "", failureObservation("external_agent", "delegation_unavailable", "核对已获准的目标或说明缺项。")); err != nil {
 		return err
 	}
 	if d.direct {

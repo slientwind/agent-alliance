@@ -35,7 +35,7 @@ func (g testGateway) Call(ctx context.Context, actor llmgateway.CallIdentity, in
 	return g(ctx, actor, in)
 }
 
-func TestGeneralRunDispatchesTrustedToolsAndStoresArtifacts(t *testing.T) {
+func TestGeneralRunCorrectsConnectorFailureAndStoresArtifacts(t *testing.T) {
 	dsn := os.Getenv("ALLIANCE_LOOKUP_TEST_DATABASE")
 	if dsn == "" {
 		t.Skip("set ALLIANCE_LOOKUP_TEST_DATABASE to a scratch pgvector database")
@@ -123,8 +123,15 @@ func TestGeneralRunDispatchesTrustedToolsAndStoresArtifacts(t *testing.T) {
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		connectorCalls.Add(1)
 		var in struct{ Operation, Text string }
-		if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.Operation != "xlsx" || in.Text != "Total: 27" || r.Header.Get("Authorization") != "Bearer loop-test-token" {
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil || (in.Operation != "aggregate" && in.Text != "Total: 27") || r.Header.Get("Authorization") != "Bearer loop-test-token" {
 			t.Errorf("connector request was not scoped: %+v, %v", in, err)
+		}
+		if in.Operation == "aggregate" {
+			http.Error(w, "fixture-internal-credential=not-for-model", 422)
+			return
+		}
+		if in.Operation != "xlsx" {
+			t.Errorf("unexpected fallback operation: %+v", in)
 		}
 		json.NewEncoder(w).Encode(resources.Reply{Text: "Total: 27", File: &resources.File{
 			Name: "deliverable.xlsx", Mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", Data: workbook,
@@ -142,11 +149,21 @@ func TestGeneralRunDispatchesTrustedToolsAndStoresArtifacts(t *testing.T) {
 		case 1:
 			reply = resources.Reply{FinishReason: "tool_calls", ToolCalls: []resources.ToolCall{
 				{ID: "read", Type: "function", Function: resources.ToolFunction{Name: "read_sources", Arguments: `{"query":"amount"}`}},
-				{ID: "make", Type: "function", Function: resources.ToolFunction{Name: "create_xlsx", Arguments: `{"title":"Invoice","content":"Total: 27"}`}},
+				{ID: "aggregate", Type: "function", Function: resources.ToolFunction{Name: "aggregate_csv", Arguments: `{"group":"invoice","amount":"amount"}`}},
 			}}
 		case 2:
-			if len(in.Messages) != 5 || !strings.Contains(in.Messages[3].Content, "invoice amount: 27") || in.Messages[3].ToolCallID != "read" || in.Messages[4].ToolCallID != "make" {
+			if len(in.Messages) != 5 || !strings.Contains(in.Messages[3].Content, "invoice amount: 27") || in.Messages[3].ToolCallID != "read" ||
+				in.Messages[4].ToolCallID != "aggregate" || !strings.Contains(in.Messages[4].Content, `"code":"result_unconfirmed"`) ||
+				strings.Contains(in.Messages[4].Content, "not-for-model") {
+				t.Errorf("tool observations were not assembled: %+v", in.Messages)
 				return llmgateway.RoutedResult{}, fmt.Errorf("tool observations were not assembled")
+			}
+			reply = resources.Reply{FinishReason: "tool_calls", ToolCalls: []resources.ToolCall{
+				{ID: "make", Type: "function", Function: resources.ToolFunction{Name: "create_xlsx", Arguments: `{"title":"Invoice","content":"Total: 27"}`}},
+			}}
+		case 3:
+			if len(in.Messages) != 7 || in.Messages[6].ToolCallID != "make" {
+				return llmgateway.RoutedResult{}, fmt.Errorf("fallback tool receipt did not reach the workflow")
 			}
 			reply = resources.Reply{FinishReason: "stop", Text: "The approved amount is 27."}
 		default:
@@ -166,11 +183,11 @@ func TestGeneralRunDispatchesTrustedToolsAndStoresArtifacts(t *testing.T) {
 	var candidateCount, fileCount int
 	if err := db.QueryRow(ctx, `select r.status,r.quality_track,(select count(*) from artifacts a where a.run_id=r.id),
 	 (select count(*) from artifact_files f join artifacts a on a.id=f.artifact_id where a.run_id=r.id) from runs r where r.id=$1`, run).
-		Scan(&state, &kind, &candidateCount, &fileCount); err != nil || state != "completed" || kind != "lightweight" || candidateCount != 2 || fileCount != 1 || connectorCalls.Load() != 1 || modelCalls.Load() != 2 {
+		Scan(&state, &kind, &candidateCount, &fileCount); err != nil || state != "completed" || kind != "lightweight" || candidateCount != 2 || fileCount != 1 || connectorCalls.Load() != 2 || modelCalls.Load() != 3 {
 		t.Fatalf("run=%s kind=%s artifacts=%d files=%d toolCalls=%d modelCalls=%d err=%v",
 			state, kind, candidateCount, fileCount, connectorCalls.Load(), modelCalls.Load(), err)
 	}
-	if replay, err := a.ExecuteTool(ctx, ToolRef{RunID: run, Turn: 1, Position: 2}); err != nil || !replay.Done || connectorCalls.Load() != 1 {
+	if replay, err := a.ExecuteTool(ctx, ToolRef{RunID: run, Turn: 2, Position: 1}); err != nil || !replay.Done || connectorCalls.Load() != 2 {
 		t.Fatalf("replayed a completed tool: %+v, %v", replay, err)
 	}
 	ownerToken := web.Token()
@@ -199,10 +216,10 @@ func TestGeneralRunDispatchesTrustedToolsAndStoresArtifacts(t *testing.T) {
 		}
 	}
 	data := trace("/api/projects/"+project+"/runs/"+run+"/trace", 200)
-	if err := json.Unmarshal(data, &timeline); err != nil || len(timeline.Trace.ActionSpans) != 2 {
+	if err := json.Unmarshal(data, &timeline); err != nil || len(timeline.Trace.ActionSpans) != 3 {
 		t.Fatalf("missing tool trace durations: %s %v", data, err)
 	}
-	for i, want := range []string{"read_sources", "create_xlsx"} {
+	for i, want := range []string{"read_sources", "aggregate_csv", "create_xlsx"} {
 		span := timeline.Trace.ActionSpans[i]
 		if span.Name != want || span.Start.IsZero() || span.End.Before(span.Start) {
 			t.Fatalf("invalid tool span: %+v", span)

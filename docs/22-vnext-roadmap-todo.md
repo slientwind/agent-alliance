@@ -36,7 +36,7 @@
 对照 [11-technical-blueprint.md](archive/11-technical-blueprint.md#platform-implementation-baseline) 与 [15-rebuild.md](archive/15-rebuild.md)，以下为历史基线已设计但尚未完成真实闭环的欠账：
 
 ### 1.1 通用执行内核与记忆欠账（EA01–EA04）
-- [ ] **通用多动作有界 Loop 未落地**：现有仅实现了只读检索与引文加减法的特化回合（`AdvanceObservedTurn` / `AdvanceBatchedLookup`），通用跨工具调用、跨连接器纠错、统一停滞指纹判定与子 Agent 动态委派尚未实现。
+- [x] **通用多动作有界 Loop**：通用执行有回合和工具次数上限，保留工具调用及结果的配对，使用统一停滞判定。模型可按任务授权动态选择外部 Agent，并在连接器失败后修正参数或改用获准工具。
 - [x] **可重建语义摘要与派生依赖自动清理（EA03）**：`memory` 仅支持短期消息窗与规则/偏好显式读取，尚未实现长对话窗口压缩摘要（成对保留 `tool_call / tool_result`）、以及偏好/来源撤权后对历史派生摘要的异步失效重建。
 - [ ] **组合回退与嵌套子 Agent 跨团队撤权演练（EA04）**：尚未覆盖多层子委托链路中途撤权后的精确阻断与回执收口。
 
