@@ -201,7 +201,7 @@
 
 ### 4.2 性能与可维护性
 - [ ] **数据库迁移治理（157 → 基线归档压缩）**：在 vNext 大版本节点对历史 157 个迁移文件做基线合并（保留旧实例增量升级脚本），显著提升 CI 测试库冷启动速度。
-- [ ] **前端代码分割与懒加载**：`/admin/*` 图表大盘、`pdfjs-dist` 预览器、Studio 构建器按路由懒加载，控制首屏 JS 包体。
+- [x] **前端代码分割与懒加载**：`/admin/*` 图表大盘、`pdfjs-dist` 预览器、Studio 构建器按路由懒加载，控制首屏 JS 包体。
 - [x] **OTel 指标与 Trace 深化**：在 [`telemetry/export.go`](../backend/internal/telemetry/export.go) 中补齐 `gen_ai.*` 标准语义属性（模型名、Input/Output/Cached Token、耗时拆解、用户反馈 Score），便于无缝对接 Langfuse / Grafana Tempo。
 
 ### 4.3 产品体验与部署运维

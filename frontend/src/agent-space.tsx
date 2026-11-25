@@ -15,6 +15,8 @@ export function AgentSpace({ directory }: { directory: ReactNode }) {
       <Link to={workspacePages.studio.path}>构建助手</Link>
       <Link to={workspacePages.externalConnect.path}>接入外部 Agent</Link>
     </nav>
-    {discovery ? <Suspense fallback={<p role="status">正在加载生态目录…</p>}><EcosystemMarket /></Suspense> : directory}
+    <Suspense fallback={<p role="status">正在加载能力目录…</p>}>
+      {discovery ? <EcosystemMarket /> : directory}
+    </Suspense>
   </>;
 }

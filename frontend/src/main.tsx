@@ -12,7 +12,6 @@ import {
 import { AccountNotices } from "./member-history";
 import type { ProjectFeedbackDraft } from "./project-feedback";
 import { ServiceEntry } from "./service-entry";
-import { WorkflowTemplates } from "./workflow-templates";
 import {
   lazy,
   Suspense,
@@ -24,12 +23,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { TeamSetup } from "./team-setup";
 import { TeamRules } from "./team-rules";
 import { ProjectRecovery } from "./project-recovery";
 import { ResponsibilityQueue } from "./reviewer-handoffs";
 import { DingTalkIdentity, FeishuIdentity, SlackIdentity } from "./organization";
-import { EnterpriseWorkspace } from "./enterprise-workspace";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import { AtSign, Globe, X } from "lucide-react";
@@ -44,7 +41,6 @@ import {
   type Summary,
 } from "./client";
 import { Account } from "./account";
-import { Library } from "./library";
 import {
   ConversationHistory,
   taskAnchor,
@@ -60,7 +56,6 @@ import { isPictureName } from "./attachment-data";
 import { BudgetPanel } from "./budget";
 import { ProjectAgentGrants } from "./project-agent-grants";
 import { TracePolicies } from "./trace-policy";
-import { Services } from "./services";
 import { Preferences, extractionNotice, upload } from "./knowledge";
 import { MyManagementScopes } from "./management-scopes";
 import { applyDraftDelta, type DraftFragment, type SessionDrafts } from "./live-drafts";
@@ -89,6 +84,11 @@ const StudioWorkspace = lazy(() => import("./studio-workspace").then(({ StudioWo
 const AdminMonitor = lazy(() => import("./admin-monitor").then(({ AdminMonitor }) => ({ default: AdminMonitor })));
 const AdminGateway = lazy(() => import("./admin-gateway").then(({ AdminGateway }) => ({ default: AdminGateway })));
 const OutboundHosts = lazy(() => import("./outbound-hosts").then(({ OutboundHosts }) => ({ default: OutboundHosts })));
+const EnterpriseWorkspace = lazy(() => import("./enterprise-workspace").then(({ EnterpriseWorkspace }) => ({ default: EnterpriseWorkspace })));
+const Library = lazy(() => import("./library").then(({ Library }) => ({ default: Library })));
+const TeamSetup = lazy(() => import("./team-setup").then(({ TeamSetup }) => ({ default: TeamSetup })));
+const WorkflowTemplates = lazy(() => import("./workflow-templates").then(({ WorkflowTemplates }) => ({ default: WorkflowTemplates })));
+const Services = lazy(() => import("./services").then(({ Services }) => ({ default: Services })));
 
 function Overlay({
   title,
@@ -968,14 +968,16 @@ function App() {
   const pageContent = (
     <>
       {panel === "workflowTemplates" && (
-        <WorkflowTemplates initialTemplate={initialWorkflowTemplate} initialGoal={current.current ? "" : draft} back={current.current ? undefined : () => setPanel("agents")} openProject={async (id) => {
-          if (!current.current && files.length) {
-            attachments.current.set(id, files);
-            attachments.current.delete("");
-          }
-          await select(id);
-          await history();
-        }} />
+        <Suspense fallback={<p role="status">正在加载协作模板…</p>}>
+          <WorkflowTemplates initialTemplate={initialWorkflowTemplate} initialGoal={current.current ? "" : draft} back={current.current ? undefined : () => setPanel("agents")} openProject={async (id) => {
+            if (!current.current && files.length) {
+              attachments.current.set(id, files);
+              attachments.current.delete("");
+            }
+            await select(id);
+            await history();
+          }} />
+        </Suspense>
       )}
       {panel === "courseWriter" && selectedDeck && selectedTeamsAvailable && (
         <>
@@ -1131,25 +1133,29 @@ function App() {
             <AutomationSchedules teams={teams || []} tiers={availableTiers} openProject={id => void select(id)}
               seed={automationSeed} seedOpened={() => setAutomationSeed(undefined)} />
           </Suspense>
-          <Services admin={user.role === "admin"} agents={agents} projects={list} />
+          <Suspense fallback={<p role="status">正在加载企业服务目录…</p>}>
+            <Services admin={user.role === "admin"} agents={agents} projects={list} />
+          </Suspense>
         </>
       )}
       {((panel === "setup" && user.role === "admin") || panel === "templates") && (
-        <TeamSetup
-          admin={panel === "setup"}
-          agents={agents}
-          teams={teams}
-          teamError={teamError}
-          preferredTeam={panel === "templates" ? draftTeam : ""}
-          back={panel === "templates" ? () => setPanel("agents") : undefined}
-          models={models}
-          refresh={catalog}
-          useAgent={panel === "templates" && !current.current ? (agent) => chooseAgents([agent], agent.team) : undefined}
-          openProject={async (id) => {
-            await history();
-            await select(id);
-          }}
-        />
+        <Suspense fallback={<p role="status">正在加载团队配置…</p>}>
+          <TeamSetup
+            admin={panel === "setup"}
+            agents={agents}
+            teams={teams}
+            teamError={teamError}
+            preferredTeam={panel === "templates" ? draftTeam : ""}
+            back={panel === "templates" ? () => setPanel("agents") : undefined}
+            models={models}
+            refresh={catalog}
+            useAgent={panel === "templates" && !current.current ? (agent) => chooseAgents([agent], agent.team) : undefined}
+            openProject={async (id) => {
+              await history();
+              await select(id);
+            }}
+          />
+        </Suspense>
       )}
       {panel === "rules" && <TeamRules admin={user.role === "admin"} />}
       {panel === "prefs" && <Preferences agents={agents} />}
@@ -1189,8 +1195,10 @@ function App() {
         </Suspense>
       )}
       {panel === "admin" && user.role === "admin" && (
-        <EnterpriseWorkspace user={user} models={models} members={members} configure={() => setPanel("setup")}
-          refreshCatalog={catalog} refreshMembers={refreshMembers} />
+        <Suspense fallback={<p role="status">正在打开企业管理…</p>}>
+          <EnterpriseWorkspace user={user} models={models} members={members} configure={() => setPanel("setup")}
+            refreshCatalog={catalog} refreshMembers={refreshMembers} />
+        </Suspense>
       )}
       {panel === "monitor" && user.role === "admin" && (
         <Suspense fallback={<p role="status">正在打开运行监控…</p>}><AdminMonitor /></Suspense>

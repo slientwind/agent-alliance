@@ -4,7 +4,6 @@ import type {
   PDFDocumentLoadingTask,
   RenderTask,
 } from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 export function canPreview(name: string, readable = false) {
   return readable || /\.(pdf|docx|xlsx|pptx|png|jpe?g|webp|txt|md|csv|tsv|json)$/i.test(name);
@@ -48,17 +47,10 @@ function PreviewContent({ url, name }: { url: string; name: string }) {
       const blob = await response.blob();
       if (abort.signal.aborted) return;
       if (blob.type === "application/pdf") {
-        const lib = await import("pdfjs-dist");
-        lib.GlobalWorkerOptions.workerSrc = pdfWorker;
+        const { openPDF } = await import("./pdf-runtime");
         const bytes = await blob.arrayBuffer();
         if (abort.signal.aborted) return;
-        task = lib.getDocument({
-          data: bytes,
-          isEvalSupported: false,
-          enableXfa: false,
-          useSystemFonts: true,
-          maxImageSize: 16000000,
-        });
+        task = openPDF(bytes);
         const pdf = await task.promise;
         if (!abort.signal.aborted) setDoc(pdf);
       } else if (blob.type.startsWith("image/")) {
