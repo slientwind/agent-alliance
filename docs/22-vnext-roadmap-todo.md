@@ -172,7 +172,8 @@
 - [ ] **拆除巨型单文件与 `<dialog>` 弹窗后台（[`main.tsx`](../frontend/src/main.tsx) · [`work.tsx`](../frontend/src/work.tsx) · [`enterprise-workspace.tsx`](../frontend/src/enterprise-workspace.tsx)）**
   - [x] 移除 `Overlay` `<dialog>` 承载重型页面的架构，采用常驻可折叠左侧栏（`248px / 56px`）与独立工作区路由：`/chat`、`/chat/:id`、`/agents`、`/automations`、`/inbox`、`/admin/*`。
   - [ ] 将生态发现市场接入 `/agents`，将构建器与连接向导分别挂载到 `/agents/studio/:id` 与 `/agents/connect`。
-  - [ ] 清理普通员工输入区的全部技术控件（删除 [`main.tsx:1056-1068`](../frontend/src/main.tsx#L1056-L1068) 的“最多两次模型调用”“允许按原文金额求和”复选框与默认团队归属强弹窗），改为 ChatGPT/Claude 风格大圆角 Composer（`+` 附件、`@` Agent 胶囊、`深度思考 / 联网` 轻开关、极简档位切换）。
+  - [x] 移除普通员工输入区的技术复选框与团队强制弹窗，使用圆角 Composer、`+` 附件、`@` Agent 入口及行内团队选择。已发布的协作方案仍可设置检索与计算步骤。
+  - [ ] 在 Composer 接入真实的深度思考、联网开关及极简模型档位选择。
   - [x] 实现全局 `⌘K` 命令面板、`⌘\` 侧栏折叠、`⌘N` 新对话快捷键。
 - [ ] **落地 6 大核心页面组件**
   - [x] **主对话与动态分栏 Canvas**：按需打开右侧成果面板，支持版本切换、修订、定位评论及解决状态，并提供顶部协作分工入口。

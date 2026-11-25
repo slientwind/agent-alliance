@@ -101,10 +101,8 @@ try {
     const select = page.getByLabel("项目所属团队"),
       text = page.getByRole("textbox", { name: "消息", exact: true }),
       send = page.getByRole("button", { name: "发送消息" });
-    const projectOptions = page.getByRole("button", { name: /^项目选项/ });
     await text.waitFor();
-    assert.equal(await select.count(), 0);
-    assert.equal(await projectOptions.count(), 0);
+    await select.waitFor();
     await text.fill("按地区核对销售额，审核后交付工作簿。");
     await page.locator('.composer input[type="file"]').setInputFiles({
       name: "地区销售额.csv",
@@ -112,21 +110,13 @@ try {
       buffer: Buffer.from("地区,销售额\n华南,20\n"),
     });
     const attachedSheet = page.getByRole("button", {name: "移除附件 地区销售额.csv"});
-    // The first send asks for a destination without starting or billing a run.
-    await send.click();
-    await select.waitFor();
-    assert.equal(await projectOptions.getAttribute("aria-expanded"), "true");
-    assert.ok(await select.evaluate(el => el === document.activeElement));
+    // Multi-team conversations choose the team in the composer before sending.
     assert.equal(submissions.length, 0);
     assert.equal(await select.inputValue(), "");
     assert.ok(await send.isDisabled());
     await select.selectOption(south.id);
     assert.ok(await send.isEnabled());
-    await projectOptions.click();
-    assert.equal(await select.count(), 0);
-    assert.ok(await send.isEnabled());
     assert.match(await text.inputValue(), /工作簿/);
-    await projectOptions.click();
     assert.equal(await select.inputValue(), south.id);
     const metrics = await page.evaluate(() => {
       const el = document.querySelector(".composer"),
@@ -138,7 +128,7 @@ try {
           el.scrollWidth > el.clientWidth,
       };
     });
-    assert.ok(metrics.area > 0.65 && !metrics.overflow);
+    assert.ok(metrics.area < 0.65 && !metrics.overflow);
     await select.blur();
     if (width === 390)
       await page.screenshot({ path: dir + "/mobile-team.png" });
@@ -168,7 +158,7 @@ try {
     // membership it may still read permitted projects, but cannot create one.
     await page.reload();
     await text.fill("只有一个营业团队");
-    assert.equal(await projectOptions.count(), 0);
+    assert.equal(await select.count(), 0);
     await Promise.all([
       page.waitForResponse(
         (r) =>
@@ -365,9 +355,9 @@ try {
     agents = [writer, {...cover,publishedReady:false,id:"offline"}, cover];
     await page.reload();
     await text.fill(goal);
-    assert.equal(await projectOptions.count(), 0);
+    await select.waitFor();
     await page.getByRole("button", {name: "我的工作区"}).click();
-    const workspace = page.getByRole("dialog", {name: "我的工作区"});
+    const workspace = page.getByRole("main", {name: "我的工作区"});
     assert.equal(await workspace.getByRole("button", {name: "企业管理"}).count(), 0);
     await workspace.getByText("协作与授权", {exact: true}).click();
     await workspace.getByRole("button", {name: "更改项目归属"}).click();
@@ -381,7 +371,7 @@ try {
     await page.locator(".picked-agent").getByText(north.name + "承担费用").waitFor();
     const writes = submissions.length;
     await page.locator(".picked-agent").getByRole("button", { name: "移除", exact: true }).click();
-    await page.getByRole("button", { name: /项目选项.*华南客户服务团队/ }).waitFor();
+    assert.equal(await select.inputValue(), south.id);
     assert.equal(await text.inputValue(), goal);
     assert.equal(submissions.length, writes);
     await launch.click();
@@ -406,7 +396,7 @@ try {
     await text.fill("保留本次简报需求");
     await page.getByRole("button", {name:"我的工作区"}).click();
     await page.getByRole("button", {name:"团队能力库", exact:true}).click();
-    const library = page.getByRole("dialog");
+    const library = page.getByRole("main", {name: "Agent 广场"});
     await library.getByText("归属团队 · "+north.name, {exact:true}).waitFor();
     assert.equal(await library.locator("#library-agent-offline").getByRole("button",{name:/开始对话/}).count(),0);
     await library.getByRole("button",{name:"使用文字助手 v2 开始对话"}).click();
@@ -487,7 +477,7 @@ try {
       await picker.screenshot({ path: dir + "/mobile-agent-picker.png" });
     }
     await picker.getByRole("button", { name: "内置 Agent 模板" }).click();
-    const templates = page.getByRole("dialog", { name: "内置 Agent 模板" });
+    const templates = page.getByRole("main", { name: "内置 Agent 模板" });
     const scope = templates.getByLabel("模板归属及费用承担方");
     await scope.waitFor();
     assert.equal(await scope.inputValue(), "");
@@ -512,7 +502,7 @@ try {
     await page.locator(".picked-agent").getByText(south.name + "承担费用").waitFor();
     await page.getByRole("button", { name: "我的工作区" }).click();
     await page.getByRole("button", { name: "企业管理", exact: true }).click();
-    const enterprise = page.getByRole("dialog", { name: "企业管理" });
+    const enterprise = page.getByRole("main", { name: "企业管理" });
     const advanced = enterprise.getByRole("button", { name: "高级设置", exact: true });
     const resourceSection = enterprise.getByRole("button", { name: "模型与 Agent", exact: true });
     assert.equal(await enterprise.getByText("组织与团队成员").count(), 0);
@@ -535,14 +525,14 @@ try {
     await enterprise.getByLabel("成员所属团队").waitFor();
     await resourceSection.click();
     await page.getByRole("button", { name: "团队首次配置", exact: true }).click();
-    const setup = page.getByRole("dialog", { name: "团队首次配置" });
+    const setup = page.getByRole("main", { name: "团队首次配置" });
     await setup.getByText(/接入团队模型/).waitFor();
     assert.equal(await setup.getByLabel("配置团队").inputValue(), north.id);
     const primary = { ...north, default: true };
     teams = [primary];
-    await page.reload();
+    await page.goto("/chat");
     await text.fill("本周工作摘要");
-    assert.equal(await projectOptions.count(), 0);
+    assert.equal(await select.count(), 0);
     const directSend = page.waitForResponse(r => r.url().endsWith("/api/projects") && r.request().method() === "POST");
     await send.click();
     await directSend;
@@ -551,7 +541,7 @@ try {
     await page.getByRole("button", {name: "我的工作区"}).click();
     await workspace.getByText("协作与授权", {exact: true}).click();
     assert.equal(await workspace.getByRole("button", {name: "更改项目归属"}).count(), 0);
-    await workspace.getByRole("button", {name: "企业管理", exact: true}).click();
+    await page.getByRole("button", {name: "企业管理", exact: true}).click();
     await Promise.all([
       page.waitForResponse(r => r.url().endsWith("/api/teams")),
       usagePage.click(),
@@ -567,10 +557,10 @@ try {
       composerArea: metrics.area,
       horizontalOverflow: metrics.overflow,
       checks: [
-        "choose a destination only at send when no default exists; no request before choice",
+        "choose an inline destination when no default exists; no request before choice",
         "withdrawn choice blocks send and preserves the message and attachment",
         "only non-default team automatically selected",
-        "project scope is initially out of the composer toolbar and opens on demand from the workspace or sending",
+        "the team selector appears inline for multiple destinations",
         "zero memberships cannot submit",
         "published Agent relevant to the brief ranks first with matching words; interaction requires explicit choice",
         "library shows a shared team once; choosing the published revision preserves the conversation draft",

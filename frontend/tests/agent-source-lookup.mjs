@@ -107,18 +107,15 @@ try {
           buffer: Buffer.from(doc.text),
         })),
       );
-    await page.getByLabel(/检索原文后回答/).check();
-    if (calculate) await page.getByLabel("允许按原文金额求和或算差额").check();
     await page.getByRole("button", { name: "发送消息" }).click();
     await page.getByRole("heading", { name: "协作方案 v1" }).waitFor();
-    const path = "projects/" + new URL(page.url()).hash.slice(1);
-    if (includeWord) {
-      await page.locator("summary").filter({ hasText: "拟定协作方案" }).click();
-      await page.getByLabel("添加执行步骤").selectOption(documentAgent.id);
-      assert.ok(await page.getByLabel(/检索原文后回答/).isChecked());
-      await page.getByRole("button", { name: "保存待确认方案" }).click();
-      await page.getByRole("heading", { name: "协作方案 v2" }).waitFor();
-    }
+    const path = "projects/" + new URL(page.url()).pathname.split("/").at(-1);
+    await page.locator("summary").filter({ hasText: "拟定协作方案" }).click();
+    await page.getByLabel(/检索原文后回答/).check();
+    if (calculate) await page.getByLabel("允许按原文金额求和或算差额").check();
+    if (includeWord) await page.getByLabel("添加执行步骤").selectOption(documentAgent.id);
+    await page.getByRole("button", { name: "保存待确认方案" }).click();
+    await page.getByRole("heading", { name: "协作方案 v2" }).waitFor();
     if (calculate)
       await page.getByText(/从引文选择 2 至 6 项同币种金额/).waitFor();
     const plan = await get(path);

@@ -94,3 +94,17 @@ test("the artifact panel offers anchors that match the file format", async () =>
   assert.equal(artifactAnchorKind("收据.pdf"), "page");
   assert.equal(artifactAnchorKind("图片.png"), undefined);
 });
+
+test("the conversation composer exposes attachments, Agent selection and send", async () => {
+  const { Composer } = await server.ssrLoadModule("/src/composer.tsx");
+  const markup = renderToStaticMarkup(createElement(Composer, {
+    draft: "", setDraft: () => {}, files: [{ key: "1", file: { name: "采购.csv" } }],
+    addFiles: () => {}, removeFile: () => {}, start: true, hidden: false, busy: false,
+    sendDisabled: true, send: () => {}, chooseAgent: () => {},
+  }));
+  for (const label of ["消息", "附资料", "选择或创建 Agent", "移除附件 采购.csv", "发送消息"]) {
+    assert.ok(markup.includes('aria-label="' + label + '"'));
+  }
+  assert.doesNotMatch(markup, /type="checkbox"|最多两次模型调用/);
+  assert.match(markup, /aria-label="发送消息" disabled=""/);
+});

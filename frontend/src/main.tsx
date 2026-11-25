@@ -32,13 +32,7 @@ import { DingTalkIdentity, FeishuIdentity, SlackIdentity } from "./organization"
 import { EnterpriseWorkspace } from "./enterprise-workspace";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
-import {
-  ArrowUp,
-  Bot,
-  Plus,
-  Paperclip,
-  X,
-} from "lucide-react";
+import { X } from "lucide-react";
 import {
   api,
   RequestError,
@@ -72,6 +66,7 @@ import { MyManagementScopes } from "./management-scopes";
 import { applyDraftDelta, type DraftFragment, type SessionDrafts } from "./live-drafts";
 import { applyTheme, readTheme, type Theme } from "./theme";
 import { WorkspaceCommands } from "./workspace-commands";
+import { Composer } from "./composer";
 import { TaskCollaboration } from "./task-collaboration";
 import { WorkspaceSidebar } from "./workspace-sidebar";
 import { chatPath, pageFromPath, projectFromPath, workspacePage } from "./workspace-routes";
@@ -194,12 +189,9 @@ function App() {
   } = useDraftTeam(teams);
   const [pickedAgents, pickAgents] = useState<Agent[]>([]);
   const [agentDestination, setAgentDestination] = useState("");
-  const [calculationAgent, setCalculationAgent] = useState("");
-  const [lookupAgent, setLookupAgent] = useState("");
   const hasPicks = pickedAgents.length > 0;
   const draftTeam = hasPicks ? agentDestination : conversationTeam;
   const canCreate = !!teams?.some(t => t.id === draftTeam);
-  const lookupCandidate = pickedAgents.length === 1 && pickedAgents[0].publishedLookup ? pickedAgents[0] : undefined;
   const selectedDeck =
     pickedAgents.length === 1 && pickedAgents[0].publishedOutline
       ? pickedAgents[0]
@@ -212,17 +204,8 @@ function App() {
   const selectedTeamsAvailable = pickedAgents.every((agent) =>
     teams?.some((t) => t.id === agent.team),
   );
-  const [changeTeam, showTeam] = useState(false);
   const teamSelect = useRef<HTMLSelectElement>(null);
-  useEffect(() => {
-    if (changeTeam) teamSelect.current?.focus();
-  }, [changeTeam]);
-  const askOnSend = !hasPicks && !draftTeam && !changeTeam && (teams?.length ?? 0) > 1;
-  const missingDestination = !canCreate && !askOnSend;
   const multipleDestinations = !p && !hasPicks && (teams?.length ?? 0) > 1;
-  const projectScope = multipleDestinations
-    ? teams?.find(t => t.id === draftTeam && !t.default)
-    : undefined;
   const [deliveryReceipt, setDeliveryReceipt] = useState("");
   const sessionMember = useRef("");
   const resetSession = useCallback(() => {
@@ -284,7 +267,6 @@ function App() {
   const [budgetQuery, setBudgetQuery] = useState("");
   const [inbox, setInbox] = useState<HistoryView>(() => routePanel === "history" ? "review" : "recent");
   const pending = useRef(0);
-  const attachment = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<Attachment[]>([]);
   const hasFiles = files.length > 0;
   const hasPicture = files.some(({ file }) => isPictureName(file.name));
@@ -365,9 +347,7 @@ function App() {
       setBudgetQuery("");
       setGrantQuery("");
       pickAgents([]);
-      setLookupAgent("");
-      setCalculationAgent("");
-      showTeam(false);
+      setChosenTeam("");
     }
   }, [user]);
   const catalog = useCallback(async () => {
@@ -381,10 +361,7 @@ function App() {
   function chooseAgents(next: Agent[], projectTeam: string, goalIfEmpty?: string) {
     if (!draft.trim() && goalIfEmpty) setDraft(goalIfEmpty);
     pickAgents(next);
-    setLookupAgent("");
-    setCalculationAgent("");
     setAgentDestination(projectTeam);
-    showTeam(false);
     setPanel("");
     requestAnimationFrame(() =>
       document
@@ -525,7 +502,6 @@ function App() {
     setP(null);
     setDialogPanel("");
     setFiles(attachments.current.get(id) || []);
-    if (attachment.current) attachment.current.value = "";
     setDraft(drafts.current.get(id) || "");
     setErr("");
     if (id) {
@@ -744,14 +720,10 @@ function App() {
     if (
       busy ||
       !(draft.trim() || (p && hasFiles)) ||
-      (!p && (missingDestination || !selectedTeamsAvailable)) ||
+      (!p && (!canCreate || !selectedTeamsAvailable)) ||
       current.current !== (p?.id || "")
     )
       return;
-    if (!p && askOnSend) {
-      showTeam(true);
-      return;
-    }
     setBusy(true);
     setErr("");
     try {
@@ -778,9 +750,6 @@ function App() {
           setChosenTeam("");
         }
         pickAgents([]);
-        setLookupAgent("");
-        setCalculationAgent("");
-        showTeam(false);
         if (hasFiles) attachments.current.set(res.id, files);
         if (!current.current) await select(res.id);
         drafts.current.delete("");
@@ -794,8 +763,8 @@ function App() {
                 steps: pickedAgents.map((a, i) => ({
                   key: String(i + 1),
                   agent: a.id,
-                  lookup: !!lookupCandidate && lookupAgent === a.id,
-                  calculate: !!lookupCandidate && lookupAgent === a.id && calculationAgent === a.id,
+                  lookup: false,
+                  calculate: false,
                   vision: a.publishedVision,
                   editsImage: a.publishedImageEdit,
                   name: a.publishedName || a.name,
@@ -996,7 +965,7 @@ function App() {
                 disabled={busy}
                 onClick={() => {
                   setPanel("");
-                  showTeam(true);
+                  requestAnimationFrame(() => teamSelect.current?.focus());
                 }}
               >
                 更改项目归属
@@ -1190,90 +1159,36 @@ function App() {
             ) : (
               <h1>新对话</h1>
             )}
-            <form
-              hidden={!!current.current && !p}
-              className="composer"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void send();
-              }}
+            <Composer
+              hidden={!!current.current && !p} busy={busy} start={!p}
+              draft={draft} setDraft={setDraft} files={files}
+              chooseAgent={!p && !current.current ? openAgents : undefined}
+              sendDisabled={busy || (!p && (!canCreate || !selectedTeamsAvailable)) ||
+                !(draft.trim() || (p && hasFiles)) || (!!current.current && !p)}
+              send={() => void send()}
+              addFiles={added => keepFiles(current.current, [
+                ...files, ...added.map(file => ({ file, key: crypto.randomUUID() })),
+              ])}
+              removeFile={key => keepFiles(current.current, files.filter(item => item.key !== key))}
             >
-              <textarea
-                disabled={busy || (!!current.current && !p)}
-                aria-label="消息"
-                placeholder={p ? "继续对话…" : "描述你想完成的工作…"}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (
-                    e.key === "Enter" &&
-                    !e.shiftKey &&
-                    !e.nativeEvent.isComposing
-                  ) {
-                    e.preventDefault();
-                    void send();
-                  }
-                }}
-              />
               {!p && !current.current && (
                 <>
-                  {teams &&
-                    teams.length > 0 &&
-                    (missingDestination || changeTeam) &&
-                    (!hasPicks || (!canCreate && selectedTeamsAvailable)) && (
-                      <div className="compose-team" id="conversation-team">
-                        <label>
-                          项目所属团队
-                          <select
-                            ref={teamSelect}
-                            disabled={busy}
-                            value={draftTeam}
-                            onChange={(e) => {
-                              if (hasPicks) setAgentDestination(e.target.value);
-                              else setChosenTeam(e.target.value);
-                              showTeam(true);
-                            }}
-                          >
-                            {!canCreate && (
-                              <option value={draftTeam}>
-                                {draftTeam
-                                  ? "原团队已不可用，请重新选择"
-                                  : "请选择项目所属团队"}
-                              </option>
-                            )}
-                            {teams.map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        {changeTeam && !hasPicks && (canCreate || !draftTeam) && (
-                          <button
-                            type="button"
-                            className="project-scope-toggle"
-                            aria-label={"项目选项" + (projectScope ? " · " + projectScope.name : "")}
-                            aria-expanded="true"
-                            aria-controls="conversation-team"
-                            onClick={() => showTeam(false)}
-                          >
-                            收起
-                          </button>
-                        )}
-                      </div>
+                  {teams && teams.length > 0 && (!canCreate || multipleDestinations) &&
+                    (!hasPicks || selectedTeamsAvailable) && (
+                      <label className="compose-team">
+                        项目所属团队
+                        <select ref={teamSelect} disabled={busy} value={canCreate ? draftTeam : ""}
+                          onChange={event => {
+                            if (hasPicks) setAgentDestination(event.target.value);
+                            else setChosenTeam(event.target.value);
+                          }}>
+                          {!canCreate && <option value="">
+                            {draftTeam ? "原团队已不可用，请重新选择" : "请选择团队"}
+                          </option>}
+                          {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+                        </select>
+                      </label>
                     )}
-                  {projectScope && !changeTeam && (
-                    <button
-                      type="button"
-                      className="project-scope-toggle"
-                      aria-label={"项目选项 · " + projectScope.name}
-                      aria-expanded="false"
-                      disabled={busy}
-                      onClick={() => showTeam(true)}
-                    >
-                      项目归属 · {projectScope.name}
-                    </button>
-                  )}
                   {recommendations.length > 0 && (
                     <div className="agent-recommendations" role="group" aria-label="适合这项任务的 Agent">
                       <small>推荐 Agent</small>
@@ -1315,19 +1230,6 @@ function App() {
                       {pickedAgents.some(agent => agent.publishedImageEdit) && (
                         <small>请附一张 PNG 或 JPEG 作为参考图，编辑后交付 PNG。</small>
                       )}
-                      {lookupCandidate && files.some(({ file }) => !isPictureName(file.name)) && (
-                        <label>
-                          <input type="checkbox" disabled={busy} checked={lookupAgent === lookupCandidate.id}
-                            onChange={e => {setLookupAgent(e.target.checked ? lookupCandidate.id : "");setCalculationAgent("");}} />
-                          检索原文后回答 · 最多两次模型调用
-                        </label>
-                      )}
-                      {lookupCandidate && hasFiles && lookupAgent === lookupCandidate.id && (
-                        <label><input type="checkbox" disabled={busy} checked={calculationAgent === lookupCandidate.id}
-                          onChange={e=>setCalculationAgent(e.target.checked ? lookupCandidate.id : "")} />
-                          允许按原文金额求和或算差额
-                        </label>
-                      )}
                       {pickedAgents[0]?.publishedOutline && (
                         <button
                           type="button"
@@ -1352,7 +1254,7 @@ function App() {
                         aria-label="移除"
                         title="移除所选 Agent"
                         className="remove-chip"
-                        onClick={() => {pickAgents([]);setLookupAgent("");setCalculationAgent("")}}
+                        onClick={() => pickAgents([])}
                       >
                         <X size={16} />
                       </button>
@@ -1362,82 +1264,7 @@ function App() {
                   {teams?.length === 0 && <small>请联系管理员开通可用的工作空间。</small>}
                 </>
               )}
-              {hasFiles && (
-                <div className="attachment-list">
-                  {files.map(({ key, file }) => (
-                    <div className="file-chip" key={key}>
-                      <Paperclip size={15} aria-hidden="true" />
-                      <span title={file.name}>{file.name}</span>
-                      <button
-                        type="button"
-                        className="remove-chip"
-                        disabled={busy}
-                        aria-label={"移除附件 " + file.name}
-                        onClick={() => {
-                          keepFiles(
-                            current.current,
-                            files.filter((item) => item.key !== key),
-                          );
-                        }}
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="composer-tools">
-                <input
-                  ref={attachment}
-                  disabled={busy || (!!current.current && !p)}
-                  type="file"
-                  multiple
-                  hidden
-                  onChange={(e) => {
-                    const added = Array.from(e.target.files || [], (file) => ({
-                      key: crypto.randomUUID(),
-                      file,
-                    }));
-                    keepFiles(current.current, [...files, ...added]);
-                    e.target.value = "";
-                  }}
-                />
-                <button
-                  type="button"
-                  disabled={busy || (!!current.current && !p)}
-                  aria-label="附资料"
-                  title="附资料"
-                  onClick={() => attachment.current?.click()}
-                >
-                  <Plus />
-                </button>
-                {!p && !current.current && (
-                  <button
-                    type="button"
-                    className="agent-launch"
-                    aria-label="选择或创建 Agent"
-                    title="选择或创建 Agent"
-                    disabled={busy}
-                    onClick={openAgents}
-                  >
-                    <Bot /> Agent
-                  </button>
-                )}
-                {(draft || hasFiles) && <small>草稿仅在本页暂存</small>}
-                <button
-                  className="primary send"
-                  aria-label="发送消息"
-                  disabled={
-                    busy ||
-                    (!p && (missingDestination || !selectedTeamsAvailable)) ||
-                    !(draft.trim() || (p && hasFiles)) ||
-                    (!!current.current && !p)
-                  }
-                >
-                  <ArrowUp />
-                </button>
-              </div>
-            </form>
+            </Composer>
           </main>
           {p && canvasArtifact && (
             <Suspense fallback={<p role="status">正在打开成果…</p>}>
