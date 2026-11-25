@@ -100,6 +100,8 @@ func main() {
 	stopScheduled := runScheduledJobs(ctx, catalog, c, generalQueue)
 	defer stopScheduled()
 	go general.Dispatch(ctx, c, generalQueue)
+	stopMemory := startBackgroundJobs(ctx, general.RefreshConversationMemory)
+	defer stopMemory()
 	go a.FollowRemote(ctx, c)
 	go a.CleanRetention(ctx)
 	go knowledge.MaintainPassages(ctx, catalog.DB)

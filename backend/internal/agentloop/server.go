@@ -210,6 +210,14 @@ func (s Server) StartTx(ctx context.Context, tx pgx.Tx, project, actor, key stri
 	 values($1,$2,$3,$4,$5,nullif($6,'')::uuid)`, run, in.Tier, initialMessage, in.Direct, enabled, in.StudioRelease); err != nil {
 		return "", err
 	}
+	if !in.Direct {
+		if _, err := tx.Exec(ctx, `insert into general_memory_snapshots(run_id,created_at,next_at)
+		 select $1,transaction_timestamp(),transaction_timestamp() where exists(
+		 select from messages m where m.project_id=$2 and m.kind='user' and m.seq<$3 order by m.seq desc offset $4 limit 1)`,
+			run, project, initialMessage, conversationRecent); err != nil {
+			return "", err
+		}
+	}
 	if err := s.bindExternalAgents(ctx, tx, run, actor, in.External, in.StudioRelease == ""); err != nil {
 		return "", err
 	}

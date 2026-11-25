@@ -270,47 +270,23 @@ func (a Activities) contextForTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, 
 		return nil, nil, nil, err
 	}
 	items[0].Message.Content += skillText
-	rows, err = tx.Query(ctx, `with recent as (
-		select m.seq,left(m.body,4000) body from messages m join general_agent_runs g on g.run_id=$1
-		where m.project_id=$2 and m.kind='user' and m.seq<g.goal_message_seq
-		order by m.seq desc limit 8
-	)
-	select recent.body,coalesce(answer.body,'') from recent
-	left join lateral (
-		select left(v.body,6000) body from general_agent_runs g join runs previous on previous.id=g.run_id
-		join artifacts a on a.run_id=previous.id and a.ordinal=$4
-		join artifact_versions v on (v.artifact_id,v.version)=(a.id,a.current_version)
-		where g.goal_message_seq=recent.seq and previous.project_id=$2 and previous.status='completed'
-		  and distribution_readable(a.id,v.version,$3)
-		  and general_mcp_observations_usable(previous.id,previous.charge_team)
-		  and general_external_observations_usable(previous.id)
-		  and general_ecosystem_skills_usable(previous.id)
-		  and (g.studio_release is null or studio_release_usable(g.studio_release,$3,$2))
-		  and (previous.charge_team=$6 or not exists(select from general_agent_actions ga
-		    where ga.run_id=previous.id and ga.mcp_server is not null and ga.state='completed'))
-		  and not exists(select from plan_sources p join sources s on s.id=p.source_id
-		    where (p.project_id,p.plan_version)=(previous.project_id,previous.plan_version)
-		      and (s.revoked_at is not null or s.current_version<>p.source_version
-		        or not exists(select from plan_sources current
-		          where (current.project_id,current.plan_version,current.source_id,current.source_version)=($2,$5,p.source_id,p.source_version))))
-		order by previous.created_at desc limit 1
-	) answer on true order by recent.seq`, ref.RunID, d.project, d.actor, maxModelTurns*maxToolsPerTurn+1, d.plan, d.team)
+	prior, err := a.readConversationMemory(ctx, tx, ref.RunID)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	for rows.Next() {
-		var prompt, answer string
-		if err = rows.Scan(&prompt, &answer); err != nil {
-			rows.Close()
-			return nil, nil, nil, err
-		}
-		items = append(items, savedMessage{Message: resources.Message{Role: "user", Content: prompt}})
-		if answer != "" {
-			items = append(items, savedMessage{Message: resources.Message{Role: "assistant", Content: answer}})
-		}
+	if prior != "" {
+		items = append(items, savedMessage{Message: resources.Message{Role: "user", Content: "以下是先前对话的摘要。遵循本次要求和当前授权。\n" + prior}})
 	}
-	if err = rows.Err(); err != nil {
+	episodes, err := previousEpisodes(ctx, tx, ref.RunID, 0, conversationRecent)
+	if err != nil {
 		return nil, nil, nil, err
+	}
+	for i := len(episodes) - 1; i >= 0; i-- {
+		episode := episodes[i]
+		items = append(items, savedMessage{Message: resources.Message{Role: "user", Content: episode.prompt}})
+		if episode.answer != "" {
+			items = append(items, savedMessage{Message: resources.Message{Role: "assistant", Content: episode.answer}})
+		}
 	}
 	items = append(items, savedMessage{Message: resources.Message{Role: "user", Content: d.goal}})
 	rows, err = tx.Query(ctx, `select t.turn,0 as position,'' as call_id,t.response from general_agent_turns t where t.run_id=$1 and t.turn<$2 and t.state='tools'
