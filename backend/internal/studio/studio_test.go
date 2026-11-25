@@ -207,6 +207,10 @@ func TestStudioBuilderPostgres(t *testing.T) {
 				t.Fatal("playground did not use the current draft and explicit trial input")
 			}
 			output = "金额列；私有试聊内容"
+			if request.EmitText == nil {
+				t.Fatal("streaming trial did not request text deltas")
+			}
+			request.EmitText("金额列")
 		case 4, 5:
 			if strings.Contains(in, "私有试聊内容") || !strings.Contains(in, `"selectedOutput":"金额列"`) {
 				t.Fatalf("refinement must receive only the selected output: %s", in)
@@ -283,12 +287,24 @@ func TestStudioBuilderPostgres(t *testing.T) {
 	if strings.Contains(saved, "SECRET") || !strings.Contains(saved, `"revision":2`) || !strings.Contains(saved, message) || strings.Contains(saved, "invalid patch") {
 		t.Fatalf("wrong saved conversation: %s", saved)
 	}
+	trialInput := `{"expected":2,"message":"示例报价"}`
+	requestStream := httptest.NewRequestWithContext(ctx, "POST", path+"/try", strings.NewReader(trialInput))
+	requestStream.AddCookie(&http.Cookie{Name: "aa_session", Value: token})
+	requestStream.Header.Set("Accept", "text/event-stream")
+	requestStream.Header.Set("Content-Type", "application/json")
+	requestStream.Header.Set("Idempotency-Key", "try-once")
+	streamed := httptest.NewRecorder()
+	mux.ServeHTTP(streamed, requestStream)
+	if streamed.Code != 200 || !streamed.Flushed || streamed.Header().Get("Content-Type") != "text/event-stream" ||
+		!strings.Contains(streamed.Body.String(), "event: chunk\ndata: {\"text\":\"金额列\"}") ||
+		!strings.Contains(streamed.Body.String(), "event: complete\ndata: ") {
+		t.Fatalf("trial did not stream deltas and completion: %d %s", streamed.Code, streamed.Body)
+	}
 	var trial trialResult
-	err = json.Unmarshal([]byte(call(token, "POST", path+"/try", `{"expected":2,"message":"示例报价"}`, "application/json", "try-once", 200)), &trial)
+	err = json.Unmarshal([]byte(call(token, "POST", path+"/try", trialInput, "application/json", "try-once", 200)), &trial)
 	if err != nil || trial.ID == "" || trial.Output != "金额列；私有试聊内容" {
 		t.Fatalf("trial was not retained: %+v %v", trial, err)
 	}
-	call(token, "POST", path+"/try", `{"expected":2,"message":"示例报价"}`, "application/json", "try-once", 200)
 	request, err := json.Marshal(map[string]any{"expected": 2, "trial": trial.ID, "start": 0, "end": 3, "feedback": "把这一列改成右对齐"})
 	if err != nil {
 		t.Fatal(err)

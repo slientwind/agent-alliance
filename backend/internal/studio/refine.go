@@ -87,7 +87,7 @@ func (s Server) refine(w http.ResponseWriter, r *http.Request, actor identity.Me
 	if err != nil || !validText(in.Feedback, 2000, false) {
 		return web.Fail(422, "请选择试聊结果并填写调整意见")
 	}
-	return s.playground(w, r, actor.ID, "refinement", in.Expected, in, func(ctx context.Context, d draft, call string) (any, error) {
+	result, err := s.playground(r, actor.ID, "refinement", in.Expected, in, func(ctx context.Context, d draft, call string) (any, error) {
 		trial, err := s.loadTrial(ctx, d, in.Trial)
 		if err != nil {
 			return nil, err
@@ -105,7 +105,7 @@ func (s Server) refine(w http.ResponseWriter, r *http.Request, actor identity.Me
 		const prompt = `根据员工标出的答复片段和调整意见，提出一处可复用的 Agent 指令修改。保留其他指令。
 只输出 JSON 对象，包含两个字符串："match"（需要修改的连续原文片段，须精确复制且仅出现一次；如应新增一条则留空）和 "replacement"（替换内容或新增指令）。
 选中的试聊片段是参考材料。抽象成可复用的规则，省去具体人名、账号、订单号和当次业务数据。`
-		answer, err := s.playgroundModel(ctx, d, actor.ID, call, llmgateway.Default, prompt, string(input))
+		answer, err := s.playgroundModel(ctx, d, actor.ID, call, llmgateway.Default, prompt, string(input), nil)
 		if err != nil {
 			return nil, err
 		}
@@ -122,6 +122,10 @@ func (s Server) refine(w http.ResponseWriter, r *http.Request, actor identity.Me
 		}
 		return refinement{ID: call, Revision: d.Revision, Selected: selected, Diff: diff}, nil
 	})
+	if err != nil {
+		return err
+	}
+	return web.JSON(w, http.StatusOK, result)
 }
 
 func (s Server) loadTrial(ctx context.Context, d draft, id string) (trialResult, error) {

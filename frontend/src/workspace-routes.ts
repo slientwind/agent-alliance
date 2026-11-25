@@ -2,6 +2,7 @@ export const workspacePages = {
   history: { path: "/inbox", title: "待办与审核" },
   library: { path: "/agents", title: "Agent 广场" },
   externalConnect: { path: "/agents/connect", title: "接入外部 Agent" },
+  studio: { path: "/agents/studio", title: "构建助手" },
   account: { path: "/account", title: "我的工作区" },
   prefs: { path: "/account/preferences", title: "个人偏好" },
   rules: { path: "/account/team-rules", title: "团队规则" },
@@ -25,11 +26,16 @@ export function pageFromPath(pathname: string): WorkspacePage | "" {
   const match = (Object.keys(workspacePages) as WorkspacePage[]).find((name) => workspacePages[name].path === path);
   if (match) return match;
   if (path.startsWith("/admin/")) return "admin";
-  if (path.startsWith("/agents/studio/")) return "library";
+  if (studioDraftFromPath(path)) return "studio";
   return "";
 }
 
 const projectSegment = /^[\w-]{1,128}$/;
+
+export function studioDraftFromPath(pathname: string) {
+  const segment = /^\/agents\/studio\/([^/]+)\/?$/.exec(pathname)?.[1] || "";
+  return projectSegment.test(segment) ? segment : "";
+}
 
 export function projectFromPath(pathname: string, hash = ""): string {
   const segment = /^\/chat\/([^/]+)\/?$/.exec(pathname)?.[1] ?? (pathname === "/" ? hash.slice(1) : "");

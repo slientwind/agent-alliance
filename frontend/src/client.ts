@@ -564,6 +564,7 @@ export type Project = Summary & {
     id: string;
     status: string;
     general?: boolean;
+    studioAssistant?: import("./studio-client").PublishedAssistant | null;
     controlRevision: number;
     receiptRequest?: SourceReceiptRequest | null;
     receiptRequests?: SourceReceiptRequest[];

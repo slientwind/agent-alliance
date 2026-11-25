@@ -12,7 +12,8 @@ test("workspace routes cover the sidebar and preserve legacy chat links", async 
   const { pageFromPath, projectFromPath, chatPath } = await server.ssrLoadModule("/src/workspace-routes.ts");
   assert.equal(pageFromPath("/inbox"), "history");
   assert.equal(pageFromPath("/agents"), "library");
-  assert.equal(pageFromPath("/agents/studio/project-2"), "library");
+  assert.equal(pageFromPath("/agents/studio/project-2"), "studio");
+  assert.equal(pageFromPath("/agents/studio"), "studio");
   assert.equal(pageFromPath("/agents/connect"), "externalConnect");
   assert.equal(pageFromPath("/admin/monitor"), "admin");
   assert.equal(pageFromPath("/admin/setup"), "setup");

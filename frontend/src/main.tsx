@@ -68,10 +68,11 @@ import { applyTheme, readTheme, type Theme } from "./theme";
 import { WorkspaceCommands } from "./workspace-commands";
 import { Composer } from "./composer";
 import { ExternalAgentChooser, type ExternalAgent, type ExternalChoice } from "./external-agents";
+import type { PublishedAssistant } from "./studio-client";
 import { ConversationModels, conversationTier, isConversationTier, usesGeneralConversation, type ConversationTier } from "./conversation-models";
 import { TaskCollaboration } from "./task-collaboration";
 import { WorkspaceSidebar } from "./workspace-sidebar";
-import { chatPath, pageFromPath, projectFromPath, workspacePage } from "./workspace-routes";
+import { chatPath, pageFromPath, projectFromPath, studioDraftFromPath, workspacePage } from "./workspace-routes";
 import "./style.css";
 import "./workspace.css";
 const Work = lazy(() => import("./work").then(({ Work }) => ({ default: Work })));
@@ -81,6 +82,7 @@ const MailIntegration = lazy(() => import("./mail-integration").then(({ MailInte
 const AutomationSchedules = lazy(() => import("./automation-schedules").then(({ AutomationSchedules }) => ({ default: AutomationSchedules })));
 const ExternalConnect = lazy(() => import("./external-connect").then(({ ExternalConnect }) => ({ default: ExternalConnect })));
 const AdminReleases = lazy(() => import("./admin-releases").then(({ AdminReleases }) => ({ default: AdminReleases })));
+const StudioWorkspace = lazy(() => import("./studio-workspace").then(({ StudioWorkspace }) => ({ default: StudioWorkspace })));
 
 function Overlay({
   title,
@@ -191,6 +193,8 @@ function App() {
   const [searchDraft, setSearchDraft] = useState<{ project: string; query: string }>();
   const [externalAgents, setExternalAgents] = useState<ExternalAgent[]>([]);
   const [externalPicker, setExternalPicker] = useState<{ project: string; choice?: ExternalChoice }>();
+  const [studioPicker, setStudioPicker] = useState<{ project: string; assistant: PublishedAssistant | null }>();
+  const studioAssistant = studioPicker?.project === (p?.id || "") ? studioPicker.assistant : p?.run?.studioAssistant;
   function openWorkflowTemplates(template?: WorkflowTemplateReference) {
     setInitialWorkflowTemplate(template);
     setPanel("workflowTemplates");
@@ -203,7 +207,8 @@ function App() {
   const [pickedAgents, pickAgents] = useState<Agent[]>([]);
   const [agentDestination, setAgentDestination] = useState("");
   const hasPicks = pickedAgents.length > 0;
-  const draftTeam = hasPicks ? agentDestination : conversationTeam;
+  const studioTeam = studioAssistant && studioAssistant.scope !== "enterprise" ? studioAssistant.team : "";
+  const draftTeam = hasPicks ? agentDestination : studioTeam || conversationTeam;
   const canCreate = !!teams?.some(t => t.id === draftTeam);
   const selectedDeck =
     pickedAgents.length === 1 && pickedAgents[0].publishedOutline
@@ -367,6 +372,7 @@ function App() {
       setSearchDraft(undefined);
       setExternalAgents([]);
       setExternalPicker(undefined);
+      setStudioPicker(undefined);
     }
   }, [user]);
   const catalog = useCallback(async () => {
@@ -387,6 +393,7 @@ function App() {
     if (next.length) {
       setSearchDraft(undefined);
       setExternalPicker(undefined);
+      setStudioPicker({ project: p?.id || "", assistant: null });
     }
     if (!draft.trim() && goalIfEmpty) setDraft(goalIfEmpty);
     pickAgents(next);
@@ -746,25 +753,31 @@ function App() {
     if (current.current === project) await load(project);
     return receipts;
   }
-  const canUseGeneral = !!user && usesGeneralConversation(p, user.id, hasPicks, hasPicture);
-  const canUseExternal = !!user && usesGeneralConversation(p, user.id, hasPicks, false);
+  const studioImages = studioAssistant?.capabilities.includes("images");
+  const studioDocs = studioAssistant?.capabilities.some(item => item === "knowledge" || item === "office");
+  const canUseGeneral = !!user && usesGeneralConversation(p, user.id, hasPicks, hasPicture && !studioImages);
+  const canUseExternal = !!user && !studioAssistant && usesGeneralConversation(p, user.id, hasPicks, false);
+  const invalidStudio = !!studioAssistant && (!canUseGeneral || !!p && !!studioTeam && p.team !== studioTeam ||
+    files.some(({ file }) => isPictureName(file.name) ? !studioImages : !studioDocs));
   const generalTier = canUseGeneral ? conversationTier(availableTiers, requestedTier) : undefined;
   const pickingExternal = canUseExternal && externalPicker?.project === (p?.id || "");
   const externalChoice = pickingExternal ? externalPicker.choice : undefined;
   const directExternal = externalChoice?.mode === "direct";
   const invalidExternal = !!externalChoice && (directExternal ? hasFiles : !generalTier);
-  const searching = !!generalTier && !directExternal && searchDraft?.project === (p?.id || "");
+  const canSearch = !!(generalTier || studioAssistant) && !directExternal &&
+    (!studioAssistant || studioAssistant.capabilities.includes("search"));
+  const searching = canSearch && searchDraft?.project === (p?.id || "");
   const searchQuery = searching ? searchDraft.query.trim() : "";
   const invalidSearch = searching && (!searchAvailable || !searchQuery);
   async function startGeneral(project: string, tier: ConversationTier | undefined, receipts: Awaited<ReturnType<typeof sendAttachments>>) {
-    if (receipts.some(receipt => !receipt.readable || receipt.picture)) {
+    if (receipts.some(receipt => receipt.picture ? !studioImages : !receipt.readable)) {
       throw new Error("附件已保存。请核对可读取的资料后再发起任务。");
     }
     const latest = await api<Project>("projects/" + project);
     const pins = new Map<string, number>();
     if (latest.run?.general) {
       for (const pin of latest.plan?.sources || []) {
-        if (!pin.picture) pins.set(pin.id, pin.version);
+        if (pin.picture ? studioImages : !studioAssistant || studioDocs) pins.set(pin.id, pin.version);
       }
     }
     if (planningUpload?.project === project) {
@@ -773,7 +786,8 @@ function App() {
     for (const receipt of receipts) pins.set(receipt.id, receipt.version);
     const path = "projects/" + project + "/general-runs";
     const request = {
-      goal: draft, tier, expected: latest.revision,
+      goal: draft, expected: latest.revision,
+      ...(studioAssistant ? { studioRelease: studioAssistant.id } : { tier }),
       sources: directExternal ? [] : Array.from(pins, ([id, revision]) => ({ id, revision })),
       ...(searchQuery ? { searchQuery } : {}),
       ...(externalChoice ? {
@@ -792,12 +806,14 @@ function App() {
       setSearchDraft(value => value?.query.trim() === searchQuery && (value.project === project || value.project === "") ? undefined : value);
     }
     if (externalChoice) setExternalPicker(value => value?.choice === externalChoice ? undefined : value);
+    if (studioAssistant) setStudioPicker(value => value?.assistant?.id === studioAssistant.id ? { project, assistant: studioAssistant } : value);
   }
   async function send() {
     if (
       busy ||
       invalidSearch ||
       invalidExternal ||
+      invalidStudio ||
       !(draft.trim() || (p && hasFiles)) ||
       (!p && (!canCreate || !selectedTeamsAvailable)) ||
       current.current !== (p?.id || "")
@@ -809,7 +825,7 @@ function App() {
       if (p) {
         const receipts = hasFiles ? await sendAttachments(p.id) : [];
         if (draft.trim()) {
-          if (generalTier || directExternal) await startGeneral(p.id, generalTier, receipts);
+          if (generalTier || directExternal || studioAssistant) await startGeneral(p.id, generalTier, receipts);
           else await api("projects/" + p.id + "/messages", "POST", { body: draft });
         }
         drafts.current.delete(p.id);
@@ -863,7 +879,7 @@ function App() {
           }
           receipts = await sendAttachments(res.id);
         }
-        if (generalTier || directExternal) {
+        if (generalTier || directExternal || studioAssistant) {
           try {
             await startGeneral(res.id, generalTier, receipts);
           } catch (error) {
@@ -871,6 +887,7 @@ function App() {
             if (current.current === res.id) setDraft(draft);
             if (searchQuery) setSearchDraft({ project: res.id, query: searchQuery });
             if (externalChoice) setExternalPicker({ project: res.id, choice: externalChoice });
+            if (studioAssistant) setStudioPicker({ project: res.id, assistant: studioAssistant });
             throw error;
           }
         }
@@ -1129,7 +1146,10 @@ function App() {
       {panel === "prefs" && <Preferences agents={agents} />}
       {panel === "library" && (
         <>
-          <button type="button" onClick={() => setPanel("externalConnect")}>接入外部 Agent</button>
+          <div className="row">
+            <button type="button" onClick={() => setPanel("studio")}>构建助手</button>
+            <button type="button" onClick={() => setPanel("externalConnect")}>接入外部 Agent</button>
+          </div>
           <Library
             useAgent={!current.current && !hasPicks && !busy ? a => chooseAgents([a], a.team) : undefined}
             teams={teams || []}
@@ -1141,9 +1161,23 @@ function App() {
           />
         </>
       )}
+      {panel === "studio" && (
+        <Suspense fallback={<p role="status">正在加载构建器…</p>}>
+          <StudioWorkspace id={studioDraftFromPath(route.pathname)} teams={teams || []} preferredTeam={conversationTeam}
+            open={id => navigate(id ? "/agents/studio/" + encodeURIComponent(id) : "/agents/studio")}
+            use={assistant => {
+              pickAgents([]);
+              setSearchDraft(undefined);
+              setExternalPicker(undefined);
+              setStudioPicker({ project: "", assistant });
+              void select("");
+            }} />
+        </Suspense>
+      )}
       {panel === "externalConnect" && (
         <Suspense fallback={<p role="status">正在加载接入向导…</p>}>
           <ExternalConnect teams={teams || []} preferredTeam={conversationTeam} refresh={catalog} openConversation={agent => {
+            setStudioPicker({ project: "", assistant: null });
             if (agent) setExternalPicker({ project: "", choice: { agent, mode: "direct" } });
             void select("");
           }} />
@@ -1291,20 +1325,20 @@ function App() {
               chooseAgent={!p && !current.current ? openAgents : undefined}
               tools={(
                 <>
-                  {generalTier && !directExternal && <ConversationModels available={availableTiers} tier={generalTier}
+                  {generalTier && !directExternal && !studioAssistant && <ConversationModels available={availableTiers} tier={generalTier}
                     onChange={setRequestedTier} disabled={busy} />}
                   {canUseExternal && externalAgents.length > 0 && <button type="button" aria-pressed={pickingExternal} disabled={busy}
                     className="agent-launch" onClick={() => setExternalPicker(pickingExternal ? undefined : { project: p?.id || "" })}>
                     <AtSign aria-hidden="true" /> 外部 Agent
                   </button>}
-                  {generalTier && !directExternal && (searchAvailable || searching) &&
+                  {canSearch && (searchAvailable || searching) &&
                     <button type="button" aria-pressed={searching} disabled={busy}
                       onClick={() => setSearchDraft(searching ? undefined : { project: p?.id || "", query: "" })}>
                       <Globe aria-hidden="true" /> 联网搜索
                     </button>}
                 </>
               )}
-              sendDisabled={busy || invalidSearch || invalidExternal || (!p && (!canCreate || !selectedTeamsAvailable)) ||
+              sendDisabled={busy || invalidSearch || invalidExternal || invalidStudio || (!p && (!canCreate || !selectedTeamsAvailable)) ||
                 !(draft.trim() || (p && hasFiles)) || (!!current.current && !p)}
               send={() => void send()}
               addFiles={added => keepFiles(current.current, [
@@ -1312,6 +1346,14 @@ function App() {
               ])}
               removeFile={key => keepFiles(current.current, files.filter(item => item.key !== key))}
             >
+              {studioAssistant && (
+                <div className="selected-studio">
+                  <span>使用助手 {studioAssistant.name}</span>
+                  <button type="button" className="remove-chip" aria-label="移除当前助手"
+                    onClick={() => setStudioPicker({ project: p?.id || "", assistant: null })}><X size={16} /></button>
+                  {invalidStudio && hasFiles && <small>当前助手无法使用所选附件。</small>}
+                </div>
+              )}
               {pickingExternal && (
                 <ExternalAgentChooser agents={externalAgents} choice={externalChoice} canDelegate={!!generalTier} disabled={busy}
                   setChoice={choice => {
@@ -1333,7 +1375,7 @@ function App() {
               )}
               {!p && !current.current && (
                 <>
-                  {teams && teams.length > 0 && (!canCreate || multipleDestinations) &&
+                  {teams && teams.length > 0 && !studioTeam && (!canCreate || multipleDestinations) &&
                     (!hasPicks || selectedTeamsAvailable) && (
                       <label className="compose-team">
                         项目所属团队

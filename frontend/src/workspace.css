@@ -408,3 +408,4 @@
 .compose-external label { display: grid; gap: .25rem; }
 .compose-external select { max-width: min(100%, 18rem); }
 .compose-external small { flex-basis: 100%; }
+.selected-studio { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; }

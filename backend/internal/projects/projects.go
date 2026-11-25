@@ -372,7 +372,12 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
     left join rule_branch_steps rebuilt on (rebuilt.artifact_id,rebuilt.result_version)=(a.id,v.version) and rebuilt.mode<>'reuse'
     left join reviews e on (e.artifact_id,e.version)=(a.id,a.current_version) where a.project_id=p.id),'[]'),
  'run',(select jsonb_build_object('id',r.id,'status',r.status,'controlRevision',r.control_revision,
- 'general',exists(select from general_agent_runs g where g.run_id=r.id),'canResolveToolChoice',p.owner=$1 or (r.app_id is not null and r.delegated_by is null and p.final_reviewer=$1 and m.can_review),
+ 'general',exists(select from general_agent_runs g where g.run_id=r.id),
+ 'studioAssistant',(select jsonb_build_object('id',s.id,'draft',s.draft_id,'revision',s.revision,'team',s.team_id,'scope',s.agent_scope,
+  'name',s.spec->>'name','purpose',s.spec->>'purpose','capabilities',s.spec->'capabilities','owner',s.owner=$1)
+  from general_agent_runs g join studio_releases s on s.id=g.studio_release
+  where g.run_id=r.id and studio_release_usable(s.id,$1,r.project_id)),
+ 'canResolveToolChoice',p.owner=$1 or (r.app_id is not null and r.delegated_by is null and p.final_reviewer=$1 and m.can_review),
  'receiptRequests',`+SourceReceiptRequestsSQL("$1")+`,
  'indexWaits',`+StepIndexWaitsSQL+`,
  'dispatchWaits',`+StepDispatchWaitsSQL+`,
