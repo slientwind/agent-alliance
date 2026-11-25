@@ -322,6 +322,7 @@ func (b *Bots) refresh(ctx context.Context) {
 	go next.feishu.Notify(run)
 	go next.feishu.ImportAttachments(run)
 	go next.feishu.ReviewMonitor(run)
+	go next.feishu.KnowledgeTaskMonitor(run)
 	go next.slack.Serve(run)
 	go next.ding.Serve(run)
 	go ServeCommentNotices(run, b.DB, next.feishu, next.ding)

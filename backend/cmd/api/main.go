@@ -14,6 +14,7 @@ import (
 	"alliance/internal/identity"
 	"alliance/internal/intake"
 	"alliance/internal/knowledge"
+	"alliance/internal/knowledgeradar"
 	"alliance/internal/knowledgesync"
 	"alliance/internal/llmgateway"
 	"alliance/internal/mailrelay"
@@ -68,6 +69,7 @@ func main() {
 	go (automations.Notifications{DB: c.DB, Feishu: bots.SendAutomationNotice, Email: mail.Send}).Serve(ctx)
 	sandbox.Pool{DB: c.DB}.Routes(mux, s)
 	knowledgesync.Server{DB: c.DB, Vault: c.Vault, Objects: knowledge.ConfiguredObjects(), Inference: knowledge.ConfiguredKBInference()}.Routes(mux, s)
+	knowledgeradar.Server{DB: c.DB}.Routes(mux, s)
 	billing.Server{DB: c.DB}.Routes(mux, s)
 	monitor.Server{DB: c.DB}.Routes(mux, s)
 	monitor.Alerts{DB: c.DB, Vault: c.Vault}.Routes(mux, s)

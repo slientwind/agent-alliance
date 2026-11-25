@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 
 	"alliance/internal/database"
 	"alliance/internal/knowledge"
+	"alliance/internal/knowledgeradar"
 	"alliance/internal/llmgateway"
 	"alliance/internal/policy"
 	"alliance/internal/resources"
@@ -24,8 +26,14 @@ func (a Activities) attachKnowledgeContext(ctx context.Context, ref TurnRef, dat
 		return err
 	}
 	search, err := knowledge.SearchKnowledge(ctx, a.DB, a.KBInference, space, data.actor, data.goal, 6)
-	if err != nil || len(search.Matches) == 0 {
+	if err != nil {
 		return err
+	}
+	if err := knowledgeradar.RecordGap(ctx, a.DB, a.Vault, ref.RunID, data.goal, search); err != nil && ctx.Err() == nil {
+		slog.Warn("knowledge gap could not be recorded")
+	}
+	if len(search.Matches) == 0 {
+		return nil
 	}
 	keys := make([]knowledge.KnowledgeCitationKey, len(search.Matches))
 	for i, hit := range search.Matches {
