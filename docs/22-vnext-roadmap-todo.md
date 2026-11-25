@@ -1,221 +1,163 @@
 # Agent Alliance 代码深度 Review 与 vNext 完整研发 TODO List
 
-审查日期：2026 年 11 月 24 日  
-代码基线：`v0.1.52`（Go 1.26 / Temporal / PostgreSQL 157 Migrations / Python Connectors / React 19 + TS 24,744 LOC）  
+最后更新：2026 年 11 月 25 日（vNext 1.2 企业纵深升级版）
+
+代码基线：`v0.1.52+`（Go 1.26 / Temporal / PostgreSQL / Python Connectors & Retrieval / React 19 + TS）
+
 目标真源：[文档总索引](README.md) · [vNext 产品方案](18-vnext-product-ia.md) · [专项调研增补](19-vnext-research-addendum.md) · [技术架构演进](20-vnext-technical-architecture.md) · [交互视觉规范](21-vnext-uiux-spec.md) · [高保真原型](uiux/vnext-prototype.html)
 
-### 已冻结的工程落地决策（2026-11-24）
-1. **外部 Agent 密钥边界**：所有外部接入 Agent（含第三方与内部自研）独立管理自身模型与凭据，**不向外部签发平台模型 API Key**；平台全局模型网关专供平台内置 Personal Agent、员工自然语言自建 Agent 与规划推理。
-2. **监控质量口径**：采用**双轨制**——轻量个人任务结合隐式正向信号（下载/复制/👍/无负面重试）统计「有效完成率」，多人协作审签任务严格以人工确认交付统计「审核采纳率」。
-3. **实时会话流架构**：改造现有 300ms PG 轮询为**冷热分离架构**（冷事实事务落 PG + 游标断点续传，热流 Token/Thinking/在线态通过抽象 `HotStreamBus` 推送，优先兼容单机与 Docker Compose 扩展）。
-4. **隔离沙箱运行形态**：**在现有 Docker Compose 体系下实现**受控断网隔离容器池（独立 `sandbox-internal: internal: true` 网络、只读输入挂载、硬资源与超时限额），不强依赖 K8s。
-5. **视觉基线**：暖灰白纸面 + 深墨绿强调色（浅/深双主题），布局与交互全面对标 ChatGPT / Claude / Gemini。
+### 已冻结的工程落地决策
+1. **三级空间与公私分离边界**：工作台划分为 `个人空间（默认绝对私密，管理员默认不可读私聊正文）` + `团队空间（共享知识库、业务数据源、口径、母版与协同任务）` + `全企公共底座（自动继承制度与品牌母版）`；员工调岗/离职时严格执行**个人空间隔离封存 + 团队空间资产原子平移**。
+2. **业务系统读写分级与语义层护栏**：连接 ERP / CRM / 电商 / 只读数仓必须经过**受控业务语义视图 + 企业指标口径字典**（禁止模型裸猜物理表名）并透传 **OBO 用户级行权限（RLS）**；只读查询遵循 **L0 直达**，任何写回核心业务系统的操作强制走 **L2 变更预览对比卡 + 人工确认 + 幂等回执对账**。
+3. **外部 Agent 密钥解耦 + DLP 脱敏护栏**：所有外部接入 Agent（第三方商业或内部自研）独立管理自身模型与凭据，**平台绝不向外部签发模型网关 API Key**；跨边界调用外部商业 Agent 时强制经过 **DLP 敏感识别与可逆掩码脱敏护栏**。
+4. **监控双轨质量口径**：轻量个人任务结合隐式正向信号（下载/复制/👍/无负面重试）统计「有效完成率」；多人协作审签与 L2 写回任务严格以人工显式确认统计「审核采纳率」。
+5. **冷热分离流与 Docker Compose 断网沙箱**：实时会话采用冷热分离架构（`HotStreamBus` + PG 冷事实游标）；隔离沙箱在现有 **Docker Compose** 体系内通过 `sandbox-internal: internal: true` 断网运行，并只读挂载官方品牌母版库。
 
 ---
 
-## 零、代码库 Review 总览：高价值资产 vs 8 大真实瓶颈
+## 零、代码库基线总览：已完成底座 vs 企业纵深差距诊断
 
-### 值得坚定复用的工程长板
-- **安全与权限事务极为扎实**：`Vault` AES-GCM 作用域加密（[`resources/model.go`](../backend/internal/resources/model.go#L22-L56)）、实时权限核验与撤权即时失效、不可变发布修订与依赖锁（[`skills/package.go`](../backend/internal/skills/package.go)）、版本乐观锁防并发覆盖（[`projects/feedback.go`](../backend/internal/projects/feedback.go#L48-L73)）。
-- **已具备生产级持久化与观测骨架**：Temporal Workflow 调度、PostgreSQL 幂等调用账本、`telemetry_outbox` + OTLP Protobuf 异步导出（[`telemetry/export.go`](../backend/internal/telemetry/export.go)）、隔离预览容器内网拓扑（[`deploy/application.yaml`](../deploy/application.yaml#L73-L88)）。
+### 已具备的高价值工程底座（Phase 1–4 核心已就位）
+- **通用执行与沙箱安全底座**：已落地通用 `GeneralAgentWorkflow`（`AdvanceTurn` + `ExecuteTool`）、L0–L2 `AutonomyPolicy`、Docker Compose `sandbox-internal` 断网沙箱池、多线程连接器与标准 `mcphub`。
+- **内部网关、热冷流与可观测底座**：已落地 `llmgateway` 6 档位路由与精确微元计价、三级静默预算、`HotStreamBus` 冷热分离 SSE、小时预聚合监控表、双轨有效率信号、多协议外部接入、生态定期扫描与安全静态体检。
 
-### 代码 Review 发现的 8 大核心瓶颈（直接对应后续 TODO）
-1. **Worker 活动碎片化爆炸**：[`cmd/worker/main.go`](../backend/cmd/worker/main.go#L33-L55) 注册了 **23 个特化 Activity**，SQL 迁移已达 **157 个**，每增一个微场景就新写一套表与 Activity。
-2. **模型层能力受限**：[`resources/model.go`](../backend/internal/resources/model.go#L62-L150) 仅支持纯文本 `Role/Content`、无原生 `tool_calls`、无 `reasoning_content`、仅存总 `Tokens`（无 Input/Output/Cache 拆分）、硬编码 `max_tokens: 1800`。
-3. **工具连接器单线程阻塞且无通用沙箱**：[`connectors/server.py`](../connectors/server.py#L137) 使用单线程 `HTTPServer`（任意一个复杂 XLSX/PPTX 任务都会阻塞全公司所有工具调用），且容器挂在默认网络而非断网内网（[`deploy/application.yaml`](../deploy/application.yaml#L61-L72)）。
-4. **SSE 300ms 轮询数据库存在高并发隐患**：[`projects/session_events.go`](../backend/internal/projects/session_events.go#L89-L133) 每个打开的浏览器标签每 300ms 开启一次 `RepeatableRead` 事务并执行多表关联子查询，且流式草稿仅限发起人 `current_run.actor=$2` 可见，无法支持多人协同同屏观看。
-5. **监控维度严重缺失且实时全表扫描**：[`monitor/usage.sql`](../backend/internal/monitor/usage.sql) 仅按 `member` 维度实时聚合，缺失 Agent / 模型 / 趋势 / P50&P95 延迟 / 双轨有效完成率 / 实时队列与告警；[`billing/billing.go`](../backend/internal/billing/billing.go#L81) 每次预占都在行锁事务内对 `spend` 全表 `SUM`。
-6. **外部接入与运维配置硬编码在环境变量**：[`resources/external.go`](../backend/internal/resources/external.go#L59) 仅支持 A2A JSON-RPC 且 `AGENT_ALLOWED_HOSTS`、飞书/钉钉/Slack 凭据、OTEL 端点全靠改 env 重启。
-7. **前端无路由、重弹窗、巨型文件耦合**：[`frontend/package.json`](../frontend/package.json) 无前端路由、无 Markdown 渲染库；[`main.tsx`](../frontend/src/main.tsx)（1421 行）把企业管理/能力库/历史全塞在 `<dialog>` 中，并向普通员工裸露技术勾选框；[`work.tsx`](../frontend/src/work.tsx)（1241 行）含 15s 全局轮询；[`cmd/api/main.go`](../backend/cmd/api/main.go#L69) 无 SPA 路由 fallback。
-8. **协同与 Skill 生态仍停留在重流程/纯手工阶段**：[`projects/feedback.go`](../backend/internal/projects/feedback.go#L40) 限制仅 `stage == "review"` 才能发反馈（非审签期无法行内评论 `@同事`）；[`skills/catalog.go`](../backend/internal/skills/catalog.go#L26-L53) 仅支持管理员手工传 ZIP 到单个团队，无正规上游自动扫描、无许可/安全体检、无员工自主加载/卸载。
+### 面向真实企业生产纵深的 6 大待补短板（对应本轮 Phase 5–6 新增 TODO）
+1. **缺少显式的「个人空间 vs 团队空间」容器模型**：当前仍以扁平项目/团队组织会话，员工私人探索草稿与部门正式共享知识/数据源缺乏清晰工作台隔离与一键升档机制；[`identity/offboarding.go`](../backend/internal/identity/offboarding.go) 尚未区分“个人空间私密封存”与“团队空间共享资产继承”。
+2. **知识库尚停留在单次附件与单篇同步**：[`knowledgesync/providers.go`](../backend/internal/knowledgesync/providers.go) 目前仅支持按单个文档 ID 同步文本（限 256 KiB），缺少文件夹/知识空间级增量树同步、跨页复杂表格结构保真切分、`BM25 + 向量 + Rerank` 三路混合排序、现行/作废版本治理以及**知识缺口/冲突雷达**。
+3. **缺少 ERP / CRM / 电商核心业务系统连接器与业务语义层**：[`connectors/`](../connectors/server.py) 仅处理上传静态 CSV，尚未打通金蝶/用友/SAP、CRM、抖店/千牛/聚水潭与只读数仓语义视图，缺少 OBO 用户行级权限透传与 L2 两阶段幂等写回确认卡。
+4. **缺少统一「企业黑话/指标口径库」与「官方交付母版套版引擎」**：团队规则尚未结构化为检索与查数共用的指标口径词典；沙箱生成 Office 文档尚未原生套用公司官方 `.pptx / .docx / .xlsx` 品牌母版。
+5. **缺少业务系统事件主动唤醒（Webhook Triggers）**：[`automations/`](../backend/internal/automations) 目前仅支持定时 Cron，不支持监听电商差评激增、CRM 新签大单、ERP 安全库存告警等实时业务事件主动唤醒空间 Agent。
+6. **外部调用缺少实体级可逆 DLP 脱敏，模型/知识变更缺少黄金回归体检集**：[`policy/policy.go`](../backend/internal/policy/policy.go) 已支持字段密级门禁，但尚未对正文内嵌的手机号/身份证/底价做自动可逆占位符脱敏；网关切模型或大改知识库前尚无自动化业务准确率回归评测集。
 
 ---
 
-## 一、之前功能未实现 / 未闭环部分（Legacy Gaps）
+## 一、历史基线待办与真实验收闭环项（Legacy & Real-Env Verification）
 
-对照 [11-technical-blueprint.md](archive/11-technical-blueprint.md#platform-implementation-baseline) 与 [15-rebuild.md](archive/15-rebuild.md)，以下记录历史基线的待办及当前完成情况。
+### 1.1 通用执行内核与记忆底座（已完成）
+- [x] **通用多动作有界 Loop**：通用执行有回合和工具次数上限，保留工具调用及结果的配对，使用统一停滞判定。
+- [x] **可重建语义摘要与派生依赖自动清理（EA03）**：长对话生成加密摘要并成对保留工具调用和结果；偏好或资料撤权后自动重建。
+- [x] **组合回退与嵌套子 Agent 跨团队撤权演练（EA04）**：普通对话支持固定版本三层委派、中途撤权阻断与备用分支切换。
+- [x] **通用消息归并与多事项跟踪（EA09）**、**基础跨项目离职交接**、**统一安全策略执行点（EA10）**。
 
-### 1.1 通用执行内核与记忆欠账（EA01–EA04）
-- [x] **通用多动作有界 Loop**：通用执行有回合和工具次数上限，保留工具调用及结果的配对，使用统一停滞判定。模型可按任务授权动态选择外部 Agent，并在连接器失败后修正参数或改用获准工具。
-- [x] **可重建语义摘要与派生依赖自动清理（EA03）**：长对话可生成加密摘要并成对保留工具调用和结果。偏好或资料撤权后使旧摘要失效，后台根据仍有权读取的内容重建。
-- [x] **组合回退与嵌套子 Agent 跨团队撤权演练（EA04）**：普通对话支持固定版本的三层文本 Agent 委派和指定备用 Agent。使用真实 PostgreSQL 与本地模型替身验证了中途撤权、失效结果阻断、调用记录保留和获准备用分支。
-
-### 1.2 真实供应商、渠道与端到端实测欠账（EA05–EA10）
-- [ ] **真实多供应商模型质量与计费校验**：当前绝大多数验收使用本地模型替身或合成数据，尚未对百炼、火山方舟、DeepSeek、OpenAI/Anthropic 的真实工具调用稳定性、视觉识图、生图/局部修图异步取图及真实账单精度完成端到端实测。
-- [ ] **真实企业 IM 租户全链路验收（EA07）**：Slack 与钉钉目前仅有本地协议走查，飞书的真实企业租户原生附件拉取、主动推送送达回执、跨端幂等审批与撤权隐藏仍待真实环境验收。
-- [x] **通用消息归并与多事项跟踪（EA09）**：批量消息经通用 Loop 提取多意图并保留逐条原文依据，支持人工消歧、幂等归单以及按授权资料和事项版本局部续跑。
-- [x] **跨项目批量离职交接**：员工离职时可批量移交待审成果、未结待办、Agent、助手草稿和定时任务。授权检查与交接在同一事务完成。
-- [x] **统一安全策略执行点（EA10）**：模型、通用工具、MCP、外部 Agent、公开搜索和评论通知采用可审计的 `Policy.Decide`，执行时复核授权与数据范围。
+### 1.2 真实外部供应商与企业租户验收项
+- [ ] **真实多供应商模型质量与计费校验**：对百炼、火山方舟、DeepSeek、OpenAI/Anthropic 的真实工具调用稳定性、视觉识图、生图异步取图及真实账单精度完成生产环境实测对齐。
+- [ ] **真实企业 IM 租户全链路验收（EA07）**：在真实飞书、钉钉与企微/Slack 企业租户下完成原生附件拉取、主动推送回执、L2 系统写回跨端幂等审批与撤权隐藏实测。
 
 ---
 
-## 二、本次 vNext 新增核心功能 TODO List
+## 二、vNext Phase 1–4 核心模块完成追踪（Personal Agent 与协同/生态底座）
 
 ### 模块 A：通用 Agent Loop + Docker Compose 隔离沙箱 + MCP 工具层
-- [x] **通用执行引擎（Go Worker）**
-  - [x] 实现统一 `GeneralAgentWorkflow` 与两类核心 Activity：`AdvanceTurn`（装配上下文 + 调模型网关 + Harness 纯决策）与 `ExecuteTool`（策略门禁 + 派发 + 观察落账）。
-  - [x] 实现 **L0 / L1 / L2 自主策略评估器（`AutonomyPolicy`）**，根据工具注册风险、当前权限、费用和额度决定直接执行、确认、审核或拒绝。
-  - [x] 将 L1 自主策略接入通用执行器，为付费 MCP 查询提供内联确认卡和持久化续跑。
-  - [x] 实现通用停滞检测（比较工具名 + 规范化参数 + 来源版本 + 未决对象）与安全上下文压缩（保留 System、最新用户纠偏、未闭合 Tool Pair、来源引用）。
-- [x] **Docker Compose 隔离容器沙箱池（Workspace Sandbox）**
-  - [x] 在现有 `deploy/application.yaml` 下新增 `sandbox` 服务镜像与独立断网内部网络 `sandbox-internal`（`internal: true`），预装 Python 3.12、`pandas`、`openpyxl`、`python-docx`、`python-pptx`、`pypdf`、`matplotlib`、`pillow`、`duckdb` 及中文字体包。
-  - [x] 实现按任务隔离目录挂载与执行限额：`/workspace/inputs:ro`、`/workspace/outputs:rw`、只读根文件系统、`cap_drop: [ALL]`、`no-new-privileges:true`、CPU/RAM/PID/60s 超时硬限、零凭据注入。
-  - [x] 实现产物自动回收：扫描 `/workspace/outputs` 哈希登记为受控 Artifact 版本，并自动触发 `preview` 生成可预览视图。
-- [x] **标准 MCP Client Hub**
-  - [x] 实现 Go MCP Client（`Streamable HTTP` 与旧版 `SSE`），支持 `tools/list`、转为模型工具 Schema、Vault 凭据代注入，以及只读 L0 与写入 L2 标注。管理员可维护目录并探测服务。
-  - [x] 将企业目录中已授权的只读 MCP 工具按团队注入通用 Agent，执行前校验授权及工具版本。
-  - [x] 将获授权的写入 MCP 工具接入通用 Agent，并接通 L2 工具的人工审核。
-- [x] **后台与定时委托（`/automations`）**
-  - [x] 基于 Temporal Schedule 实现周期/定时任务管理（CRUD、启停、时区、数据游标、防重入）。
-  - [x] 分别记录任务运行状态与飞书通知回执，支持单独补发通知。
-  - [x] 接入邮件通知投递回执并支持单独补发。
+- [x] 统一 `GeneralAgentWorkflow`（`AdvanceTurn` + `ExecuteTool`）、`AutonomyPolicy`（L0/L1/L2）、停滞检测与上下文压缩。
+- [x] Docker Compose `sandbox-internal`（`internal: true`）断网隔离容器池、只读挂载、硬资源限额与产物自动回收预览。
+- [x] 标准 MCP Client Hub（`Streamable HTTP` / `SSE`、Vault 凭据代注入、只读 L0 与写入 L2 门禁）。
+- [x] 基于 Temporal Schedule 的周期后台定时委托（含飞书与邮件通知回执独立记账及补发）。
 
-### 模块 B：全局模型网关（Model Gateway）与服务资源中心（Service Hub）
-- [x] **全局模型资源池与 6 档位路由（仅服务平台内部，不对外发 Key）**
-  - [x] 新增数据表：`model_providers`、`model_catalog`（含生效版本化 `input / output / cached / per_image` 微元单价）、`model_tier_routes`（`default / fast / reasoning / vision / image / embedding` 主备映射与权重）。
-  - [x] 实现 `internal/llmgateway` 模型协议适配，统一接入阿里百炼、火山方舟、DeepSeek、OpenAI、Anthropic、Gemini 和本地 vLLM/Ollama 的对话接口。
-  - [x] 实现全局模型网关熔断、自动主备 Fallback（3s 内无感切换）和 RPM/TPM 限流。
-  - [x] 实现精确 Token 计价引擎与企业、团队、员工三级月度预算账本，支持幂等预占与结算、硬上限判断，并登记 80%/100% 告警事件。
-  - [x] 将三级月度预算接入 L0 模型请求，实现静默扣减，并将额度告警推送给管理员。
-  - [x] 新增管理员接口：`/api/admin/models/tiers`、`/api/admin/models/providers`（含连通探测与影响面预览）、`/api/admin/models/pricing`。
-- [x] **企业服务资源中心（`/admin/integrations`）**
-  - [x] 在企业服务资源中心提供联网搜索配置与健康检测，支持博查与 Tavily。
-  - [x] 在同一中心接入 Docker Compose 沙箱池配额、企业知识源连接器（飞书/钉钉文档/Confluence 同步状态）、企业 MCP Server 目录、IM 渠道机器人配置（数据库加密托管替代 env）。
-  - [x] 新增 **UI 动态出站域名白名单表 `outbound_host_allowlist`** 及管理接口，并增加 SSRF 防护（解析目标 DNS/IP，默认阻断内网与云元数据网段，仅允许管理员显式标记的受信任内网自研网段）。
-
-### 模块 C：外部 Agent 多协议/框架模板接入（Adapter Hub）
-- [x] **多协议适配器与一键模板**
-  - [x] 扩展外部适配层支持 `openai_compat`，提供 Dify、Coze、FastGPT、LangGraph 的预置字段和 SSE 接收，复用既有 `a2a_jsonrpc`。
-  - [x] 接入 `async_webhook`，支持配置 Submit/Poll/Cancel 和 JSONPath 提取，兼容 Manus 等商业 Agent。
-  - [x] 每次外部请求统一注入标准追踪头：`X-Alliance-Run-Id`、`X-Alliance-Turn-Id`、`X-Alliance-User-Id`、`traceparent`。
-  - [x] 实现**可选用量与 Trace 回传解析器**：优先解析标准 `usage` 或响应头 `X-Alliance-Usage` / `X-Alliance-Trace-Url`；未上报明确记为 `cost_disclosure = 'undisclosed'`。
-- [x] **两档准入与双调用形态**
-  - [x] 实现状态机：`draft → beta`（发一条测试消息通过即刻给本人/测试组使用）→ `pending_verify → verified`（管理员审批全企上架）。
-  - [x] 支持员工在对话中 `@外部Agent` 直连，以及由 Personal Agent 在通用 Loop 中按授权作为 Sub-Agent 自动委派。
-
-### 模块 D：面向非研发的自然语言 Agent 构建器（Conversational Studio）
-- [x] **左聊右测 Meta-Agent 后端引擎**
-  - [x] 实现构建对话接口 `/api/studio/{id}/chat`：Meta-Agent 根据业务大白话 + 可选 **1–3 份标杆文件**（仅提炼大纲/列结构/排版规范，自动剥离原始敏感业务数据）输出结构化 `AgentSpec JSON Patch`。
-  - [x] 实现**「指哪改哪」增量微调接口**：接收试聊结果中被选中的输出片段与纠偏意见，生成带可视化前后对比的指令 Diff。
-  - [x] 实现**「从成功对话一键沉淀」接口**：自动提取复用步骤与能力开关，剥离私有附件与当次上下文生成草稿。
-  - [x] 实现业务意图化能力开关映射（`企业知识库 / 表格文档沙箱 / 识图生图 / 联网搜索 / 已授权外部 Agent`），隐藏底层工具协议与单体/编排前置分叉。
-- [x] **三层发布权限与作用域**
-  - [x] 新增 `agent_scope`（`personal / team / enterprise`）：`personal` **免审批保存即用**（绑定本人与主团队额度）；`team` 需 1 次样例自测通过并冻结版本；`enterprise` 冻结不可变依赖清单进入 `/admin/releases` 审批队列。
-
-### 模块 E：团队多人协同工作台（企业核心特色）
-- [x] **单人对话一键升档团队协同任务**
-  - [x] 扩展 `task_participants`（兼容现有 `project_members`），支持在任意对话顶部一键拉入同事并指定业务分工角色（`owner` 发起人、`contributor` 资料补件人、`reviewer` 内容审核人、`approver` 最终确认人），支持随时移出并即时撤权。
-- [x] **实时在线态与多人同屏协同**
-  - [x] 基于冷热分离热流通道支持同任务多成员在线头像栈（`presence.joined/left`）及 AI 流式草稿/产物更新向全部有权协作成员实时广播。
-- [x] **Canvas 行内锚点评论与 `@同事 / @Agent` 派单**
-  - [x] 新增 `artifact_comments` 表与接口（解除当前仅 `stage == "review"` 才能评论的限制），支持锚定到表格行、文档段落或 PPT 页码，记录解决状态。
-  - [x] 评论内 `@同事` 自动写入「待办与审核」并推送飞书/钉钉通知卡片；`@Agent` 直接触发针对该锚点的局部改稿与局部重跑。
-  - [x] 保留并接入乐观版本锁（`expected_version`），多人并发修订/审核时给出清晰版本对比防止覆盖。
-
-### 模块 F：Skill 与 Agent 生态发现市场（定期扫描正规渠道 + 自主加载）
-- [x] **基于 Temporal Schedule 的正规渠道自动扫描引擎**
-  - [x] 新增数据表：`ecosystem_sources`（扫描源与 Cron）、`ecosystem_catalog`（发现池）、`enterprise_approved_packages`（企业准入冻结库）、`user_skill_bindings`（用户自主加载关联表）。
-  - [x] 实现 `EcosystemScanWorkflow` 定时拉取正规渠道元数据：官方 MCP Registry、Anthropic/主流 `SKILL.md` 官方仓库、A2A Verified Directory、企业内网私有 Git 仓库；支持管理员一键「立即扫描同步」。
-- [x] **自动化合规与安全静态体检流水线**
-  - [x] 扫描入库前在隔离环境解析清单，自动生成：**开源许可证分类**（MIT/Apache-2.0 绿标 vs 商业附加条款琥珀预警）、**维护活跃度**、**安全扫描摘要**（检测路径穿越、越权外联、高危 Shell 命令、明文密钥索取）。
-- [x] **三态加载流转与安全隔离**
-  - [x] **企业准入固化**：管理员批准后将指定版本 Skill 包按 **SHA-256 哈希**缓存至私有对象卷 `/data/objects/skills/`（离线可用、不随公网变动），外部 Agent 条目引导完成域名白名单核验。
-  - [x] **员工自主选择加载**：对已准入项，员工在市场一键「加载到我的助手 / 卸载」，实时注入个人助手与 Studio 能力清单；对新发现未准入项，一键「申请管理员准入」流转至 `/admin/releases`。
-  - [x] **版本升级提醒**：扫描器发现上游新版时仅生成「有新版可用 + 差异摘要」通知管理员，绝不静默覆盖在用冻结版本。
-
-### 模块 G：企业级监控大盘（Observability & 双轨口径）
-- [x] **隐式正向信号埋点（轻量任务有效完成率）**
-  - [x] 新增 `POST /api/telemetry/signals` 与 `run_quality_signals` 表，记录 `artifact_downloaded`、`reply_copied`、`feedback_thumbs_up/down`、`reply_regenerated`、`user_cancelled_midway`。
-  - [x] 实现双轨聚合口径计算：**轻量有效完成率**（隐式正向信号 + 无负面重试）与 **协作审签采纳率**（人工审核交付）分列输出。
-- [x] **小时/天预聚合监控表与大盘 API**
-  - [x] 新增 Worker 定时聚合任务（每 5 分钟 Rollup）写入 `monitor_agent_hourly_stats` 与 `monitor_model_hourly_stats`（按 `team / agent / source_type / model / tier` 多维统计调用量、成功率、双轨有效率、P50/P95 延迟、Input/Output/Cache Token、精确费用、外部未披露次数）。
-  - [x] 新增全屏监控大盘接口：KPI 总览、四阶质量漏斗、双趋势图、**Agent 运行效能榜单（支持排序下钻）**、实时运行/阻塞队列接口、以及按权限裁剪的 **Trace 瀑布流详情接口**（`Run → Turn → LLM/Tool/Sandbox/External Span`）。
-- [x] **主动告警推送引擎**
-  - [x] 新增 `alert_rules` 与巡检任务（外部 Agent 连续超时/失败、模型档位触发 Fallback 降级、部门日消耗突增、预算达 80%/100%），通过飞书/钉钉 Webhook 自动推送并支持静默去重。
+### 模块 B–G：模型网关、外部接入、对话式构建器、团队协同、生态扫描市场与监控大盘
+- [x] **全局模型网关与服务资源中心**：6 档位路由、3s 自动 Fallback、精确微元单价表、三级月度静默预算、联网搜索配置与动态域名白名单 + SSRF 防护。
+- [x] **外部 Agent 多协议适配（Adapter Hub）**：`openai_compat`（Dify/Coze/FastGPT/LangGraph）、`a2a_jsonrpc`、`async_webhook`、追踪头注入、可选用量回传解析与 `Beta → Verified` 准入。
+- [x] **左聊右测对话式构建器（Studio）**：标杆文件反推规范、指哪改哪增量 Diff、从满意对话一键沉淀、`personal（零审批）/ team / enterprise` 三层发布。
+- [x] **团队多人协同工作台**：任务级拉人角色分工、多人热流在线头像栈、Canvas 行内锚点评论与 `@同事 / @Agent` 派单、乐观版本锁。
+- [x] **Skill & Agent 生态定期扫描市场**：`EcosystemScanWorkflow` 正规源定时同步、开源许可与安全静态体检、SHA-256 私有库固化、员工自主一键加载与新版提醒。
+- [x] **企业级预聚合监控大盘**：隐式正向信号埋点、双轨达成率计算、5 分钟增量小时预聚合宽表、Agent 效能榜单、OTel Trace 瀑布流与主动飞书告警。
 
 ---
 
-## 三、现有代码需要重点修改 / 重构的部分
+## 二（续）、vNext 1.2 新增企业纵深能力 TODO List（Phase 5–6 重点建设）
 
-### 3.1 后端代码重构清单
-- [x] **[`backend/cmd/api/main.go`](../backend/cmd/api/main.go)**
-  - [x] Line 69：`http.FileServer` 增加 **SPA History Fallback**（非 `/api/` 且非静态资源路径返回 `index.html`），支撑前端 `/chat/:id`、`/agents`、`/admin/monitor` 等独立路由刷新不 404。
-  - [x] 注册新路由组：`llmgateway`、`studio`、`ecosystem`、`automations`、协同评论与隐式信号埋点；按上传接口分级放宽 `MaxBytesReader`（如标杆/附件上传支持 25 MiB）。
-- [x] **[`backend/cmd/worker/main.go`](../backend/cmd/worker/main.go)**
-  - [x] 冻结现有 23 个历史特化 Activity（仅做旧运行兼容恢复，不再新增单场景 Activity），新流量统一走通用 `GeneralAgentWorkflow` + `AdvanceTurn` + `ExecuteTool`。
-  - [x] 挂载定时任务调度：`EcosystemScanWorkflow`、监控 5 分钟预聚合 Rollup、主动告警巡检、Temporal Schedule 后台委托。
-- [x] **[`backend/internal/resources/model.go`](../backend/internal/resources/model.go)** & **[`catalog.go`](../backend/internal/resources/catalog.go)**
-  - [x] 重构 `Message` / `Reply` 支持原生 `tools`、`tool_calls`、`tool_call_id`、`reasoning_content` 及 `PromptTokens / CompletionTokens / CachedTokens` 细项；移除硬编码 `max_tokens: 1800`。
-  - [x] 解耦模型资源与单一 `team_id` 的强绑定，升级为全局资源池 + 6 档位路由映射；保留兼容旧已发布修订的平滑读取。
-- [x] **[`backend/internal/resources/external.go`](../backend/internal/resources/external.go)**
-  - [x] 改造 `PermittedAgentEndpoint`：从 `os.Getenv("AGENT_ALLOWED_HOSTS")` 迁移至 DB 白名单表 + DNS/IP SSRF 校验。
-  - [x] 抽象多协议适配接口，拆分 A2A 实现并接入 OpenAI-Compatible / Dify / Coze / LangGraph / Webhook 适配及可选用量回传头解析。
-- [x] **[`backend/internal/projects/session_events.go`](../backend/internal/projects/session_events.go)**
-  - [x] 会话 SSE 由 PostgreSQL 提交通知唤醒并补读持久事件游标，闲置连接只做低频心跳与授权复核。
-  - [x] 抽象 `HotStreamBus` 承载高频 Token Delta、思考进度、Presence 和实时评论，支持单机进程内与可选 Redis Streams，并移除旧草稿通道的高频数据库访问。
-  - [x] 修改 `current_run.actor=$2` 限制：允许同任务所有获授权协作成员实时观看流式进展与产物更新。
-- [x] **[`backend/internal/projects/feedback.go`](../backend/internal/projects/feedback.go)**
-  - [x] 解绑“仅 `stage == review` 才允许评论”的硬限制，区分轻量行内协同评论（全阶段可用）与正式版本审签意见（审签阶段绑定不可变版本）。
-- [x] **[`backend/internal/skills/catalog.go`](../backend/internal/skills/catalog.go)** & **[`package.go`](../backend/internal/skills/package.go)**
-  - [x] 在保留 ZIP/SHA-256/防路径穿越校验的基础上，扩展企业级共享作用域（不限于单团队）、上游来源元数据、许可证/安全扫描报告字段及按用户加载绑定查询。
-- [x] **[`backend/internal/billing/billing.go`](../backend/internal/billing/billing.go)**
-  - [x] 增加增量余额与已用汇总，替代 `Reserve` 在行锁内对 `spend` 做整表聚合。
-  - [x] L0 个人任务在有效额度内自动静默放行，去除繁琐的前置费用确认。
-- [x] **[`backend/internal/monitor/usage.sql`](../backend/internal/monitor/usage.sql)** & **[`monitor.go`](../backend/internal/monitor/monitor.go)**
-  - [x] 将实时全表查询切换至小时预聚合表，并补全按 Agent、模型、来源、时间趋势、双轨有效率与 P50/P95 延迟的接口返回。
-- [x] **[`connectors/server.py`](../connectors/server.py)**
-  - [x] 将单线程 `HTTPServer` 改为 `ThreadingHTTPServer`，避免单个工具请求阻塞其他请求。
-  - [x] 将现有高确定性财务汇总/Office 能力作为 Trusted Tool 注册到通用 Loop 中。
+### 模块 H：三级空间管理与公私分离岗位交接（Personal / Team / Commons Spaces）
+- [ ] **三级空间数据模型与权限隔离**
+  - [x] 新增数据库迁移与 `internal/spaces` 模块：创建 `spaces(id, kind: personal|team|commons, owner_member_id, team_id, name, custom_instructions, default_template_id)` 与 `space_members(space_id, member_id, role: space_admin|member|guest)`。
+  - [ ] 为每位在职成员自动初始化唯一私密 `personal` 空间，初始化全企唯一 `commons` 公共空间；在 API 与存储层强制执行**个人空间绝对私密校验**（企业管理员常规管理与监控接口默认不可读取个人空间私聊正文与私有知识夹原件）。
+- [ ] **空间上下文自动装配与跨空间流转**
+  - [ ] 改造 `AdvanceTurn` 上下文构建器：按会话所属 `space_id` 自动分层合并 `当前任务短期集 → 当前空间（知识库 + 业务数据视图 + 术语口径 + 空间指令 + 默认母版）→ 全企公共底座`。
+  - [ ] 实现**「个人空间一键发布/移交至团队空间」**接口（`POST /api/spaces/{id}/promote`），仅拷贝选定成果版本或 Agent 配置至目标团队空间，自动剥离其余私人聊天记录。
+- [ ] **调岗/离职公私分离无感交接（升级 [`identity/offboarding.go`](../backend/internal/identity/offboarding.go)）**
+  - [ ] 扩展交接预览与事务逻辑：支持「部门调岗（移出单个团队空间）」与「员工离职（全局停用）」两种模式。
+  - [ ] 在同一串行化事务内执行**公私分流**：个人空间会话与私夹自动置为 `sealed_private` 并吊销 OBO 个人令牌；各团队空间名下的共享知识库维护权、业务连接器绑定、事件触发器、定时委托、团队 Agent 与未结审签单原子平移给空间内继任者。
 
-### 3.2 前端代码重构清单（对齐 [vnext-prototype.html](uiux/vnext-prototype.html)）
-- [x] **引入核心基础依赖（[`frontend/package.json`](../frontend/package.json)）**
-  - [x] 引入前端路由（`react-router-dom`）、Markdown + GFM 表格 + 代码高亮渲染器（如 `react-markdown` + `remark-gfm`）、统一 SVG/轻量图表组件。
-- [x] **视觉设计系统重写（[`frontend/src/style.css`](../frontend/src/style.css)）**
-  - [x] 全面替换为 [21-vnext-uiux-spec.md](21-vnext-uiux-spec.md) 的 **暖灰白纸面 + 深墨绿强调色 Design Tokens**，支持 `data-theme="light|dark"` 一键切换与持久化。
-  - [x] 统一全站 Lucide 线性图标（`16/18/20px`，`stroke-width: 1.65`）与 `tabular-nums` 等宽数字，淘汰黑白灰菱形/圆点编码。
-- [x] **拆除巨型单文件与 `<dialog>` 弹窗后台（[`main.tsx`](../frontend/src/main.tsx) · [`work.tsx`](../frontend/src/work.tsx) · [`enterprise-workspace.tsx`](../frontend/src/enterprise-workspace.tsx)）**
-  - [x] 移除 `Overlay` `<dialog>` 承载重型页面的架构，采用常驻可折叠左侧栏（`248px / 56px`）与独立工作区路由：`/chat`、`/chat/:id`、`/agents`、`/automations`、`/inbox`、`/admin/*`。
-  - [x] 将生态发现市场接入 `/agents`，将构建器与连接向导分别挂载到 `/agents/studio/:id` 与 `/agents/connect`。
-  - [x] 移除普通员工输入区的技术复选框与团队强制弹窗，使用圆角 Composer、`+` 附件、`@` Agent 入口及行内团队选择。已发布的协作方案仍可设置检索与计算步骤。
-  - [x] 在 Composer 接入通用、快速与深度思考档位。可用时从普通对话直接启动通用执行，附件按版本传入。
-  - [x] 在 Composer 接入联网开关及企业搜索服务。
-  - [x] 实现全局 `⌘K` 命令面板、`⌘\` 侧栏折叠、`⌘N` 新对话快捷键。
-- [x] **落地 6 大核心页面组件**
-  - [x] **主对话与动态分栏 Canvas**：按需打开右侧成果面板，支持版本切换、修订、定位评论及解决状态，并提供顶部协作分工入口。
-  - [x] 主对话展示可折叠的思考与工具时间线、在线头像栈，并接入成果评论的 `@同事 / @Agent` 派单。
-  - [x] 回复底部提供复制、重试、👍👎 隐式信号、存为 Agent 与设为定时。
-  - [x] **Agent 与 Skill 市场**：企业能力目录 + 生态发现市场（定期扫描状态条、来源/许可/安全体检标签、一键加载/卸载、申请管理员准入）。
-  - [x] **左聊右测对话式构建器**：左侧对话构建 + 标杆样例拖拽 + 意图开关 + 配置清单 Tab；右侧实时试聊 + 指哪改哪 Diff；吸底三档发布条（个人私有免审批 / 团队共享 / 全企上架）。
-  - [x] **外部 Agent 3 步向导**：6 协议/框架模板卡片 → 连接鉴权与可选回传配置 → 即时发消息秒测上线 Beta。
-  - [x] **独立全屏 `/admin/*` 后台**：管理员专属二级侧栏；监控大盘（筛选联动、KPI、双轨有效率、四阶漏斗、双趋势图、Agent 榜单、Trace 瀑布流抽屉、实时队列与告警）；全局模型网关（6 档位主备切换卡片 + 精准单价表）；服务与生态扫描源管理（含立即扫描 + 动态白名单）；统一审批队列（全企上架 / 外部认证 / 生态加载准入）。
-  - [x] 清除 [`work.tsx:122`](../frontend/src/work.tsx#L122) 的 15 秒 `setInterval` 轮询，统一由冷热分离 SSE 驱动局部更新。
+### 模块 I：企业知识库、权限感知混合检索与知识缺口雷达（Enterprise KB & Hybrid RAG）
+- [ ] **多源目录级增量同步（升级 [`backend/internal/knowledgesync/`](../backend/internal/knowledgesync/providers.go)）**
+  - [ ] 新增 `kb_collections` 与 `kb_documents`，将同步粒度从单文档 ID 扩展至**飞书知识库空间/云盘文件夹、钉钉文档库、企微文档、Confluence Space、SharePoint/S3 目录树**的递归增量同步（按 `revision/etag` 仅重算变更文档，放宽 256 KiB 限制至长文档分块流式摄入）。
+  - [ ] 增加文档生命周期与权威度字段：`doc_status`（`active 现行有效 / archived 历史归档 / deprecated 已作废`）、生效起止日期与源系统 ACL 主体映射。
+- [ ] **版面/表格保真切分与三路混合重排（升级 [`retrieval/server.py`](../retrieval/server.py) & [`knowledge/`](../backend/internal/knowledge/retrieval.go)）**
+  - [ ] 升级文档解析与切块器：保留多级章节标题面包屑（Breadcrumb），对 PDF 跨页表格与多 Sheet Excel 保持完整表头与行关联结构不切碎，扫描件 PDF 自动启用 OCR 识别。
+  - [ ] 实现 **`BM25 精确全文检索 + pgvector BGE-M3 向量检索 + Cross-Encoder Rerank`** 混合管线，自动叠加工效期权重并压制 `deprecated` 旧制度。
+  - [ ] 落地**双阶段实时 ACL 复核与页码级溯源**：SQL 召回层过滤空间与文档 ACL，送入模型前二次核验未撤权/未作废；返回精确页码/表格行锚点 `citation_anchor` 供前端点击高亮原文。
+  - [ ] 实现**「审签成果一键归档入知识库」**接口，支持将团队空间终审通过的正式成果直接沉淀为有效知识文档。
+- [ ] **知识缺口与制度冲突雷达（Knowledge Gap & Conflict Radar）**
+  - [ ] 新增 `kb_gap_events` 与后台定时聚类任务：自动捕获检索低置信度/无依据提问，剥离人名/单号等隐私后聚类生成 `kb_gap_clusters`，支持空间管理员一键指派责任人补齐 SOP 并同步飞书待办。
+  - [ ] 新增跨文档冲突巡检任务：自动检测同一空间现行有效文档间对同一指标/金额标准的前后矛盾表述，生成 `kb_conflict_alerts` 预警。
 
----
+### 模块 J：ERP / CRM / 电商核心业务系统打通与受控语义层（Business System Hub）
+- [ ] **业务系统连接器框架与四大驱动（新增 `internal/bizconnectors` & 扩展 `connectors/`）**
+  - [ ] 新增 `business_connectors` 表与统一连接器协议，首批内置：
+    1. **核心套件连接器包**：金蝶云星空 / 用友 BIP（库存批次、采购申请、供应商）、纷享销客 / Salesforce / 飞书客户（商机、客户回款）、抖店 / 千牛 / 聚水潭（实时订单、SKU 净退货率、差评流、售后工单）；
+    2. **受控只读 SQL / 数仓连接器**：支持 MySQL、PostgreSQL、ClickHouse、StarRocks 只读账号，内置 SQL AST 语法校验器（强制只允许 `SELECT`、自动注入行数上限与 5 秒查询超时、阻断系统元数据探测）；
+    3. **OpenAPI / Swagger 3.0 导入向导**：解析内部自研老系统接口文档自动生成受控工具定义；
+    4. **内网受控只读浏览器表格采集兜底**。
+- [ ] **受控业务语义视图层（Semantic Layer）**
+  - [ ] 新增 `semantic_data_views`：封装核定好的业务维度、统计指标公式与关联关系，向通用 Agent 暴露业务语义视图而非底层裸表；每次取数自动生成结构化 **`QueryProvenance`（数据源、语义视图、时间范围、权限过滤说明、指标公式）**。
+- [ ] **OBO 用户级行权限（RLS）与 L2 两阶段幂等写回对账**
+  - [ ] 实现员工级 OAuth2 On-Behalf-Of 令牌加密托管与 `employee_no / dept_id` 行级过滤谓词硬注入（模型参数不可覆盖），确保跨人查询零越权。
+  - [ ] 新增 `pending_system_mutations` 表与 L2 写回执行器：任何写回 ERP/CRM/电商的操作必须先生成「原状态 → 拟变更值」预览确认卡挂起 Workflow，经人工在网页或飞书确认后携带唯一 `idempotency_key` 执行写回，持久化下游正式业务单号 `external_receipt_no` 并支持超时自动对账防重单。
 
-## 四、其他可优化的工程、安全、性能与体验事项
+### 模块 K：企业黑话口径词典与官方品牌交付母版库（Glossary & Brand Kit）
+- [ ] **企业术语黑话与统一指标口径中心**
+  - [ ] 新增 `enterprise_glossary` 表与管理 API（区分全企公共底座与团队空间作用域），支持同义词/内部代号映射与标准财务/运营指标公式定义，支持从聊天纠偏一键沉淀。
+  - [ ] 打通双路自动注入：检索知识库前自动做同义词查询扩展，调用业务数据语义视图时自动注入核定指标公式。
+- [ ] **官方品牌交付母版与沙箱原生套版引擎**
+  - [ ] 新增 `corporate_templates` 表（支持上传 `.pptx` 品牌演示母版、`.docx` 红头合同/公文模板、`.xlsx` 标准核价/周报公式样表并设置空间默认母版）。
+  - [ ] 升级 `internal/sandbox` 与沙箱 Python 渲染套件：运行期只读挂载 `/workspace/templates:ro`，基于母版 Slide Layouts / Word Styles / Excel 公式区原生填充生成合规交付件。
 
-### 4.1 安全加固
-- [x] **Docker Compose 沙箱零信任网络隔离（[`deploy/application.yaml`](../deploy/application.yaml)）**：新增独立 `sandbox-internal`（`internal: true`）网络隔离 `sandbox` 与 `tools` 容器，阻断 Prompt Injection 诱导脚本外发企业文件。
-- [x] **生态 Skill 供应链安全防线**：扫描器在独立低权限容器中解析仓库，限制 ZIP 解压炸弹、禁止符号链接、对可疑外链/命令自动阻断并强制人工复核。
-- [x] **密钥轮换与零明文日志审计**：核查所有新增适配器（LLM Gateway、MCP、外部 Agent、生态 Git 私库）均统一复用 `Vault` 作用域加密，增加自动脱敏中间件防止 HTTP Error / Trace 泄露 Header 密钥。
+### 模块 L：业务事件驱动唤醒网关（Business Event Webhook Triggers）
+- [ ] **Webhook 接入、验签与防风暴网关**
+  - [ ] 新增 `event_triggers` 表与公开回调端点 `POST /api/webhooks/events/{token}`：支持各业务系统 HMAC 签名校验、CEL 表达式过滤、幂等事件键去重与冷却时间窗聚合（防止异常高峰连环刷屏）。
+- [ ] **空间 Agent 主动唤醒与飞书拍板闭环**
+  - [ ] 事件命中后通过 Temporal 自动在目标团队空间拉起 `GeneralAgentWorkflow`，联查知识库 SOP 与关联系统详情，产出预警复盘草稿及可选 L2 系统写回预览卡，主动推送飞书/钉钉交互卡片供负责人一键拍板。
 
-### 4.2 性能与可维护性
-- [x] **数据库迁移治理（157 → 基线归档压缩）**：在 vNext 大版本节点对历史 157 个迁移文件做基线合并（保留旧实例增量升级脚本），显著提升 CI 测试库冷启动速度。
-- [x] **前端代码分割与懒加载**：`/admin/*` 图表大盘、`pdfjs-dist` 预览器、Studio 构建器按路由懒加载，控制首屏 JS 包体。
-- [x] **OTel 指标与 Trace 深化**：在 [`telemetry/export.go`](../backend/internal/telemetry/export.go) 中补齐 `gen_ai.*` 标准语义属性（模型名、Input/Output/Cached Token、耗时拆解、用户反馈 Score），便于无缝对接 Langfuse / Grafana Tempo。
-
-### 4.3 产品体验与部署运维
-- [x] **前台文案全面降噪排查**：对照 [18-vnext-product-ia.md 第 5 节](18-vnext-product-ia.md) 清理后端错误提示（`web.Fail`）与前端文案中的工程术语（如“调用意图”“控制修订”“发布代次”）。
-- [x] **初始化引导（Onboarding）升级**：首次部署启动后，管理员引导一步完成「接入首个模型供应商 → 自动映射到 6 档位 → 选择启用的正规生态扫描源 → 邀请团队成员」，10 分钟开箱即用。
-- [ ] **开展 5–8 名非技术员工无引导可用性走查**：在独立验收阶段，用 [vnext-prototype.html](uiux/vnext-prototype.html) 和现有工作台实测 [UT-01 ~ UT-07](19-vnext-research-addendum.md#42-七个核心走查任务与观测红线)，记录真实卡点后安排交互调整。
+### 模块 M：DLP 敏感数据防泄漏脱敏护栏与黄金回归体检（DLP & Eval Suite）
+- [ ] **内外分级的 DLP 敏感识别与可逆掩码网关（扩展 [`backend/internal/policy/`](../backend/internal/policy/policy.go)）**
+  - [ ] 实现高性能 `DLPScanner`（手机号、身份证校验位、银行卡 Luhn、自定义底价/机密词表及知识/语义视图密级标签）。
+  - [ ] 对外部第三方商业 Agent（`Purpose == external_agent`）出站载荷自动执行**可逆占位符脱敏**（如替换为 `[MOBILE_01]` / `[FLOOR_PRICE_01]`，映射关系加密暂存于当前 `run_id` 作用域并在返回后本地还原）或对绝密级数据直接阻断/转 L2 特批，全量记录 `dlp_egress_audit_logs`。
+- [ ] **数字员工上岗黄金回归体检集（新增 `internal/evalsuite`）**
+  - [ ] 新增 `eval_suites`、`eval_cases`、`eval_runs` 表与 Temporal 并发评测 Workflow：支持从团队空间真实满意任务一键脱敏沉淀黄金用例（含关键事实、引用出处与数值误差断言）。
+  - [ ] 在 `/admin/models` 切换主力模型档位或空间大批量更新知识制度前，支持一键触发回归体检并输出通过率、口径偏差与延迟对比报告。
 
 ---
 
-## 五、分阶段落地排期（Roadmap）
+## 三、现有代码修改与前端升级清单（对齐 vNext 1.2 原型）
 
-| 阶段 | 核心目标 | 包含的关键 TODO | 阶段退出门槛 |
+### 3.1 已完成的后端与前端核心重构（Phase 1–4）
+- [x] [`backend/cmd/api/main.go`](../backend/cmd/api/main.go) SPA History Fallback 与新模块路由挂载；[`cmd/worker/main.go`](../backend/cmd/worker/main.go) 新流量切换至通用 Workflow。
+- [x] [`resources/model.go`](../backend/internal/resources/model.go) 原生 `tool_calls` 与细项 Token；[`resources/external.go`](../backend/internal/resources/external.go) 动态域名白名单与多协议适配；[`projects/session_events.go`](../backend/internal/projects/session_events.go) 冷热分离 SSE 与多人同屏授权；[`billing/billing.go`](../backend/internal/billing/billing.go) 增量余额汇总；[`connectors/server.py`](../connectors/server.py) 多线程化。
+- [x] 前端路由化、暖灰白 + 深墨绿浅/深双主题、常驻折叠侧栏、`⌘K` 全局面板、动态分栏 Canvas、行内 `@同事 / @Agent` 评论、生态扫描市场、左聊右测 Studio 与独立全屏 `/admin/*` 后台。
+
+### 3.2 Phase 5–6 新增前后端改造项
+- [ ] **前端全局外壳与空间切换器（`frontend/src/`）**
+  - [ ] 在左侧栏顶部实现**「空间切换器（Space Switcher）」**（一键切换 `个人空间` 与所属各 `团队空间`，展示已自动继承的全企公共底座提示），联动过滤会话列表、输入框上下文提示与知识数据源范围。
+  - [ ] 新增一级路由页面 **`/knowledge`（知识与数据工作台）**，完整落地三组 Tab：① 空间知识库文档树、多源同步状态、知识缺口派单与冲突消歧雷达；② ERP/CRM/电商/只读数仓连接器卡片、OBO 行权限测试与语义视图说明；③ 企业术语口径词典在线维护与官方 Word/PPT/Excel 交付母版管理。
+- [ ] **对话流与管理后台企业组件升级**
+  - [ ] 在对话消息流新增：**可点击页码/行号知识溯源胶囊**（联动右侧预览定位）、**业务数据取数口径说明卡**、**L2 核心系统写回变更预览确认卡**（展示原值→新值与幂等回执单号）、**DLP 外发自动脱敏提示条**及个人对话**「移交至团队空间」**按钮。
+  - [ ] 升级 `/automations` 页面新增**业务事件 Webhook 触发器**配置与命中记录面板；升级 `/admin/members` 新增**调岗/离职公私分离交接预览面板**；升级 `/admin/governance` 新增 **DLP 脱敏规则配置**与**黄金回归体检集一键跑批报告**。
+
+---
+
+## 四、工程加固与可用性实测事项
+
+- [x] Docker Compose `sandbox-internal` 零信任断网隔离、生态 Skill 隔离解析与防解压炸弹、多版本密钥平滑轮换（`RESOURCE_PREVIOUS_KEYS`）、157 个历史迁移归档治理、路由懒加载、OTel 标准语义导出与前台文案降噪。
+- [ ] **业务连接器安全与只读数仓压测**：专项验证 SQL AST 只读拦截器对多语句注入、系统表探测、慢查询笛卡尔积的 100% 阻断，以及 OBO 行级权限在并发多租户员工会话下的零串扰。
+- [ ] **开展 6–8 名非技术员工 10 场景无引导可用性走查**：使用最新原型 [vnext-prototype.html](uiux/vnext-prototype.html) 与工作台实测 [UT-01 ~ UT-10](19-vnext-research-addendum.md#42-七个核心走查任务与观测红线)，重点检验空间切换、知识溯源、L2 写回确认与缺口治理的零门槛可理解性。
+
+---
+
+## 五、分阶段落地总路线图（Roadmap Phase 1–6）
+
+| 阶段 | 状态 | 核心目标 | 关键交付与退出门槛 |
 | :--- | :--- | :--- | :--- |
-| **Phase 1：底座换血（模型网关 + 监控 + 关键 Bug 修复）** | 补齐全局模型池与企业监控大盘后端，修掉单线程阻塞与全表扫描隐患 | `llmgateway` 6 档位/Fallback/精确单价 + 原生 `tool_calls`；`monitor` 小时预聚合表 + 双轨有效率埋点 + 告警；`connectors/server.py` 多线程化；`api/main.go` SPA fallback | 断主供应商 3s 无感切备；Token/费用零误差；30 天大盘查询 P95 < 200ms；旧运行 100% 兼容 |
-| **Phase 2：前端全新外壳 + 团队协同工作台 + 监控后台** | 落地仿 ChatGPT/Claude/Gemini 的高颜值桌面端，彻底拆除 `<dialog>` 后台 | React Router + 暖白墨绿浅/深双主题；常驻折叠侧栏 + `⌘K`；动态 Canvas + 拉同事协作/分工/行内 `@同事` 评论；独立全屏 `/admin` 监控与模型网关 | 通过 5–8 名非技术员工 UT-01~UT-07 实测；0 控制台报错、0 横向溢出 |
-| **Phase 3：通用 Agent Loop + Docker Compose 隔离沙箱 + 左聊右测构建器** | 释放 Personal Agent 通用执行力，让非研发员工 5 分钟自建助手 | 通用 `AdvanceTurn/ExecuteTool` + L0–L2 门禁；Docker Compose 断网隔离沙箱池 + MCP Client；冷热分离 SSE；左聊右测 Studio（标杆样例反推 + 指哪改哪 + 个人私有零审批） | 同题跑通多表核算出图、文档/PPT 生成、多人协同改稿、个人助手零审批即用与沙箱断网压测 |
-| **Phase 4：多协议外部接入 + 生态定时扫描市场 + 后台定时任务** | 打通内外部 Agent 生态与持续自动化，完成企业级闭环 | Adapter Hub（Dify/Coze/LangGraph/OpenAI-Compat/A2A/Webhook）+ UI 白名单 + 可选用量回传；`EcosystemScanWorkflow` 定时扫描 + 许可/安全体检 + SHA-256 固化 + 员工自主加载；Temporal Schedule 定时任务 | 3 分钟接入自研外部 Agent 上线 Beta；定时扫描准确标记风险并支持审批后一键加载；定时运行与飞书投递独立可追溯 |
+| **Phase 1：模型网关与监控底座** | ✅ 已就位 | 内部 6 档位模型网关、预聚合监控与多线程修复 | 主备 3s 无感切换；Token 微元计价零误差；30 天大盘查询 P95 < 200ms |
+| **Phase 2：前端全新外壳与团队协同** | ✅ 已就位 | 仿三巨头双主题桌面端、团队分工与行内评论、全屏 `/admin` | 拆除 `<dialog>` 后台；多人同屏协同与乐观锁防覆盖验证通过 |
+| **Phase 3：通用 Loop、断网沙箱与 Studio** | ✅ 已就位 | 通用执行内核、Docker Compose 断网沙箱、冷热分离 SSE、左聊右测构建 | 个人私有 Agent 零审批即用；沙箱断网隔离与多表核算出图通过 |
+| **Phase 4：开放外部接入与生态扫描市场** | ✅ 已就位 | 多协议外部 Agent 向导、正规渠道定期扫描市场、定时委托 | 外部 Agent 独立模型解耦运行；SHA-256 固化 Skill 一键加载即用 |
+| **Phase 5：三级空间、企业混合知识库与标准资产库** | 🚀 规划就绪 | 个人/团队/全企三级空间与公私分离交接；目录级知识同步、表格保真切分、`BM25+向量+Rerank`、缺口雷达；术语口径库与官方母版套版 | 个人空间私密零越权；跨页表格与制度检索准确率 ≥ 90%；撤权/作废毫秒级阻断；沙箱输出 100% 套用公司官方母版 |
+| **Phase 6：ERP/CRM/电商语义打通、事件唤醒、DLP 与体检** | 🚀 规划就绪 | 金蝶/用友/CRM/抖店/只读数仓连接与业务语义层、OBO 行级权限、L2 两阶段幂等写回；Webhook 事件主动唤醒；外部 DLP 可逆脱敏与黄金回归体检集 | 跨人查数零越权；L2 写回 100% 幂等无重单；外部调用敏感字段 100% 自动脱敏审计；换模型前一键输出回归体检对比报告 |

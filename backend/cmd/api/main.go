@@ -22,6 +22,7 @@ import (
 	"alliance/internal/projects"
 	"alliance/internal/sandbox"
 	"alliance/internal/services"
+	"alliance/internal/spaces"
 	"alliance/internal/studio"
 	"alliance/internal/web"
 	"alliance/internal/websearch"
@@ -54,6 +55,7 @@ func main() {
 	}
 	mux := http.NewServeMux()
 	s.Routes(mux)
+	spaces.Server{DB: c.DB}.Routes(mux, s)
 	bots := &channels.Bots{DB: c.DB, Vault: c.Vault}
 	bots.Routes(ctx, mux, s)
 	mail := mailrelay.Relay{DB: c.DB, Vault: c.Vault, Egress: egress.Policy{DB: c.DB}, Public: os.Getenv("PUBLIC_BASE_URL")}
