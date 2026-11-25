@@ -13,6 +13,9 @@ import (
 //go:embed rollup.sql
 var rollupQuery string
 
+//go:embed member_rollup.sql
+var memberRollupQuery string
+
 const rollupInterval = 5 * time.Minute
 
 func ServeRollups(ctx context.Context, db *pgxpool.Pool) {
@@ -77,7 +80,10 @@ func rollupOnce(ctx context.Context, db interface {
 		for _, query := range []string{
 			`delete from monitor_agent_hourly_stats where bucket_hour=any($1)`,
 			`delete from monitor_model_hourly_stats where bucket_hour=any($1)`,
-			`delete from monitor_run_hourly_stats where bucket_hour=any($1)`, rollupQuery,
+			`delete from monitor_run_hourly_stats where bucket_hour=any($1)`,
+			`delete from monitor_member_outcome_hourly where bucket_hour=any($1)`,
+			`delete from monitor_member_cost_hourly where bucket_hour=any($1)`,
+			`delete from monitor_member_quality_hourly where bucket_hour=any($1)`, rollupQuery, memberRollupQuery,
 		} {
 			if _, err := tx.Exec(ctx, query, buckets); err != nil {
 				return err

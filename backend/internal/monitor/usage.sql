@@ -1,9 +1,14 @@
-WITH period_events AS (
-    SELECT actor, kind, CASE WHEN status IN ('queued','running','blocked','reconcile','paused','completed','failed','cancelled')
-                THEN status ELSE 'other' END AS state, count(*) AS n
-    FROM management_outcome_events
-    WHERE at >= $1 AND at < $2 AND ($4::uuid IS NULL OR team_id=$4)
-    GROUP BY actor,kind,state
+WITH raw_windows AS MATERIALIZED (SELECT * FROM monitor_usage_raw_ranges($1,$2)),
+event_counts AS (
+    SELECT actor,kind,state,n FROM monitor_member_outcome_hourly
+    WHERE bucket_hour >= $1 AND bucket_hour+interval '1 hour' <= $2 AND ($4::uuid IS NULL OR team_id=$4)
+    UNION ALL
+    SELECT actor,kind,CASE WHEN status IN ('queued','running','blocked','reconcile','paused','completed','failed','cancelled')
+      THEN status ELSE 'other' END AS state,count(*)
+    FROM raw_windows w JOIN management_outcome_events e ON e.at>=w.lo AND e.at<w.hi
+    WHERE ($4::uuid IS NULL OR team_id=$4) GROUP BY actor,kind,state
+), period_events AS (
+    SELECT actor,kind,state,sum(n)::bigint AS n FROM event_counts GROUP BY actor,kind,state
 ), outcomes AS (
     SELECT actor, coalesce(sum(n) FILTER (WHERE kind='run'),0)::bigint AS runs,
            coalesce(sum(n) FILTER (WHERE kind='run' AND state='completed'),0)::bigint AS completed,
@@ -14,10 +19,16 @@ WITH period_events AS (
            coalesce(sum(n) FILTER (WHERE kind='delivery'),0)::bigint AS editions,
            coalesce(jsonb_object_agg(state,n) FILTER (WHERE kind='run'),'{}') AS run_states
     FROM period_events GROUP BY actor
+), cost_counts AS (
+    SELECT actor,attempts,tokens,unknown,pending,reserved,amount FROM monitor_member_cost_hourly
+    WHERE bucket_hour >= $1 AND bucket_hour+interval '1 hour' <= $2 AND ($4::uuid IS NULL OR team_id=$4)
+    UNION ALL
+    SELECT actor,count(*) AS attempts,sum(tokens),count(*) FILTER (WHERE unknown),count(*) FILTER (WHERE pending),sum(reserved),sum(recorded)
+    FROM raw_windows w JOIN management_call_costs c ON c.at>=w.lo AND c.at<w.hi
+    WHERE ($4::uuid IS NULL OR team_id=$4) GROUP BY actor
 ), costs AS (
-    SELECT actor, count(*) AS attempts, sum(tokens) AS tokens, count(*) FILTER (WHERE unknown) AS unknown,
-           count(*) FILTER (WHERE pending) AS pending, sum(reserved) AS reserved, sum(recorded) AS amount
-    FROM management_call_costs WHERE at >= $1 AND at < $2 AND ($4::uuid IS NULL OR team_id=$4) GROUP BY actor
+    SELECT actor,sum(attempts)::bigint AS attempts,sum(tokens)::bigint AS tokens,sum(unknown)::bigint AS unknown,
+       sum(pending)::bigint AS pending,sum(reserved) AS reserved,sum(amount) AS amount FROM cost_counts GROUP BY actor
 )
 SELECT m.id, m.display_name, m.kind,
        coalesce(o.runs,0), coalesce(o.completed,0), coalesce(o.waiting,0),

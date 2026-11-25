@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -55,6 +56,13 @@ func TestMonitorRollupUpdatesDirtyHoursAndReportsCosts(t *testing.T) {
 	 values($1,$2,'rollup-model',array['text'],4096,512)`, model, provider)
 	exec(`insert into model_pricing(id,model_id,effective_at,input_per_1m_micro_cny,output_per_1m_micro_cny,cached_per_1m_micro_cny,per_image_micro_cny)
 	 values($1,$2,now(),1,1,0,0)`, price, model)
+	legacy, probe := uuid.NewString(), uuid.NewString()
+	exec(`insert into model_resources(id,team_id,name,created_by) values($1,$2,'usage fixture',$3)`, legacy, team, owner)
+	exec(`insert into model_revisions(resource_id,revision,endpoint,model,encrypted_key) values($1,1,'https://fixture.example.test','legacy','\x00')`, legacy)
+	exec(`insert into model_probes(id,team_id,resource_id,resource_revision,actor,request_key,status,tokens,created_at)
+	 values($1,$2,$3,1,$4,'member-usage-fixture','passed',17,$5)`, probe, team, legacy, owner, bucket.Add(20*time.Minute))
+	exec(`insert into spend(op_key,kind,team_id,actor,reserved_cny,amount_cny,unknown_authorized,resource_budget,source_revision,source_name)
+	 select $1,'connection',$2,$3,0.004,0.003,false,id,1,'legacy' from resource_budgets where model_id=$4`, "connection/"+probe, team, owner, legacy)
 
 	key1, key2 := uuid.NewString(), uuid.NewString()
 	for i, key := range []string{key1, key2} {
@@ -82,7 +90,31 @@ func TestMonitorRollupUpdatesDirtyHoursAndReportsCosts(t *testing.T) {
 		}
 		t.Fatal("rollup queue did not drain")
 	}
+	readUsage := func(from, to time.Time) Row {
+		t.Helper()
+		rows, err := tx.Query(ctx, usageQuery, from, to, owner, team)
+		if err != nil {
+			t.Fatal(err)
+		}
+		item, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByPos[Row])
+		if err != nil {
+			t.Fatal(err)
+		}
+		return item
+	}
+	beforeSeed := readUsage(bucket, bucket.Add(time.Hour))
+	if beforeSeed.Runs != 1 || beforeSeed.Completed != 1 || beforeSeed.Attempts != 1 || beforeSeed.Tokens != 17 || beforeSeed.Recorded != "0.003000" {
+		t.Fatalf("legacy usage before rollup: %+v", beforeSeed)
+	}
 	flush()
+	rolled := readUsage(bucket, bucket.Add(time.Hour))
+	if rolled.Runs != 1 || rolled.Completed != 1 || rolled.Attempts != 1 || rolled.Tokens != 17 || rolled.Recorded != "0.003000" {
+		t.Fatalf("legacy usage changed after rollup: %+v", rolled)
+	}
+	edge := readUsage(bucket.Add(10*time.Minute), bucket.Add(time.Hour))
+	if edge.Runs != 0 || edge.Attempts != 1 || edge.Tokens != 17 {
+		t.Fatalf("legacy usage included the rest of a partial hour: %+v", edge)
+	}
 	var calls, succeeded, failed, fallback, p50, p95 int
 	if err := tx.QueryRow(ctx, `select calls_total,calls_succeeded,calls_failed,fallback_count,p50_ms,p95_ms
 	 from monitor_model_hourly_stats where bucket_hour=$1 and team_id=$2 and model_id=$3`, bucket, team, model).
@@ -92,7 +124,11 @@ func TestMonitorRollupUpdatesDirtyHoursAndReportsCosts(t *testing.T) {
 	exec(`update model_gateway_charges set state='settled',settled_at=now(),cost_micro_cny=31,
 	 prompt_tokens=32,completion_tokens=10,cached_tokens=4,image_count=0 where operation_key=$1`, key2)
 	exec(`insert into run_quality_signals(run_id,actor,kind) values($1,$2,'reply_copied')`, run, owner)
+	exec(`update spend set amount_cny=0.004,settled=true where op_key=$1`, "connection/"+probe)
 	flush()
+	if settled := readUsage(bucket, bucket.Add(time.Hour)); settled.Recorded != "0.004000" || settled.Pending != 0 || settled.Tokens != 17 {
+		t.Fatalf("legacy probe settlement was not rolled up: %+v", settled)
+	}
 	var matched bool
 	if err := tx.QueryRow(ctx, `select runs_total=1 and runs_succeeded=1 and calls_total=2 and lightweight_total=1 and lightweight_effective=1
 	 and prompt_tokens=32 and completion_tokens=10 and cached_tokens=4 and cost_micro_cny=31
