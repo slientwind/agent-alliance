@@ -10,6 +10,7 @@ import (
 	"alliance/internal/monitor"
 	"alliance/internal/runtime"
 	"alliance/internal/telemetry"
+	"alliance/internal/websearch"
 	"context"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
@@ -69,6 +70,7 @@ func main() {
 		Budget: llmgateway.Budget{DB: catalog.DB}, Resilience: llmgateway.Resilience{DB: catalog.DB},
 	}}
 	general.MCP = &mcphub.Runtime{DB: catalog.DB, Client: mcphub.Client{Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB}}}
+	general.Search = &websearch.Runtime{DB: catalog.DB, Client: websearch.Client{Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB}}}
 	generalQueue := runtime.Queue() + "-general"
 	generalWorker := worker.New(c, generalQueue, worker.Options{})
 	generalWorker.RegisterWorkflowWithOptions(agentloop.GeneralAgentWorkflow, workflow.RegisterOptions{Name: agentloop.WorkflowName})

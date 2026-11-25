@@ -8,6 +8,7 @@ import (
 	"alliance/internal/mcphub"
 	"alliance/internal/resources"
 	"alliance/internal/web"
+	"alliance/internal/websearch"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -51,10 +52,11 @@ func (s Server) tiers(w http.ResponseWriter, r *http.Request, _ identity.Member)
 }
 
 type startInput struct {
-	Expected int                      `json:"expected"`
-	Goal     string                   `json:"goal"`
-	Tier     llmgateway.Tier          `json:"tier"`
-	Sources  []harness.SourceRevision `json:"sources,omitempty"`
+	Expected    int                      `json:"expected"`
+	Goal        string                   `json:"goal"`
+	Tier        llmgateway.Tier          `json:"tier"`
+	Sources     []harness.SourceRevision `json:"sources,omitempty"`
+	SearchQuery string                   `json:"searchQuery,omitempty"`
 }
 
 func (s Server) start(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
@@ -63,6 +65,10 @@ func (s Server) start(w http.ResponseWriter, r *http.Request, actor identity.Mem
 		return err
 	}
 	in.Goal = strings.TrimSpace(in.Goal)
+	in.SearchQuery = strings.TrimSpace(in.SearchQuery)
+	if in.SearchQuery != "" && !websearch.ValidQuery(in.SearchQuery) {
+		return web.Fail(422, "请输入不超过 320 字的公开搜索词")
+	}
 	if in.Tier == "" {
 		in.Tier = llmgateway.Default
 	}
@@ -174,6 +180,9 @@ func (s Server) start(w http.ResponseWriter, r *http.Request, actor identity.Mem
 			return err
 		}
 		if err := mcphub.BindRun(ctx, tx, run, team); err != nil {
+			return err
+		}
+		if err := websearch.BindRun(ctx, tx, s.Vault, run, in.SearchQuery); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `insert into general_agent_dispatch(run_id) values($1)`, run); err != nil {

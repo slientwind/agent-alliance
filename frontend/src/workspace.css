@@ -393,3 +393,7 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.compose-search {
+  display: grid;
+  gap: .25rem;
+}

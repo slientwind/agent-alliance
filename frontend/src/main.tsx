@@ -32,7 +32,7 @@ import { DingTalkIdentity, FeishuIdentity, SlackIdentity } from "./organization"
 import { EnterpriseWorkspace } from "./enterprise-workspace";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
-import { X } from "lucide-react";
+import { Globe, X } from "lucide-react";
 import {
   api,
   RequestError,
@@ -182,6 +182,8 @@ function App() {
   const [initialWorkflowTemplate, setInitialWorkflowTemplate] = useState<WorkflowTemplateReference>();
   const [availableTiers, setAvailableTiers] = useState<ConversationTier[]>([]);
   const [requestedTier, setRequestedTier] = useState<ConversationTier>();
+  const [searchAvailable, setSearchAvailable] = useState(false);
+  const [searchDraft, setSearchDraft] = useState<{ project: string; query: string }>();
   function openWorkflowTemplates(template?: WorkflowTemplateReference) {
     setInitialWorkflowTemplate(template);
     setPanel("workflowTemplates");
@@ -354,19 +356,24 @@ function App() {
       setChosenTeam("");
       setAvailableTiers([]);
       setRequestedTier(undefined);
+      setSearchAvailable(false);
+      setSearchDraft(undefined);
     }
   }, [user]);
   const catalog = useCallback(async () => {
-    const [m, a, tiers] = await Promise.all([
+    const [m, a, tiers, search] = await Promise.all([
       api<Model[]>("resources"),
       api<Agent[]>("agents"),
       api<string[]>("general-tiers").catch((): string[] => []),
+      api<{ enabled: boolean }>("search/availability").catch(() => ({ enabled: false })),
     ]);
     setModels(m);
     setAgents(a);
     setAvailableTiers(tiers.filter(isConversationTier));
+    setSearchAvailable(search.enabled === true);
   }, []);
   function chooseAgents(next: Agent[], projectTeam: string, goalIfEmpty?: string) {
+    if (next.length) setSearchDraft(undefined);
     if (!draft.trim() && goalIfEmpty) setDraft(goalIfEmpty);
     pickAgents(next);
     setAgentDestination(projectTeam);
@@ -727,6 +734,9 @@ function App() {
   }
   const generalTier = user && usesGeneralConversation(p, user.id, hasPicks, hasPicture)
     ? conversationTier(availableTiers, requestedTier) : undefined;
+  const searching = !!generalTier && searchDraft?.project === (p?.id || "");
+  const searchQuery = searching ? searchDraft.query.trim() : "";
+  const invalidSearch = searching && (!searchAvailable || !searchQuery);
   async function startGeneral(project: string, tier: ConversationTier, receipts: Awaited<ReturnType<typeof sendAttachments>>) {
     if (receipts.some(receipt => !receipt.readable || receipt.picture)) {
       throw new Error("附件已保存。请核对可读取的资料后再发起任务。");
@@ -746,6 +756,7 @@ function App() {
     const request = {
       goal: draft, tier, expected: latest.revision,
       sources: Array.from(pins, ([id, revision]) => ({ id, revision })),
+      ...(searchQuery ? { searchQuery } : {}),
     };
     const headers = { "Idempotency-Key": crypto.randomUUID() };
     try {
@@ -754,10 +765,14 @@ function App() {
       if (!(error instanceof TypeError)) throw error;
       await api(path, "POST", request, headers);
     }
+    if (searchQuery) {
+      setSearchDraft(value => value?.query.trim() === searchQuery && (value.project === project || value.project === "") ? undefined : value);
+    }
   }
   async function send() {
     if (
       busy ||
+      invalidSearch ||
       !(draft.trim() || (p && hasFiles)) ||
       (!p && (!canCreate || !selectedTeamsAvailable)) ||
       current.current !== (p?.id || "")
@@ -829,6 +844,7 @@ function App() {
           } catch (error) {
             drafts.current.set(res.id, draft);
             if (current.current === res.id) setDraft(draft);
+            if (searchQuery) setSearchDraft({ project: res.id, query: searchQuery });
             throw error;
           }
         }
@@ -1222,9 +1238,17 @@ function App() {
               hidden={!!current.current && !p} busy={busy} start={!p}
               draft={draft} setDraft={setDraft} files={files}
               chooseAgent={!p && !current.current ? openAgents : undefined}
-              tools={generalTier && <ConversationModels available={availableTiers} tier={generalTier}
-                onChange={setRequestedTier} disabled={busy} />}
-              sendDisabled={busy || (!p && (!canCreate || !selectedTeamsAvailable)) ||
+              tools={generalTier && (
+                <>
+                  <ConversationModels available={availableTiers} tier={generalTier} onChange={setRequestedTier} disabled={busy} />
+                  {(searchAvailable || searching) &&
+                    <button type="button" aria-pressed={searching} disabled={busy}
+                      onClick={() => setSearchDraft(searching ? undefined : { project: p?.id || "", query: "" })}>
+                      <Globe aria-hidden="true" /> 联网搜索
+                    </button>}
+                </>
+              )}
+              sendDisabled={busy || invalidSearch || (!p && (!canCreate || !selectedTeamsAvailable)) ||
                 !(draft.trim() || (p && hasFiles)) || (!!current.current && !p)}
               send={() => void send()}
               addFiles={added => keepFiles(current.current, [
@@ -1232,6 +1256,17 @@ function App() {
               ])}
               removeFile={key => keepFiles(current.current, files.filter(item => item.key !== key))}
             >
+              {searching && (
+                <label className="compose-search">
+                  公开搜索词
+                  <input type="search" maxLength={320} disabled={busy || !searchAvailable}
+                    value={searchDraft.query} aria-describedby="compose-search-help"
+                    onChange={event => setSearchDraft({ project: p?.id || "", query: event.target.value })} />
+                  <small id="compose-search-help">{searchAvailable
+                    ? "这些关键词将发送给企业配置的搜索服务。"
+                    : "联网搜索暂不可用。关闭联网搜索即可继续。"}</small>
+                </label>
+              )}
               {!p && !current.current && (
                 <>
                   {teams && teams.length > 0 && (!canCreate || multipleDestinations) &&

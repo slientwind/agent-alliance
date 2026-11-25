@@ -6,6 +6,7 @@ import (
 	"alliance/internal/knowledge"
 	"alliance/internal/resources"
 	"alliance/internal/web"
+	"alliance/internal/websearch"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -33,6 +34,11 @@ var registeredTools = []registeredTool{
 }
 
 const documentSchema = `{"type":"object","properties":{"title":{"type":"string","maxLength":200},"content":{"type":"string","maxLength":32000}},"required":["title","content"],"additionalProperties":false}`
+
+var searchTool = resources.ToolDefinition{Type: "function", Function: resources.ToolSchema{
+	Name: "web_search", Description: "用用户单独填写的公开关键词搜索网页。返回网页标题、链接和摘要。无需提交参数。",
+	Parameters: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`),
+}}
 
 func modelTools() []resources.ToolDefinition {
 	tools := make([]resources.ToolDefinition, 0, len(registeredTools))
@@ -98,6 +104,16 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		policy := harness.AutonomyPolicy{MaxAutomaticBatch: maxToolsPerTurn}
 		gate := harness.ToolGate{Risk: toolRisk(task.name), Authorized: d.authorized, QuotaAvailable: true,
 			EstimatedCost: &knownFree, BatchSize: 1}
+		if task.name == searchTool.Function.Name {
+			if a.Search == nil {
+				return a.recordObservation(ctx, tx, ref, "rejected", "本次任务未启用联网搜索。", "", "")
+			}
+			available, err := websearch.Available(ctx, tx, ref.RunID)
+			if err != nil {
+				return err
+			}
+			gate.Risk, gate.Authorized = harness.ReadOnly, available
+		}
 		if task.server != "" {
 			if a.MCP == nil {
 				return a.recordObservation(ctx, tx, ref, "rejected", "企业工具暂不可用。", "", "")
@@ -166,6 +182,8 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		observation, toolErr = a.MCP.Call(ctx, ref.RunID, task.server, task.name, task.definitionDigest, task.level,
 			json.RawMessage(task.args), approved)
 		reply.Text = string(observation)
+	} else if task.name == searchTool.Function.Name {
+		reply, toolErr = a.searchWeb(ctx, ref.RunID, task.args)
 	} else {
 		reply, toolErr = invokeTrusted(ctx, task)
 	}
@@ -196,6 +214,23 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		return a.recordObservation(ctx, tx, ref, "completed", boundedText(reply.Text, 8192), artifact, fileDigest)
 	})
 	return result, err
+}
+
+func (a Activities) searchWeb(ctx context.Context, run, args string) (resources.Reply, error) {
+	if err := decodeToolArgs(args, new(struct{})); err != nil {
+		return resources.Reply{}, harness.ErrToolArguments
+	}
+	results, err := a.Search.Search(ctx, run)
+	if err != nil {
+		return resources.Reply{}, err
+	}
+	for {
+		body, err := json.Marshal(results)
+		if err != nil || len(body) <= 8192 {
+			return resources.Reply{Text: string(body)}, err
+		}
+		results = results[:len(results)-1]
+	}
 }
 
 func invokeTrusted(ctx context.Context, task toolWork) (resources.Reply, error) {

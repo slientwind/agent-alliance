@@ -13,6 +13,7 @@ try {
   const decisions = [];
   let awaitingApproval = false;
   const review = process.env.APPROVAL_LEVEL === "L2";
+  const search = process.env.WEB_SEARCH === "1";
   const details = {
     id, title: "测试对话", stage: "brief", revision: 1, owner: "member", reviewer: "member", team: "team", planVersion: 0,
     messages: [], artifacts: [], participants: [], handoffs: [], sharedAgents: [], deliveries: [], distributionCases: [],
@@ -60,6 +61,7 @@ try {
       "/api/me": { id: "member", name: "测试用户", role: "member", enabled: true },
       "/api/teams": [{ id: "team", name: "团队", joined: true, default: true }],
       "/api/general-tiers": ["default", "fast", "reasoning"],
+      "/api/search/availability": { enabled: search },
       ["/api/projects/" + id]: details,
     };
     return route.fulfill({ json: data[path] ?? [] });
@@ -74,15 +76,26 @@ try {
   await page.getByRole("button", { name: "深度思考" }).click();
   assert.equal(await tier.inputValue(), "reasoning");
   await input.fill("请检查采购金额");
+  const sendButton = page.getByRole("button", { name: "发送消息" });
+  if (search) {
+    const toggle = page.getByRole("button", { name: "联网搜索", exact: true });
+    await toggle.click();
+    assert.equal(await toggle.getAttribute("aria-pressed"), "true");
+    assert.equal(await sendButton.isDisabled(), true);
+    await page.getByRole("searchbox", { name: "公开搜索词" }).fill("公开采购规则");
+  }
   await page.locator('.composer input[type="file"]').setInputFiles({
     name: "采购.csv", mimeType: "text/csv", buffer: Buffer.from("金额\n27\n"),
   });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   const dispatched = page.waitForResponse(response => response.url().endsWith("/general-runs"));
-  await page.getByRole("button", { name: "发送消息" }).click();
+  await sendButton.click();
   assert.equal((await dispatched).status(), 202);
   await page.waitForURL("**/chat/" + id);
-  assert.deepEqual(submitted, [{ goal: "请检查采购金额", tier: "reasoning", expected: 1, sources: [{ id: source, revision: 1 }] }]);
+  assert.deepEqual(submitted, [{
+    goal: "请检查采购金额", tier: "reasoning", expected: 1, sources: [{ id: source, revision: 1 }],
+    ...(search ? { searchQuery: "公开采购规则" } : {}),
+  }]);
   const approval = page.getByRole("region", { name: review ? "审核写入请求" : "确认付费查询" });
   await approval.getByText("records.example.test", { exact: true }).waitFor();
   await approval.getByText("查看发送内容", { exact: true }).click();
