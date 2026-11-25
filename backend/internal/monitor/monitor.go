@@ -42,6 +42,7 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 	m.Handle("PATCH /api/teams/{id}/trace-policy", g.Protect(false, s.policy))
 	m.Handle("GET /api/admin/telemetry", g.Protect(true, s.telemetry))
 	m.Handle("GET /api/admin/usage", g.Protect(true, s.usage))
+	m.Handle("POST /api/telemetry/signals", g.Protect(false, s.qualitySignal))
 }
 func (s Server) usage(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	start, end, err := usageWindow(r)

@@ -117,7 +117,7 @@
 
 ### 模块 G：企业级监控大盘（Observability & 双轨口径）
 - [ ] **隐式正向信号埋点（轻量任务有效完成率）**
-  - [ ] 新增 `POST /api/telemetry/signals` 与 `run_quality_signals` 表，记录 `artifact_downloaded`、`reply_copied`、`feedback_thumbs_up/down`、`reply_regenerated`、`user_cancelled_midway`。
+  - [x] 新增 `POST /api/telemetry/signals` 与 `run_quality_signals` 表，记录 `artifact_downloaded`、`reply_copied`、`feedback_thumbs_up/down`、`reply_regenerated`、`user_cancelled_midway`。
   - [ ] 实现双轨聚合口径计算：**轻量有效完成率**（隐式正向信号 + 无负面重试）与 **协作审签采纳率**（人工审核交付）分列输出。
 - [ ] **小时/天预聚合监控表与大盘 API**
   - [ ] 新增 Worker 定时聚合任务（每 5 分钟 Rollup）写入 `monitor_agent_hourly_stats` 与 `monitor_model_hourly_stats`（按 `team / agent / source_type / model / tier` 多维统计调用量、成功率、双轨有效率、P50/P95 延迟、Input/Output/Cache Token、精确费用、外部未披露次数）。
