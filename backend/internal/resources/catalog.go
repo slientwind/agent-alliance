@@ -622,7 +622,7 @@ func (c Catalog) validate(w http.ResponseWriter, r *http.Request, u identity.Mem
 		return web.JSON(w, 200, map[string]any{"id": evidence, "status": priorStatus, "output": priorBody})
 	}
 	m.Operation = evidence
-	reply, callErr := m.Generate(ctx, []Message{{"system", prompt}, {"user", in.Input}})
+	reply, callErr := m.Generate(ctx, []Message{{Role: "system", Content: prompt}, {Role: "user", Content: in.Input}})
 	status, body, err := c.saveTrial(context.WithoutCancel(ctx), evidence, m, in.Expected, reply, callErr, "", "send")
 	if err != nil {
 		return err

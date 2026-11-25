@@ -26,15 +26,16 @@ func (m Model) StreamTextReply(ctx context.Context, messages []Message, emit fun
 	}
 	defer resp.Body.Close()
 	mediaType, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
+	allowTools := len(m.Tools) != 0
 	switch mediaType {
 	case "text/event-stream":
-		return decodeTextStream(resp.Body, emit)
+		return decodeTextStream(resp.Body, emit, allowTools)
 	case "", "application/json":
-		reply, err := decodeTextReply(resp.Body)
+		reply, err := decodeTextReply(resp.Body, allowTools)
 		if err != nil {
 			return Reply{}, err
 		}
-		if reply.FinishReason != "" && reply.FinishReason != "stop" {
+		if reply.FinishReason != "" && !textStreamFinished(reply.FinishReason, allowTools) {
 			return Reply{}, errTextStreamInterrupted
 		}
 		return reply, nil
@@ -43,11 +44,26 @@ func (m Model) StreamTextReply(ctx context.Context, messages []Message, emit fun
 	}
 }
 
-func decodeTextStream(input io.Reader, emit func(string)) (Reply, error) {
+func textStreamFinished(reason string, allowTools bool) bool {
+	return reason == "stop" || (allowTools && reason == "tool_calls")
+}
+
+type toolDelta struct {
+	Index *int `json:"index"`
+	ToolCall
+}
+
+type streamedToolCall struct {
+	ID, Type, Name string
+	Arguments      strings.Builder
+}
+
+func decodeTextStream(input io.Reader, emit func(string), allowTools bool) (Reply, error) {
 	scan := bufio.NewScanner(io.LimitReader(input, 4<<20))
 	scan.Buffer(make([]byte, 8192), 256<<10)
-	var frame, text strings.Builder
+	var frame, text, reasoning strings.Builder
 	var answer Reply
+	var calls []*streamedToolCall
 	for scan.Scan() {
 		line := scan.Text()
 		if field, ok := strings.CutPrefix(line, "data:"); ok {
@@ -66,10 +82,25 @@ func decodeTextStream(input io.Reader, emit func(string)) (Reply, error) {
 		data := frame.String()
 		frame.Reset()
 		if data == "[DONE]" {
-			if answer.FinishReason != "stop" || strings.TrimSpace(text.String()) == "" {
+			if !textStreamFinished(answer.FinishReason, allowTools) {
+				return Reply{}, errTextStreamInterrupted
+			}
+			for _, call := range calls {
+				if call == nil {
+					return Reply{}, errTextStreamInterrupted
+				}
+				answer.ToolCalls = append(answer.ToolCalls, ToolCall{ID: call.ID, Type: call.Type,
+					Function: ToolFunction{Name: call.Name, Arguments: call.Arguments.String()}})
+			}
+			if answer.FinishReason == "tool_calls" {
+				if !validToolCalls(answer.ToolCalls) {
+					return Reply{}, errTextStreamInterrupted
+				}
+			} else if len(calls) != 0 || strings.TrimSpace(text.String()) == "" {
 				return Reply{}, errTextStreamInterrupted
 			}
 			answer.Text = text.String()
+			answer.ReasoningContent = reasoning.String()
 			return answer, nil
 		}
 		var chunk struct {
@@ -77,26 +108,26 @@ func decodeTextStream(input io.Reader, emit func(string)) (Reply, error) {
 			Choices []struct {
 				Index int
 				Delta struct {
-					Content string
-					Role    string
+					Content          string
+					Role             string
+					ReasoningContent string      `json:"reasoning_content"`
+					ToolCalls        []toolDelta `json:"tool_calls"`
 				}
 				FinishReason string `json:"finish_reason"`
 			}
-			Usage *struct {
-				Total int `json:"total_tokens"`
-			}
+			Usage *modelUsage
 		}
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil || (chunk.Error != nil && string(chunk.Error) != "null") {
 			return Reply{}, errTextStreamInterrupted
 		}
 		if chunk.Usage != nil {
-			answer.Tokens = chunk.Usage.Total
+			chunk.Usage.apply(&answer)
 		}
 		for _, choice := range chunk.Choices {
 			if choice.Index != 0 {
 				continue
 			}
-			if choice.FinishReason != "" && choice.FinishReason != "stop" {
+			if choice.FinishReason != "" && !textStreamFinished(choice.FinishReason, allowTools) {
 				return Reply{}, errTextStreamInterrupted
 			}
 			if choice.Delta.Role != "" && choice.Delta.Role != "assistant" {
@@ -107,12 +138,50 @@ func decodeTextStream(input io.Reader, emit func(string)) (Reply, error) {
 					return Reply{}, errTextStreamInterrupted
 				}
 				text.WriteString(delta)
-				emit(delta)
+				if emit != nil {
+					emit(delta)
+				}
 			}
-			if choice.FinishReason == "stop" {
-				answer.FinishReason = "stop"
+			reasoning.WriteString(choice.Delta.ReasoningContent)
+			for _, delta := range choice.Delta.ToolCalls {
+				if !allowTools || answer.FinishReason != "" || !mergeToolDelta(&calls, delta) {
+					return Reply{}, errTextStreamInterrupted
+				}
+			}
+			if choice.FinishReason != "" {
+				answer.FinishReason = choice.FinishReason
 			}
 		}
 	}
 	return Reply{}, errTextStreamInterrupted
+}
+
+func mergeToolDelta(calls *[]*streamedToolCall, delta toolDelta) bool {
+	if delta.Index == nil || *delta.Index < 0 || *delta.Index >= 128 {
+		return false
+	}
+	index := *delta.Index
+	for len(*calls) <= index {
+		*calls = append(*calls, nil)
+	}
+	call := (*calls)[index]
+	if call == nil {
+		call = &streamedToolCall{}
+		(*calls)[index] = call
+	}
+	if delta.ID != "" {
+		if call.ID != "" && call.ID != delta.ID {
+			return false
+		}
+		call.ID = delta.ID
+	}
+	if delta.Type != "" {
+		if call.Type != "" && call.Type != delta.Type {
+			return false
+		}
+		call.Type = delta.Type
+	}
+	call.Name += delta.Function.Name
+	call.Arguments.WriteString(delta.Function.Arguments)
+	return true
 }

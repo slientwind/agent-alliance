@@ -137,7 +137,7 @@
   - [ ] 冻结现有 23 个历史特化 Activity（仅做旧运行兼容恢复，不再新增单场景 Activity），新流量统一走通用 `GeneralAgentWorkflow` + `AdvanceTurn` + `ExecuteTool`。
   - [ ] 挂载定时任务调度：`EcosystemScanWorkflow`、监控 5 分钟预聚合 Rollup、主动告警巡检、Temporal Schedule 后台委托。
 - [ ] **[`backend/internal/resources/model.go`](../backend/internal/resources/model.go)** & **[`catalog.go`](../backend/internal/resources/catalog.go)**
-  - [ ] 重构 `Message` / `Reply` 支持原生 `tools`、`tool_calls`、`tool_call_id`、`reasoning_content` 及 `PromptTokens / CompletionTokens / CachedTokens` 细项；移除硬编码 `max_tokens: 1800`。
+  - [x] 重构 `Message` / `Reply` 支持原生 `tools`、`tool_calls`、`tool_call_id`、`reasoning_content` 及 `PromptTokens / CompletionTokens / CachedTokens` 细项；移除硬编码 `max_tokens: 1800`。
   - [ ] 解耦模型资源与单一 `team_id` 的强绑定，升级为全局资源池 + 6 档位路由映射；保留兼容旧已发布修订的平滑读取。
 - [ ] **[`backend/internal/resources/external.go`](../backend/internal/resources/external.go)**
   - [ ] 改造 `PermittedAgentEndpoint`：从 `os.Getenv("AGENT_ALLOWED_HOSTS")` 迁移至 DB 白名单表 + DNS/IP SSRF 校验。

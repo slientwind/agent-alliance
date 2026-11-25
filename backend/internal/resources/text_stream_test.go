@@ -17,9 +17,32 @@ func TestDecodeTextStreamReadsOnlyAssistantTextAndUsage(t *testing.T) {
 		"data: [DONE]", "", "",
 	}, "\r\n")
 	var displayed strings.Builder
-	reply, err := decodeTextStream(strings.NewReader(wire), func(chunk string) { displayed.WriteString(chunk) })
-	if err != nil || reply.Text != "甲乙" || displayed.String() != reply.Text || reply.Tokens != 37 || reply.FinishReason != "stop" {
+	reply, err := decodeTextStream(strings.NewReader(wire), func(chunk string) { displayed.WriteString(chunk) }, false)
+	if err != nil || reply.Text != "甲乙" || displayed.String() != reply.Text || reply.Tokens != 37 || reply.FinishReason != "stop" || reply.ReasoningContent != "hidden" {
 		t.Fatalf("reply=%+v draft=%q err=%v", reply, displayed.String(), err)
+	}
+}
+
+func TestDecodeTextStreamReassemblesToolCalls(t *testing.T) {
+	const frames = `data: {"choices":[{"index":0,"delta":{"reasoning_content":"private","tool_calls":[{"index":1,"id":"b","type":"function","function":{"name":"inspect","arguments":"{}"}},{"index":0,"id":"a","type":"function","function":{"name":"lookup","arguments":"{\"id\":"}}]}}]}
+
+data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"7}"}}]},"finish_reason":"tool_calls"}]}
+
+data: {"choices":[],"usage":{"prompt_tokens":12,"completion_tokens":4,"prompt_tokens_details":{"cached_tokens":3}}}
+
+data: [DONE]
+
+`
+	var display strings.Builder
+	reply, err := decodeTextStream(strings.NewReader(frames), func(chunk string) { display.WriteString(chunk) }, true)
+	if err != nil || len(reply.ToolCalls) != 2 || reply.ToolCalls[0].ID != "a" || reply.ToolCalls[0].Function.Arguments != `{"id":7}` || reply.ToolCalls[1].ID != "b" {
+		t.Fatalf("reply=%+v err=%v", reply, err)
+	}
+	if display.Len() != 0 || reply.ReasoningContent != "private" || reply.Tokens != 16 || reply.PromptTokens != 12 || reply.CompletionTokens != 4 || reply.CachedTokens != 3 {
+		t.Fatalf("reply=%+v display=%q", reply, display.String())
+	}
+	if _, err := decodeTextStream(strings.NewReader(frames), nil, false); err == nil {
+		t.Fatal("accepted unrequested tool calls")
 	}
 }
 
@@ -34,7 +57,7 @@ func TestDecodeTextStreamDoesNotAcceptAnInterruptedDraft(t *testing.T) {
 		"data: {\"choices\":[{\"finish_reason\":\"stop\"}]}\n\n",
 	} {
 		var displayed strings.Builder
-		reply, err := decodeTextStream(strings.NewReader(text+suffix), func(chunk string) { displayed.WriteString(chunk) })
+		reply, err := decodeTextStream(strings.NewReader(text+suffix), func(chunk string) { displayed.WriteString(chunk) }, false)
 		if err == nil || reply.Text != "" || displayed.String() != "草稿" {
 			t.Errorf("suffix=%q reply=%+v draft=%q err=%v", suffix, reply, displayed.String(), err)
 		}

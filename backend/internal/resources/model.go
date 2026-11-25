@@ -60,16 +60,48 @@ func Endpoint(raw string) bool {
 }
 
 type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role             string     `json:"role"`
+	Content          string     `json:"content"`
+	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID       string     `json:"tool_call_id,omitempty"`
+	ReasoningContent string     `json:"reasoning_content,omitempty"`
 }
+
+type ToolDefinition struct {
+	Type     string     `json:"type"`
+	Function ToolSchema `json:"function"`
+}
+
+type ToolSchema struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	Parameters  json.RawMessage `json:"parameters"`
+}
+
+type ToolCall struct {
+	ID       string       `json:"id"`
+	Type     string       `json:"type"`
+	Function ToolFunction `json:"function"`
+}
+
+type ToolFunction struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
 type Reply struct {
-	Receipt      *RemoteWait
-	File         *File
-	Text         string
-	Tokens       int
-	FinishReason string
+	Receipt          *RemoteWait
+	File             *File
+	Text             string
+	Tokens           int
+	PromptTokens     int
+	CompletionTokens int
+	CachedTokens     int
+	ToolCalls        []ToolCall
+	ReasoningContent string
+	FinishReason     string
 }
+
 type Model struct {
 	SkillRefs        []skills.Ref
 	ProjectGrant     string
@@ -78,6 +110,8 @@ type Model struct {
 	KeyGeneration    int
 	StreamText       bool
 	RemoteOperations *RemoteOperations
+	Tools            []ToolDefinition
+	MaxTokens        int
 
 	SourceRevision                                 int
 	Policy                                         RemotePolicy
@@ -133,10 +167,10 @@ func (m Model) Generate(ctx context.Context, messages []Message) (Reply, error) 
 		return Reply{}, err
 	}
 	defer resp.Body.Close()
-	return decodeTextReply(resp.Body)
+	return decodeTextReply(resp.Body, len(m.Tools) != 0)
 }
 
-func (m Model) requestText(ctx context.Context, messages []Message, stream bool) (*http.Response, error) {
+func (m Model) textRequestBody(messages []Message, stream bool) ([]byte, error) {
 	var providerMessages any = messages
 	if m.OutputOperation == VisionOperation {
 		var err error
@@ -145,12 +179,22 @@ func (m Model) requestText(ctx context.Context, messages []Message, stream bool)
 			return nil, err
 		}
 	}
-	request := map[string]any{"model": m.Name, "messages": providerMessages, "max_tokens": 1800}
+	request := map[string]any{"model": m.Name, "messages": providerMessages}
+	if m.MaxTokens > 0 {
+		request["max_tokens"] = m.MaxTokens
+	}
+	if len(m.Tools) != 0 {
+		request["tools"] = m.Tools
+	}
 	if stream {
 		request["stream"] = true
 		request["stream_options"] = map[string]bool{"include_usage": true}
 	}
-	body, err := json.Marshal(request)
+	return json.Marshal(request)
+}
+
+func (m Model) requestText(ctx context.Context, messages []Message, stream bool) (*http.Response, error) {
+	body, err := m.textRequestBody(messages, stream)
 	if err != nil {
 		return nil, err
 	}
@@ -175,19 +219,66 @@ func (m Model) requestText(ctx context.Context, messages []Message, stream bool)
 	return resp, nil
 }
 
-func decodeTextReply(body io.Reader) (Reply, error) {
+func decodeTextReply(body io.Reader, allowTools bool) (Reply, error) {
 	var result struct {
 		Choices []struct {
 			Message      Message
 			FinishReason string `json:"finish_reason"`
 		}
-		Usage struct {
-			Total int `json:"total_tokens"`
-		}
+		Usage modelUsage
 	}
-	if err := json.NewDecoder(io.LimitReader(body, 4<<20)).Decode(&result); err != nil || len(result.Choices) == 0 || strings.TrimSpace(result.Choices[0].Message.Content) == "" {
+	if err := json.NewDecoder(io.LimitReader(body, 4<<20)).Decode(&result); err != nil || len(result.Choices) == 0 {
 		return Reply{}, errors.New("供应商响应缺少有效正文")
 	}
 	choice := result.Choices[0]
-	return Reply{Text: choice.Message.Content, Tokens: result.Usage.Total, FinishReason: choice.FinishReason}, nil
+	reply := Reply{
+		Text: choice.Message.Content, ToolCalls: choice.Message.ToolCalls,
+		ReasoningContent: choice.Message.ReasoningContent, FinishReason: choice.FinishReason,
+	}
+	if len(reply.ToolCalls) != 0 || reply.FinishReason == "tool_calls" {
+		if !allowTools || reply.FinishReason != "tool_calls" || !validToolCalls(reply.ToolCalls) {
+			return Reply{}, errors.New("供应商响应缺少有效工具调用")
+		}
+	} else if strings.TrimSpace(reply.Text) == "" {
+		return Reply{}, errors.New("供应商响应缺少有效正文")
+	}
+	result.Usage.apply(&reply)
+	return reply, nil
+}
+
+type modelUsage struct {
+	Total      int `json:"total_tokens"`
+	Prompt     int `json:"prompt_tokens"`
+	Completion int `json:"completion_tokens"`
+	CacheHit   int `json:"prompt_cache_hit_tokens"`
+	Details    struct {
+		Cached *int `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
+}
+
+func (u modelUsage) apply(reply *Reply) {
+	reply.Tokens = u.Total
+	if reply.Tokens == 0 {
+		reply.Tokens = u.Prompt + u.Completion
+	}
+	reply.PromptTokens = u.Prompt
+	reply.CompletionTokens = u.Completion
+	reply.CachedTokens = u.CacheHit
+	if u.Details.Cached != nil {
+		reply.CachedTokens = *u.Details.Cached
+	}
+}
+
+func validToolCalls(calls []ToolCall) bool {
+	if len(calls) == 0 || len(calls) > 128 {
+		return false
+	}
+	ids := make(map[string]struct{}, len(calls))
+	for _, call := range calls {
+		if _, exists := ids[call.ID]; exists || call.ID == "" || call.Type != "function" || call.Function.Name == "" {
+			return false
+		}
+		ids[call.ID] = struct{}{}
+	}
+	return true
 }

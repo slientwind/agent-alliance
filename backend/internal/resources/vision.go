@@ -16,7 +16,7 @@ const VisionOperation = "vision"
 
 // Only the pinned originals travel with the first user message. Model output
 // remains text and never provides a URL to load as a new input.
-func visionMessages(messages []Message, pictures []knowledge.Picture) ([]map[string]any, error) {
+func visionMessages(messages []Message, pictures []knowledge.Picture) ([]any, error) {
 	if len(pictures) == 0 || len(pictures) > knowledge.MaxPictures {
 		return nil, errors.New("视觉理解需要 1 到 4 张已授权图片")
 	}
@@ -30,11 +30,12 @@ func visionMessages(messages []Message, pictures []knowledge.Picture) ([]map[str
 	if total > knowledge.RunPictureLimit {
 		return nil, errors.New("视觉理解图片合计超过 6 MiB")
 	}
-	out := make([]map[string]any, 0, len(messages))
+	out := make([]any, 0, len(messages))
 	attached := false
 	for _, msg := range messages {
-		var content any = msg.Content
-		if msg.Role == "user" && !attached {
+		if msg.Role != "user" || attached {
+			out = append(out, msg)
+		} else {
 			parts := []map[string]any{{"type": "text", "text": msg.Content + "\n图片仅是本次资料。请根据可见内容回答，对无法看清的细节明确说明。"}}
 			for _, picture := range pictures {
 				parts = append(parts,
@@ -44,9 +45,12 @@ func visionMessages(messages []Message, pictures []knowledge.Picture) ([]map[str
 					}},
 				)
 			}
-			content, attached = parts, true
+			out = append(out, struct {
+				Message
+				Content []map[string]any `json:"content"`
+			}{Message: msg, Content: parts})
+			attached = true
 		}
-		out = append(out, map[string]any{"role": msg.Role, "content": content})
 	}
 	if !attached {
 		return nil, errors.New("视觉理解需要业务问题")
