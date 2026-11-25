@@ -97,7 +97,7 @@ func (m a2aProtocol) remote(ctx context.Context, method string, expected *Remote
 	var usage *ExternalUsage
 	defer func() {
 		if !errors.Is(err, errRemoteTaskMismatch) {
-			reply.ExternalMetadata = externalMetadata(rsp.Header, usage)
+			reply.ExternalMetadata = externalMetadata(rsp.Header, usage, m.Key)
 		}
 	}()
 	if rsp.StatusCode != 200 {

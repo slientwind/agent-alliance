@@ -237,14 +237,14 @@ func (m Model) webhookRequest(ctx context.Context, route WebhookRoute, auth, tas
 		return webhookResponse{}, err
 	}
 	defer response.Body.Close()
-	out := webhookResponse{status: response.StatusCode, metadata: externalMetadata(response.Header, nil)}
+	out := webhookResponse{status: response.StatusCode, metadata: externalMetadata(response.Header, nil, m.Key)}
 	if out.status < 200 || out.status >= 300 {
 		return out, fmt.Errorf("外部服务 HTTP %d", out.status)
 	}
 	if out.status != http.StatusNoContent && decodeAdapterJSON(response.Body, &out.payload) != nil {
 		return out, errExternalReply
 	}
-	out.metadata = externalMetadata(response.Header, externalUsageFromPayload(out.payload))
+	out.metadata = externalMetadata(response.Header, externalUsageFromPayload(out.payload), m.Key)
 	return out, nil
 }
 

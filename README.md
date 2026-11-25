@@ -162,6 +162,8 @@ docker compose --env-file .env.local \
 
 > 开发环境使用 **Go 1.26+、Node.js 22 与 Docker Compose**。分进程调试、HTTPS、OIDC、飞书/钉钉/Slack 渠道接入及备份恢复演练请查阅 [操作手册](docs/USER-GUIDE.md) 与 [企业备份与恢复](docs/17-enterprise-recovery.md)。
 
+轮换业务资源加密密钥时，先让 API 和 Worker 都能通过 `RESOURCE_PREVIOUS_KEYS` 读取备用密钥，再切换 `RESOURCE_KEY`。该变量可配置最多四个以英文逗号分隔的 64 位十六进制密钥。切换后新写入内容使用当前密钥。历史发布版本、在途任务和旧备份仍可能需要原密钥，请在密钥管理系统中保留对应版本。
+
 ---
 
 ## 当前版本与演进路线

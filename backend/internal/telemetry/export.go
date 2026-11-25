@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"alliance/internal/web"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	collector "go.opentelemetry.io/proto/otlp/collector/trace/v1"
@@ -106,7 +107,7 @@ func (e exporter) exportSpan(ctx context.Context, span *trace.Span) (string, tim
 }
 
 func textAttr(key, value string) *common.KeyValue {
-	return &common.KeyValue{Key: key, Value: &common.AnyValue{Value: &common.AnyValue_StringValue{StringValue: value}}}
+	return &common.KeyValue{Key: key, Value: &common.AnyValue{Value: &common.AnyValue_StringValue{StringValue: web.TraceText(value)}}}
 }
 func intAttr(key string, value int64) *common.KeyValue {
 	return &common.KeyValue{Key: key, Value: &common.AnyValue{Value: &common.AnyValue_IntValue{IntValue: value}}}

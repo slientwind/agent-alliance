@@ -18,19 +18,46 @@ import (
 	"strings"
 )
 
-type Vault struct{ aead cipher.AEAD }
+type Vault struct {
+	aead     cipher.AEAD
+	previous []cipher.AEAD
+}
 
-func NewVault(key string) (Vault, error) {
+func NewVault(key string, previous ...string) (Vault, error) {
+	if len(previous) > 4 {
+		return Vault{}, errors.New("configure at most four RESOURCE_PREVIOUS_KEYS")
+	}
+	aead, err := vaultCipher(key)
+	if err != nil {
+		return Vault{}, errors.New("RESOURCE_KEY must be 32 hex-encoded bytes")
+	}
+	vault := Vault{aead: aead}
+	seen := map[string]bool{strings.ToLower(key): true}
+	for _, value := range previous {
+		value = strings.ToLower(strings.TrimSpace(value))
+		if seen[value] {
+			continue
+		}
+		reader, err := vaultCipher(value)
+		if err != nil {
+			return Vault{}, errors.New("RESOURCE_PREVIOUS_KEYS must contain 32-byte hex keys")
+		}
+		vault.previous = append(vault.previous, reader)
+		seen[value] = true
+	}
+	return vault, nil
+}
+
+func vaultCipher(key string) (cipher.AEAD, error) {
 	raw, err := hex.DecodeString(key)
 	if err != nil || len(raw) != 32 {
-		return Vault{}, errors.New("RESOURCE_KEY must be 32 hex-encoded bytes")
+		return nil, errors.New("invalid resource key length or encoding")
 	}
 	block, err := aes.NewCipher(raw)
 	if err != nil {
-		return Vault{}, err
+		return nil, err
 	}
-	aead, err := cipher.NewGCM(block)
-	return Vault{aead}, err
+	return cipher.NewGCM(block)
 }
 func (v Vault) Seal(value, scope string) ([]byte, error) {
 	if v.aead == nil {
@@ -51,6 +78,14 @@ func (v Vault) Open(value []byte, scope string) (string, error) {
 		return "", errors.New("invalid secret reference")
 	}
 	raw, err := v.aead.Open(nil, value[:n], value[n:], []byte(scope))
+	if err != nil {
+		for _, reader := range v.previous {
+			raw, err = reader.Open(nil, value[:n], value[n:], []byte(scope))
+			if err == nil {
+				break
+			}
+		}
+	}
 	return string(raw), err
 }
 func Endpoint(raw string) bool {

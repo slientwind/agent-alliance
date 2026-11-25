@@ -8,11 +8,16 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 )
 
 func Catalog(ctx context.Context) (resources.Catalog, error) {
 	var c resources.Catalog
-	vault, err := resources.NewVault(os.Getenv("RESOURCE_KEY"))
+	var priorKeys []string
+	if value := strings.TrimSpace(os.Getenv("RESOURCE_PREVIOUS_KEYS")); value != "" {
+		priorKeys = strings.Split(value, ",")
+	}
+	vault, err := resources.NewVault(os.Getenv("RESOURCE_KEY"), priorKeys...)
 	if err != nil {
 		return c, err
 	}

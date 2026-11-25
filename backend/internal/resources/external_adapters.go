@@ -143,7 +143,7 @@ func (m chatProtocol) submit(ctx context.Context, messages []Message, emit func(
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return Reply{ExternalMetadata: externalMetadata(response.Header, nil)}, fmt.Errorf("外部服务 HTTP %d", response.StatusCode)
+		return Reply{ExternalMetadata: externalMetadata(response.Header, nil, m.Key)}, fmt.Errorf("外部服务 HTTP %d", response.StatusCode)
 	}
 	reply, err := spec.decode(response.Header.Get("Content-Type"), response.Body, emit)
 	usage := reply.wireUsage
@@ -151,7 +151,7 @@ func (m chatProtocol) submit(ctx context.Context, messages []Message, emit func(
 		// The compatibility response's top-level usage contains placeholder counts.
 		usage = nil
 	}
-	reply.ExternalMetadata = externalMetadata(response.Header, usage)
+	reply.ExternalMetadata = externalMetadata(response.Header, usage, m.Key)
 	return reply, err
 }
 

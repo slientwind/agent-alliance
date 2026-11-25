@@ -74,7 +74,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			slog.Error("request failed", "request", id, "error_type", fmtErrorType(err))
 			p = Problem{500, "操作失败，请使用请求编号排查"}
 		}
-		_ = JSON(w, p.Status, map[string]any{"error": p.Message, "requestId": id})
+		_ = JSON(w, p.Status, map[string]any{"error": safeProblemMessage(r, p.Message), "requestId": id})
 	}
 }
 func fmtErrorType(err error) string {

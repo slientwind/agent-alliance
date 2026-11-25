@@ -9,6 +9,7 @@ services:
       OBJECT_ROOT: /data/objects
       BOOTSTRAP_TOKEN: ${BOOTSTRAP_TOKEN:?Run make configure}
       RESOURCE_KEY: ${RESOURCE_KEY:?Run make configure}
+      RESOURCE_PREVIOUS_KEYS: ${RESOURCE_PREVIOUS_KEYS:-}
       PREVIEW_URL: http://preview:18727
       AGENT_ALLOWED_HOSTS: ${AGENT_ALLOWED_HOSTS:-}
       CONNECTOR_URL: http://tools:18726
@@ -50,6 +51,7 @@ services:
     environment:
       DATABASE_URL: postgres://alliance:${DB_PASSWORD}@database:5432/alliance?sslmode=disable
       RESOURCE_KEY: ${RESOURCE_KEY}
+      RESOURCE_PREVIOUS_KEYS: ${RESOURCE_PREVIOUS_KEYS:-}
       PREVIEW_URL: http://preview:18727
       AGENT_ALLOWED_HOSTS: ${AGENT_ALLOWED_HOSTS:-}
       CONNECTOR_URL: http://tools:18726

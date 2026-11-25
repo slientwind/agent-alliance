@@ -197,7 +197,7 @@
 ### 4.1 安全加固
 - [x] **Docker Compose 沙箱零信任网络隔离（[`deploy/application.yaml`](../deploy/application.yaml)）**：新增独立 `sandbox-internal`（`internal: true`）网络隔离 `sandbox` 与 `tools` 容器，阻断 Prompt Injection 诱导脚本外发企业文件。
 - [x] **生态 Skill 供应链安全防线**：扫描器在独立低权限容器中解析仓库，限制 ZIP 解压炸弹、禁止符号链接、对可疑外链/命令自动阻断并强制人工复核。
-- [ ] **密钥轮换与零明文日志审计**：核查所有新增适配器（LLM Gateway、MCP、外部 Agent、生态 Git 私库）均统一复用 `Vault` 作用域加密，增加自动脱敏中间件防止 HTTP Error / Trace 泄露 Header 密钥。
+- [x] **密钥轮换与零明文日志审计**：核查所有新增适配器（LLM Gateway、MCP、外部 Agent、生态 Git 私库）均统一复用 `Vault` 作用域加密，增加自动脱敏中间件防止 HTTP Error / Trace 泄露 Header 密钥。
 
 ### 4.2 性能与可维护性
 - [x] **数据库迁移治理（157 → 基线归档压缩）**：在 vNext 大版本节点对历史 157 个迁移文件做基线合并（保留旧实例增量升级脚本），显著提升 CI 测试库冷启动速度。

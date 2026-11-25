@@ -3,7 +3,6 @@ package projects
 import (
 	"encoding/json"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -128,14 +127,11 @@ const traceContentSQL = `select pl.brief,v.body,i.remote_task,i.remote_context,
  left join artifact_versions v on v.artifact_id=a.id and v.version=case when cb.run_id is null then 1 else cb.applied_version end
  where r.id=$1 and(cb.run_id is null or a.id is not null)`
 
-var privateField = regexp.MustCompile(`(?i)(authorization|bearer[[:space:]]|api[-_ ]?key|access[-_ ]?token|password|set-cookie|cookie[[:space:]]*:|-----BEGIN [^-]*PRIVATE KEY|sk-[A-Za-z0-9_-]{10}|密码|密钥|口令)`)
-
 func traceExcerpt(value *string) *string {
 	if value == nil {
 		return nil
 	}
-	if privateField.MatchString(*value) {
-		redacted := "〔敏感字段已遮盖〕"
+	if redacted := web.TraceText(*value); redacted != *value {
 		return &redacted
 	}
 	chars := []rune(*value)

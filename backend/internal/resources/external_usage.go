@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -38,11 +39,18 @@ func traceAddress(value string) string {
 	return target.String()
 }
 
-func externalMetadata(headers http.Header, usage *ExternalUsage) ExternalMetadata {
+func externalMetadata(headers http.Header, usage *ExternalUsage, credential string) ExternalMetadata {
 	if usage == nil {
 		usage = parseExternalUsage([]byte(headers.Get("X-Alliance-Usage")))
 	}
-	return ExternalMetadata{Usage: usage, TraceURL: traceAddress(headers.Get("X-Alliance-Trace-Url"))}
+	trace := traceAddress(headers.Get("X-Alliance-Trace-Url"))
+	if trace != "" && credential != "" {
+		unescaped, _ := url.PathUnescape(trace)
+		if strings.Contains(trace, credential) || strings.Contains(unescaped, credential) {
+			trace = ""
+		}
+	}
+	return ExternalMetadata{Usage: usage, TraceURL: trace}
 }
 
 func externalUsageFromPayload(payload json.RawMessage) *ExternalUsage {
