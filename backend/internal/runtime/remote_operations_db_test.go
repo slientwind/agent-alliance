@@ -166,7 +166,8 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("AGENT_ALLOWED_HOSTS", endpoint.Host)
+	lookupTestSQL(t, ctx, db, `insert into outbound_host_allowlist(host,port,trusted_networks)
+	 values($1,$2::text::integer,array['127.0.0.1/32'::cidr]) on conflict do nothing`, endpoint.Hostname(), endpoint.Port())
 	worker := Activities{Catalog: resources.Catalog{DB: db, Vault: vault}}
 	auth := identity.Server{DB: db}
 	routes := http.NewServeMux()

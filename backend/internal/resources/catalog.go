@@ -4,6 +4,7 @@ import (
 	"alliance/internal/billing"
 	"alliance/internal/builder"
 	"alliance/internal/database"
+	"alliance/internal/egress"
 	"alliance/internal/harness"
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
@@ -438,11 +439,12 @@ func (c Catalog) resolve(ctx context.Context, q Query, project, actor, id string
 		if err = json.Unmarshal(cardData, &card); err != nil {
 			return m, "", err
 		}
-		if !PermittedAgentEndpoint(m.Endpoint) {
+		if !permittedAgentEndpoint(ctx, egress.Policy{DB: q}, m.Endpoint) {
 			return m, "", pgx.ErrNoRows
 		}
 		m.Name = card.Name
 		m.External = true
+		m.outbound = egress.Policy{DB: c.DB}
 		if err := json.Unmarshal(policy, &m.Policy); err != nil {
 			return m, "", err
 		}

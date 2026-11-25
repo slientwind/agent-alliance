@@ -1,6 +1,7 @@
 package planner
 
 import (
+	"alliance/internal/egress"
 	"alliance/internal/resources"
 	"context"
 	"net/http"
@@ -48,6 +49,7 @@ type Candidate struct {
 
 type candidateQuery interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
 func candidates(ctx context.Context, q candidateQuery, actor, project, request, output, priority string) ([]Candidate, error) {
@@ -85,17 +87,31 @@ func candidates(ctx context.Context, q candidateQuery, actor, project, request, 
 	items := []Candidate{}
 	request = strings.ToLower(strings.TrimSpace(request))
 	now := time.Now()
+	type candidateEndpoint struct {
+		candidate Candidate
+		endpoint  string
+	}
+	var scanned []candidateEndpoint
 	for rows.Next() {
 		var c Candidate
 		var endpoint string
 		if err := rows.Scan(&c.ProjectTeam, &c.Resource, &c.Aggregation, &c.TeamName, &c.SourceName, &endpoint, &c.LastVerified, &c.TrialCount, &c.MedianSeconds, &c.ID, &c.Name, &c.Ability, &c.Revision, &c.Operation, &c.Published, &c.Admissible, &c.Estimate, &c.ReviewDue, &c.VerifiedChecks, &c.ProjectShort, &c.TeamShort, &c.ResourceShort); err != nil {
 			return nil, err
 		}
+		scanned = append(scanned, candidateEndpoint{c, endpoint})
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	policy := egress.Policy{DB: q}
+	for _, entry := range scanned {
+		c := entry.candidate
 		c.State = "ready"
 		c.Configured = true
 		switch c.Operation {
 		case "external-text":
-			c.Configured = resources.PermittedAgentEndpoint(endpoint)
+			c.Configured = resources.Endpoint(entry.endpoint) && policy.Allowed(ctx, entry.endpoint, false)
 		case "model-text", "png", "vision", "image-edit":
 		default:
 			c.Configured = os.Getenv("CONNECTOR_URL") != "" && os.Getenv("CONNECTOR_TOKEN") != ""
@@ -132,7 +148,7 @@ func candidates(ctx context.Context, q candidateQuery, actor, project, request, 
 		}
 		return !a.NeedsReview && b.NeedsReview
 	})
-	return items, rows.Err()
+	return items, nil
 }
 
 func containsLabel(request, label string) bool {

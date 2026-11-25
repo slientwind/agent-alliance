@@ -120,7 +120,8 @@ func TestTextAgentChoicePostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PROVIDER_CA_FILE", cert)
-	t.Setenv("AGENT_ALLOWED_HOSTS", endpoint.Host)
+	lookupTestSQL(t, ctx, db, `insert into outbound_host_allowlist(host,port,trusted_networks)
+	 values($1,$2::text::integer,array['127.0.0.1/32'::cidr]) on conflict do nothing`, endpoint.Hostname(), endpoint.Port())
 	t.Setenv("OBJECT_ROOT", t.TempDir())
 	worker := Activities{Catalog: resources.Catalog{DB: db, Vault: vault}}
 	routes := http.NewServeMux()

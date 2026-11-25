@@ -2,6 +2,7 @@ package app
 
 import (
 	"alliance/internal/database"
+	"alliance/internal/egress"
 	"alliance/internal/resources"
 	"context"
 	"errors"
@@ -20,6 +21,10 @@ func Catalog(ctx context.Context) (resources.Catalog, error) {
 	}
 	db, err := database.Open(ctx, url)
 	if err != nil {
+		return c, err
+	}
+	if err := egress.ImportLegacy(ctx, db, os.Getenv("AGENT_ALLOWED_HOSTS")); err != nil {
+		db.Close()
 		return c, err
 	}
 	return resources.Catalog{DB: db, Vault: vault}, nil

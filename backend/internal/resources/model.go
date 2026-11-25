@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"alliance/internal/egress"
 	"alliance/internal/knowledge"
 	"alliance/internal/skills"
 	"alliance/internal/web"
@@ -126,6 +127,7 @@ type Model struct {
 	Endpoint, Name, Key, Operation, Team, BudgetID string
 	Estimate                                       *string
 	External                                       bool
+	outbound                                       egress.Policy
 }
 
 func (m Model) Generate(ctx context.Context, messages []Message) (Reply, error) {

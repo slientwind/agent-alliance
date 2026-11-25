@@ -163,6 +163,7 @@ func (p Policy) Client(ctx context.Context, raw string, plainHTTP bool, base *ht
 	}
 	tr := standard.Clone()
 	tr.Proxy, tr.DialTLS, tr.DialTLSContext = nil, nil, nil
+	tr.DisableKeepAlives = true
 	dial := p.Dial
 	if dial == nil {
 		dial = (&net.Dialer{Timeout: 5 * time.Second}).DialContext

@@ -143,7 +143,7 @@
   - [x] 重构 `Message` / `Reply` 支持原生 `tools`、`tool_calls`、`tool_call_id`、`reasoning_content` 及 `PromptTokens / CompletionTokens / CachedTokens` 细项；移除硬编码 `max_tokens: 1800`。
   - [ ] 解耦模型资源与单一 `team_id` 的强绑定，升级为全局资源池 + 6 档位路由映射；保留兼容旧已发布修订的平滑读取。
 - [ ] **[`backend/internal/resources/external.go`](../backend/internal/resources/external.go)**
-  - [ ] 改造 `PermittedAgentEndpoint`：从 `os.Getenv("AGENT_ALLOWED_HOSTS")` 迁移至 DB 白名单表 + DNS/IP SSRF 校验。
+  - [x] 改造 `PermittedAgentEndpoint`：从 `os.Getenv("AGENT_ALLOWED_HOSTS")` 迁移至 DB 白名单表 + DNS/IP SSRF 校验。
   - [ ] 抽象多协议适配接口，拆分 A2A 实现并接入 OpenAI-Compatible / Dify / Coze / LangGraph / Webhook 适配及可选用量回传头解析。
 - [ ] **[`backend/internal/projects/session_events.go`](../backend/internal/projects/session_events.go)**
   - [ ] 彻底改造 300ms 全量 PG 轮询为 **冷热分离架构**：抽象 `HotStreamBus` 接口承载高频热流（Token Delta、Thinking 过程、在线态 Presence、实时评论），支持 Docker Compose 下单机进程内/可选 Redis Streams 平滑切换；冷事实（Turn/Artifact/Wait 变更）落 PG 并按事件唤醒补读，消除闲置轮询写放大。

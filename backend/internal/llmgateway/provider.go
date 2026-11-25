@@ -1,6 +1,7 @@
 package llmgateway
 
 import (
+	"alliance/internal/egress"
 	"alliance/internal/knowledge"
 	"alliance/internal/resources"
 	"bytes"
@@ -45,6 +46,7 @@ type ProviderMessage struct {
 type HTTPProvider struct {
 	Vault  resources.Vault
 	Client *http.Client
+	Egress *egress.Policy
 }
 
 type ProviderError struct {
@@ -170,6 +172,12 @@ func (p HTTPProvider) post(ctx context.Context, model Candidate, operation, key 
 	client := p.Client
 	if client == nil {
 		client, err = resources.ProviderHTTPClient()
+		if err != nil {
+			return nil, ProviderError{Unsent: true}
+		}
+	}
+	if p.Egress != nil {
+		client, err = p.Egress.Client(ctx, endpoint, model.Kind == "vllm" || model.Kind == "ollama", client)
 		if err != nil {
 			return nil, ProviderError{Unsent: true}
 		}

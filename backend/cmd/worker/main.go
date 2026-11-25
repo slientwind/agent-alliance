@@ -3,6 +3,7 @@ package main
 import (
 	"alliance/internal/agentloop"
 	"alliance/internal/app"
+	"alliance/internal/egress"
 	"alliance/internal/knowledge"
 	"alliance/internal/llmgateway"
 	"alliance/internal/monitor"
@@ -63,7 +64,7 @@ func main() {
 	}
 	defer w.Stop()
 	general := agentloop.Activities{DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Gateway: llmgateway.Gateway{
-		Catalog: llmgateway.Catalog{DB: catalog.DB}, Provider: llmgateway.HTTPProvider{Vault: catalog.Vault},
+		Catalog: llmgateway.Catalog{DB: catalog.DB}, Provider: llmgateway.HTTPProvider{Vault: catalog.Vault, Egress: &egress.Policy{DB: catalog.DB}},
 		Budget: llmgateway.Budget{DB: catalog.DB}, Resilience: llmgateway.Resilience{DB: catalog.DB},
 	}}
 	generalQueue := runtime.Queue() + "-general"

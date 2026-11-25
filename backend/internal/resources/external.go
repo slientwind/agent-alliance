@@ -2,6 +2,7 @@ package resources
 
 import (
 	"alliance/internal/database"
+	"alliance/internal/egress"
 	"alliance/internal/identity"
 	"alliance/internal/web"
 	"bytes"
@@ -13,7 +14,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -51,17 +51,12 @@ type AgentCard struct {
 	} `json:"skills"`
 }
 
-func PermittedAgentEndpoint(raw string) bool {
-	if !Endpoint(raw) {
-		return false
-	}
-	u, _ := url.Parse(raw)
-	for _, host := range strings.Split(os.Getenv("AGENT_ALLOWED_HOSTS"), ",") {
-		if strings.EqualFold(strings.TrimSpace(host), u.Host) {
-			return true
-		}
-	}
-	return false
+func (c Catalog) PermittedAgentEndpoint(ctx context.Context, raw string) bool {
+	return permittedAgentEndpoint(ctx, egress.Policy{DB: c.DB}, raw)
+}
+
+func permittedAgentEndpoint(ctx context.Context, policy egress.Policy, raw string) bool {
+	return Endpoint(raw) && policy.Allowed(ctx, raw, false)
 }
 func (c Catalog) external(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	var in struct {
@@ -80,14 +75,14 @@ func (c Catalog) external(w http.ResponseWriter, r *http.Request, u identity.Mem
 	if !in.Policy.valid() {
 		return web.Fail(422, "请核对执行、单次查询、核对窗口和重试参数")
 	}
-	card, endpoint, err := parseCard(in.Card, in.Endpoint)
+	ctx := r.Context()
+	card, endpoint, err := c.parseCard(ctx, in.Card, in.Endpoint)
 	if err != nil {
 		return err
 	}
 	if in.Key != "" && in.Endpoint == "" && (endpoint != card.URL || (card.Transport != "" && card.Transport != "JSONRPC")) {
 		return web.Fail(422, "请明确选择接收此凭据的备用 JSONRPC 地址")
 	}
-	ctx := r.Context()
 	id := in.ID
 	rev := 0
 	err = database.WithTx(ctx, c.DB, func(tx pgx.Tx) error {
@@ -212,7 +207,7 @@ func (m Model) CheckRemote(ctx context.Context, receipt RemoteWait, cancel bool)
 	return m.remote(sub, method, &receipt, params)
 }
 func (m Model) remote(ctx context.Context, method string, expected *RemoteWait, params any) (Reply, error) {
-	if !PermittedAgentEndpoint(m.Endpoint) {
+	if !Endpoint(m.Endpoint) {
 		return Reply{}, errors.New("外部主机未获准")
 	}
 	rpcID := web.Token()
@@ -228,10 +223,15 @@ func (m Model) remote(ctx context.Context, method string, expected *RemoteWait, 
 	if m.Key != "" {
 		req.Header.Set("Authorization", "Bearer "+m.Key)
 	}
-	client, err := providerClient()
+	base, err := providerClient()
 	if err != nil {
 		return Reply{}, err
 	}
+	client, err := m.outbound.Client(ctx, m.Endpoint, false, base)
+	if err != nil {
+		return Reply{}, errors.New("外部主机未获准或无法核对连接地址")
+	}
+	defer client.CloseIdleConnections()
 	rsp, err := client.Do(req)
 	if err != nil {
 		return Reply{}, errors.New("外部提交结果待核对")
@@ -335,7 +335,7 @@ func (c Catalog) cardRevision(w http.ResponseWriter, r *http.Request, u identity
 	return web.JSON(w, 200, card)
 }
 
-func parseCard(raw json.RawMessage, selected string) (AgentCard, string, error) {
+func (c Catalog) parseCard(ctx context.Context, raw json.RawMessage, selected string) (AgentCard, string, error) {
 	var card AgentCard
 	if json.Unmarshal(raw, &card) != nil || card.Protocol != "0.3.0" || card.Name == "" || card.Version == "" || card.URL == "" || len(card.Skills) == 0 {
 		return card, "", web.Fail(422, "需要包含版本、主端点和技能的 A2A 0.3.0 Agent Card")
@@ -346,7 +346,7 @@ func parseCard(raw json.RawMessage, selected string) (AgentCard, string, error) 
 		}
 	}
 	allowed := func(address string) bool {
-		return (selected == "" || address == selected) && PermittedAgentEndpoint(address)
+		return (selected == "" || address == selected) && c.PermittedAgentEndpoint(ctx, address)
 	}
 	if (card.Transport == "" || card.Transport == "JSONRPC") && allowed(card.URL) {
 		return card, card.URL, nil
@@ -365,7 +365,7 @@ func (c Catalog) discoverCard(w http.ResponseWriter, r *http.Request, u identity
 		return err
 	}
 	address := strings.TrimSpace(in.URL)
-	if !PermittedAgentEndpoint(address) {
+	if !Endpoint(address) {
 		return web.Fail(422, "需要企业已准许的 HTTPS Card 地址")
 	}
 	parsed, _ := url.Parse(address)
@@ -379,10 +379,15 @@ func (c Catalog) discoverCard(w http.ResponseWriter, r *http.Request, u identity
 		return err
 	}
 	req.Header.Set("Accept", "application/json")
-	client, err := providerClient()
+	base, err := providerClient()
 	if err != nil {
 		return err
 	}
+	client, err := (egress.Policy{DB: c.DB}).Client(ctx, parsed.String(), false, base)
+	if err != nil {
+		return web.Fail(422, "需要企业已准许的 HTTPS Card 地址")
+	}
+	defer client.CloseIdleConnections()
 	res, err := client.Do(req)
 	if err != nil {
 		return web.Fail(502, "无法读取公开 Card，请检查地址和连通性")
@@ -395,7 +400,7 @@ func (c Catalog) discoverCard(w http.ResponseWriter, r *http.Request, u identity
 	if err != nil || len(raw) > 256<<10 {
 		return web.Fail(422, "Card 无法读取或超过 256 KiB")
 	}
-	if _, _, err = parseCard(raw, ""); err != nil {
+	if _, _, err = c.parseCard(ctx, raw, ""); err != nil {
 		return err
 	}
 	return web.JSON(w, 200, json.RawMessage(raw))
