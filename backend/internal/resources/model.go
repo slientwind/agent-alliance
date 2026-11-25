@@ -105,19 +105,20 @@ type Reply struct {
 }
 
 type Model struct {
-	SkillRefs        []skills.Ref
-	ProjectGrant     string
-	OutputOperation  string
-	ResourceID       string
-	KeyGeneration    int
-	StreamText       bool
-	RemoteOperations *RemoteOperations
-	ExternalTrace    ExternalTrace
-	Adapter          *AdapterSpec
-	Tools            []ToolDefinition
-	MaxTokens        int
-	TokenLimitField  string
-	ReasoningEffort  string
+	SkillRefs         []skills.Ref
+	ProjectGrant      string
+	OutputOperation   string
+	ResourceID        string
+	KeyGeneration     int
+	StreamText        bool
+	RemoteOperations  *RemoteOperations
+	ExternalTrace     ExternalTrace
+	AuthorizeExternal func(context.Context) error
+	Adapter           *AdapterSpec
+	Tools             []ToolDefinition
+	MaxTokens         int
+	TokenLimitField   string
+	ReasoningEffort   string
 
 	SourceRevision                                 int
 	Policy                                         RemotePolicy

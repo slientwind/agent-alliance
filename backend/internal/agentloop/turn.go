@@ -37,6 +37,7 @@ type runData struct {
 	tier                                       llmgateway.Tier
 	plan                                       int
 	authorized                                 bool
+	direct                                     bool
 	progress                                   harness.LoopProgress
 }
 
@@ -57,9 +58,10 @@ func loadRun(ctx context.Context, tx pgx.Tx, id string) (runData, error) {
 	 and not exists(select from plan_rules pr where (pr.project_id,pr.plan_version)=(r.project_id,r.plan_version)
 	 and not rule_usable(pr.rule_id,pr.rule_revision,r.actor))
 	 and general_mcp_observations_usable(r.id,r.charge_team)
+	 and general_external_observations_usable(r.id),g.direct_external
 	 from general_agent_runs g join runs r on r.id=g.run_id join projects current on current.id=r.project_id
 	 join plans p on (p.project_id,p.version)=(r.project_id,r.plan_version) where r.id=$1 for update of r,g,current`, id).
-		Scan(&d.project, &d.actor, &d.team, &d.state, &d.goal, &d.quality, &d.tier, &d.plan, &d.progress, &d.authorized)
+		Scan(&d.project, &d.actor, &d.team, &d.state, &d.goal, &d.quality, &d.tier, &d.plan, &d.progress, &d.authorized, &d.direct)
 	return d, err
 }
 
@@ -112,6 +114,10 @@ func (a Activities) AdvanceTurn(ctx context.Context, ref TurnRef) (TurnResult, e
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
+		if d.direct {
+			result, err = a.directExternalTurn(ctx, tx, ref, d)
+			return err
+		}
 		messages, native, sources, err = a.contextForTurn(ctx, tx, ref, d)
 		var business web.Problem
 		if errors.Is(err, harness.ErrContextCapacity) {
@@ -153,6 +159,19 @@ func (a Activities) AdvanceTurn(ctx context.Context, ref TurnRef) (TurnResult, e
 			request.Tools = append(request.Tools, tool.Definition)
 		}
 	}
+	external := map[string]externalTool{}
+	targets, err := a.externalTools(ctx, a.DB, ref.RunID)
+	if err != nil {
+		return TurnResult{}, err
+	}
+	for _, target := range targets {
+		name := externalToolName(target.id)
+		external[name] = target
+		request.Tools = append(request.Tools, resources.ToolDefinition{Type: "function", Function: resources.ToolSchema{
+			Name: name, Description: "委派给外部 Agent「" + boundedText(target.label, 120) + "」。提交一条经用户确认后外发的消息。",
+			Parameters: json.RawMessage(externalTaskSchema),
+		}})
+	}
 	if d.tier == llmgateway.Reasoning {
 		request.ReasoningEffort = "medium"
 	}
@@ -180,7 +199,7 @@ func (a Activities) AdvanceTurn(ctx context.Context, ref TurnRef) (TurnResult, e
 			}
 			return finishGeneralRun(ctx, tx, ref.RunID, current, "failed", reason)
 		}
-		result, err = a.saveTurn(ctx, tx, ref, current, sources, model, dynamic)
+		result, err = a.saveTurn(ctx, tx, ref, current, sources, model, dynamic, external)
 		return err
 	})
 	return result, err
@@ -221,6 +240,7 @@ func (a Activities) contextForTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, 
 		where g.goal_message_seq=recent.seq and previous.project_id=$2 and previous.status='completed'
 		  and distribution_readable(a.id,v.version,$3)
 		  and general_mcp_observations_usable(previous.id,previous.charge_team)
+		  and general_external_observations_usable(previous.id)
 		  and (previous.charge_team=$6 or not exists(select from general_agent_actions ga
 		    where ga.run_id=previous.id and ga.mcp_server is not null and ga.state='completed'))
 		  and not exists(select from plan_sources p join sources s on s.id=p.source_id
@@ -311,7 +331,8 @@ func (a Activities) contextForTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, 
 	return messages, native, sourceRefs, nil
 }
 
-func (a Activities) saveTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, d runData, sourceRefs []harness.SourceRevision, result llmgateway.RoutedResult, dynamic map[string]mcphub.RunTool) (TurnResult, error) {
+func (a Activities) saveTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, d runData, sourceRefs []harness.SourceRevision, result llmgateway.RoutedResult,
+	dynamic map[string]mcphub.RunTool, delegated map[string]externalTool) (TurnResult, error) {
 	reply := result.Reply
 	if reply.FinishReason != "tool_calls" {
 		if strings.TrimSpace(reply.Text) == "" || len(reply.Text) > 64<<10 || strings.ContainsRune(reply.Text, 0) ||
@@ -351,6 +372,7 @@ func (a Activities) saveTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, d runD
 	}
 	for i, call := range reply.ToolCalls {
 		external := dynamic[call.Function.Name]
+		agent := delegated[call.Function.Name]
 		fingerprint, err := (harness.ActionFingerprint{Tool: call.Function.Name, Arguments: json.RawMessage(call.Function.Arguments), Sources: sourceRefs}).Digest()
 		if err != nil {
 			fingerprint = "invalid"
@@ -363,10 +385,11 @@ func (a Activities) saveTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, d runD
 			return TurnResult{}, err
 		}
 		if _, err := tx.Exec(ctx, `insert into general_agent_actions(run_id,turn,position,tool_name,call_id,args_cipher,fingerprint,
-		 mcp_server,mcp_tool_digest,mcp_level,mcp_tool_label,mcp_recipient)
-		 values($1,$2,$3,$4,$5,$6,$7,nullif($8,'')::uuid,nullif($9,''),nullif($10,''),nullif($11,''),nullif($12,''))`,
+		 mcp_server,mcp_tool_digest,mcp_level,mcp_tool_label,mcp_recipient,external_agent,external_label,external_recipient)
+		 values($1,$2,$3,$4,$5,$6,$7,nullif($8,'')::uuid,nullif($9,''),nullif($10,''),nullif($11,''),nullif($12,''),
+		  nullif($13,'')::uuid,nullif($14,''),nullif($15,''))`,
 			ref.RunID, ref.Turn, tool.Position, call.Function.Name, call.ID, args, fingerprint,
-			external.Server, external.Digest, external.Level, external.Name, external.Recipient); err != nil {
+			external.Server, external.Digest, external.Level, external.Name, external.Recipient, agent.id, agent.label, agent.recipient); err != nil {
 			return TurnResult{}, err
 		}
 	}

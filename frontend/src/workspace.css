@@ -397,3 +397,14 @@
   display: grid;
   gap: .25rem;
 }
+.compose-external {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: .5rem 1rem;
+  padding: .5rem 0;
+}
+
+.compose-external label { display: grid; gap: .25rem; }
+.compose-external select { max-width: min(100%, 18rem); }
+.compose-external small { flex-basis: 100%; }

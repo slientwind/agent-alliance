@@ -19,7 +19,8 @@ const approvalScope = ` from general_agent_tool_approvals q
 	join runs r on r.id=q.run_id
 	join projects p on (p.id,p.plan_version)=(r.project_id,r.plan_version)
 	where p.id=$1 and r.status in ('running','paused') and a.state='queued'
-	and general_mcp_binding_current(r.id,a.mcp_server) and general_tool_approver(r.id,q.level,$2)`
+	and (general_mcp_binding_current(r.id,a.mcp_server) or general_external_binding_current(r.id,a.external_agent))
+	and general_tool_approver(r.id,q.level,$2)`
 
 type toolApproval struct {
 	ID          string                `json:"id"`
@@ -28,6 +29,7 @@ type toolApproval struct {
 	Tool        string                `json:"tool"`
 	Recipient   string                `json:"recipient"`
 	PlanVersion int                   `json:"planVersion"`
+	External    bool                  `json:"external,omitempty"`
 	Arguments   json.RawMessage       `json:"arguments,omitempty"`
 }
 
@@ -37,8 +39,8 @@ func (s Server) toolApprovals(w http.ResponseWriter, r *http.Request, actor iden
 		return web.Fail(404, "找不到这段对话")
 	}
 	ctx := r.Context()
-	rows, err := s.DB.Query(ctx, `select q.id,q.level,q.revision,a.mcp_tool_label,a.mcp_recipient,p.plan_version,
-	 q.run_id,q.turn,q.position,case when r.actor=$2 then a.args_cipher end`+
+	rows, err := s.DB.Query(ctx, `select q.id,q.level,q.revision,coalesce(a.mcp_tool_label,a.external_label),coalesce(a.mcp_recipient,a.external_recipient),p.plan_version,
+	 q.run_id,q.turn,q.position,a.external_agent is not null,case when r.actor=$2 then a.args_cipher end`+
 		approvalScope+` and q.state='pending' order by q.created_at,q.id`, project, actor.ID)
 	if err != nil {
 		return err
@@ -50,7 +52,7 @@ func (s Server) toolApprovals(w http.ResponseWriter, r *http.Request, actor iden
 		var ref ToolRef
 		var cipher []byte
 		err := rows.Scan(&approval.ID, &approval.Level, &approval.Revision, &approval.Tool, &approval.Recipient, &approval.PlanVersion,
-			&ref.RunID, &ref.Turn, &ref.Position, &cipher)
+			&ref.RunID, &ref.Turn, &ref.Position, &approval.External, &cipher)
 		if err != nil {
 			return err
 		}

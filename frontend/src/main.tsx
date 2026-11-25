@@ -32,7 +32,7 @@ import { DingTalkIdentity, FeishuIdentity, SlackIdentity } from "./organization"
 import { EnterpriseWorkspace } from "./enterprise-workspace";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
-import { Globe, X } from "lucide-react";
+import { AtSign, Globe, X } from "lucide-react";
 import {
   api,
   RequestError,
@@ -67,6 +67,7 @@ import { applyDraftDelta, type DraftFragment, type SessionDrafts } from "./live-
 import { applyTheme, readTheme, type Theme } from "./theme";
 import { WorkspaceCommands } from "./workspace-commands";
 import { Composer } from "./composer";
+import { ExternalAgentChooser, type ExternalAgent, type ExternalChoice } from "./external-agents";
 import { ConversationModels, conversationTier, isConversationTier, usesGeneralConversation, type ConversationTier } from "./conversation-models";
 import { TaskCollaboration } from "./task-collaboration";
 import { WorkspaceSidebar } from "./workspace-sidebar";
@@ -186,6 +187,8 @@ function App() {
   const [requestedTier, setRequestedTier] = useState<ConversationTier>();
   const [searchAvailable, setSearchAvailable] = useState(false);
   const [searchDraft, setSearchDraft] = useState<{ project: string; query: string }>();
+  const [externalAgents, setExternalAgents] = useState<ExternalAgent[]>([]);
+  const [externalPicker, setExternalPicker] = useState<{ project: string; choice?: ExternalChoice }>();
   function openWorkflowTemplates(template?: WorkflowTemplateReference) {
     setInitialWorkflowTemplate(template);
     setPanel("workflowTemplates");
@@ -360,22 +363,29 @@ function App() {
       setRequestedTier(undefined);
       setSearchAvailable(false);
       setSearchDraft(undefined);
+      setExternalAgents([]);
+      setExternalPicker(undefined);
     }
   }, [user]);
   const catalog = useCallback(async () => {
-    const [m, a, tiers, search] = await Promise.all([
+    const [m, a, tiers, search, external] = await Promise.all([
       api<Model[]>("resources"),
       api<Agent[]>("agents"),
       api<string[]>("general-tiers").catch((): string[] => []),
       api<{ enabled: boolean }>("search/availability").catch(() => ({ enabled: false })),
+      api<ExternalAgent[]>("agents/admissions").catch((): ExternalAgent[] => []),
     ]);
     setModels(m);
     setAgents(a);
     setAvailableTiers(tiers.filter(isConversationTier));
     setSearchAvailable(search.enabled === true);
+    setExternalAgents(external.filter(agent => agent.phase !== "draft"));
   }, []);
   function chooseAgents(next: Agent[], projectTeam: string, goalIfEmpty?: string) {
-    if (next.length) setSearchDraft(undefined);
+    if (next.length) {
+      setSearchDraft(undefined);
+      setExternalPicker(undefined);
+    }
     if (!draft.trim() && goalIfEmpty) setDraft(goalIfEmpty);
     pickAgents(next);
     setAgentDestination(projectTeam);
@@ -734,12 +744,17 @@ function App() {
     if (current.current === project) await load(project);
     return receipts;
   }
-  const generalTier = user && usesGeneralConversation(p, user.id, hasPicks, hasPicture)
-    ? conversationTier(availableTiers, requestedTier) : undefined;
-  const searching = !!generalTier && searchDraft?.project === (p?.id || "");
+  const canUseGeneral = !!user && usesGeneralConversation(p, user.id, hasPicks, hasPicture);
+  const canUseExternal = !!user && usesGeneralConversation(p, user.id, hasPicks, false);
+  const generalTier = canUseGeneral ? conversationTier(availableTiers, requestedTier) : undefined;
+  const pickingExternal = canUseExternal && externalPicker?.project === (p?.id || "");
+  const externalChoice = pickingExternal ? externalPicker.choice : undefined;
+  const directExternal = externalChoice?.mode === "direct";
+  const invalidExternal = !!externalChoice && (directExternal ? hasFiles : !generalTier);
+  const searching = !!generalTier && !directExternal && searchDraft?.project === (p?.id || "");
   const searchQuery = searching ? searchDraft.query.trim() : "";
   const invalidSearch = searching && (!searchAvailable || !searchQuery);
-  async function startGeneral(project: string, tier: ConversationTier, receipts: Awaited<ReturnType<typeof sendAttachments>>) {
+  async function startGeneral(project: string, tier: ConversationTier | undefined, receipts: Awaited<ReturnType<typeof sendAttachments>>) {
     if (receipts.some(receipt => !receipt.readable || receipt.picture)) {
       throw new Error("附件已保存。请核对可读取的资料后再发起任务。");
     }
@@ -757,8 +772,12 @@ function App() {
     const path = "projects/" + project + "/general-runs";
     const request = {
       goal: draft, tier, expected: latest.revision,
-      sources: Array.from(pins, ([id, revision]) => ({ id, revision })),
+      sources: directExternal ? [] : Array.from(pins, ([id, revision]) => ({ id, revision })),
       ...(searchQuery ? { searchQuery } : {}),
+      ...(externalChoice ? {
+        externalAgents: [{ id: externalChoice.agent.id, revision: externalChoice.agent.revision }],
+        directExternal,
+      } : {}),
     };
     const headers = { "Idempotency-Key": crypto.randomUUID() };
     try {
@@ -770,11 +789,13 @@ function App() {
     if (searchQuery) {
       setSearchDraft(value => value?.query.trim() === searchQuery && (value.project === project || value.project === "") ? undefined : value);
     }
+    if (externalChoice) setExternalPicker(value => value?.choice === externalChoice ? undefined : value);
   }
   async function send() {
     if (
       busy ||
       invalidSearch ||
+      invalidExternal ||
       !(draft.trim() || (p && hasFiles)) ||
       (!p && (!canCreate || !selectedTeamsAvailable)) ||
       current.current !== (p?.id || "")
@@ -786,7 +807,7 @@ function App() {
       if (p) {
         const receipts = hasFiles ? await sendAttachments(p.id) : [];
         if (draft.trim()) {
-          if (generalTier) await startGeneral(p.id, generalTier, receipts);
+          if (generalTier || directExternal) await startGeneral(p.id, generalTier, receipts);
           else await api("projects/" + p.id + "/messages", "POST", { body: draft });
         }
         drafts.current.delete(p.id);
@@ -840,13 +861,14 @@ function App() {
           }
           receipts = await sendAttachments(res.id);
         }
-        if (generalTier) {
+        if (generalTier || directExternal) {
           try {
             await startGeneral(res.id, generalTier, receipts);
           } catch (error) {
             drafts.current.set(res.id, draft);
             if (current.current === res.id) setDraft(draft);
             if (searchQuery) setSearchDraft({ project: res.id, query: searchQuery });
+            if (externalChoice) setExternalPicker({ project: res.id, choice: externalChoice });
             throw error;
           }
         }
@@ -1240,19 +1262,27 @@ function App() {
             )}
             <Composer
               hidden={!!current.current && !p} busy={busy} start={!p}
-              draft={draft} setDraft={setDraft} files={files}
+              draft={draft} setDraft={value => {
+                setDraft(value);
+                if (value === "@" && canUseExternal && externalAgents.length) setExternalPicker({ project: p?.id || "" });
+              }} files={files}
               chooseAgent={!p && !current.current ? openAgents : undefined}
-              tools={generalTier && (
+              tools={(
                 <>
-                  <ConversationModels available={availableTiers} tier={generalTier} onChange={setRequestedTier} disabled={busy} />
-                  {(searchAvailable || searching) &&
+                  {generalTier && !directExternal && <ConversationModels available={availableTiers} tier={generalTier}
+                    onChange={setRequestedTier} disabled={busy} />}
+                  {canUseExternal && externalAgents.length > 0 && <button type="button" aria-pressed={pickingExternal} disabled={busy}
+                    className="agent-launch" onClick={() => setExternalPicker(pickingExternal ? undefined : { project: p?.id || "" })}>
+                    <AtSign aria-hidden="true" /> 外部 Agent
+                  </button>}
+                  {generalTier && !directExternal && (searchAvailable || searching) &&
                     <button type="button" aria-pressed={searching} disabled={busy}
                       onClick={() => setSearchDraft(searching ? undefined : { project: p?.id || "", query: "" })}>
                       <Globe aria-hidden="true" /> 联网搜索
                     </button>}
                 </>
               )}
-              sendDisabled={busy || invalidSearch || (!p && (!canCreate || !selectedTeamsAvailable)) ||
+              sendDisabled={busy || invalidSearch || invalidExternal || (!p && (!canCreate || !selectedTeamsAvailable)) ||
                 !(draft.trim() || (p && hasFiles)) || (!!current.current && !p)}
               send={() => void send()}
               addFiles={added => keepFiles(current.current, [
@@ -1260,6 +1290,14 @@ function App() {
               ])}
               removeFile={key => keepFiles(current.current, files.filter(item => item.key !== key))}
             >
+              {pickingExternal && (
+                <ExternalAgentChooser agents={externalAgents} choice={externalChoice} canDelegate={!!generalTier} disabled={busy}
+                  setChoice={choice => {
+                    setExternalPicker({ project: p?.id || "", choice });
+                    if (choice && draft === "@") setDraft("");
+                    if (choice?.mode === "direct") setSearchDraft(undefined);
+                  }} />
+              )}
               {searching && (
                 <label className="compose-search">
                   公开搜索词

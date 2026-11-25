@@ -62,6 +62,8 @@ func toolRisk(name string) harness.ToolRisk {
 type toolWork struct {
 	name, args, state, fingerprint string
 	server, definitionDigest       string
+	external                       string
+	remote                         externalWork
 	level                          harness.AutonomyLevel
 	sources                        []knowledge.InputSource
 }
@@ -89,15 +91,23 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		}
 		var args []byte
 		if err := tx.QueryRow(ctx, `select tool_name,state,args_cipher,fingerprint,coalesce(mcp_server::text,''),coalesce(mcp_tool_digest,''),
-		 coalesce(mcp_level,'') from general_agent_actions
+		 coalesce(mcp_level,''),coalesce(external_agent::text,'') from general_agent_actions
 		 where (run_id,turn,position)=($1,$2,$3) for update`, ref.RunID, ref.Turn, ref.Position).
-			Scan(&task.name, &task.state, &args, &task.fingerprint, &task.server, &task.definitionDigest, &task.level); err != nil {
+			Scan(&task.name, &task.state, &args, &task.fingerprint, &task.server, &task.definitionDigest, &task.level, &task.external); err != nil {
 			return err
 		}
 		switch task.state {
 		case "completed", "rejected":
+			if d.direct && task.state == "completed" {
+				result.Done = true
+				return finishGeneralRun(ctx, tx, ref.RunID, d, "completed", "外部 Agent 已回复。")
+			}
 			return nil
 		case "running":
+			if task.external != "" {
+				started, err = a.pollExternal(ctx, tx, ref, d, &task, &result)
+				return err
+			}
 			return a.recordObservation(ctx, tx, ref, "rejected", "上一次工具请求的结果无法确认。", "", "")
 		}
 		knownFree := int64(0)
@@ -129,6 +139,18 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 				return err
 			}
 		}
+		if task.external != "" {
+			gate.Risk = harness.ReadOnly
+			if !d.direct {
+				task.level, gate.Risk = harness.L2, harness.SystemWrite
+			}
+			if err := tx.QueryRow(ctx, "select general_external_binding_current($1,$2)", ref.RunID, task.external).Scan(&gate.Authorized); err != nil {
+				return err
+			}
+			if !gate.Authorized {
+				return a.rejectExternal(ctx, tx, ref, d, &result, "外部 Agent 使用权限已变化。")
+			}
+		}
 		decision := policy.Evaluate(gate)
 		if decision.Action == "deny" || task.fingerprint == "invalid" {
 			return a.recordObservation(ctx, tx, ref, "rejected", "该工具不可调用，或参数格式错误。", "", "")
@@ -158,6 +180,11 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		if err != nil {
 			return err
 		}
+		if task.external != "" {
+			if err := a.startExternal(ctx, tx, ref, d, &task); err != nil {
+				return a.handleExternalPreparation(ctx, tx, ref, d, &result, err)
+			}
+		}
 		if task.name == "read_sources" || task.name == "aggregate_csv" {
 			_, task.sources, err = knowledge.RunInputs(ctx, tx, ref.RunID, 0, false)
 			if err != nil {
@@ -173,6 +200,9 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 	})
 	if err != nil || !started {
 		return result, err
+	}
+	if task.external != "" {
+		return a.executeExternal(ctx, ref, task)
 	}
 	var reply resources.Reply
 	var toolErr error

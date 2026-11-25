@@ -8,6 +8,7 @@ type ToolApproval = {
   tool: string;
   recipient: string;
   planVersion: number;
+  external?: boolean;
   arguments?: Record<string, unknown>;
 };
 
@@ -50,10 +51,12 @@ export function ToolApprovals({
       {approvals.map((approval) => (
         <section key={approval.id} className="card" aria-labelledby={`approval-${approval.id}`}>
           <h2 id={`approval-${approval.id}`}>
-            {approval.level === "L1" ? "确认付费查询" : "审核写入请求"}
+            {approval.external ? "确认外部委派" : approval.level === "L1" ? "确认付费查询" : "审核写入请求"}
           </h2>
           <p>助手准备向 <strong>{approval.recipient}</strong> 发送本次请求，使用 {approval.tool}。</p>
-          <p>{approval.level === "L1" ? "该服务可能产生费用，金额由服务方确定。" : "允许后，服务可能修改业务记录。"}</p>
+          <p>{approval.external || approval.level === "L1"
+            ? "该服务可能产生费用，金额由服务方确定。"
+            : "允许后，服务可能修改业务记录。"}</p>
           {approval.level === "L2" && <p>任务方案第 {approval.planVersion} 版</p>}
           {approval.arguments && (
             <details>
@@ -63,7 +66,7 @@ export function ToolApprovals({
           )}
           <div className="row">
             <button type="button" disabled={!!busy} onClick={() => void decide(approval, true)}>
-              {approval.level === "L1" ? "确认并继续" : "允许写入"}
+              {approval.external ? "确认发送" : approval.level === "L1" ? "确认并继续" : "允许写入"}
             </button>
             <button type="button" disabled={!!busy} onClick={() => void decide(approval, false)}>
               跳过这一步

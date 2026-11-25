@@ -35,7 +35,10 @@ type TurnResult struct {
 	Tools int
 }
 
-type ToolResult struct{ Done, Wait, Recheck bool }
+type ToolResult struct {
+	Done, Wait, Recheck bool
+	PollSeconds         int
+}
 
 // GeneralAgentWorkflow passes only durable identifiers through Temporal. The
 // model messages, tool arguments and observations stay encrypted in Postgres.
@@ -77,7 +80,7 @@ func GeneralAgentWorkflow(ctx workflow.Context, run string) error {
 				if !tool.Wait {
 					break
 				}
-				waitOnTool(ctx, signals, tool.Recheck)
+				waitOnTool(ctx, signals, tool.Recheck, tool.PollSeconds)
 			}
 			if tool.Done {
 				return nil
@@ -89,15 +92,19 @@ func GeneralAgentWorkflow(ctx workflow.Context, run string) error {
 	return workflow.ExecuteActivity(ctx, AdvanceTurnActivity, v).Get(ctx, nil)
 }
 
-func waitOnTool(ctx workflow.Context, signals workflow.ReceiveChannel, recheck bool) {
+func waitOnTool(ctx workflow.Context, signals workflow.ReceiveChannel, recheck bool, pollSeconds int) {
 	var signal string
-	if !recheck {
+	if !recheck && pollSeconds == 0 {
 		signals.Receive(ctx, &signal)
 		return
 	}
 	timerCtx, cancel := workflow.WithCancel(ctx)
 	defer cancel()
-	timer := workflow.NewTimer(timerCtx, time.Minute)
+	interval := time.Minute
+	if pollSeconds > 0 {
+		interval = time.Duration(pollSeconds) * time.Second
+	}
+	timer := workflow.NewTimer(timerCtx, interval)
 	workflow.NewSelector(ctx).AddFuture(timer, func(workflow.Future) {}).AddReceive(signals, func(channel workflow.ReceiveChannel, _ bool) {
 		channel.Receive(ctx, &signal)
 	}).Select(ctx)

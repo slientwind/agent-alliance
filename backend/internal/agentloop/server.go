@@ -58,6 +58,8 @@ type StartInput struct {
 	Tier        llmgateway.Tier          `json:"tier"`
 	Sources     []harness.SourceRevision `json:"sources,omitempty"`
 	SearchQuery string                   `json:"searchQuery,omitempty"`
+	External    []externalRef            `json:"externalAgents,omitempty"`
+	Direct      bool                     `json:"directExternal,omitempty"`
 }
 
 func (s Server) start(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
@@ -81,6 +83,9 @@ func (s Server) start(w http.ResponseWriter, r *http.Request, actor identity.Mem
 func (s Server) StartTx(ctx context.Context, tx pgx.Tx, project, actor, key string, in StartInput) (string, error) {
 	in.Goal = strings.TrimSpace(in.Goal)
 	in.SearchQuery = strings.TrimSpace(in.SearchQuery)
+	if err := validateExternalSelection(in); err != nil {
+		return "", err
+	}
 	if in.SearchQuery != "" && !websearch.ValidQuery(in.SearchQuery) {
 		return "", web.Fail(422, "请输入不超过 320 字的公开搜索词")
 	}
@@ -139,12 +144,14 @@ func (s Server) StartTx(ctx context.Context, tx pgx.Tx, project, actor, key stri
 	if active {
 		return "", web.Fail(409, "当前任务还有未结束的处理，请先完成或取消")
 	}
-	var configured bool
-	if err := tx.QueryRow(ctx, "select exists(select from ("+configuredTiers+") ready where ready.tier=$1)", in.Tier).Scan(&configured); err != nil {
-		return "", err
-	}
-	if !configured {
-		return "", web.Fail(409, "此模型档位尚未启用，请联系管理员")
+	if !in.Direct {
+		var configured bool
+		if err := tx.QueryRow(ctx, "select exists(select from ("+configuredTiers+") ready where ready.tier=$1)", in.Tier).Scan(&configured); err != nil {
+			return "", err
+		}
+		if !configured {
+			return "", web.Fail(409, "此模型档位尚未启用，请联系管理员")
+		}
 	}
 	var initialMessage int64
 	if plan == 0 {
@@ -187,14 +194,20 @@ func (s Server) StartTx(ctx context.Context, tx pgx.Tx, project, actor, key stri
 		project, plan, actor, team, key, hash, maxModelTurns, reviewer).Scan(&run); err != nil {
 		return "", err
 	}
-	if _, err := tx.Exec(ctx, `insert into general_agent_runs(run_id,tier,goal_message_seq) values($1,$2,$3)`, run, in.Tier, initialMessage); err != nil {
+	if _, err := tx.Exec(ctx, `insert into general_agent_runs(run_id,tier,goal_message_seq,direct_external) values($1,$2,$3,$4)`,
+		run, in.Tier, initialMessage, in.Direct); err != nil {
 		return "", err
 	}
-	if err := mcphub.BindRun(ctx, tx, run, team); err != nil {
+	if err := s.bindExternalAgents(ctx, tx, run, actor, in.External); err != nil {
 		return "", err
 	}
-	if err := websearch.BindRun(ctx, tx, s.Vault, run, in.SearchQuery); err != nil {
-		return "", err
+	if !in.Direct {
+		if err := mcphub.BindRun(ctx, tx, run, team); err != nil {
+			return "", err
+		}
+		if err := websearch.BindRun(ctx, tx, s.Vault, run, in.SearchQuery); err != nil {
+			return "", err
+		}
 	}
 	if _, err := tx.Exec(ctx, `insert into general_agent_dispatch(run_id) values($1)`, run); err != nil {
 		return "", err

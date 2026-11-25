@@ -209,6 +209,11 @@ func (m Model) externalResponse(req *http.Request) (*http.Response, error) {
 		return nil, errors.New("外部主机未获准或无法核对连接地址")
 	}
 	defer client.CloseIdleConnections()
+	if m.AuthorizeExternal != nil {
+		if err := m.AuthorizeExternal(req.Context()); err != nil {
+			return nil, err
+		}
+	}
 	response, err := client.Do(req)
 	if err != nil {
 		return nil, errors.New("外部提交结果待核对")
