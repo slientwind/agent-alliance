@@ -113,8 +113,9 @@ func main() {
 	go a.FollowRemote(ctx, c)
 	go a.CleanRetention(ctx)
 	go knowledge.MaintainPassages(ctx, catalog.DB)
-	go (knowledgesync.Server{DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(),
-		Egress: egress.Policy{DB: catalog.DB}}).Serve(ctx)
+	sync := knowledgesync.Server{DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Egress: egress.Policy{DB: catalog.DB}}
+	go sync.Serve(ctx)
+	go sync.ServeCollections(ctx)
 	go knowledge.ConfiguredObjects().ServeArtifactPreviews(ctx, catalog.DB)
 	go telemetry.Serve(ctx, catalog.DB)
 	go policy.PruneDLPExchanges(ctx, catalog.DB)
