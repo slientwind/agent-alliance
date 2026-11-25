@@ -27,8 +27,38 @@ func (a Activities) Dispatch(ctx context.Context, c client.Client, queue string)
 			if err := a.sendControl(ctx, c); err != nil && ctx.Err() == nil {
 				slog.Warn("general workflow control pending")
 			}
+			if err := a.sendToolDecision(ctx, c.SignalWorkflow); err != nil && ctx.Err() == nil {
+				slog.Warn("general workflow tool decision pending")
+			}
 		}
 	}
+}
+
+func (a Activities) sendToolDecision(ctx context.Context, signal func(context.Context, string, string, string, interface{}) error) error {
+	return database.WithTx(ctx, a.DB, func(tx pgx.Tx) error {
+		var id, run, state string
+		err := tx.QueryRow(ctx, `select q.id,q.run_id,r.status from general_agent_tool_approvals q
+		 join general_agent_dispatch d using(run_id) join runs r on r.id=q.run_id
+		 where d.sent_at is not null and q.wake_sent_at is null and q.next_wake_at<=now()
+		 order by q.next_wake_at,q.id limit 1 for update of q skip locked`).Scan(&id, &run, &state)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if state == "running" || state == "paused" {
+			short, cancel := context.WithTimeout(ctx, 4*time.Second)
+			err = signal(short, "run/"+run, "", "control", id)
+			cancel()
+			if err != nil {
+				_, err = tx.Exec(ctx, `update general_agent_tool_approvals set next_wake_at=now()+interval '5 seconds' where id=$1`, id)
+				return err
+			}
+		}
+		_, err = tx.Exec(ctx, `update general_agent_tool_approvals set wake_sent_at=now() where id=$1`, id)
+		return err
+	})
 }
 
 func (a Activities) startQueued(ctx context.Context, c client.Client, queue string) error {

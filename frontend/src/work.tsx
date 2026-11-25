@@ -2,6 +2,7 @@ import { AggregationScope } from "./aggregation-scope";
 import { fileFormats } from "./output-operations";
 import { PlanningInputs, planningRequestKey, selectedPins, type PlanningPin } from "./planning-inputs";
 import { LookupBody } from "./lookup-body";
+import { ToolApprovals } from "./tool-approval";
 import { MarkdownText } from "./markdown-text";
 import { StatusIcon } from "./status-icon";
 import { LiveDrafts, type DraftFragment } from "./live-drafts";
@@ -212,6 +213,8 @@ export function Work({
   return (
     <div className="thread" ref={threadRef}>
       <h1>{p.title}</h1>
+      {p.run?.general && ["running", "paused"].includes(p.run.status) &&
+        <ToolApprovals key={p.id} project={p} refresh={refresh} />}
       {p.distributionCases.length > 0 && (
         <DistributionReview project={p} refresh={refresh} />
       )}

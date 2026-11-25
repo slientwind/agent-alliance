@@ -55,7 +55,7 @@
 - [ ] **通用执行引擎（Go Worker）**
   - [x] 实现统一 `GeneralAgentWorkflow` 与两类核心 Activity：`AdvanceTurn`（装配上下文 + 调模型网关 + Harness 纯决策）与 `ExecuteTool`（策略门禁 + 派发 + 观察落账）。
   - [x] 实现 **L0 / L1 / L2 自主策略评估器（`AutonomyPolicy`）**，根据工具注册风险、当前权限、费用和额度决定直接执行、确认、审核或拒绝。
-  - [ ] 将自主策略接入通用执行器，提供 L1 内联确认卡及 L2 人工审核门禁。
+  - [x] 将 L1 自主策略接入通用执行器，为付费 MCP 查询提供内联确认卡和持久化续跑。
   - [x] 实现通用停滞检测（比较工具名 + 规范化参数 + 来源版本 + 未决对象）与安全上下文压缩（保留 System、最新用户纠偏、未闭合 Tool Pair、来源引用）。
 - [ ] **Docker Compose 隔离容器沙箱池（Workspace Sandbox）**
   - [x] 在现有 `deploy/application.yaml` 下新增 `sandbox` 服务镜像与独立断网内部网络 `sandbox-internal`（`internal: true`），预装 Python 3.12、`pandas`、`openpyxl`、`python-docx`、`python-pptx`、`pypdf`、`matplotlib`、`pillow`、`duckdb` 及中文字体包。

@@ -351,9 +351,11 @@ func (a Activities) saveTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, d runD
 		if err != nil {
 			return TurnResult{}, err
 		}
-		if _, err := tx.Exec(ctx, `insert into general_agent_actions(run_id,turn,position,tool_name,call_id,args_cipher,fingerprint,mcp_server,mcp_tool_digest)
-		 values($1,$2,$3,$4,$5,$6,$7,nullif($8,'')::uuid,nullif($9,''))`, ref.RunID, ref.Turn, tool.Position, call.Function.Name, call.ID,
-			args, fingerprint, external.Server, external.Digest); err != nil {
+		if _, err := tx.Exec(ctx, `insert into general_agent_actions(run_id,turn,position,tool_name,call_id,args_cipher,fingerprint,
+		 mcp_server,mcp_tool_digest,mcp_level,mcp_tool_label,mcp_recipient)
+		 values($1,$2,$3,$4,$5,$6,$7,nullif($8,'')::uuid,nullif($9,''),nullif($10,''),nullif($11,''),nullif($12,''))`,
+			ref.RunID, ref.Turn, tool.Position, call.Function.Name, call.ID, args, fingerprint,
+			external.Server, external.Digest, external.Level, external.Name, external.Recipient); err != nil {
 			return TurnResult{}, err
 		}
 	}

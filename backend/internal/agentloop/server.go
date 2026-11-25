@@ -21,6 +21,8 @@ type Server struct{ DB *pgxpool.Pool }
 func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("GET /api/general-tiers", auth.Protect(false, s.tiers))
 	mux.Handle("POST /api/projects/{id}/general-runs", auth.Protect(false, s.start))
+	mux.Handle("GET /api/projects/{id}/tool-approvals", auth.Protect(false, s.toolApprovals))
+	mux.Handle("POST /api/projects/{id}/tool-approvals/{approval}", auth.Protect(false, s.decideToolApproval))
 }
 
 const configuredTiers = `select distinct r.tier from model_tier_routes r join model_catalog m on m.id=r.model_id and m.enabled

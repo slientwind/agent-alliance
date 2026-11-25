@@ -35,7 +35,7 @@ type TurnResult struct {
 	Tools int
 }
 
-type ToolResult struct{ Done, Wait bool }
+type ToolResult struct{ Done, Wait, Recheck bool }
 
 // GeneralAgentWorkflow passes only durable identifiers through Temporal. The
 // model messages, tool arguments and observations stay encrypted in Postgres.
@@ -77,8 +77,7 @@ func GeneralAgentWorkflow(ctx workflow.Context, run string) error {
 				if !tool.Wait {
 					break
 				}
-				var signal string
-				signals.Receive(ctx, &signal)
+				waitOnTool(ctx, signals, tool.Recheck)
 			}
 			if tool.Done {
 				return nil
@@ -88,4 +87,18 @@ func GeneralAgentWorkflow(ctx workflow.Context, run string) error {
 	}
 	v := TurnRef{RunID: run, Turn: maxModelTurns + 1, StopReason: "已达到本次任务的处理上限。请缩小范围后继续。"}
 	return workflow.ExecuteActivity(ctx, AdvanceTurnActivity, v).Get(ctx, nil)
+}
+
+func waitOnTool(ctx workflow.Context, signals workflow.ReceiveChannel, recheck bool) {
+	var signal string
+	if !recheck {
+		signals.Receive(ctx, &signal)
+		return
+	}
+	timerCtx, cancel := workflow.WithCancel(ctx)
+	defer cancel()
+	timer := workflow.NewTimer(timerCtx, time.Minute)
+	workflow.NewSelector(ctx).AddFuture(timer, func(workflow.Future) {}).AddReceive(signals, func(channel workflow.ReceiveChannel, _ bool) {
+		channel.Receive(ctx, &signal)
+	}).Select(ctx)
 }

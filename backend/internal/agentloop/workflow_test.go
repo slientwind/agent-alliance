@@ -34,3 +34,21 @@ func TestGeneralWorkflowLimitsToolCallsAndWaitsOnControl(t *testing.T) {
 		t.Fatalf("actions=%d turns=%d waits=%d err=%v", actions, turns, waits, err)
 	}
 }
+
+func TestGeneralWorkflowRechecksPendingToolWithoutSignal(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	env.RegisterActivityWithOptions(func(_ context.Context, ref TurnRef) (TurnResult, error) {
+		return TurnResult{Done: ref.Turn > 1, Tools: 1}, nil
+	}, activity.RegisterOptions{Name: AdvanceTurnActivity})
+	var tries int
+	env.RegisterActivityWithOptions(func(_ context.Context, _ ToolRef) (ToolResult, error) {
+		tries++
+		return ToolResult{Wait: tries == 1, Recheck: tries == 1}, nil
+	}, activity.RegisterOptions{Name: ExecuteToolActivity})
+	start := env.Now()
+	env.ExecuteWorkflow(GeneralAgentWorkflow, "pending")
+	if err := env.GetWorkflowError(); err != nil || tries != 2 || env.Now().Sub(start) < time.Minute {
+		t.Fatalf("pending approval attempts=%d time=%v err=%v", tries, env.Now().Sub(start), err)
+	}
+}

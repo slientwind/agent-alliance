@@ -56,6 +56,7 @@ func toolRisk(name string) harness.ToolRisk {
 type toolWork struct {
 	name, args, state, fingerprint string
 	server, definitionDigest       string
+	level                          harness.AutonomyLevel
 	sources                        []knowledge.InputSource
 }
 
@@ -81,9 +82,10 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 			return nil
 		}
 		var args []byte
-		if err := tx.QueryRow(ctx, `select tool_name,state,args_cipher,fingerprint,coalesce(mcp_server::text,''),coalesce(mcp_tool_digest,'') from general_agent_actions
+		if err := tx.QueryRow(ctx, `select tool_name,state,args_cipher,fingerprint,coalesce(mcp_server::text,''),coalesce(mcp_tool_digest,''),
+		 coalesce(mcp_level,'') from general_agent_actions
 		 where (run_id,turn,position)=($1,$2,$3) for update`, ref.RunID, ref.Turn, ref.Position).
-			Scan(&task.name, &task.state, &args, &task.fingerprint, &task.server, &task.definitionDigest); err != nil {
+			Scan(&task.name, &task.state, &args, &task.fingerprint, &task.server, &task.definitionDigest, &task.level); err != nil {
 			return err
 		}
 		switch task.state {
@@ -94,17 +96,39 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		}
 		knownFree := int64(0)
 		policy := harness.AutonomyPolicy{MaxAutomaticBatch: maxToolsPerTurn}
-		risk := toolRisk(task.name)
+		gate := harness.ToolGate{Risk: toolRisk(task.name), Authorized: d.authorized, QuotaAvailable: true,
+			EstimatedCost: &knownFree, BatchSize: 1}
 		if task.server != "" {
 			if a.MCP == nil {
 				return a.recordObservation(ctx, tx, ref, "rejected", "企业工具暂不可用。", "", "")
 			}
-			risk = harness.ReadOnly
+			gate.Risk = harness.ReadOnly
+			switch task.level {
+			case harness.L1:
+				gate.ExternalPayment, gate.EstimatedCost = true, nil
+			case harness.L2:
+				gate.Risk = harness.SystemWrite
+			}
+			if err := tx.QueryRow(ctx, "select general_mcp_binding_current($1,$2)", ref.RunID, task.server).Scan(&gate.Authorized); err != nil {
+				return err
+			}
 		}
-		decision := policy.Evaluate(harness.ToolGate{Risk: risk, Authorized: d.authorized, QuotaAvailable: true,
-			EstimatedCost: &knownFree, BatchSize: 1})
-		if decision.Level != harness.L0 || task.fingerprint == "invalid" {
+		decision := policy.Evaluate(gate)
+		if decision.Action == "deny" || task.fingerprint == "invalid" {
 			return a.recordObservation(ctx, tx, ref, "rejected", "该工具不可调用，或参数格式错误。", "", "")
+		}
+		if decision.Level != harness.L0 {
+			state, err := approvalState(ctx, tx, ref, d, task)
+			if err != nil {
+				return err
+			}
+			switch state {
+			case "pending":
+				result.Wait, result.Recheck = true, true
+				return nil
+			case "denied":
+				return a.recordObservation(ctx, tx, ref, "rejected", "本次工具请求已跳过。", "", "")
+			}
 		}
 		var covered int
 		if err := tx.QueryRow(ctx, `select count(distinct observation_hash) from general_agent_actions where run_id=$1`, ref.RunID).Scan(&covered); err != nil {
@@ -137,9 +161,11 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 	var reply resources.Reply
 	var toolErr error
 	if task.server != "" {
-		var result json.RawMessage
-		result, toolErr = a.MCP.CallReadOnly(ctx, ref.RunID, task.server, task.name, task.definitionDigest, json.RawMessage(task.args))
-		reply.Text = string(result)
+		var observation json.RawMessage
+		approved := func(ctx context.Context) error { return a.verifyApproval(ctx, ref, task.level, task.fingerprint) }
+		observation, toolErr = a.MCP.Call(ctx, ref.RunID, task.server, task.name, task.definitionDigest, task.level,
+			json.RawMessage(task.args), approved)
+		reply.Text = string(observation)
 	} else {
 		reply, toolErr = invokeTrusted(ctx, task)
 	}

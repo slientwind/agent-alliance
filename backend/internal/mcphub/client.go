@@ -270,8 +270,13 @@ func (s *Session) definition(tool *mcp.Tool, mode string) (Tool, error) {
 			Name: toolAlias(s.server.ID, tool.Name), Description: description, Parameters: schema,
 		}},
 	}
-	if mode == "read_only" && result.ReadOnly {
-		result.Risk, result.Level = harness.ReadOnly, harness.L0
+	if result.ReadOnly {
+		switch mode {
+		case "read_only":
+			result.Risk, result.Level = harness.ReadOnly, harness.L0
+		case "paid_read":
+			result.Risk, result.Level = harness.ReadOnly, harness.L1
+		}
 	}
 	return result, nil
 }

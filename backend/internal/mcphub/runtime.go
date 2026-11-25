@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"time"
 
 	"alliance/internal/harness"
@@ -20,8 +21,9 @@ type Runtime struct {
 
 type RunTool struct {
 	Tool
-	Server string
-	Digest string
+	Server    string
+	Digest    string
+	Recipient string
 }
 
 const allowedRunServers = ` from general_agent_mcp_servers binding
@@ -60,11 +62,16 @@ func (runtime Runtime) openRunServer(ctx context.Context, run, server string) (*
 func (runtime Runtime) Discover(ctx context.Context, run string) []RunTool {
 	ctx, stop := context.WithTimeout(ctx, 5*time.Second)
 	defer stop()
-	rows, err := runtime.DB.Query(ctx, "select s.id"+allowedRunServers+" order by s.id limit 16", run)
+	rows, err := runtime.DB.Query(ctx, "select s.id,s.endpoint"+allowedRunServers+" order by s.id limit 16", run)
 	if err != nil {
 		return nil
 	}
-	servers, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	type directoryServer struct{ id, endpoint string }
+	servers, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (directoryServer, error) {
+		var server directoryServer
+		err := row.Scan(&server.id, &server.endpoint)
+		return server, err
+	})
 	if err != nil {
 		return nil
 	}
@@ -74,7 +81,11 @@ func (runtime Runtime) Discover(ctx context.Context, run string) []RunTool {
 		if ctx.Err() != nil {
 			break
 		}
-		session, err := runtime.openRunServer(ctx, run, server)
+		endpoint, err := url.Parse(server.endpoint)
+		if err != nil {
+			continue
+		}
+		session, err := runtime.openRunServer(ctx, run, server.id)
 		if err != nil {
 			continue
 		}
@@ -85,12 +96,12 @@ func (runtime Runtime) Discover(ctx context.Context, run string) []RunTool {
 		}
 		for _, tool := range discovered {
 			size := len(tool.Definition.Function.Parameters) + len(tool.Definition.Function.Description) + len(tool.Definition.Function.Name)
-			if tool.Level != harness.L0 || size > remaining {
+			if tool.Level == harness.L2 || size > remaining {
 				continue
 			}
 			digest, err := DefinitionDigest(tool)
 			if err == nil {
-				tools = append(tools, RunTool{Tool: tool, Server: server, Digest: digest})
+				tools = append(tools, RunTool{Tool: tool, Server: server.id, Digest: digest, Recipient: endpoint.Host})
 				remaining -= size
 			}
 			if len(tools) == 40 {
@@ -101,16 +112,23 @@ func (runtime Runtime) Discover(ctx context.Context, run string) []RunTool {
 	return tools
 }
 
-func (runtime Runtime) CallReadOnly(ctx context.Context, run, server, alias, digest string, arguments json.RawMessage) (json.RawMessage, error) {
+func (runtime Runtime) Call(ctx context.Context, run, server, alias, digest string, level harness.AutonomyLevel,
+	arguments json.RawMessage, approve func(context.Context) error) (json.RawMessage, error) {
 	session, err := runtime.openRunServer(ctx, run, server)
 	if err != nil {
 		return nil, err
 	}
 	defer session.Close()
-	result, err := session.Call(ctx, alias, arguments, func(_ context.Context, tool Tool, _ json.RawMessage) error {
+	result, err := session.Call(ctx, alias, arguments, func(ctx context.Context, tool Tool, _ json.RawMessage) error {
 		current, err := DefinitionDigest(tool)
-		if err != nil || current != digest || tool.Level != harness.L0 {
+		if err != nil || current != digest || tool.Level != level {
 			return errors.New("工具配置变更，需要重新选择")
+		}
+		if level != harness.L0 {
+			if approve == nil {
+				return ErrApproval
+			}
+			return approve(ctx)
 		}
 		return nil
 	})

@@ -10,12 +10,15 @@ try {
   const id = "2b40fe15-8725-45cf-9576-5661de125cb5";
   const source = "64023bae-ab1d-4d35-a467-45f80ef8cbc9";
   const submitted = [];
+  const decisions = [];
+  let awaitingApproval = false;
   const details = {
     id, title: "测试对话", stage: "brief", revision: 1, owner: "member", reviewer: "member", team: "team", planVersion: 0,
     messages: [], artifacts: [], participants: [], handoffs: [], sharedAgents: [], deliveries: [], distributionCases: [],
     budget: { warning: false, pending: 0 }, costSummary: {}, run: null, suggestion: null, plan: null,
   };
   const sourcePath = "/api/projects/" + id + "/sources";
+  const approvalsPath = "/api/projects/" + id + "/tool-approvals";
   await page.route("**/api/**", route => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -35,7 +38,19 @@ try {
       details.revision++;
       details.planVersion++;
       details.run = { id: "run", status: "running", general: true, attempts: [] };
+      awaitingApproval = true;
       return route.fulfill({ status: 202, json: { id: "run" } });
+    }
+    if (path === approvalsPath) {
+      return route.fulfill({ json: awaitingApproval
+        ? [{ id: "approval", level: "L1", revision: 1, tool: "reports", recipient: "records.example.test", turn: 1 }]
+        : [] });
+    }
+    if (path === approvalsPath + "/approval" && request.method() === "POST") {
+      decisions.push(request.postDataJSON());
+      awaitingApproval = false;
+      details.revision++;
+      return route.fulfill({ status: 204 });
     }
     if (path.endsWith("/session-events")) return route.fulfill({ contentType: "text/event-stream", body: ": connected\n\n" });
     const data = {
@@ -66,8 +81,16 @@ try {
   assert.equal((await dispatched).status(), 202);
   await page.waitForURL("**/chat/" + id);
   assert.deepEqual(submitted, [{ goal: "请检查采购金额", tier: "reasoning", expected: 1, sources: [{ id: source, revision: 1 }] }]);
+  const approval = page.getByRole("region", { name: "确认付费查询" });
+  await approval.getByText("records.example.test", { exact: true }).waitFor();
+  const decided = page.waitForResponse(response => response.url().endsWith(approvalsPath + "/approval"));
+  await approval.getByRole("button", { name: "确认并继续" }).click();
+  assert.equal((await decided).status(), 204);
+  assert.deepEqual(decisions, [{ expected: 1, accept: true }]);
+  await approval.waitFor({ state: "hidden" });
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   assert.deepEqual(errors, []);
-  console.log("Composer dispatched the selected model tier and exact attachment version without horizontal overflow.");
+  console.log("Composer sent the selected tier and attachment version, then rendered and submitted the inline tool confirmation.");
 } finally {
   await browser.close();
 }

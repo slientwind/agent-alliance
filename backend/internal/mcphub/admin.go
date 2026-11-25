@@ -119,8 +119,8 @@ func (a Admin) configure(w http.ResponseWriter, r *http.Request, actor identity.
 		return web.Fail(422, "请核对服务名称、连接地址和传输类型")
 	}
 	for name, mode := range in.Tools {
-		if !toolName.MatchString(name) || (mode != "read_only" && mode != "write") {
-			return web.Fail(422, "工具分工应填写 read_only 或 write")
+		if !toolName.MatchString(name) || (mode != "read_only" && mode != "paid_read" && mode != "write") {
+			return web.Fail(422, "请选择免费查询、付费查询或写入")
 		}
 	}
 	if in.Tools == nil {
