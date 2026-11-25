@@ -98,6 +98,24 @@ func TestStudioPatchRejectsUnsupportedChanges(t *testing.T) {
 	}
 }
 
+func TestRefinementKeepsUnselectedRulesAndUTF16Offsets(t *testing.T) {
+	got, err := selectedText("前😀价量尾", 3, 5)
+	if err != nil || got != "价量" {
+		t.Fatalf("selection = %q %v", got, err)
+	}
+	if _, err := selectedText("前😀价", 2, 4); err == nil {
+		t.Fatal("accepted a selection starting halfway through an emoji")
+	}
+	diff, err := makeInstructionDiff("✓😀\n金额左对齐\n保留币种", "金额左对齐", "金额右对齐")
+	if err != nil || diff.Offset != 4 || diff.After != "✓😀\n金额右对齐\n保留币种" ||
+		diff.Removed != "金额左对齐" || diff.Added != "金额右对齐" {
+		t.Fatalf("bad diff %+v (%v)", diff, err)
+	}
+	if _, err := makeInstructionDiff("金额列\n金额列", "金额列", "合计列"); err == nil {
+		t.Fatal("accepted an ambiguous patch location")
+	}
+}
+
 type gatewayFixture func(context.Context, llmgateway.CallIdentity, llmgateway.Request) (llmgateway.RoutedResult, error)
 
 func (g gatewayFixture) Call(ctx context.Context, actor llmgateway.CallIdentity, request llmgateway.Request) (llmgateway.RoutedResult, error) {
@@ -145,6 +163,7 @@ func TestStudioBuilderPostgres(t *testing.T) {
 	const message = "帮我做一个报价核对助手"
 	const modelAnswer = `{"reply":"已生成草稿","questions":["需要按周汇总吗？"],"patch":[
 	  {"op":"replace","path":"/name","value":"报价核对"},
+	  {"op":"replace","path":"/instructions","value":"保留币种。金额左对齐。将小计放在末尾。"},
 	  {"op":"replace","path":"/steps","value":["汇总并核对列"]},
 	  {"op":"replace","path":"/capabilities","value":["office"]}]}`
 	calls := 0
@@ -158,11 +177,22 @@ func TestStudioBuilderPostgres(t *testing.T) {
 		if calls == 1 && (!strings.Contains(in, message) || !strings.Contains(in, `"columns":[3]`) || !strings.Contains(in, `"outline":[2]`)) {
 			t.Fatalf("model did not receive the request and anonymous layout: %s", in)
 		}
-		if calls == 2 {
+		switch calls {
+		case 2:
 			if !strings.Contains(in, message) || !strings.Contains(in, "需要按周汇总吗？") {
 				t.Fatal("clarification lost the original request or question")
 			}
 			output = `{"reply":"invalid","patch":[{"op":"replace","path":"/owner","value":"outside"}]}`
+		case 3:
+			if !strings.Contains(request.Messages[0].Content, "金额左对齐") || in != "示例报价" {
+				t.Fatal("playground did not use the current draft and explicit trial input")
+			}
+			output = "金额列；私有试聊内容"
+		case 4, 5:
+			if strings.Contains(in, "私有试聊内容") || !strings.Contains(in, `"selectedOutput":"金额列"`) {
+				t.Fatalf("refinement must receive only the selected output: %s", in)
+			}
+			output = `{"match":"金额左对齐","replacement":"金额右对齐"}`
 		}
 		return llmgateway.RoutedResult{Result: llmgateway.Result{Reply: resources.Reply{Text: output}}}, nil
 	})}
@@ -218,7 +248,7 @@ func TestStudioBuilderPostgres(t *testing.T) {
 	first := call(token, "POST", path+"/chat", multi.String(), m.FormDataContentType(), "build-first", 200)
 	var result Turn
 	err = json.Unmarshal([]byte(first), &result)
-	if err != nil || result.Revision != 2 || result.Spec.Name != "报价核对" || len(result.Patch) != 3 || len(result.Questions) != 1 {
+	if err != nil || result.Revision != 2 || result.Spec.Name != "报价核对" || len(result.Patch) != 4 || len(result.Questions) != 1 {
 		t.Fatalf("invalid model patch result: %s (%v)", first, err)
 	}
 	call(token, "POST", path+"/chat", multi.String(), m.FormDataContentType(), "build-first", 200)
@@ -231,6 +261,43 @@ func TestStudioBuilderPostgres(t *testing.T) {
 	saved := call(token, "GET", path, "", "", "", 200)
 	if strings.Contains(saved, "SECRET") || !strings.Contains(saved, `"revision":2`) || !strings.Contains(saved, message) || strings.Contains(saved, "invalid patch") {
 		t.Fatalf("wrong saved conversation: %s", saved)
+	}
+	var trial trialResult
+	err = json.Unmarshal([]byte(call(token, "POST", path+"/try", `{"expected":2,"message":"示例报价"}`, "application/json", "try-once", 200)), &trial)
+	if err != nil || trial.ID == "" || trial.Output != "金额列；私有试聊内容" {
+		t.Fatalf("trial was not retained: %+v %v", trial, err)
+	}
+	call(token, "POST", path+"/try", `{"expected":2,"message":"示例报价"}`, "application/json", "try-once", 200)
+	request, err := json.Marshal(map[string]any{"expected": 2, "trial": trial.ID, "start": 0, "end": 3, "feedback": "把这一列改成右对齐"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var one, two refinement
+	firstRefinement := call(token, "POST", path+"/refine", string(request), "application/json", "refine-one", 200)
+	err = json.Unmarshal([]byte(firstRefinement), &one)
+	if err != nil || one.Diff.Removed != "金额左对齐" || one.Diff.Added != "金额右对齐" || one.Selected != "金额列" {
+		t.Fatalf("no localized proposal: %s (%v)", firstRefinement, err)
+	}
+	replayRefinement := call(token, "POST", path+"/refine", string(request), "application/json", "refine-one", 200)
+	if !strings.Contains(replayRefinement, one.ID) {
+		t.Fatal(replayRefinement)
+	}
+	err = json.Unmarshal([]byte(call(token, "POST", path+"/refine", string(request), "application/json", "refine-two", 200)), &two)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current := call(token, "GET", path, "", "", "", 200)
+	if !strings.Contains(current, "金额左对齐") || strings.Contains(current, "金额右对齐") {
+		t.Fatal("proposal changed the draft before it was applied")
+	}
+	apply := path + "/refinements/" + one.ID + "/apply"
+	call(teammate, "POST", apply, `{"expected":2}`, "application/json", "", 404)
+	call(token, "POST", apply, `{"expected":2}`, "application/json", "", 200)
+	call(token, "POST", apply, `{"expected":2}`, "application/json", "", 200)
+	call(token, "POST", path+"/refinements/"+two.ID+"/apply", `{"expected":2}`, "application/json", "", 409)
+	current = call(token, "GET", path, "", "", "", 200)
+	if !strings.Contains(current, "保留币种。金额右对齐。将小计放在末尾。") || strings.Contains(current, "私有试聊内容") || calls != 5 {
+		t.Fatalf("unexpected refined draft or call count: %s calls=%d", current, calls)
 	}
 	exec("delete from team_members where (team_id,member_id)=($1,$2)", team, owner)
 	call(token, "GET", path, "", "", "", 404)

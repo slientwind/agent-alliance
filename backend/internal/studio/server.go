@@ -40,6 +40,9 @@ func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("GET /api/studio", auth.Protect(false, s.list))
 	mux.Handle("GET /api/studio/{id}", auth.Protect(false, s.read))
 	mux.Handle("POST /api/studio/{id}/chat", auth.Protect(false, s.chat))
+	mux.Handle("POST /api/studio/{id}/try", auth.Protect(false, s.try))
+	mux.Handle("POST /api/studio/{id}/refine", auth.Protect(false, s.refine))
+	mux.Handle("POST /api/studio/{id}/refinements/{change}/apply", auth.Protect(false, s.applyRefinement))
 }
 
 func (s Server) create(w http.ResponseWriter, r *http.Request, actor identity.Member) error {

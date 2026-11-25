@@ -58,13 +58,18 @@ func decodeExact(raw []byte, target any) error {
 	return nil
 }
 
-func modelSuggestion(raw string, current Spec) (suggestion, Spec, error) {
+func unwrapJSON(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if fenced, ok := strings.CutPrefix(raw, "```json\n"); ok {
 		if body, ok := strings.CutSuffix(fenced, "\n```"); ok {
-			raw = body
+			return body
 		}
 	}
+	return raw
+}
+
+func modelSuggestion(raw string, current Spec) (suggestion, Spec, error) {
+	raw = unwrapJSON(raw)
 	var out suggestion
 	if len(raw) > 48<<10 || decodeExact([]byte(raw), &out) != nil || !validText(out.Reply, 1200, false) ||
 		!validList(out.Questions, 2, 250) || len(out.Patch) > 7 || len(out.Patch)+len(out.Questions) == 0 {
