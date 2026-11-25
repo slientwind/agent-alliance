@@ -1,6 +1,7 @@
 package agentloop
 
 import (
+	"alliance/internal/capability"
 	"alliance/internal/database"
 	"alliance/internal/harness"
 	"alliance/internal/knowledge"
@@ -10,6 +11,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -21,16 +23,17 @@ import (
 type registeredTool struct {
 	name, description, schema string
 	risk                      harness.ToolRisk
+	cap                       string
 }
 
 var registeredTools = []registeredTool{
 	{"read_sources", "查找已选资料中匹配关键词的原文片段，返回资料编号和版本。",
-		`{"type":"object","properties":{"query":{"type":"string","maxLength":80}},"required":["query"],"additionalProperties":false}`, harness.ReadOnly},
-	{"create_docx", "按给定内容生成 Word 文档。", documentSchema, harness.FileGeneration},
-	{"create_xlsx", "按给定内容生成 Excel 文档。", documentSchema, harness.FileGeneration},
-	{"create_pptx", "按给定内容生成 PowerPoint 文档。", documentSchema, harness.FileGeneration},
+		`{"type":"object","properties":{"query":{"type":"string","maxLength":80}},"required":["query"],"additionalProperties":false}`, harness.ReadOnly, capability.Knowledge},
+	{"create_docx", "按给定内容生成 Word 文档。", documentSchema, harness.FileGeneration, capability.Office},
+	{"create_xlsx", "按给定内容生成 Excel 文档。", documentSchema, harness.FileGeneration, capability.Office},
+	{"create_pptx", "按给定内容生成 PowerPoint 文档。", documentSchema, harness.FileGeneration, capability.Office},
 	{"aggregate_csv", "对已选表格按指定分组和金额字段执行确定性汇总。",
-		`{"type":"object","properties":{"group":{"type":"string"},"amount":{"type":"string"},"filterColumn":{"type":"string"},"filterValue":{"type":"string"}},"required":["group","amount"],"additionalProperties":false}`, harness.FileGeneration},
+		`{"type":"object","properties":{"group":{"type":"string"},"amount":{"type":"string"},"filterColumn":{"type":"string"},"filterValue":{"type":"string"}},"required":["group","amount"],"additionalProperties":false}`, harness.FileGeneration, capability.Office},
 }
 
 const documentSchema = `{"type":"object","properties":{"title":{"type":"string","maxLength":200},"content":{"type":"string","maxLength":32000}},"required":["title","content"],"additionalProperties":false}`
@@ -40,23 +43,29 @@ var searchTool = resources.ToolDefinition{Type: "function", Function: resources.
 	Parameters: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`),
 }}
 
-func modelTools() []resources.ToolDefinition {
+func modelTools(enabled []string) []resources.ToolDefinition {
 	tools := make([]resources.ToolDefinition, 0, len(registeredTools))
 	for _, registered := range registeredTools {
-		tools = append(tools, resources.ToolDefinition{Type: "function", Function: resources.ToolSchema{
-			Name: registered.name, Description: registered.description, Parameters: json.RawMessage(registered.schema),
-		}})
+		if capability.Allows(enabled, registered.cap) {
+			tools = append(tools, registered.definition())
+		}
 	}
 	return tools
 }
 
-func toolRisk(name string) harness.ToolRisk {
+func (tool registeredTool) definition() resources.ToolDefinition {
+	return resources.ToolDefinition{Type: "function", Function: resources.ToolSchema{
+		Name: tool.name, Description: tool.description, Parameters: json.RawMessage(tool.schema),
+	}}
+}
+
+func lookupTool(name string) registeredTool {
 	for _, tool := range registeredTools {
 		if tool.name == name {
-			return tool.risk
+			return tool
 		}
 	}
-	return ""
+	return imageToolByName(name)
 }
 
 type toolWork struct {
@@ -66,6 +75,8 @@ type toolWork struct {
 	remote                         externalWork
 	level                          harness.AutonomyLevel
 	sources                        []knowledge.InputSource
+	pictures                       []knowledge.Picture
+	team, actor                    string
 }
 
 func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, error) {
@@ -112,7 +123,9 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		}
 		knownFree := int64(0)
 		policy := harness.AutonomyPolicy{MaxAutomaticBatch: maxToolsPerTurn}
-		gate := harness.ToolGate{Risk: toolRisk(task.name), Authorized: d.authorized, QuotaAvailable: true,
+		tool := lookupTool(task.name)
+		task.team, task.actor = d.team, d.actor
+		gate := harness.ToolGate{Risk: tool.risk, Authorized: d.authorized && capability.Allows(d.capabilities, tool.cap), QuotaAvailable: true,
 			EstimatedCost: &knownFree, BatchSize: 1}
 		if task.name == searchTool.Function.Name {
 			if a.Search == nil {
@@ -122,7 +135,7 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 			if err != nil {
 				return err
 			}
-			gate.Risk, gate.Authorized = harness.ReadOnly, available
+			gate.Risk, gate.Authorized = harness.ReadOnly, available && capability.Allows(d.capabilities, capability.Search)
 		}
 		if task.server != "" {
 			if a.MCP == nil {
@@ -147,6 +160,7 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 			if err := tx.QueryRow(ctx, "select general_external_binding_current($1,$2)", ref.RunID, task.external).Scan(&gate.Authorized); err != nil {
 				return err
 			}
+			gate.Authorized = gate.Authorized && capability.Allows(d.capabilities, capability.External)
 			if !gate.Authorized {
 				return a.rejectExternal(ctx, tx, ref, d, &result, "外部 Agent 使用权限已变化。")
 			}
@@ -191,6 +205,16 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 				return err
 			}
 		}
+		if task.name == "read_images" {
+			task.pictures, err = knowledge.RunPictures(ctx, tx, ref.RunID)
+			if err != nil {
+				var problem web.Problem
+				if errors.As(err, &problem) {
+					return a.recordObservation(ctx, tx, ref, "rejected", problem.Message, "", "")
+				}
+				return err
+			}
+		}
 		if _, err := tx.Exec(ctx, `update general_agent_runs set progress=$2 where run_id=$1`, ref.RunID, d.progress); err != nil {
 			return err
 		}
@@ -214,6 +238,8 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		reply.Text = string(observation)
 	} else if task.name == searchTool.Function.Name {
 		reply, toolErr = a.searchWeb(ctx, ref.RunID, task.args)
+	} else if lookupTool(task.name).cap == capability.Images {
+		reply, toolErr = a.imageAction(ctx, ref, task)
 	} else {
 		reply, toolErr = invokeTrusted(ctx, task)
 	}

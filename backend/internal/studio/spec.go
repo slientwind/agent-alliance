@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"alliance/internal/capability"
 	"alliance/internal/llmgateway"
 )
 
@@ -121,17 +122,8 @@ func patchSpec(spec Spec, patch []Patch) (Spec, error) {
 	default:
 		return Spec{}, errPatch
 	}
-	capabilities := make(map[string]bool)
-	for _, capability := range spec.Capabilities {
-		if capabilities[capability] {
-			return Spec{}, errPatch
-		}
-		capabilities[capability] = true
-		switch capability {
-		case "knowledge", "office", "images", "search", "external":
-		default:
-			return Spec{}, errPatch
-		}
+	if !capability.Valid(spec.Capabilities) {
+		return Spec{}, errPatch
 	}
 	return spec, nil
 }

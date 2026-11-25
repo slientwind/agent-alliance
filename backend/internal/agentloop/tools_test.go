@@ -36,7 +36,7 @@ func TestTrustedFinancialAggregationUsesPinnedSources(t *testing.T) {
 	request := toolWork{name: "aggregate_csv", args: `{"group":"cost_center","amount":"amount","filterColumn":"state","filterValue":"approved"}`,
 		sources: []knowledge.InputSource{{ID: "pinned", Version: 7, Text: "cost_center,amount,state\noperations,27,approved"}}}
 	result, err := invokeTrusted(t.Context(), request)
-	if err != nil || result.File == nil || result.Text != "总金额：27.00" || calls.Load() != 1 || toolRisk(request.name) != harness.FileGeneration {
+	if err != nil || result.File == nil || result.Text != "总金额：27.00" || calls.Load() != 1 || lookupTool(request.name).risk != harness.FileGeneration {
 		t.Fatalf("result=%+v calls=%d err=%v", result, calls.Load(), err)
 	}
 	request.args = `{"group":"cost_center","amount":"amount","sources":[{"id":"private"}]}`

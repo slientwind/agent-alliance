@@ -1,6 +1,7 @@
 package agentloop
 
 import (
+	"alliance/internal/capability"
 	"alliance/internal/database"
 	"alliance/internal/harness"
 	"alliance/internal/knowledge"
@@ -38,6 +39,7 @@ type runData struct {
 	plan                                       int
 	authorized                                 bool
 	direct                                     bool
+	capabilities                               []string
 	progress                                   harness.LoopProgress
 }
 
@@ -58,10 +60,10 @@ func loadRun(ctx context.Context, tx pgx.Tx, id string) (runData, error) {
 	 and not exists(select from plan_rules pr where (pr.project_id,pr.plan_version)=(r.project_id,r.plan_version)
 	 and not rule_usable(pr.rule_id,pr.rule_revision,r.actor))
 	 and general_mcp_observations_usable(r.id,r.charge_team)
-	 and general_external_observations_usable(r.id),g.direct_external
+	 and general_external_observations_usable(r.id),g.direct_external,g.enabled_capabilities
 	 from general_agent_runs g join runs r on r.id=g.run_id join projects current on current.id=r.project_id
 	 join plans p on (p.project_id,p.version)=(r.project_id,r.plan_version) where r.id=$1 for update of r,g,current`, id).
-		Scan(&d.project, &d.actor, &d.team, &d.state, &d.goal, &d.quality, &d.tier, &d.plan, &d.progress, &d.authorized, &d.direct)
+		Scan(&d.project, &d.actor, &d.team, &d.state, &d.goal, &d.quality, &d.tier, &d.plan, &d.progress, &d.authorized, &d.direct, &d.capabilities)
 	return d, err
 }
 
@@ -142,8 +144,15 @@ func (a Activities) AdvanceTurn(ctx context.Context, ref TurnRef) (TurnResult, e
 	if err != nil || result.Done || result.Wait || result.Tools != 0 {
 		return result, err
 	}
-	request := llmgateway.Request{Tier: d.tier, Messages: messages, Tools: modelTools(), ProviderHistory: native}
-	if a.Search != nil {
+	request := llmgateway.Request{Tier: d.tier, Messages: messages, Tools: modelTools(d.capabilities), ProviderHistory: native}
+	if capability.Allows(d.capabilities, capability.Images) {
+		imageTools, err := a.imageTools(ctx, ref.RunID)
+		if err != nil {
+			return TurnResult{}, err
+		}
+		request.Tools = append(request.Tools, imageTools...)
+	}
+	if a.Search != nil && capability.Allows(d.capabilities, capability.Search) {
 		available, err := websearch.Available(ctx, a.DB, ref.RunID)
 		if err != nil {
 			return TurnResult{}, err

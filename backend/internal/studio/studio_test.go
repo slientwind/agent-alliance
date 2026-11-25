@@ -346,6 +346,19 @@ func TestStudioBuilderPostgres(t *testing.T) {
 	if !strings.Contains(replayed, reusable.ID) || calls != 5 {
 		t.Fatal("saving the same run constructed a separate draft or made a model call")
 	}
+	capabilityPath := path + "/capabilities"
+	capabilities := call(token, "GET", capabilityPath, "", "", "", 200)
+	if !strings.Contains(capabilities, "企业知识库") || !strings.Contains(capabilities, "已授权外部 Agent") ||
+		!strings.Contains(capabilities, `"id":"office"`) {
+		t.Fatalf("the user got invalid capability descriptions: %s", capabilities)
+	}
+	call(teammate, "PUT", capabilityPath, `{"expected":3,"capabilities":[]}`, "application/json", "", 404)
+	call(token, "PUT", capabilityPath, `{"expected":3,"capabilities":["office","execute_shell"]}`, "application/json", "", 422)
+	raw = call(token, "PUT", capabilityPath, `{"expected":3,"capabilities":["knowledge","images"]}`, "application/json", "", 200)
+	if !strings.Contains(raw, `"revision":4`) || !strings.Contains(raw, `"capabilities":["knowledge","images"]`) {
+		t.Fatalf("capabilities were not set: %s", raw)
+	}
+	call(token, "PUT", capabilityPath, `{"expected":3,"capabilities":["office"]}`, "application/json", "", 409)
 	exec("delete from team_members where (team_id,member_id)=($1,$2)", team, owner)
 	call(token, "GET", path, "", "", "", 404)
 }

@@ -1,6 +1,7 @@
 package agentloop
 
 import (
+	"alliance/internal/capability"
 	"alliance/internal/database"
 	"alliance/internal/harness"
 	"alliance/internal/identity"
@@ -53,13 +54,14 @@ func (s Server) tiers(w http.ResponseWriter, r *http.Request, _ identity.Member)
 }
 
 type StartInput struct {
-	Expected    int                      `json:"expected"`
-	Goal        string                   `json:"goal"`
-	Tier        llmgateway.Tier          `json:"tier"`
-	Sources     []harness.SourceRevision `json:"sources,omitempty"`
-	SearchQuery string                   `json:"searchQuery,omitempty"`
-	External    []externalRef            `json:"externalAgents,omitempty"`
-	Direct      bool                     `json:"directExternal,omitempty"`
+	Expected     int                      `json:"expected"`
+	Goal         string                   `json:"goal"`
+	Tier         llmgateway.Tier          `json:"tier"`
+	Sources      []harness.SourceRevision `json:"sources,omitempty"`
+	SearchQuery  string                   `json:"searchQuery,omitempty"`
+	External     []externalRef            `json:"externalAgents,omitempty"`
+	Direct       bool                     `json:"directExternal,omitempty"`
+	Capabilities *[]string                `json:"capabilities,omitempty"`
 }
 
 func (s Server) start(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
@@ -85,6 +87,19 @@ func (s Server) StartTx(ctx context.Context, tx pgx.Tx, project, actor, key stri
 	in.SearchQuery = strings.TrimSpace(in.SearchQuery)
 	if err := validateExternalSelection(in); err != nil {
 		return "", err
+	}
+	var enabled []string
+	if in.Capabilities != nil {
+		enabled = *in.Capabilities
+		if enabled == nil || !capability.Valid(enabled) {
+			return "", web.Fail(422, "请选择有效的助手能力")
+		}
+	}
+	if (in.SearchQuery != "" && !capability.Allows(enabled, capability.Search)) ||
+		(len(in.External) > 0 && !capability.Allows(enabled, capability.External)) ||
+		(len(in.Sources) > 0 && !capability.Allows(enabled, capability.Knowledge) &&
+			!capability.Allows(enabled, capability.Office) && !capability.Allows(enabled, capability.Images)) {
+		return "", web.Fail(422, "请启用与所选资料、搜索或外部 Agent 相符的能力")
 	}
 	if in.SearchQuery != "" && !websearch.ValidQuery(in.SearchQuery) {
 		return "", web.Fail(422, "请输入不超过 320 字的公开搜索词")
@@ -180,7 +195,9 @@ func (s Server) StartTx(ctx context.Context, tx pgx.Tx, project, actor, key stri
 	for _, ref := range in.Sources {
 		tag, err := tx.Exec(ctx, `insert into plan_sources(project_id,plan_version,source_id,source_version)
 		 select $1,$2,s.id,v.version from sources s join source_versions v on (v.source_id,v.version)=(s.id,s.current_version)
-		 where s.id=$3 and s.project_id=$1 and s.revoked_at is null and v.version=$4 and v.extracted is not null`, project, plan, ref.ID, ref.Revision)
+		 where s.id=$3 and s.project_id=$1 and s.revoked_at is null and v.version=$4 and
+		  ((v.extracted is not null and $5) or (source_is_picture(v.media_type) and $6))`, project, plan, ref.ID, ref.Revision,
+			capability.Allows(enabled, capability.Knowledge) || capability.Allows(enabled, capability.Office), capability.Allows(enabled, capability.Images))
 		if err != nil {
 			return "", err
 		}
@@ -194,16 +211,18 @@ func (s Server) StartTx(ctx context.Context, tx pgx.Tx, project, actor, key stri
 		project, plan, actor, team, key, hash, maxModelTurns, reviewer).Scan(&run); err != nil {
 		return "", err
 	}
-	if _, err := tx.Exec(ctx, `insert into general_agent_runs(run_id,tier,goal_message_seq,direct_external) values($1,$2,$3,$4)`,
-		run, in.Tier, initialMessage, in.Direct); err != nil {
+	if _, err := tx.Exec(ctx, `insert into general_agent_runs(run_id,tier,goal_message_seq,direct_external,enabled_capabilities)
+	 values($1,$2,$3,$4,$5)`, run, in.Tier, initialMessage, in.Direct, enabled); err != nil {
 		return "", err
 	}
 	if err := s.bindExternalAgents(ctx, tx, run, actor, in.External); err != nil {
 		return "", err
 	}
 	if !in.Direct {
-		if err := mcphub.BindRun(ctx, tx, run, team); err != nil {
-			return "", err
+		if enabled == nil {
+			if err := mcphub.BindRun(ctx, tx, run, team); err != nil {
+				return "", err
+			}
 		}
 		if err := websearch.BindRun(ctx, tx, s.Vault, run, in.SearchQuery); err != nil {
 			return "", err
