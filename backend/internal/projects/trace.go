@@ -91,6 +91,13 @@ const traceSpansSQL = `select jsonb_build_object('run',r.id,'traceId',replace(r.
  'tokens',case when exists(select from project_members pm join projects p on p.id=pm.project_id where pm.project_id=r.project_id and pm.member_id=$2 and(pm.can_view_costs or p.owner=$2)) then i.tokens end,'remote',` + remoteSummarySQL + `,'status',case when n.lookup_phase in ('review_evidence','synthesize') and evidence_follow_up_skipped(r.id,n.ordinal) then 'skipped' else coalesce(i.status,case when n.lookup_phase in ('answer','answer_calc') and exists(select from artifacts done where (done.run_id,done.ordinal)=(r.id,n.ordinal)) then 'skipped' else 'pending' end) end,'start',i.started_at,'end',i.ended_at)
  order by n.ordinal) from effective_run_nodes n join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision) left join invocations i on i.run_id=r.id and i.ordinal=n.ordinal
  where n.run_id=r.id and (cb.run_id is null or n.ordinal=a.ordinal)),
+	'gatewaySpans',array(select jsonb_strip_nulls(jsonb_build_object('spanId',substr(g.operation_key,1,16),'turn',g.turn,'type','model',
+	 'model',m.upstream_model,'tier',c.tier,'attempt',g.attempt,'fallback',g.fallback,'status',g.status,'start',g.started_at,'end',g.finished_at)
+	 || case when exists(select from project_members pm join projects p on p.id=pm.project_id
+	 where pm.project_id=r.project_id and pm.member_id=$2 and (pm.can_view_costs or p.owner=$2)) then
+	 jsonb_build_object('promptTokens',c.prompt_tokens,'completionTokens',c.completion_tokens,'cachedTokens',c.cached_tokens,'costMicroCny',c.cost_micro_cny::text)
+	 else '{}'::jsonb end) from model_gateway_attempts g join model_gateway_charges c using(operation_key)
+	 join model_catalog m on m.id=g.model_id where g.run_id=r.id order by g.started_at,g.operation_key),
  'events',array(select jsonb_build_object('sequence',e.seq,'time',e.occurred_at,'step',e.ordinal,'kind',e.kind,'code',e.code) from trace_events e where e.run_id=r.id order by seq))
  from runs r left join change_batches cb on cb.run_id=r.id left join artifacts a on a.id=cb.artifact_id where r.id=$1`
 
@@ -123,6 +130,16 @@ func traceExcerpt(value *string) *string {
 		return &preview
 	}
 	return value
+}
+
+func (s Server) monitorTrace(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
+	var project string
+	if err := s.DB.QueryRow(r.Context(), `select r.project_id from runs r join project_members m on m.project_id=r.project_id
+	 where r.id=$1 and m.member_id=$2`, r.PathValue("run"), actor.ID).Scan(&project); err != nil {
+		return err
+	}
+	r.SetPathValue("id", project)
+	return s.trace(w, r, actor)
 }
 
 func (s Server) trace(w http.ResponseWriter, r *http.Request, u identity.Member) error {

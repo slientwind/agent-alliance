@@ -3,6 +3,7 @@ package monitor
 import (
 	"alliance/internal/database"
 	"context"
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -41,12 +42,13 @@ func TestMonitorRollupUpdatesDirtyHoursAndReportsCosts(t *testing.T) {
 	}
 	team, owner, project, run, agent := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
 	provider, model, price := uuid.NewString(), uuid.NewString(), uuid.NewString()
+	bucket := time.Date(2019, 5, 2, 16, 0, 0, 0, time.UTC)
 	exec(`insert into teams(id,name) values($1,$2)`, team, "rollup-"+team)
 	exec(`insert into members(id,email,display_name,password_hash,role) values($1,$2,'rollup test','','member')`, owner, owner+"@example.test")
 	exec(`insert into projects(id,owner,team_id,final_reviewer,title) values($1,$2,$3,$2,'rollup test')`, project, owner, team)
 	exec(`insert into plans(project_id,version,brief) values($1,1,'rollup test')`, project)
-	exec(`insert into runs(id,project_id,plan_version,actor,charge_team,request_key,request_hash,max_calls,status,quality_track)
-	 values($1,$2,1,$3,$4,'rollup-test','\x00',2,'completed','lightweight')`, run, project, owner, team)
+	exec(`insert into runs(id,project_id,plan_version,actor,charge_team,request_key,request_hash,max_calls,status,quality_track,created_at)
+	 values($1,$2,1,$3,$4,'rollup-test','\x00',2,'completed','lightweight',$5)`, run, project, owner, team, bucket)
 	exec(`insert into agents(id,owner,team_id) values($1,$2,$3)`, agent, owner, team)
 	exec(`insert into model_providers(id,name,kind,endpoint) values($1,$1::uuid::text,'openai','https://model.example.test')`, provider)
 	exec(`insert into model_catalog(id,provider_id,upstream_model,capabilities,context_tokens,max_output_tokens)
@@ -54,7 +56,6 @@ func TestMonitorRollupUpdatesDirtyHoursAndReportsCosts(t *testing.T) {
 	exec(`insert into model_pricing(id,model_id,effective_at,input_per_1m_micro_cny,output_per_1m_micro_cny,cached_per_1m_micro_cny,per_image_micro_cny)
 	 values($1,$2,now(),1,1,0,0)`, price, model)
 
-	bucket := time.Date(2019, 5, 2, 16, 0, 0, 0, time.UTC)
 	key1, key2 := uuid.NewString(), uuid.NewString()
 	for i, key := range []string{key1, key2} {
 		started := bucket.Add(time.Duration(i) * time.Minute)
@@ -98,5 +99,30 @@ func TestMonitorRollupUpdatesDirtyHoursAndReportsCosts(t *testing.T) {
 	 from monitor_agent_hourly_stats where bucket_hour=$1 and team_id=$2 and agent_id=$3`, bucket, team, agent).
 		Scan(&matched); err != nil || !matched {
 		t.Fatalf("agent snapshot did not reflect late billing and positivity: %v", err)
+	}
+	var overview struct {
+		KPI struct {
+			Calls        int
+			CostMicroCny string
+		}
+		Funnel struct{ Submitted, Completed, OutputPassed, Accepted int }
+	}
+	var raw json.RawMessage
+	if err := tx.QueryRow(ctx, dashboardQuery, bucket, bucket.Add(time.Hour), team).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &overview); err != nil || overview.KPI.Calls != 2 || overview.KPI.CostMicroCny != "31" ||
+		overview.Funnel.Submitted != 1 || overview.Funnel.Completed != 1 || overview.Funnel.OutputPassed != 1 || overview.Funnel.Accepted != 1 {
+		t.Fatalf("wrong dashboard summary %s: %v", raw, err)
+	}
+	if err := tx.QueryRow(ctx, agentBoardQuery, bucket, bucket.Add(time.Hour), team, "model", "p95", 0).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	var board []struct {
+		AgentID string
+		P95Ms   int
+	}
+	if err := json.Unmarshal(raw, &board); err != nil || len(board) != 1 || board[0].AgentID != agent || board[0].P95Ms != 300 {
+		t.Fatalf("wrong agent board %s: %v", raw, err)
 	}
 }

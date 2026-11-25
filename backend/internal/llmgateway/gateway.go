@@ -48,6 +48,7 @@ type CallIdentity struct {
 	MemberID     string
 	RunID        string
 	AgentID      string
+	Turn         int
 }
 
 type RoutedResult struct {
@@ -115,7 +116,7 @@ func (g Gateway) Call(ctx context.Context, actor CallIdentity, in Request) (Rout
 		if index+1 < len(order) && time.Now().Before(cutoff) {
 			deadline = cutoff
 		}
-		attempt := Attempt{OperationKey: key, RunID: actor.RunID, AgentID: actor.AgentID, Number: number, Fallback: model.ModelID != preferred}
+		attempt := Attempt{OperationKey: key, RunID: actor.RunID, AgentID: actor.AgentID, Turn: actor.Turn, Number: number, Fallback: model.ModelID != preferred}
 		out, retry, err := g.callModel(ctx, model, in, permit, attempt, deadline)
 		if err == nil {
 			return out, nil

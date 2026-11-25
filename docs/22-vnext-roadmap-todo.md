@@ -123,7 +123,7 @@
   - [x] 实现双轨聚合口径计算：**轻量有效完成率**（隐式正向信号 + 无负面重试）与 **协作审签采纳率**（人工审核交付）分列输出。
 - [ ] **小时/天预聚合监控表与大盘 API**
   - [x] 新增 Worker 定时聚合任务（每 5 分钟 Rollup）写入 `monitor_agent_hourly_stats` 与 `monitor_model_hourly_stats`（按 `team / agent / source_type / model / tier` 多维统计调用量、成功率、双轨有效率、P50/P95 延迟、Input/Output/Cache Token、精确费用、外部未披露次数）。
-  - [ ] 新增全屏监控大盘接口：KPI 总览、四阶质量漏斗、双趋势图、**Agent 运行效能榜单（支持排序下钻）**、实时运行/阻塞队列接口、以及按权限裁剪的 **Trace 瀑布流详情接口**（`Run → Turn → LLM/Tool/Sandbox/External Span`）。
+  - [x] 新增全屏监控大盘接口：KPI 总览、四阶质量漏斗、双趋势图、**Agent 运行效能榜单（支持排序下钻）**、实时运行/阻塞队列接口、以及按权限裁剪的 **Trace 瀑布流详情接口**（`Run → Turn → LLM/Tool/Sandbox/External Span`）。
 - [ ] **主动告警推送引擎**
   - [ ] 新增 `alert_rules` 与巡检任务（外部 Agent 连续超时/失败、模型档位触发 Fallback 降级、部门日消耗突增、预算达 80%/100%），通过飞书/钉钉 Webhook 自动推送并支持静默去重。
 

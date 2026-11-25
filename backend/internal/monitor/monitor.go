@@ -38,6 +38,7 @@ type Row struct {
 
 func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 	s.scopeRoutes(m, g)
+	s.dashboardRoutes(m, g)
 	m.Handle("GET /api/trace-policies", g.Protect(false, s.policies))
 	m.Handle("PATCH /api/teams/{id}/trace-policy", g.Protect(false, s.policy))
 	m.Handle("GET /api/admin/telemetry", g.Protect(true, s.telemetry))

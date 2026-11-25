@@ -76,7 +76,8 @@ func rollupOnce(ctx context.Context, db interface {
 		}
 		for _, query := range []string{
 			`delete from monitor_agent_hourly_stats where bucket_hour=any($1)`,
-			`delete from monitor_model_hourly_stats where bucket_hour=any($1)`, rollupQuery,
+			`delete from monitor_model_hourly_stats where bucket_hour=any($1)`,
+			`delete from monitor_run_hourly_stats where bucket_hour=any($1)`, rollupQuery,
 		} {
 			if _, err := tx.Exec(ctx, query, buckets); err != nil {
 				return err
