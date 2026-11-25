@@ -421,3 +421,38 @@
   font-weight: 650;
   text-underline-offset: 0.25rem;
 }
+
+.ecosystem-scan-status {
+  background: var(--bg-rail);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+}
+
+.ecosystem-scan-status ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ecosystem-scan-status li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  justify-content: space-between;
+  padding: 0.25rem 0;
+}
+
+.ecosystem-scan-status time {
+  color: var(--secondary);
+}
+
+.ecosystem-tags span {
+  background: var(--bg-hover);
+  border-radius: 0.35rem;
+  padding: 0.125rem 0.45rem;
+}
+
+.ecosystem-tags [data-tone="clean"] { color: var(--brand); background: var(--brand-soft); }
+.ecosystem-tags [data-tone="review_required"] { color: var(--amber); background: var(--amber-soft); }
+.ecosystem-tags [data-tone="blocked"] { color: var(--danger); background: var(--danger-soft); }

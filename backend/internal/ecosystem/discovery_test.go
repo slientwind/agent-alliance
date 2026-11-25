@@ -302,6 +302,11 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 	if !strings.Contains(list, skillID) || strings.Contains(list, "Fixture private_git") {
 		t.Fatalf("unexpected employee catalog: %s", list)
 	}
+	status := string(call("GET", "/api/ecosystem/scan-status", "", "", 200, employeeToken))
+	if !strings.Contains(status, public.ID) || !strings.Contains(status, `"status":"completed"`) ||
+		strings.Contains(status, private.ID) || strings.Contains(status, fixture.URL) {
+		t.Fatalf("unexpected employee scan status: %s", status)
+	}
 	requestPath := market + "/" + skillID + "/request"
 	first = call("PUT", requestPath, "", "", 202, employeeToken)
 	if replay := call("PUT", requestPath, "", "", 202, employeeToken); string(replay) != string(first) {

@@ -17,8 +17,9 @@ func (s Server) marketCatalog(w http.ResponseWriter, r *http.Request, actor iden
 	var out json.RawMessage
 	err := s.DB.QueryRow(r.Context(), `select to_jsonb(array(select jsonb_strip_nulls(jsonb_build_object(
 	 'id',c.id,'name',coalesce(nullif(p.manifest->>'name',''),c.name),'kind',c.kind,'version',c.upstream_version,
-	 'description',coalesce(p.manifest->>'description',c.description),'source',src.name,'homepage',c.homepage,
-	 'reviewStatus',r.status,'license',r.report->>'license','activity',r.report->>'activity',
+	 'description',coalesce(p.manifest->>'description',c.description),'source',src.name,
+	 'homepage',case when src.kind<>'private_git' then c.homepage end,
+	 'reviewStatus',r.status,'license',r.report->>'license','licenseTag',r.report->>'licenseTag','activity',r.report->>'activity',
 	 'package',p.id,'enabled',coalesce(b.enabled,false),'bindingRevision',coalesce(b.revision,0),
 	 'retired',exists(select from enterprise_approved_packages old where old.catalog_id=c.id and old.revoked_at is not null),
 	 'request',q.state,'reply',nullif(q.reason,''))
@@ -29,6 +30,22 @@ func (s Server) marketCatalog(w http.ResponseWriter, r *http.Request, actor iden
 	 left join ecosystem_admission_requests q on (q.requester,q.catalog_id)=($1,c.id)
 	 where src.kind<>'private_git' or p.id is not null order by b.enabled desc nulls last,c.discovered_at desc,c.id limit 200))`,
 		actor.ID).Scan(&out)
+	if err != nil {
+		return err
+	}
+	return web.JSON(w, http.StatusOK, out)
+}
+
+func (s Server) marketScanStatus(w http.ResponseWriter, r *http.Request, _ identity.Member) error {
+	var out json.RawMessage
+	err := s.DB.QueryRow(r.Context(), `select to_jsonb(array(select jsonb_strip_nulls(jsonb_build_object(
+	 'id',s.id,'name',s.name,'status',case when not s.enabled then 'paused'
+	  when s.schedule_sync<>'ready' and latest.status is null then 'pending'
+	  else coalesce(latest.status,'ready') end,'finishedAt',latest.finished_at))
+	 from ecosystem_sources s left join lateral (
+	  select x.status,x.finished_at from ecosystem_scans x where x.source_id=s.id and x.source_revision=s.revision
+	  order by x.started_at desc,x.id desc limit 1
+	 ) latest on true where s.kind<>'private_git' order by s.name,s.id limit 100))`).Scan(&out)
 	if err != nil {
 		return err
 	}

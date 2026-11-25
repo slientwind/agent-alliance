@@ -30,6 +30,7 @@ func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("POST /api/admin/ecosystem/catalog/{id}/approve", auth.Protect(true, s.approve))
 	mux.Handle("POST /api/admin/ecosystem/approved/{id}/revoke", auth.Protect(true, s.revokeApproval))
 	mux.Handle("GET /api/ecosystem/catalog", auth.Protect(false, s.marketCatalog))
+	mux.Handle("GET /api/ecosystem/scan-status", auth.Protect(false, s.marketScanStatus))
 	mux.Handle("PUT /api/ecosystem/catalog/{id}/request", auth.Protect(false, s.requestAdmission))
 	mux.Handle("PUT /api/ecosystem/bindings/{id}", auth.Protect(false, s.setBinding))
 	mux.Handle("POST /api/admin/ecosystem/catalog/{id}/return-requests", auth.Protect(true, s.returnRequests))
