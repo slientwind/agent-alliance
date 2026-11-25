@@ -272,3 +272,21 @@ func permittedAddress(addr netip.Addr, trusted []netip.Prefix) bool {
 	}
 	return addr.IsGlobalUnicast()
 }
+
+// AllowPublicEndpoint registers one exact HTTPS authority. Runtime connections
+// still resolve and validate every address. Existing decisions stay in force.
+func AllowPublicEndpoint(ctx context.Context, tx pgx.Tx, raw string) error {
+	authority, err := parseAuthority(raw, false)
+	if err != nil {
+		return err
+	}
+	if ip, err := netip.ParseAddr(authority.Host); err == nil && !permittedAddress(ip, nil) {
+		return ErrBlocked
+	}
+	if _, err := tx.Exec(ctx, `insert into outbound_host_allowlist(host,port,trusted_networks)
+	 values($1,$2,'{}') on conflict do nothing`, authority.Host, authority.Port); err != nil {
+		return err
+	}
+	_, err = (Policy{DB: tx}).entry(ctx, authority)
+	return err
+}

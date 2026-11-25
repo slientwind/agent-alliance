@@ -35,6 +35,8 @@ var presets = []preset{
 }
 
 func (s Server) Routes(m *http.ServeMux, g identity.Server) {
+	m.Handle("GET /api/admin/onboarding", g.Protect(true, s.initialSetupStatus))
+	m.Handle("POST /api/admin/onboarding", g.Protect(true, s.initialSetup))
 	m.Handle("GET /api/teams/{team}/setup", g.Protect(false, s.status))
 	m.Handle("POST /api/teams/{team}/setup/connections", g.Protect(true, s.probe))
 	m.Handle("PUT /api/teams/{team}/setup/planner", g.Protect(true, s.planner))

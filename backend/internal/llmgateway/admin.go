@@ -83,6 +83,10 @@ func (in *providerInput) read(w http.ResponseWriter, r *http.Request) error {
 	if err := web.ReadLimited(w, r, in, 16<<10); err != nil {
 		return err
 	}
+	return in.validate()
+}
+
+func (in *providerInput) validate() error {
 	in.Name, in.Endpoint = strings.TrimSpace(in.Name), strings.TrimRight(strings.TrimSpace(in.Endpoint), "/")
 	if in.Name == "" || len([]rune(in.Name)) > 120 || len(in.Endpoint) > 2048 || !providerEndpoint(in.Kind, in.Endpoint) ||
 		(in.Key != nil && (len(*in.Key) > 4096 || strings.ContainsAny(*in.Key, "\r\n\x00"))) {
@@ -109,6 +113,9 @@ func (a Admin) createProvider(w http.ResponseWriter, r *http.Request, actor iden
 		return err
 	}
 	err = pgx.BeginFunc(r.Context(), a.DB, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(r.Context(), "select id from enterprise where id for share"); err != nil {
+			return err
+		}
 		if _, err := tx.Exec(r.Context(), `insert into model_providers(id,name,kind,endpoint,encrypted_key,enabled)
 		 values($1,$2,$3,$4,$5,coalesce($6,true))`, id, in.Name, in.Kind, in.Endpoint, sealed, in.Enabled); err != nil {
 			return err
@@ -251,6 +258,10 @@ func (in *modelInput) read(w http.ResponseWriter, r *http.Request) error {
 	if err := web.ReadLimited(w, r, in, 8<<10); err != nil {
 		return err
 	}
+	return in.validate()
+}
+
+func (in *modelInput) validate() error {
 	in.Name = strings.TrimSpace(in.Name)
 	if in.Name == "" || len([]rune(in.Name)) > 240 || len(in.Capabilities) == 0 || len(in.Capabilities) > 6 ||
 		in.ContextTokens < 0 || in.MaxOutputTokens < 0 || (in.ContextTokens > 0 && in.MaxOutputTokens > in.ContextTokens) ||

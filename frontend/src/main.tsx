@@ -89,6 +89,7 @@ const OutboundHosts = lazy(() => import("./outbound-hosts").then(({ OutboundHost
 const EnterpriseWorkspace = lazy(() => import("./enterprise-workspace").then(({ EnterpriseWorkspace }) => ({ default: EnterpriseWorkspace })));
 const Library = lazy(() => import("./library").then(({ Library }) => ({ default: Library })));
 const TeamSetup = lazy(() => import("./team-setup").then(({ TeamSetup }) => ({ default: TeamSetup })));
+const InitialWorkspaceSetup = lazy(() => import("./initial-workspace-setup").then(({ InitialWorkspaceSetup }) => ({ default: InitialWorkspaceSetup })));
 const WorkflowTemplates = lazy(() => import("./workflow-templates").then(({ WorkflowTemplates }) => ({ default: WorkflowTemplates })));
 const Services = lazy(() => import("./services").then(({ Services }) => ({ default: Services })));
 
@@ -1038,7 +1039,7 @@ function App() {
         ready={async () => {
           const first = !state.initialized;
           await boot();
-          if (first) setPanel("setup");
+          if (first) setPanel("onboarding");
         }}
       />
     );
@@ -1047,7 +1048,7 @@ function App() {
     return (
       <ServiceEntry key={service + user.id} id={service} member={user.id} />
     );
-  const title = workspacePage(panel)?.title ?? ({ agents: "Agent", outline: "分页提纲", courseWriter: "选择编稿 Agent" }[panel] || panel);
+  const title = workspacePage(panel)?.title ?? ({ agents: "Agent", outline: "分页提纲", courseWriter: "选择编稿 Agent", onboarding: "首次设置" }[panel] || panel);
   const pageContent = (
     <>
       {panel === "workflowTemplates" && (
@@ -1221,6 +1222,11 @@ function App() {
           </Suspense>
         </>
       )}
+      {panel === "onboarding" && user.role === "admin" && (
+        <Suspense fallback={<p role="status">正在打开首次设置…</p>}>
+          <InitialWorkspaceSetup close={() => setPanel("")} manage={() => setPanel("gateway")} refresh={catalog} />
+        </Suspense>
+      )}
       {((panel === "setup" && user.role === "admin") || panel === "templates") && (
         <Suspense fallback={<p role="status">正在加载团队配置…</p>}>
           <TeamSetup
@@ -1279,6 +1285,7 @@ function App() {
       )}
       {panel === "admin" && user.role === "admin" && (
         <Suspense fallback={<p role="status">正在打开企业管理…</p>}>
+          <button type="button" onClick={() => setPanel("onboarding")}>首次设置</button>
           <EnterpriseWorkspace user={user} models={models} members={members} configure={() => setPanel("setup")}
             refreshCatalog={catalog} refreshMembers={refreshMembers} />
         </Suspense>
