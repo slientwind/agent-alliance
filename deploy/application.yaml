@@ -43,7 +43,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
   worker:
-    networks: [default, preview-internal]
+    networks: [default, preview-internal, ecosystem-inspection]
     image: alliance-workspace:local
     command: ["worker"]
     volumes: [objects:/data/objects]
@@ -54,10 +54,25 @@ services:
       AGENT_ALLOWED_HOSTS: ${AGENT_ALLOWED_HOSTS:-}
       CONNECTOR_URL: http://tools:18726
       CONNECTOR_TOKEN: ${CONNECTOR_TOKEN:?Generate a private connector token}
+      ECOSYSTEM_INSPECTOR_URL: http://ecosystem-inspector:18828
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
       TEMPORAL_ADDR: temporal:7233
       OBJECT_ROOT: /data/objects
     depends_on: [api, temporal]
+    restart: unless-stopped
+
+  ecosystem-inspector:
+    image: alliance-workspace:local
+    command: ["ecosystem-inspector"]
+    networks: [ecosystem-inspection]
+    environment:
+      CONNECTOR_TOKEN: ${CONNECTOR_TOKEN:?Generate a private connector token}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 96m
+    cpus: 0.5
+    pids_limit: 32
     restart: unless-stopped
 
   tools:
@@ -103,6 +118,8 @@ networks:
   preview-internal:
     internal: true
   sandbox-internal:
+    internal: true
+  ecosystem-inspection:
     internal: true
 volumes:
   objects:

@@ -2,6 +2,7 @@ package ecosystem
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"alliance/internal/database"
+	"alliance/internal/ecosysteminspect"
 	"alliance/internal/identity"
 	"alliance/internal/resources"
 	"alliance/internal/web"
@@ -64,7 +66,10 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	commit, tree, blob := strings.Repeat("a", 40), strings.Repeat("b", 40), strings.Repeat("c", 40)
+	commit, tree := strings.Repeat("a", 40), strings.Repeat("b", 40)
+	skillText := []byte("---\nname: fixture-skill\ndescription: Prepare a reusable report\n---\nOrganize the approved columns.")
+	licenseText := []byte("MIT")
+	blob, license := gitObjectHash(skillText, 40), gitObjectHash(licenseText, 40)
 	var hits atomic.Int64
 	fixture := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits.Add(1)
@@ -99,7 +104,14 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 			}
 			fmt.Fprintf(w, `{"tree":[{"path":"skills/report/SKILL.md","mode":"100644","type":"blob","sha":%q},
 			 {"path":"skills/link/SKILL.md","mode":"120000","type":"blob","sha":%q},
-			 {"path":"other/SKILL.md","mode":"100644","type":"blob","sha":%q}]}`, blob, blob, blob)
+			 {"path":"other/SKILL.md","mode":"100644","type":"blob","sha":%q},
+			 {"path":"LICENSE","mode":"100644","type":"blob","sha":%q}]}`, blob, blob, blob, license)
+		case "/repos/official/skills/git/blobs/" + blob, "/internal/repos/fixture/private/git/blobs/" + blob:
+			fmt.Fprintf(w, `{"encoding":"base64","size":%d,"sha":%q,"content":%q}`, len(skillText), blob,
+				base64.StdEncoding.EncodeToString(skillText))
+		case "/repos/official/skills/git/blobs/" + license, "/internal/repos/fixture/private/git/blobs/" + license:
+			fmt.Fprintf(w, `{"encoding":"base64","size":%d,"sha":%q,"content":%q}`, len(licenseText), license,
+				base64.StdEncoding.EncodeToString(licenseText))
 		default:
 			t.Errorf("scan accessed unexpected path %s", r.URL.Path)
 			http.NotFound(w, r)
@@ -156,7 +168,9 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 	if data := string(call("GET", sourcesPath, "", "", 200)); strings.Contains(data, "fixture-repo-key") || !strings.Contains(data, `"hasCredential":true`) {
 		t.Fatal(data)
 	}
-	a := Activities{DB: db, Vault: vault, HTTP: fixture.Client()}
+	inspector := httptest.NewServer(ecosysteminspect.Handler("fixture-inspector-token"))
+	defer inspector.Close()
+	a := Activities{DB: db, Vault: vault, HTTP: fixture.Client(), InspectorURL: inspector.URL, InspectorToken: "fixture-inspector-token"}
 	manualPath := sourcesPath + "/" + mcp.ID + "/scan"
 	first := call("POST", manualPath, `{"expected":1}`, "scan-once", 202)
 	again := call("POST", manualPath, `{"expected":1}`, "scan-once", 202)
@@ -192,6 +206,13 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 	 from ecosystem_catalog where source_id in ($1,$2,$3,$4)`, mcp.ID, agents.ID, public.ID, private.ID).Scan(&found, &unsafe)
 	if err != nil || found != 5 || unsafe {
 		t.Fatalf("invalid discovered catalog: found=%d unexpected=%t error=%v", found, unsafe, err)
+	}
+	var reviewed, frozen int
+	err = db.QueryRow(ctx, `select count(*),count(*) filter(where r.status='clean' and r.snapshot is not null and r.report->>'license'='MIT')
+	 from ecosystem_candidate_reviews r join ecosystem_catalog c on c.id=r.catalog_id where c.source_id in ($1,$2,$3,$4)`,
+		mcp.ID, agents.ID, public.ID, private.ID).Scan(&reviewed, &frozen)
+	if err != nil || reviewed != 5 || frozen != 2 {
+		t.Fatalf("catalog was not gated by the inspector: reviewed=%d snapshots=%d %v", reviewed, frozen, err)
 	}
 	t.Run("native Temporal schedule starts a scan", func(t *testing.T) {
 		temporalAddress := os.Getenv("ALLIANCE_LOOKUP_TEST_TEMPORAL")

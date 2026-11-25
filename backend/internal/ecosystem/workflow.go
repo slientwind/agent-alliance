@@ -29,9 +29,11 @@ type scanOccurrence struct {
 }
 
 type Activities struct {
-	DB    *pgxpool.Pool
-	Vault resources.Vault
-	HTTP  *http.Client
+	DB             *pgxpool.Pool
+	Vault          resources.Vault
+	HTTP           *http.Client
+	InspectorURL   string
+	InspectorToken string
 }
 
 func EcosystemScanWorkflow(ctx workflow.Context, ref ScanRef) error {
@@ -55,17 +57,24 @@ func (a Activities) Scan(ctx context.Context, occurrence scanOccurrence) error {
 		return err == nil && current
 	}}
 	batch, err := f.discovery(ctx, src)
+	if err == nil {
+		err = f.inspectBatch(ctx, src, &batch, inspectionClient{URL: a.InspectorURL, Token: a.InspectorToken})
+	}
 	done, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()
 	if err == nil {
 		err = a.saveScan(done, src, scan, batch)
 	}
 	if err != nil {
-		if _, writeErr := a.DB.Exec(done, `update ecosystem_scans set status='failed',detail='上游目录暂时无法读取',
-		 finished_at=clock_timestamp() where id=$1 and status='running'`, scan); writeErr != nil {
+		note := errDiscovery
+		if errors.Is(err, errInspection) {
+			note = errInspection
+		}
+		if _, writeErr := a.DB.Exec(done, `update ecosystem_scans set status='failed',detail=$2,
+		 finished_at=clock_timestamp() where id=$1 and status='running'`, scan, note.Error()); writeErr != nil {
 			return writeErr
 		}
-		return errDiscovery
+		return note
 	}
 	return nil
 }
@@ -142,10 +151,18 @@ func saveCandidates(ctx context.Context, tx pgx.Tx, src source, items []candidat
 		), refreshed as (
 		 update ecosystem_catalog set last_seen_at=clock_timestamp()
 		 where (source_id,upstream_key,upstream_version,upstream_digest)=($1,$3,$4,$5)
-		  and not exists(select from inserted)
+		  and not exists(select from inserted) returning id
+		), reviewed as (
+		 insert into ecosystem_candidate_reviews(catalog_id,status,content_hash,snapshot,report)
+		 select id,$13,nullif($14,''),$15,$16 from (
+		  select id from inserted union all select id from refreshed
+		 ) candidate
+		 on conflict(catalog_id) do update set status=excluded.status,content_hash=excluded.content_hash,
+		   snapshot=excluded.snapshot,report=excluded.report,checked_at=clock_timestamp()
 		) select exists(select from inserted)`,
 			src.ID, src.Revision, item.Key, item.Version, item.Digest, item.Kind, item.Name, item.Description,
-			item.Homepage, item.PackageURL, item.Metadata, item.Updated)
+			item.Homepage, item.PackageURL, item.Metadata, item.Updated,
+			item.inspection.Report.Status, item.inspection.Hash, item.inspection.Bytes, item.inspection.Report)
 	}
 	results := tx.SendBatch(ctx, batch)
 	defer results.Close()

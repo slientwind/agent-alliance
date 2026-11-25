@@ -15,6 +15,7 @@ import (
 	"time"
 	"unicode"
 
+	"alliance/internal/ecosysteminspect"
 	"alliance/internal/egress"
 	"alliance/internal/resources"
 	"alliance/internal/web"
@@ -22,7 +23,7 @@ import (
 
 const feedBodyLimit = 4 << 20
 const maxFeedPages = 8
-const maxGitMatches = 200
+const maxGitMatches = 12
 
 var errDiscovery = errors.New("上游目录暂时无法读取")
 
@@ -37,6 +38,8 @@ type candidate struct {
 	Key, Version, Digest, Kind, Name, Description, Homepage, PackageURL string
 	Metadata                                                            map[string]any
 	Updated                                                             *time.Time
+	git                                                                 gitContents
+	inspection                                                          ecosysteminspect.Result
 }
 
 type feedBatch struct {
@@ -318,7 +321,6 @@ func (f fetcher) git(ctx context.Context, src source) (feedBatch, error) {
 		!objectID.MatchString(commit.SHA) || !objectID.MatchString(commit.Commit.Tree.SHA) {
 		return feedBatch{}, errDiscovery
 	}
-	type treeItem struct{ Path, Type, SHA, Mode string }
 	var listing struct {
 		Tree      []treeItem
 		Truncated bool
@@ -354,7 +356,8 @@ func (f fetcher) git(ctx context.Context, src source) (feedBatch, error) {
 		metadata := map[string]any{"repository": src.Endpoint, "filePath": item.Path, "commit": commit.SHA,
 			"blob": item.SHA, "contentRoute": link}
 		if err := addCandidate(&batch, candidate{Key: item.Path, Version: commit.SHA, Kind: "skill", Name: name,
-			Homepage: commit.HTMLURL, PackageURL: link, Metadata: metadata, Updated: commit.Commit.Committer.Date}); err != nil {
+			Homepage: commit.HTMLURL, PackageURL: link, Metadata: metadata, Updated: commit.Commit.Committer.Date,
+			git: collectGitContents(item.Path, listing.Tree)}); err != nil {
 			return feedBatch{}, err
 		}
 		last = item.Path

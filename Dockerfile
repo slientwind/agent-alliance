@@ -10,7 +10,7 @@ WORKDIR /src
 COPY backend/go.mod backend/go.sum ./
 RUN --mount=type=cache,id=alliance-runtime-mod,target=/go/pkg/mod go mod download
 COPY backend/ ./
-RUN --mount=type=cache,id=alliance-runtime-mod,target=/go/pkg/mod --mount=type=cache,id=alliance-linux-build,target=/root/.cache/go-build CGO_ENABLED=0 go build -trimpath -o /out/api ./cmd/api && CGO_ENABLED=0 go build -trimpath -o /out/worker ./cmd/worker
+RUN --mount=type=cache,id=alliance-runtime-mod,target=/go/pkg/mod --mount=type=cache,id=alliance-linux-build,target=/root/.cache/go-build CGO_ENABLED=0 go build -trimpath -o /out/api ./cmd/api && CGO_ENABLED=0 go build -trimpath -o /out/worker ./cmd/worker && CGO_ENABLED=0 go build -trimpath -o /out/ecosystem-inspector ./cmd/ecosystem-inspector
 
 FROM alpine:3.23
 RUN apk add --no-cache ca-certificates && adduser -D -u 10001 alliance

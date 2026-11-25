@@ -60,6 +60,11 @@ type skillPackage struct {
 	Files                     []packageFile
 }
 
+func PackageMetadata(raw []byte) (string, string, error) {
+	pack, err := readPackage(raw)
+	return pack.Name, pack.Description, err
+}
+
 var namePattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 var pathPattern = regexp.MustCompile(`^[a-zA-Z0-9._/-]+$`)
 

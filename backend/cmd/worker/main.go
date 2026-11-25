@@ -78,7 +78,8 @@ func main() {
 	generalWorker.RegisterWorkflowWithOptions(automations.AutomationWorkflow, workflow.RegisterOptions{Name: automations.WorkflowName})
 	generalWorker.RegisterActivityWithOptions(scheduled.Prepare, activity.RegisterOptions{Name: automations.PrepareActivity})
 	generalWorker.RegisterActivityWithOptions(scheduled.Progress, activity.RegisterOptions{Name: automations.ProgressActivity})
-	discovery := ecosystem.Activities{DB: catalog.DB, Vault: catalog.Vault}
+	discovery := ecosystem.Activities{DB: catalog.DB, Vault: catalog.Vault, InspectorURL: os.Getenv("ECOSYSTEM_INSPECTOR_URL"),
+		InspectorToken: os.Getenv("CONNECTOR_TOKEN")}
 	generalWorker.RegisterWorkflowWithOptions(ecosystem.EcosystemScanWorkflow, workflow.RegisterOptions{Name: ecosystem.ScanWorkflowName})
 	generalWorker.RegisterActivityWithOptions(discovery.Scan, activity.RegisterOptions{Name: ecosystem.ScanActivityName})
 	if err := generalWorker.Start(); err != nil {
