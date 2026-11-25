@@ -768,7 +768,14 @@ func (s Server) start(w http.ResponseWriter, r *http.Request, u identity.Member)
 		if in.AuthorizeCalls != count {
 			return web.Fail(422, "请逐次明确授权本方案的未知费用调用上限")
 		}
-		if err = tx.QueryRow(ctx, `insert into runs(project_id,plan_version,actor,charge_team,request_key,request_hash,max_calls,await_calculation_receipt,await_lookup_receipt) select id,plan_version,$2,team_id,$3,$4,$5,$6,$7 from projects where id=$1 returning id`, id, u.ID, key, sig, in.AuthorizeCalls, in.AwaitCalculationReceipt, in.AwaitLookupReceipt).Scan(&run); err != nil {
+		if err = tx.QueryRow(ctx, `insert into runs(project_id,plan_version,actor,charge_team,request_key,request_hash,max_calls,
+            await_calculation_receipt,await_lookup_receipt,quality_track)
+            select p.id,p.plan_version,$2,p.team_id,$3,$4,$5,$6,$7,
+              case when p.final_reviewer=$2
+                and not exists(select from project_members m where m.project_id=p.id and m.member_id<>$2)
+                and not exists(select from plan_delivery_contracts c where (c.project_id,c.plan_version)=(p.id,p.plan_version))
+                then 'lightweight' else 'collaborative' end
+            from projects p where p.id=$1 returning id`, id, u.ID, key, sig, in.AuthorizeCalls, in.AwaitCalculationReceipt, in.AwaitLookupReceipt).Scan(&run); err != nil {
 			return err
 		}
 		if _, err = tx.Exec(ctx, "insert into outbox(run_id) values($1)", run); err != nil {

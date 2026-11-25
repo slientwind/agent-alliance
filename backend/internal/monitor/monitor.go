@@ -59,6 +59,10 @@ func (s Server) usage(w http.ResponseWriter, r *http.Request, u identity.Member)
 		return err
 	}
 	if r.URL.Query().Get("view") == "dashboard" {
+		quality, err := readQualityMetrics(r.Context(), s.DB, start, end, r.URL.Query().Get("member"), team)
+		if err != nil {
+			return err
+		}
 		var summary, financial json.RawMessage
 		err = s.DB.QueryRow(r.Context(), `select
             case when g.allow_export then jsonb_build_object('id',g.id,'name',e.name,'costs',g.include_costs) end,
@@ -70,7 +74,7 @@ func (s Server) usage(w http.ResponseWriter, r *http.Request, u identity.Member)
 		if err != nil {
 			return err
 		}
-		return web.JSON(w, 200, map[string]any{"items": items, "from": start, "to": end, "enterpriseExport": summary, "enterpriseFinancialExport": financial, "team": team})
+		return web.JSON(w, 200, map[string]any{"items": items, "from": start, "to": end, "enterpriseExport": summary, "enterpriseFinancialExport": financial, "team": team, "quality": quality})
 	}
 	return web.JSON(w, 200, items)
 }
