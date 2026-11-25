@@ -1143,7 +1143,7 @@ export function Work({
                     onClick={() =>
                       perform(() =>
                         api(base + "/artifacts/" + a.id + "/review", "POST", {
-                          version: a.version,
+                          expected_version: a.version,
                           assignment: p.takeoverAssignment || undefined,
                         }),
                       )

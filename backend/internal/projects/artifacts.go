@@ -25,6 +25,7 @@ func (s Server) revise(w http.ResponseWriter, r *http.Request, u identity.Member
 func (s Server) artifactAction(w http.ResponseWriter, r *http.Request, u identity.Member, edit bool) error {
 	var in struct {
 		Version                  int
+		ExpectedVersion          *int `json:"expected_version"`
 		Body, Reason, Assignment string
 	}
 	if err := web.Read(r, &in); err != nil {
@@ -33,9 +34,13 @@ func (s Server) artifactAction(w http.ResponseWriter, r *http.Request, u identit
 	if edit && (web.Blank(in.Body) || web.Blank(in.Reason)) {
 		return web.Fail(422, "请说明修改原因并提供修订正文")
 	}
+	expected, err := artifactExpectedVersion(in.Version, in.ExpectedVersion)
+	if err != nil {
+		return err
+	}
 	ctx := r.Context()
 	id := r.PathValue("artifact")
-	err := database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {
+	err = database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {
 		p, err := lock(ctx, tx, r.PathValue("id"), u.ID)
 		if err != nil {
 			return err
@@ -55,7 +60,7 @@ func (s Server) artifactAction(w http.ResponseWriter, r *http.Request, u identit
 		if err := tx.QueryRow(ctx, "select current_version,ordinal,run_id from artifacts where id=$1 and project_id=$2 for update", id, p.ID).Scan(&ver, &ord, &run); err != nil {
 			return err
 		}
-		if in.Version != ver {
+		if expected != ver {
 			return web.Fail(409, "成果已更新，请查看当前版本")
 		}
 		if err := requireCurrentArtifactInputs(ctx, tx, id, ver); err != nil {
@@ -125,6 +130,16 @@ func (s Server) artifactAction(w http.ResponseWriter, r *http.Request, u identit
 	}
 	w.WriteHeader(204)
 	return nil
+}
+
+func artifactExpectedVersion(legacy int, expected *int) (int, error) {
+	if expected == nil {
+		return legacy, nil
+	}
+	if *expected < 1 || legacy != 0 && legacy != *expected {
+		return 0, web.Fail(422, "请提供一致的成果基准版本")
+	}
+	return *expected, nil
 }
 
 const artifactPreferenceUnavailable = "此候选使用的个人偏好已失效，请由项目发起人核对重做范围"

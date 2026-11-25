@@ -75,7 +75,7 @@ export function ArtifactEditor({
       if (a.file) {
         if (!saved.file) return;
         const form = new FormData();
-        form.set("version", String(saved.base));
+        form.set("expected_version", String(saved.base));
         form.set("reason", saved.reason);
         form.set("summary", saved.body);
         form.set("file", saved.file);
@@ -91,7 +91,7 @@ export function ArtifactEditor({
           );
       } else {
         await api(endpoint + "/revise", "POST", {
-          version: saved.base,
+          expected_version: saved.base,
           body: saved.body,
           reason: saved.reason,
         });
@@ -125,14 +125,19 @@ export function ArtifactEditor({
         stale && (
           <section className="card">
             <strong>成果已有 v{a.version}，请核对后继续修订</strong>
-            <p className="preserve">{a.body}</p>
-            {a.file && (
-              <p>
-                <a href={currentFile} download>
-                  下载当前 v{a.version} 原件
-                </a>
-              </p>
-            )}
+            <div className="artifact-version-comparison">
+              <section aria-label={"当前 v" + a.version}>
+                <h4>当前 v{a.version}</h4>
+                <p className="preserve">{a.body}</p>
+                {a.file && <a href={currentFile} download>下载当前版本</a>}
+              </section>
+              <section aria-label={"基于 v" + saved.base + " 的草稿"}>
+                <h4>我的修订 · 基于 v{saved.base}</h4>
+                <p className="preserve">{saved.body || "暂无正文"}</p>
+                {a.file && <a href={"/api/" + endpoint + "/file?version=" + saved.base} download>下载基准版本</a>}
+                {saved.file && <small>草稿文件 · {saved.file.name}</small>}
+              </section>
+            </div>
             <button
               type="button"
               disabled={busy}

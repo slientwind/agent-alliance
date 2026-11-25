@@ -236,4 +236,17 @@ func TestTaskCollaborationRolesAndRevocationPostgres(t *testing.T) {
 		request(http.MethodGet, path+"?version=1", nominee, nil, 404)
 		request(http.MethodPatch, path+"/"+comment.ID, nominee, map[string]any{"resolved": false, "expected_revision": 2}, 404)
 	})
+	t.Run("optimistic version guard for revisions and approvals", func(t *testing.T) {
+		exec("update projects set stage='review' where id=$1", project)
+		path := "/artifacts/" + artifact
+		request(http.MethodPost, path+"/revise", reviewer, map[string]any{"expected_version": 2, "body": "同事的修订", "reason": "核对后调整"}, 204)
+		request(http.MethodPost, path+"/revise", owner, map[string]any{"expected_version": 2, "body": "旧版草稿", "reason": "并发修改"}, 409)
+		request(http.MethodPost, path+"/review", owner, map[string]int{"expected_version": 2}, 409)
+		request(http.MethodPost, path+"/review", owner, map[string]int{"expected_version": 3, "version": 2}, 422)
+		current := request(http.MethodGet, path+"/versions?version=3", reviewer, nil, 200)
+		if !strings.Contains(current.Body.String(), "同事的修订") || strings.Contains(current.Body.String(), "旧版草稿") {
+			t.Fatalf("stale edit changed the current version: %s", current.Body)
+		}
+		request(http.MethodPost, path+"/revise", owner, map[string]any{"version": 3, "body": "核对新版后的修订", "reason": "已核对"}, 204)
+	})
 }

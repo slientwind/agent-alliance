@@ -28,8 +28,28 @@ func (s Server) reviseFile(w http.ResponseWriter, r *http.Request, u identity.Me
 		return web.Fail(422, "请提交修订文件和说明，文件上限为 8 MiB")
 	}
 	defer r.MultipartForm.RemoveAll()
-	base, err := strconv.Atoi(r.PostFormValue("version"))
-	if err != nil || base < 1 {
+	var legacy int
+	var expected *int
+	raw := r.PostFormValue("version")
+	if raw != "" {
+		value, err := strconv.Atoi(raw)
+		if err != nil || value < 1 {
+			return web.Fail(422, "缺少基准版本")
+		}
+		legacy = value
+	}
+	if raw = r.PostFormValue("expected_version"); raw != "" {
+		value, err := strconv.Atoi(raw)
+		if err != nil {
+			return web.Fail(422, "缺少基准版本")
+		}
+		expected = &value
+	}
+	base, err := artifactExpectedVersion(legacy, expected)
+	if err != nil {
+		return err
+	}
+	if base < 1 {
 		return web.Fail(422, "缺少基准版本")
 	}
 	reason, summary := strings.TrimSpace(r.PostFormValue("reason")), strings.TrimSpace(r.PostFormValue("summary"))

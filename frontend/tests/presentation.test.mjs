@@ -69,3 +69,17 @@ test("review status uses Lucide icons alongside the business label", async () =>
   const completed = renderToStaticMarkup(createElement(StatusIcon, { tone: "success" }));
   assert.match(completed, /lucide-circle-check/);
 });
+
+test("artifact revision conflicts show both versions and require explicit rebase", async () => {
+  const { ArtifactEditor } = await server.ssrLoadModule("/src/artifact-editor.tsx");
+  const markup = renderToStaticMarkup(createElement(ArtifactEditor, {
+    project: { id: "project", stage: "review", canReview: true, artifacts: [] },
+    artifact: { id: "artifact", name: "采购", ordinal: 1, version: 2, body: "同事提交的新版" },
+    draft: { base: 1, body: "我准备提交的正文", reason: "更新", file: null },
+    busy: false, perform: () => {}, refresh: () => {}, update: () => {},
+  }));
+  assert.match(markup, /aria-label="当前 v2".*同事提交的新版/);
+  assert.match(markup, /aria-label="基于 v1 的草稿".*我准备提交的正文/);
+  assert.match(markup, /<button disabled="">保存新版本<\/button>/);
+  assert.match(markup, /已核对新版，继续编辑草稿/);
+});
