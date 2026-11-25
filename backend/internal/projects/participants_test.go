@@ -57,8 +57,42 @@ func TestTaskCollaborationRolesAndRevocationPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	updates, err := StartSessionUpdates(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectChanged, releaseChanges := updates.subscribe(project)
+	defer releaseChanges()
+	unrelated, releaseUnrelated := updates.subscribe(uuid.NewString())
+	defer releaseUnrelated()
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if err = Touch(ctx, tx, project, "brief"); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-projectChanged:
+		t.Fatal("uncommitted state reached another connection")
+	case <-time.After(30 * time.Millisecond):
+	}
+	if err = tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-projectChanged:
+	case <-time.After(time.Second):
+		t.Fatal("a committed project change did not wake the event stream")
+	}
+	select {
+	case <-unrelated:
+		t.Fatal("a different project received the wakeup")
+	default:
+	}
 	mux := http.NewServeMux()
-	Server{DB: db, Vault: vault}.Routes(mux, identity.Server{DB: db})
+	Server{DB: db, Vault: vault, SessionUpdates: updates}.Routes(mux, identity.Server{DB: db})
 	server := httptest.NewServer(mux)
 	defer server.Close()
 	base := "/api/projects/" + project

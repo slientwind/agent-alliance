@@ -86,7 +86,23 @@ func (s Server) sessionEvents(g identity.Server) web.Handler {
 		if err != nil {
 			return err
 		}
-		return streamSessionEvents(w, r, cursor, 300*time.Millisecond,
+		var wake <-chan struct{}
+		var verify func(*http.Request) error
+		heartbeat := time.Second
+		if s.SessionUpdates != nil {
+			var unsubscribe func()
+			wake, unsubscribe = s.SessionUpdates.subscribe(project)
+			defer unsubscribe()
+			heartbeat = 10 * time.Second
+			verify = func(r *http.Request) error {
+				u, err := g.Authenticate(r)
+				if err != nil {
+					return err
+				}
+				return s.DB.QueryRow(r.Context(), "select 1 from project_members where project_id=$1 and member_id=$2", project, u.ID).Scan(new(int))
+			}
+		}
+		return streamSessionEvents(w, r, cursor, wake, heartbeat, verify,
 			func(cursor sessionCursor) (string, error) { return sealSessionCursor(s.Vault, project, cursor) },
 			func(r *http.Request, cursor sessionCursor) (sessionBatch, error) {
 				u, err := g.Authenticate(r)
@@ -201,18 +217,27 @@ func readSessionBatch(ctx context.Context, tx pgx.Tx, project, actor string, cur
 	return batch, rows.Err()
 }
 
-func streamSessionEvents(w http.ResponseWriter, r *http.Request, cursor sessionCursor, interval time.Duration,
+func streamSessionEvents(w http.ResponseWriter, r *http.Request, cursor sessionCursor, wake <-chan struct{}, heartbeat time.Duration,
+	verify func(*http.Request) error,
 	seal func(sessionCursor) (string, error), read func(*http.Request, sessionCursor) (sessionBatch, error)) error {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
-	tick := time.NewTimer(time.Second)
+	tick := time.NewTicker(heartbeat)
 	defer tick.Stop()
 	controller := http.NewResponseController(w)
 	started := false
+	refresh, activeDraft := true, false
 	var lastWrite time.Time
 	for {
 		readCtx, stop := context.WithTimeout(ctx, 3*time.Second)
-		batch, err := read(r.WithContext(readCtx), cursor)
+		batch := sessionBatch{next: cursor}
+		var err error
+		if refresh || activeDraft || verify == nil {
+			batch, err = read(r.WithContext(readCtx), cursor)
+			activeDraft = batch.activeDraft
+		} else {
+			err = verify(r.WithContext(readCtx))
+		}
 		stop()
 		if err != nil {
 			if !started {
@@ -262,17 +287,16 @@ func streamSessionEvents(w http.ResponseWriter, r *http.Request, cursor sessionC
 			return nil
 		}
 		if batch.more {
+			refresh = true
 			continue
 		}
-		wait := time.Second
-		if batch.activeDraft {
-			wait = interval
-		}
-		tick.Reset(wait)
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-wake:
+			refresh = true
 		case <-tick.C:
+			refresh = false
 		}
 	}
 }

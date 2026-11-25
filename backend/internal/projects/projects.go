@@ -16,8 +16,9 @@ import (
 )
 
 type Server struct {
-	DB    *pgxpool.Pool
-	Vault resources.Vault
+	DB             *pgxpool.Pool
+	Vault          resources.Vault
+	SessionUpdates *SessionUpdates
 }
 type Project struct {
 	ID          string `json:"id"`

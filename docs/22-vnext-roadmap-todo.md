@@ -146,7 +146,8 @@
   - [x] 改造 `PermittedAgentEndpoint`：从 `os.Getenv("AGENT_ALLOWED_HOSTS")` 迁移至 DB 白名单表 + DNS/IP SSRF 校验。
   - [ ] 抽象多协议适配接口，拆分 A2A 实现并接入 OpenAI-Compatible / Dify / Coze / LangGraph / Webhook 适配及可选用量回传头解析。
 - [ ] **[`backend/internal/projects/session_events.go`](../backend/internal/projects/session_events.go)**
-  - [ ] 彻底改造 300ms 全量 PG 轮询为 **冷热分离架构**：抽象 `HotStreamBus` 接口承载高频热流（Token Delta、Thinking 过程、在线态 Presence、实时评论），支持 Docker Compose 下单机进程内/可选 Redis Streams 平滑切换；冷事实（Turn/Artifact/Wait 变更）落 PG 并按事件唤醒补读，消除闲置轮询写放大。
+  - [x] 会话 SSE 由 PostgreSQL 提交通知唤醒并补读持久事件游标，闲置连接只做低频心跳与授权复核。
+  - [ ] 抽象 `HotStreamBus` 承载高频 Token Delta、思考进度、Presence 和实时评论，支持单机进程内与可选 Redis Streams，并移除旧草稿通道的高频数据库访问。
   - [x] 修改 `current_run.actor=$2` 限制：允许同任务所有获授权协作成员实时观看流式进展与产物更新。
 - [ ] **[`backend/internal/projects/feedback.go`](../backend/internal/projects/feedback.go)**
   - [ ] 解绑“仅 `stage == review` 才允许评论”的硬限制，区分轻量行内协同评论（全阶段可用）与正式版本审签意见（审签阶段绑定不可变版本）。

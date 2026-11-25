@@ -96,7 +96,11 @@ func TestTextDraftPostgresSSE(t *testing.T) {
 	}
 	worker := Activities{Catalog: resources.Catalog{DB: db, Vault: vault}}
 	routes := http.NewServeMux()
-	projects.Server{DB: db, Vault: vault}.Routes(routes, identity.Server{DB: db})
+	updates, err := projects.StartSessionUpdates(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projects.Server{DB: db, Vault: vault, SessionUpdates: updates}.Routes(routes, identity.Server{DB: db})
 	api := httptest.NewServer(routes)
 	defer api.Close()
 	for _, test := range []string{"reconnect", "interrupted", "revoked", "edited preference", "session", "session revoked"} {

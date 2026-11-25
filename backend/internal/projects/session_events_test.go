@@ -51,7 +51,7 @@ func TestSessionStreamBoundsWritesToSlowClients(t *testing.T) {
 	writer := &slowSessionWriter{ResponseRecorder: httptest.NewRecorder()}
 	req := httptest.NewRequest("GET", "/session-events", nil)
 	batches := 0
-	err := streamSessionEvents(writer, req, sessionCursor{}, time.Millisecond,
+	err := streamSessionEvents(writer, req, sessionCursor{}, nil, time.Millisecond, nil,
 		func(sessionCursor) (string, error) { return "cursor", nil },
 		func(*http.Request, sessionCursor) (sessionBatch, error) {
 			batches++
