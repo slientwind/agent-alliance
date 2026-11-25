@@ -58,7 +58,7 @@
   - [ ] 将自主策略接入通用执行器，提供 L1 内联确认卡及 L2 人工审核门禁。
   - [x] 实现通用停滞检测（比较工具名 + 规范化参数 + 来源版本 + 未决对象）与安全上下文压缩（保留 System、最新用户纠偏、未闭合 Tool Pair、来源引用）。
 - [ ] **Docker Compose 隔离容器沙箱池（Workspace Sandbox）**
-  - [ ] 在现有 `deploy/application.yaml` 下新增 `sandbox` 服务镜像与独立断网内部网络 `sandbox-internal`（`internal: true`），预装 Python 3.12、`pandas`、`openpyxl`、`python-docx`、`python-pptx`、`pypdf`、`matplotlib`、`pillow`、`duckdb` 及中文字体包。
+  - [x] 在现有 `deploy/application.yaml` 下新增 `sandbox` 服务镜像与独立断网内部网络 `sandbox-internal`（`internal: true`），预装 Python 3.12、`pandas`、`openpyxl`、`python-docx`、`python-pptx`、`pypdf`、`matplotlib`、`pillow`、`duckdb` 及中文字体包。
   - [ ] 实现按任务隔离目录挂载与执行限额：`/workspace/inputs:ro`、`/workspace/outputs:rw`、只读根文件系统、`cap_drop: [ALL]`、`no-new-privileges:true`、CPU/RAM/PID/60s 超时硬限、零凭据注入。
   - [ ] 实现产物自动回收：扫描 `/workspace/outputs` 哈希登记为受控 Artifact 版本，并自动触发 `preview` 生成可预览视图。
 - [ ] **标准 MCP Client Hub**
@@ -188,7 +188,7 @@
 ## 四、其他可优化的工程、安全、性能与体验事项
 
 ### 4.1 安全加固
-- [ ] **Docker Compose 沙箱零信任网络隔离（[`deploy/application.yaml`](../deploy/application.yaml)）**：新增独立 `sandbox-internal`（`internal: true`）网络隔离 `sandbox` 与 `tools` 容器，阻断 Prompt Injection 诱导脚本外发企业文件。
+- [x] **Docker Compose 沙箱零信任网络隔离（[`deploy/application.yaml`](../deploy/application.yaml)）**：新增独立 `sandbox-internal`（`internal: true`）网络隔离 `sandbox` 与 `tools` 容器，阻断 Prompt Injection 诱导脚本外发企业文件。
 - [ ] **生态 Skill 供应链安全防线**：扫描器在独立低权限容器中解析仓库，限制 ZIP 解压炸弹、禁止符号链接、对可疑外链/命令自动阻断并强制人工复核。
 - [ ] **密钥轮换与零明文日志审计**：核查所有新增适配器（LLM Gateway、MCP、外部 Agent、生态 Git 私库）均统一复用 `Vault` 作用域加密，增加自动脱敏中间件防止 HTTP Error / Trace 泄露 Header 密钥。
 

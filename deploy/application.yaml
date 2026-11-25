@@ -70,6 +70,20 @@ services:
     cpus: 1.0
     pids_limit: 64
     restart: unless-stopped
+  sandbox:
+    profiles: [sandbox]
+    build: ../sandbox
+    image: alliance-sandbox:local
+    networks: [sandbox-internal]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:size=192m,mode=1777"]
+    mem_limit: 768m
+    memswap_limit: 768m
+    cpus: 1.0
+    pids_limit: 64
+    init: true
   preview:
     build: ../preview
     environment:
@@ -85,6 +99,8 @@ services:
     restart: unless-stopped
 networks:
   preview-internal:
+    internal: true
+  sandbox-internal:
     internal: true
 volumes:
   objects:
