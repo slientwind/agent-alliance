@@ -143,6 +143,13 @@ func TestTeamPromotionCopiesOnlyTheSelectedEditionAndConfiguration(t *testing.T)
 	}
 	do(admin, "GET", path+"/file", "", "", 404)
 	do(guest, "GET", path, "", "", 404)
+	// A private or removed knowledge pin makes both new and existing team snapshots unavailable.
+	exec("insert into general_agent_runs(run_id,tier) values($1,'default')", run)
+	exec("insert into general_kb_evidence(run_id,turn,document_id,document_version,chunk_ordinal) values($1,1,gen_random_uuid(),1,1)", run)
+	do(teammate, "GET", path, "", "", 404)
+	do(teammate, "GET", path+"/file", "", "", 404)
+	do(owner, "POST", promotePath, "with-private-knowledge", payload, 404)
+	exec("delete from general_kb_evidence where run_id=$1", run)
 
 	payload = `{"destination":"` + target + `","kind":"agent","item":"` + release + `","version":1}`
 	agent := idFrom(do(owner, "POST", promotePath, "agent-1", payload, 201))

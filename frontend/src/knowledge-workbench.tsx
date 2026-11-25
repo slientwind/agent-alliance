@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { BookOpenText, Database, FileText } from "lucide-react";
 import type { SpaceOption } from "./eval-preflight";
 import { KnowledgeLibrary } from "./knowledge-library";
@@ -17,6 +18,7 @@ export type KnowledgeScope = { space: SpaceOption; commons?: SpaceOption };
 
 export function KnowledgeWorkbench({ space, commons }: { space?: SpaceOption; commons?: SpaceOption }) {
   const [tab, select] = useState<Tab>("library");
+  const [params] = useSearchParams();
   function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next: number;
     switch (event.key) {
@@ -41,7 +43,7 @@ export function KnowledgeWorkbench({ space, commons }: { space?: SpaceOption; co
         onClick={() => select(key)} onKeyDown={event => navigate(event, index)}><Icon size={17} aria-hidden="true" />{title}</button>)}
     </div>
     <div role="tabpanel" id={"knowledge-panel-" + tab} aria-labelledby={"knowledge-tab-" + tab}>
-      {tab === "library" && <KnowledgeLibrary key={space.id} {...props} />}
+      {tab === "library" && <KnowledgeLibrary key={space.id} publication={params.get("publication") || ""} {...props} />}
       {tab === "business" && <BusinessWorkspace key={space.id} {...props} />}
       {tab === "standards" && <KnowledgeStandards key={space.id} {...props} />}
     </div>

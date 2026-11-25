@@ -53,6 +53,7 @@ type MutationCard struct {
 	MutationResult
 	Run       string         `json:"runId"`
 	Label     string         `json:"label"`
+	System    string         `json:"systemName,omitempty"`
 	Record    string         `json:"recordKey,omitempty"`
 	Before    map[string]any `json:"before,omitempty"`
 	After     map[string]any `json:"after,omitempty"`
@@ -109,17 +110,18 @@ func (s Server) listMutations(w http.ResponseWriter, r *http.Request, actor iden
 			return err
 		}
 		var allowed, pending bool
+		var system string
 		err = s.DB.QueryRow(ctx, `select exists(select from business_connectors c join business_mutation_policies f on f.connector_id=c.id
 		 where (c.id,c.revision,f.id,f.revision)=($1,$2,$3,$4) and c.enabled and f.enabled
 		  and ($5='' or coalesce(business_obo_grant_usable($1,$6,nullif($5,'')::uuid),false))),
 		 exists(select from projects p join runs r on r.project_id=p.id where r.id=$7 and r.status='running'
-		 and p.final_reviewer=$8 and general_run_inputs_usable(r.id))`, m.Connector, m.ConnectorRevision, m.Policy, m.PolicyRevision,
-			payload.OBOGrant, m.Actor, m.Run, actor.ID).Scan(&allowed, &pending)
+		 and p.final_reviewer=$8 and general_run_inputs_usable(r.id)), coalesce((select name from business_connectors where id=$1),'')`, m.Connector, m.ConnectorRevision, m.Policy, m.PolicyRevision,
+			payload.OBOGrant, m.Actor, m.Run, actor.ID).Scan(&allowed, &pending, &system)
 		if err != nil {
 			return err
 		}
 		if allowed {
-			item.Record, item.Before, item.After = payload.Record, payload.Before, payload.After
+			item.System, item.Record, item.Before, item.After = system, payload.Record, payload.Before, payload.After
 		} else {
 			item.Receipt = ""
 		}

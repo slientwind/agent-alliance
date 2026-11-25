@@ -8,7 +8,11 @@ import type {
 export function canPreview(name: string, readable = false) {
   return readable || /\.(pdf|docx|xlsx|pptx|png|jpe?g|webp|txt|md|csv|tsv|json)$/i.test(name);
 }
-export function FilePreview({ url, name, expanded = false }: { url: string; name: string; expanded?: boolean }) {
+type PDFLocation = { page: number; endPage?: number; box?: number[]; endBox?: number[] };
+
+export function FilePreview({ url, name, expanded = false, pdfLocation }: {
+  url: string; name: string; expanded?: boolean; pdfLocation?: PDFLocation;
+}) {
   const [open, setOpen] = useState(expanded);
   return (
     <details
@@ -17,14 +21,14 @@ export function FilePreview({ url, name, expanded = false }: { url: string; name
       onToggle={(e) => setOpen(e.currentTarget.open)}
     >
       <summary>预览 {name}</summary>
-      {open && <PreviewContent key={url} url={url} name={name} />}
+      {open && <PreviewContent key={url} url={url} name={name} pdfLocation={pdfLocation} />}
     </details>
   );
 }
 
-function PreviewContent({ url, name }: { url: string; name: string }) {
+function PreviewContent({ url, name, pdfLocation }: { url: string; name: string; pdfLocation?: PDFLocation }) {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null),
-    [page, setPage] = useState(1),
+    [page, setPage] = useState(pdfLocation?.page ?? 1),
     [text, setText] = useState<string | null>(null),
     [image, setImage] = useState(""),
     [error, setError] = useState(""),
@@ -89,6 +93,20 @@ function PreviewContent({ url, name }: { url: string; name: string }) {
       render = sheet.render({ canvas: output, viewport });
       await render.promise;
       if (!active) return;
+      const first = page === pdfLocation?.page ? pdfLocation?.box : undefined;
+      const last = page === pdfLocation?.endPage ? pdfLocation?.endBox : undefined;
+      const ctx = output.getContext("2d");
+      if (ctx) {
+        for (const box of [first, last]) {
+          if (box?.length !== 4 || !box.every(Number.isFinite)) continue;
+          const [x1, y1, x2, y2] = box.map(value => value * scale);
+          ctx.fillStyle = "rgba(245, 158, 11, 0.22)";
+          ctx.strokeStyle = "#b45309";
+          ctx.lineWidth = 2;
+          ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+        }
+      }
       setReady(true);
       const content = await sheet.getTextContent();
       if (active)
@@ -105,7 +123,7 @@ function PreviewContent({ url, name }: { url: string; name: string }) {
       active = false;
       render?.cancel();
     };
-  }, [doc, page]);
+  }, [doc, page, pdfLocation]);
   return (
     <section aria-label={"文件预览 " + name}>
       {error && <p role="alert">{error}</p>}

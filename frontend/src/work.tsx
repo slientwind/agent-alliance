@@ -3,6 +3,7 @@ import { fileFormats } from "./output-operations";
 import { PlanningInputs, planningRequestKey, selectedPins, type PlanningPin } from "./planning-inputs";
 import { LookupBody } from "./lookup-body";
 import { ToolApprovals } from "./tool-approval";
+import { ArtifactEvidence, CaptureEvaluationCase, SystemMutations } from "./business-conversation";
 import { ReplyActions } from "./reply-actions";
 import { MarkdownText } from "./markdown-text";
 import { GlossaryCorrection } from "./glossary-correction";
@@ -31,6 +32,7 @@ import {
   type Agent,
   type Member,
   type Project,
+  type KnowledgeCitation,
   type WorkflowTemplateReference,
   statusLabel,
 } from "./client";
@@ -55,6 +57,9 @@ type Props = {
   sourcesRevision: number;
   canvasArtifact?: string;
   openArtifact: (id: string) => void;
+  openCitation: (item: KnowledgeCitation) => void;
+  mutationAnchor: string;
+  mayCaptureEvaluation: boolean;
   drafts: DraftFragment[];
   uploadedPins?: PlanningPin[];
   planningSubmitted: (uploads?: PlanningPin[]) => void;
@@ -81,7 +86,7 @@ type Props = {
   reloadCatalog: () => Promise<void>;
 };
 export function Work({
-  p, threadRef, sourcesRevision, canvasArtifact, openArtifact, drafts, uploadedPins, planningSubmitted,
+  p, threadRef, sourcesRevision, canvasArtifact, openArtifact, openCitation, mutationAnchor, mayCaptureEvaluation, drafts, uploadedPins, planningSubmitted,
   revisions,
   changeRevision,
   budgetDraft,
@@ -219,6 +224,7 @@ export function Work({
   return (
     <div className="thread" ref={threadRef}>
       <h1>{p.title}</h1>
+      {p.spaceKind === "team" && <SystemMutations project={p.id} revision={p.revision} anchor={mutationAnchor} refresh={refresh} />}
       {p.run?.general && ["running", "paused"].includes(p.run.status) &&
         <ToolApprovals key={p.id} project={p} refresh={refresh} />}
       {p.distributionCases.length > 0 && (
@@ -1051,6 +1057,9 @@ export function Work({
           ) : p.plan?.nodes[a.ordinal - 1]?.lookupPhase
             ? <LookupBody artifact={a} project={p} sources={sources} />
             : <div className="preserve">{a.body}</div>}
+          {!a.draftBlock && <ArtifactEvidence artifact={a} openCitation={openCitation} />}
+          {mayCaptureEvaluation && p.spaceId && !a.draftBlock && a.reviewNotesReadable &&
+            (a.approved || a.replyRun || p.stage === "delivered") && <CaptureEvaluationCase key={a.version} space={p.spaceId} artifact={a} />}
           {a.replyRun && <ReplyActions artifact={a} project={p} owner={p.owner === user.id} busy={busy}
             refresh={refresh} openStudio={openStudio}
             schedule={() => scheduleReply({ title: p.title, goal: p.plan?.brief ||

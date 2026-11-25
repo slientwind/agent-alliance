@@ -1,6 +1,7 @@
-import { Brain, FileText, Globe2, Wrench } from "lucide-react";
+import { Brain, FileText, Globe2, ShieldCheck, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, RequestError } from "./client";
+import "./business-conversation.css";
 
 const categories = {
   thinking: "整理与判断",
@@ -29,6 +30,27 @@ interface Activity {
   end?: string;
 }
 
+type Protection = { outcome: "masked" | "blocked"; counts: Record<string, number> };
+const protectedFields: Record<string, string> = {
+  mobile: "手机号", email: "邮箱", national_id: "身份证号", payment_card: "银行卡号",
+  floor_price: "底价", custom_term: "内部术语", classified_field: "密级字段",
+};
+
+function DataProtection({ events }: { events: Protection[] }) {
+  const masked: Record<string, number> = {};
+  for (const entry of events) if (entry.outcome === "masked") {
+    for (const [name, count] of Object.entries(entry.counts || {})) masked[name] = (masked[name] || 0) + count;
+  }
+  const types = Object.entries(protectedFields).filter(([key]) => masked[key] > 0).map(([key, name]) => `${name} ${masked[key]} 处`);
+  const blocked = events.some(entry => entry.outcome === "blocked");
+  return <>
+    {types.length > 0 && <p className="dlp-protection" role="status"><ShieldCheck size={16} aria-hidden="true" />
+      DLP 外发保护已自动脱敏 · {types.join("、")}
+    </p>}
+    {blocked && <p className="dlp-protection" role="status"><ShieldCheck size={16} aria-hidden="true" /> DLP 已拦截敏感数据外发</p>}
+  </>;
+}
+
 export function ConversationActivity({ project, run, status, revision, progress }: {
   project: string;
   run: string;
@@ -39,21 +61,24 @@ export function ConversationActivity({ project, run, status, revision, progress 
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Activity[]>();
   const [error, setError] = useState("");
+  const [protection, setProtection] = useState<Protection[]>([]);
   useEffect(() => {
-    if (!open) return;
     let current = true;
-    void api<{ items: Activity[] }>("projects/" + project + "/runs/" + run + "/activity").then(result => {
+    void api<{ items: Activity[]; dlp?: Protection[] }>("projects/" + project + "/runs/" + run + "/activity").then(result => {
       if (!current) return;
       setItems(result.items ?? []);
+      setProtection(result.dlp ?? []);
       setError("");
     }).catch(error => {
       if (!current) return;
       setItems(undefined);
+      setProtection([]);
       setError(error instanceof RequestError && error.status === 404 ? "这次处理的进展已不可查看。" : "暂时无法查看进展。");
     });
     return () => { current = false; };
-  }, [open, project, run, status, revision]);
-  return (
+  }, [project, run, status, revision]);
+  return (<>
+    <DataProtection events={protection} />
     <details className="conversation-activity" onToggle={event => setOpen(event.currentTarget.open)}>
       <summary>
         <Wrench size={15} aria-hidden="true" /> 处理进展 <small>{progress || states[status] || "查看处理记录"}</small>
@@ -71,5 +96,5 @@ export function ConversationActivity({ project, run, status, revision, progress 
           })}
         </ol> : <p>暂时没有处理记录。</p>)}
     </details>
-  );
+  </>);
 }

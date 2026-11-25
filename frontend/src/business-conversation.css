@@ -1,0 +1,39 @@
+.citation-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  padding: 0;
+  list-style: none;
+}
+.citation-chips button {
+  display: inline-flex;
+  gap: .35rem;
+  align-items: center;
+  text-align: start;
+  border-radius: 1rem;
+  background: var(--brand-soft);
+}
+.business-provenance, .dlp-protection {
+  padding: .65rem .8rem;
+  margin-block: .7rem;
+  border: 1px solid var(--border);
+  border-radius: .65rem;
+  background: var(--bg-surface);
+}
+.business-provenance dl { margin-block: .65rem 0; }
+.business-provenance dt { font-weight: 600; }
+.business-provenance dd { margin: 0 0 .4rem; overflow-wrap: anywhere; }
+.business-mutation header, .mutation-receipt, .dlp-protection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .45rem .8rem;
+}
+.business-mutation header { justify-content: space-between; }
+.business-mutation header h2 { margin: 0; }
+.business-diff { overflow-x: auto; }
+.business-diff table { width: 100%; border-collapse: collapse; text-align: start; }
+.business-diff :is(th, td) { padding: .5rem; text-align: start; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.business-diff td:last-child { background: var(--brand-soft); }
+.mutation-receipt { background: var(--brand-soft); border-radius: .5rem; padding: .5rem; }
+.knowledge-excerpt { margin: .8rem 0; white-space: pre-wrap; border-inline-start: 3px solid var(--border); padding-inline-start: .8rem; }

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { FolderOpen, RefreshCw } from "lucide-react";
 import { api } from "./client";
+import { citationPath } from "./knowledge-citation";
 import { EvaluationPanel } from "./eval-preflight";
 import type { KnowledgeScope } from "./knowledge-workbench";
 
@@ -20,9 +21,6 @@ const states: Record<string, string> = { ready: "同步成功", queued: "待同�
 const visibility: Record<string, string> = { public: "公开", internal: "内部", confidential: "机密", secret: "严格保密" };
 const docStates: Record<string, string> = { active: "现行有效", deprecated: "已作废", archived: "已归档" };
 
-export function citationPath(space: string, doc: string, version: number, ordinal: number) {
-  return `spaces/${encodeURIComponent(space)}/knowledge/documents/${encodeURIComponent(doc)}/citations/${version}/${ordinal}`;
-}
 
 type Folder = { children: Map<string, Folder>; files: Document[] };
 function assembleTree(items: Document[]): Folder {
@@ -63,7 +61,7 @@ function DocumentTree({ folder, space, selected, collectionNames }: {
   </ul>;
 }
 
-export function KnowledgeLibrary({ space, commons }: KnowledgeScope) {
+export function KnowledgeLibrary({ space, commons, publication }: KnowledgeScope & { publication: string }) {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [members, setMembers] = useState<Person[]>([]);
   const [gaps, setGaps] = useState<Gap[]>([]);
@@ -178,6 +176,7 @@ export function KnowledgeLibrary({ space, commons }: KnowledgeScope) {
         {common.next && <button type="button" disabled={busy} onClick={() => void more(true)}>更多全企文档</button>}
       </section>
     </div>
+    {space.kind === "team" && <TeamPublications space={space.id} target={publication} />}
     {admin && space.kind === "team" && <>
       <div className="knowledge-grid">
         <section className="card knowledge-panel"><h2>知识缺口</h2>
@@ -227,4 +226,43 @@ function ConflictDecision({ busy, submit }: { busy: boolean; submit: (decision: 
     <label>消歧原因<input name="note" maxLength={600} required /></label>
     <button type="submit" disabled={busy}>保存口径决定</button>
   </form></details>;
+}
+
+
+type Publication = { id: string; kind: string; name: string; body?: string; hasFile: boolean };
+function TeamPublications({ space, target }: { space: string; target: string }) {
+  const [items, setItems] = useState<Publication[]>([]);
+  const [selection, select] = useState(target);
+  const [result, setResult] = useState<{ id: string; item?: Publication; error?: string }>();
+  const base = `spaces/${space}/publications`;
+  useEffect(() => {
+    let active = true;
+    void api<Publication[]>(base).then(rows => { if (active) setItems(rows.filter(item => item.kind === "artifact")); })
+      .catch(error => { if (active) setResult({ id: "", error: (error as Error).message }); });
+    return () => { active = false; };
+  }, [base]);
+  useEffect(() => { select(target); }, [target]);
+  useEffect(() => {
+    if (!selection) return;
+    let active = true;
+    void api<Publication>(base + "/" + encodeURIComponent(selection)).then(item => {
+      if (active) setResult({ id: selection, item });
+    }).catch(error => { if (active) setResult({ id: selection, error: (error as Error).message }); });
+    return () => { active = false; };
+  }, [base, selection]);
+  const current = result?.id === selection ? result : undefined;
+  if (!items.length && !selection && !current?.error) return null;
+  return <section className="card knowledge-panel" aria-label="团队成果快照">
+    <h2>团队成果快照</h2>
+    <ul className="knowledge-entries">{items.map(item => <li key={item.id}>
+      <button type="button" aria-pressed={selection === item.id} onClick={() => select(item.id)}>{item.name}</button>
+    </li>)}</ul>
+    {selection && !current && <p role="status">正在核验成果快照权限…</p>}
+    {current?.error && <p role="alert">{current.error}</p>}
+    {current?.item?.kind === "artifact" && <article>
+      <h3>{current.item.name}</h3>
+      <p className="preserve">{current.item.body}</p>
+      {current.item.hasFile && <a href={"/api/" + base + "/" + encodeURIComponent(selection) + "/file"} download>下载成果快照</a>}
+    </article>}
+  </section>;
 }

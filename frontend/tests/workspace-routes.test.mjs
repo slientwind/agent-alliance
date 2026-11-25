@@ -11,6 +11,7 @@ after(async () => { await server.close(); });
 test("workspace routes cover the sidebar and preserve legacy chat links", async () => {
   const { pageFromPath, projectFromPath, chatPath } = await server.ssrLoadModule("/src/workspace-routes.ts");
   assert.equal(pageFromPath("/inbox"), "history");
+  assert.equal(pageFromPath("/knowledge"), "knowledge");
   assert.equal(pageFromPath("/agents"), "library");
   assert.equal(pageFromPath("/agents/studio/project-2"), "studio");
   assert.equal(pageFromPath("/agents/studio"), "studio");
@@ -33,6 +34,8 @@ test("login retains both history styles and validates review anchors", async () 
   assert.equal(loginReturnPath({ pathname: `/chat/${id}`, search: "?task=deliver-3", hash: "" }), `/chat/${id}?task=deliver-3`);
   assert.equal(loginReturnPath({ pathname: "/", search: "?task=deliver-3", hash: `#${id}` }), `/?task=deliver-3#${id}`);
   assert.equal(loginReturnPath({ pathname: `/chat/${id}`, search: "?task=javascript:bogus", hash: "" }), `/chat/${id}`);
+  assert.equal(loginReturnPath({ pathname: `/chat/${id}`, search: "", hash: `#mutation-${id}` }), `/chat/${id}#mutation-${id}`);
+  assert.equal(loginReturnPath({ pathname: `/chat/${id}`, search: "", hash: "#mutation-invalid" }), `/chat/${id}`);
   assert.equal(loginReturnPath({ pathname: "/inbox", search: "", hash: "" }), "/inbox");
 });
 

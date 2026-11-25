@@ -1,7 +1,7 @@
 import { SlideOutlineFields, type SlideText } from "./slide-outline";
 import { useProjectDrafts } from "./project-drafts";
 import type { BudgetDraft } from "./budget-request-form";
-import { reviewAnchor } from "./review-link";
+import { mutationAnchor, reviewAnchor } from "./review-link";
 import { useDraftTeam, useJoinedTeams } from "./agent-team";
 import {
   LoginBinding,
@@ -35,6 +35,7 @@ import {
   RequestError,
   type Agent,
   type Member,
+  type KnowledgeCitation,
   type Model,
   type Project,
   type WorkflowTemplateReference,
@@ -77,6 +78,8 @@ import "./workspace.css";
 const Work = lazy(() => import("./work").then(({ Work }) => ({ default: Work })));
 const ConversationActivity = lazy(() => import("./conversation-activity").then(({ ConversationActivity }) => ({ default: ConversationActivity })));
 const MessageIntake = lazy(() => import("./message-intake").then(({ MessageIntake }) => ({ default: MessageIntake })));
+const KnowledgeCanvas = lazy(() => import("./knowledge-canvas").then(({ KnowledgeCanvas }) => ({ default: KnowledgeCanvas })));
+const PromoteConversation = lazy(() => import("./business-conversation").then(({ PromoteConversation }) => ({ default: PromoteConversation })));
 const ArtifactCanvas = lazy(() => import("./artifact-canvas").then(({ ArtifactCanvas }) => ({ default: ArtifactCanvas })));
 const SearchIntegration = lazy(() => import("./search-integration").then(({ SearchIntegration }) => ({ default: SearchIntegration })));
 const MailIntegration = lazy(() => import("./mail-integration").then(({ MailIntegration }) => ({ default: MailIntegration })));
@@ -149,6 +152,7 @@ function App() {
   const [dialogPanel, setDialogPanel] = useState("");
   const [commandsOpen, setCommandsOpen] = useState(false);
   const [canvasTarget, setCanvasTarget] = useState("");
+  const [citationTarget, setCitationTarget] = useState<KnowledgeCitation>();
   const [canvasFocus, setCanvasFocus] = useState<{ comment: string; version: number }>();
   const routePanel = pageFromPath(route.pathname);
   const panel = dialogPanel || routePanel;
@@ -510,7 +514,7 @@ function App() {
         current.current = id;
         recent.current = [id];
         const anchor = reviewAnchor(entry.searchParams.get("task"));
-        if (entry.hash || entry.searchParams.has("task")) {
+        if ((entry.hash && !mutationAnchor(entry.hash)) || entry.searchParams.has("task")) {
           navigateRef.current(chatPath(id), { replace: true });
         }
         if (anchor) {
@@ -581,6 +585,7 @@ function App() {
   async function select(id: string, task?: ReviewTask, nextDraftKey = draftKey, keepPage = false) {
     setDeliveryReceipt("");
     setCanvasTarget("");
+    setCitationTarget(undefined);
     setCanvasFocus(undefined);
     const old = current.current;
     const thread = document.querySelector(".thread");
@@ -588,7 +593,7 @@ function App() {
     if (draft) drafts.current.set(old || draftKey, draft);
     else drafts.current.delete(old || draftKey);
     current.current = id;
-    if (!keepPage && (chatPath(id) !== location.pathname || location.hash)) navigateRef.current(chatPath(id));
+    if (!keepPage && (chatPath(id) !== location.pathname || location.hash && !mutationAnchor(location.hash))) navigateRef.current(chatPath(id));
     restore.current = { id, task };
     if (id) recent.current = [id, ...recent.current.filter((x) => x !== id)];
     ++pending.current;
@@ -636,6 +641,7 @@ function App() {
     if (!thread || !visibleProject || request?.id !== visibleProject) return;
     restore.current = null;
     if (request.task?.kind === "mention" && request.task.artifact) {
+      setCitationTarget(undefined);
       setCanvasTarget(request.task.artifact);
       setCanvasFocus({ comment: request.task.subject, version: request.task.version });
       return;
@@ -1103,11 +1109,17 @@ function App() {
     return (
       <ServiceEntry key={service + user.id} id={service} member={user.id} />
     );
-  const title = workspacePage(panel)?.title ?? ({ agents: "Agent", outline: "分页提纲", courseWriter: "选择编稿 Agent", onboarding: "首次设置", intake: "消息与事项" }[panel] || panel);
+  const title = workspacePage(panel)?.title ?? ({ agents: "Agent", outline: "分页提纲", courseWriter: "选择编稿 Agent", onboarding: "首次设置", promote: "移交至团队空间", intake: "消息与事项" }[panel] || panel);
   const pageContent = (
     <>
       {panel === "knowledge" && <Suspense fallback={<p role="status">正在加载知识与数据…</p>}>
         <KnowledgeWorkbench space={scope} commons={spaces.find(item => item.kind === "commons")} />
+      </Suspense>}
+      {panel === "promote" && p?.spaceKind === "personal" && p.owner === user.id && <Suspense fallback={<p role="status">正在读取可移交成果…</p>}>
+        <PromoteConversation key={p.id} project={p} spaces={selectableSpaces} open={(destination, publication) => {
+          switchSpace(destination);
+          navigate("/knowledge?publication=" + encodeURIComponent(publication));
+        }} />
       </Suspense>}
       {panel === "workflowTemplates" && (
         <Suspense fallback={<p role="status">正在加载协作模板…</p>}>
@@ -1381,6 +1393,9 @@ function App() {
   const canvasArtifact = !visiblePage && canvasTarget
     ? p?.artifacts.find(artifact => artifact.id === canvasTarget && artifact.reviewNotesReadable && !artifact.draftBlock)
     : undefined;
+  const canvasCitation = !visiblePage && citationTarget && p?.artifacts.some(artifact =>
+    artifact.knowledgeCitations?.some(item => item.documentId === citationTarget.documentId && item.spaceId === citationTarget.spaceId &&
+      item.version === citationTarget.version && item.ordinal === citationTarget.ordinal)) ? citationTarget : undefined;
   const recentProjects = list.filter(item => !space || item.spaceId === space).sort((a, b) => {
     const order = (id: string) => { const i = recent.current.indexOf(id); return i < 0 ? Number.MAX_SAFE_INTEGER : i; };
     return order(a.id) - order(b.id);
@@ -1399,7 +1414,7 @@ function App() {
         openPage={openPage} openProject={openProject} page={routePanel} current={current.current}
         projects={recentProjects} userName={user.name} admin={user.role === "admin"} theme={theme} toggleTheme={toggleTheme}
         spaces={selectableSpaces} space={space} selectSpace={switchSpace} spaceBusy={busy} />
-      <div className={"workspace-area" + (canvasArtifact ? " with-artifact-canvas" : "")}>
+      <div className={"workspace-area" + (canvasArtifact || canvasCitation ? " with-artifact-canvas" : "")}>
         {visiblePage ? (
           <main className="workspace-page" aria-label={title}>
             <header className="workspace-page-header">
@@ -1420,6 +1435,9 @@ function App() {
               <strong>{p.title}</strong>
               <div className="conversation-participants">
                 {online?.project === p.id && <PresenceStack members={online.members} />}
+                {p.spaceKind === "personal" && p.owner === user.id && p.artifacts.some(item => item.canPromote) &&
+                  selectableSpaces.some(item => item.kind === "team") &&
+                  <button type="button" onClick={() => setPanel("promote")}>移交至团队空间</button>}
                 <button type="button" onClick={() => setPanel("intake")}>整理消息</button>
                 <TaskCollaboration key={p.id} project={p} user={user} refresh={refresh} />
               </div>
@@ -1446,7 +1464,11 @@ function App() {
                 threadRef={restoreThread}
                 sourcesRevision={sourcesRevision}
                 canvasArtifact={canvasArtifact?.id}
-                openArtifact={artifact => { setCanvasFocus(undefined); setCanvasTarget(artifact); }}
+                openArtifact={artifact => { setCitationTarget(undefined); setCanvasFocus(undefined); setCanvasTarget(artifact); }}
+                openCitation={citation => { setCanvasTarget(""); setCanvasFocus(undefined); setCitationTarget(citation); }}
+                mutationAnchor={mutationAnchor(route.hash)}
+                mayCaptureEvaluation={p.spaceKind === "team" && (p.canReview || p.owner === user.id) &&
+                  spaces.some(item => item.id === p.spaceId && item.role === "space_admin")}
                 drafts={sessionDrafts?.project === p.id && sessionDrafts.run === p.run?.id ? sessionDrafts.drafts : []}
                 uploadedPins={planningUpload?.project === p.id ? planningUpload.pins : undefined}
                 planningSubmitted={(pins) => setPlanningUpload(current => current?.pins === pins ? null : current)}
@@ -1650,6 +1672,10 @@ function App() {
               )}
             </Composer>
           </main>
+          {p && canvasCitation && <Suspense fallback={<p role="status">正在打开知识溯源…</p>}>
+            <KnowledgeCanvas key={[canvasCitation.documentId, canvasCitation.version, canvasCitation.ordinal].join("/")}
+              citation={canvasCitation} revision={p.revision + "/" + sourcesRevision} close={() => setCitationTarget(undefined)} />
+          </Suspense>}
           {p && canvasArtifact && (
             <Suspense fallback={<p role="status">正在打开成果…</p>}>
               <ArtifactCanvas key={canvasArtifact.id} project={p} artifact={canvasArtifact} user={user}

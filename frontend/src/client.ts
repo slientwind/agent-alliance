@@ -204,7 +204,47 @@ export type SourceReceiptRequest = {
   unavailable?: boolean;
 };
 
+export type KnowledgeCitation = {
+  documentId: string;
+  spaceId: string;
+  title: string;
+  version: number;
+  ordinal: number;
+  breadcrumb: string[];
+  citationAnchor: {
+    kind: string;
+    page?: number;
+    endPage?: number;
+    box?: number[];
+    endBox?: number[];
+    sheet?: string;
+    paragraph?: number;
+    startLine?: number;
+    endLine?: number;
+    startRow?: number;
+    endRow?: number;
+  };
+};
+
+export type BusinessProvenance = {
+  viewId: string;
+  viewName: string;
+  source: string;
+  provider: string;
+  access: string;
+  from?: string;
+  until?: string;
+  filters: string[];
+  formulas: Record<string, string>;
+  formulaSources?: Record<string, { term: string; scope: string; revision: number }>;
+  rows: number;
+  truncated?: boolean;
+};
+
 export type Artifact = {
+  knowledgeCitations?: KnowledgeCitation[];
+  businessProvenance?: BusinessProvenance[];
+  canPromote?: boolean;
   replyRun?: string | null;
   draftBlock?: "preference" | "rule" | null;
   upstreamEvidenceReady?: boolean | null;
