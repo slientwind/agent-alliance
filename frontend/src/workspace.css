@@ -1,0 +1,161 @@
+.workspace-shell {
+  --rail-width: 248px;
+  display: grid;
+  grid-template-columns: var(--rail-width) minmax(0, 1fr);
+  min-height: 100dvh;
+  background: var(--bg-main);
+}
+.workspace-shell[data-collapsed="true"] {
+  --rail-width: 56px;
+}
+.workspace-rail {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0.6rem;
+  background: var(--bg-rail);
+  border-inline-end: 1px solid var(--border);
+}
+.rail-brand {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline-start: 0.65rem;
+  margin-block-end: 0.45rem;
+}
+.rail-brand strong {
+  letter-spacing: -0.03em;
+  font-size: 1.12rem;
+}
+.rail-icon {
+  display: grid;
+  place-items: center;
+  border-color: transparent;
+  background: transparent;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+}
+.rail-navigation, .rail-footer {
+  display: grid;
+  gap: 0.25rem;
+}
+.rail-entry {
+  min-width: 0;
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  text-align: start;
+  padding: 0.5rem 0.65rem;
+  border-color: transparent;
+  background: transparent;
+  font-size: 0.875rem;
+}
+.rail-entry > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rail-entry[aria-current="page"], .rail-new {
+  background: var(--bg-active);
+  font-weight: 600;
+}
+.rail-new {
+  color: var(--ink-primary);
+}
+.rail-new .lucide {
+  color: var(--brand);
+}
+.rail-projects {
+  margin-block: 1rem;
+  overflow-y: auto;
+}
+.rail-projects p {
+  margin: 0.45rem 0.65rem;
+  color: var(--ink-secondary);
+  font-size: 0.75rem;
+}
+.rail-footer {
+  margin-top: auto;
+  padding-block-start: 0.45rem;
+  border-block-start: 1px solid var(--border);
+}
+.workspace-area {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+.workspace-area > .conversation-bar, .workspace-page-header {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  background: var(--bg-main);
+  border: none;
+  padding-inline: clamp(0.75rem, 3vw, 2rem);
+}
+.conversation-bar strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.workspace-area > .start, .workspace-area > .chat {
+  flex: 1;
+  max-width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+}
+.workspace-page {
+  min-width: 0;
+  flex: 1;
+}
+.workspace-page-header h1 {
+  margin: 0;
+  font-size: clamp(1.05rem, 3vw, 1.4rem);
+}
+.workspace-page-header button {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  width: auto;
+  min-height: 36px;
+  padding-inline: 0.4rem;
+}
+.workspace-page-content {
+  margin-inline: auto;
+  width: min(100%, 1320px);
+  padding: 0.75rem clamp(0.75rem, 3vw, 2rem) 1.5rem;
+}
+.workspace-page-content > section + section {
+  margin-block-start: 1.25rem;
+}
+.workspace-shell[data-collapsed="true"] .rail-label,
+.workspace-shell[data-collapsed="true"] .rail-projects {
+  display: none;
+}
+.workspace-shell[data-collapsed="true"] .rail-brand {
+  padding-inline-start: 0;
+  justify-content: center;
+}
+.workspace-shell[data-collapsed="true"] .rail-entry {
+  justify-content: center;
+  padding-inline: 0;
+}
+@media (max-width: 600px) {
+  .workspace-shell[data-collapsed="false"] { --rail-width: 56px; }
+  .workspace-shell[data-collapsed="false"] .workspace-rail {
+    width: min(248px, calc(100vw - 32px));
+    z-index: 2;
+    box-shadow: 12px 0 28px rgb(0 0 0 / 12%);
+  }
+}

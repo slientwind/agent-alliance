@@ -168,7 +168,8 @@
   - [x] 全面替换为 [21-vnext-uiux-spec.md](21-vnext-uiux-spec.md) 的 **暖灰白纸面 + 深墨绿强调色 Design Tokens**，支持 `data-theme="light|dark"` 一键切换与持久化。
   - [x] 统一全站 Lucide 线性图标（`16/18/20px`，`stroke-width: 1.65`）与 `tabular-nums` 等宽数字，淘汰黑白灰菱形/圆点编码。
 - [ ] **拆除巨型单文件与 `<dialog>` 弹窗后台（[`main.tsx`](../frontend/src/main.tsx) · [`work.tsx`](../frontend/src/work.tsx) · [`enterprise-workspace.tsx`](../frontend/src/enterprise-workspace.tsx)）**
-  - [ ] 彻底移除 `Overlay` `<dialog>` 承载重型页面的架构，重构为 **常驻可折叠左侧栏（`248px / 56px`）+ 无厚重顶栏 + 独立全屏路由**：`/chat`、`/chat/:id`、`/agents`（含生态发现市场 Tab）、`/agents/studio/:id`、`/agents/connect`、`/automations`、`/inbox`、`/admin/*`。
+  - [x] 移除 `Overlay` `<dialog>` 承载重型页面的架构，采用常驻可折叠左侧栏（`248px / 56px`）与独立工作区路由：`/chat`、`/chat/:id`、`/agents`、`/automations`、`/inbox`、`/admin/*`。
+  - [ ] 将生态发现市场接入 `/agents`，将构建器与连接向导分别挂载到 `/agents/studio/:id` 与 `/agents/connect`。
   - [ ] 清理普通员工输入区的全部技术控件（删除 [`main.tsx:1056-1068`](../frontend/src/main.tsx#L1056-L1068) 的“最多两次模型调用”“允许按原文金额求和”复选框与默认团队归属强弹窗），改为 ChatGPT/Claude 风格大圆角 Composer（`+` 附件、`@` Agent 胶囊、`深度思考 / 联网` 轻开关、极简档位切换）。
   - [ ] 实现全局 `⌘K` 命令面板、`⌘\` 侧栏折叠、`⌘N` 新对话快捷键。
 - [ ] **落地 6 大核心页面组件**

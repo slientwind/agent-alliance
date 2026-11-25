@@ -31,17 +31,12 @@ import { ResponsibilityQueue } from "./reviewer-handoffs";
 import { DingTalkIdentity, FeishuIdentity, SlackIdentity } from "./organization";
 import { EnterpriseWorkspace } from "./enterprise-workspace";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowUp,
   Bot,
-  Moon,
   Plus,
-  PanelLeft,
   Paperclip,
-  SquarePen,
-  Sun,
-  UserRound,
   X,
 } from "lucide-react";
 import {
@@ -76,7 +71,10 @@ import { Preferences, extractionNotice, upload } from "./knowledge";
 import { MyManagementScopes } from "./management-scopes";
 import { applyDraftDelta, type DraftFragment, type SessionDrafts } from "./live-drafts";
 import { applyTheme, readTheme, type Theme } from "./theme";
+import { WorkspaceSidebar } from "./workspace-sidebar";
+import { chatPath, pageFromPath, projectFromPath, workspacePage } from "./workspace-routes";
 import "./style.css";
+import "./workspace.css";
 const Work = lazy(() => import("./work").then(({ Work }) => ({ default: Work })));
 
 function Overlay({
@@ -123,6 +121,38 @@ function CollaborationOptions({ children }: { children: ReactNode }) {
 type Attachment = { key: string; file: File; outline?: SlideText[] };
 
 function App() {
+  const route = useLocation();
+  const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+  const current = useRef("");
+  const [dialogPanel, setDialogPanel] = useState("");
+  const routePanel = pageFromPath(route.pathname);
+  const panel = dialogPanel || routePanel;
+  const [collapsed, setCollapsed] = useState(() => window.matchMedia("(max-width: 1023px)").matches);
+  useEffect(() => {
+    const width = window.matchMedia("(max-width: 1023px)");
+    const onResize = (e: MediaQueryListEvent) => setCollapsed(e.matches);
+    width.addEventListener("change", onResize);
+    return () => width.removeEventListener("change", onResize);
+  }, []);
+  const setPanel = useCallback((update: string | ((panel: string) => string)) => {
+    const active = pageFromPath(window.location.pathname);
+    const next = typeof update === "string" ? update : update(active);
+    const targetPage = workspacePage(next);
+    if (targetPage) {
+      setDialogPanel("");
+      if (active !== next) navigateRef.current(targetPage.path);
+      return;
+    }
+    if (active) navigateRef.current(chatPath(current.current));
+    setDialogPanel(next);
+  }, []);
+  useEffect(() => {
+    const closeDialog = () => setDialogPanel("");
+    window.addEventListener("popstate", closeDialog);
+    return () => window.removeEventListener("popstate", closeDialog);
+  }, []);
   const [theme, setTheme] = useState<Theme>(readTheme);
   function toggleTheme() {
     const next = theme === "light" ? "dark" : "light";
@@ -137,7 +167,6 @@ function App() {
     [user, setUser] = useState<Member | null>(null),
     [loading, setLoading] = useState(true),
     [err, setErr] = useState(""),
-    [panel, setPanel] = useState(""),
     [list, setList] = useState<Summary[]>([]),
     [p, setP] = useState<Project | null>(null),
     [draft, setDraft] = useState(""),
@@ -195,7 +224,6 @@ function App() {
       location.replace(location.pathname + location.search);
     }
   }, []);
-  const current = useRef("");
   const drafts = useRef(new Map<string, string>());
   const [planningUpload, setPlanningUpload] = useState<{project:string; pins:{id:string;version:number}[]} | null>(null);
   const attachments = useRef(new Map<string, Attachment[]>());
@@ -246,7 +274,7 @@ function App() {
   const [historyQuery, setHistoryQuery] = useState("");
   const [grantQuery, setGrantQuery] = useState("");
   const [budgetQuery, setBudgetQuery] = useState("");
-  const [inbox, setInbox] = useState<HistoryView>("recent");
+  const [inbox, setInbox] = useState<HistoryView>(() => routePanel === "history" ? "review" : "recent");
   const pending = useRef(0);
   const attachment = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<Attachment[]>([]);
@@ -280,12 +308,12 @@ function App() {
       forgetRevisions(id);
       restore.current = null;
       current.current = "";
-      window.history.replaceState(null, "", location.pathname);
+      navigateRef.current(chatPath(), { replace: true });
       setDraft("");
       setFiles([]);
       setPanel("");
     },
-    [updatePlanDraft, updateBudgetDraft, forgetRevisions],
+    [updatePlanDraft, updateBudgetDraft, forgetRevisions, setPanel],
   );
   const load = useCallback(
     async (id: string) => {
@@ -390,25 +418,23 @@ function App() {
       sessionMember.current = who.id;
       setUser(who);
       await Promise.all([history(), catalog()]);
-      const id = location.hash.slice(1);
+      const entry = new URL(location.href);
+      const id = projectFromPath(entry.pathname, entry.hash);
       if (
         !id &&
-        new URLSearchParams(location.search).get("inbox") === "review"
+        entry.searchParams.get("inbox") === "review"
       ) {
-        setPanel("history");
         setInbox("review");
-        const entry = new URL(location.href);
-        entry.searchParams.delete("inbox");
-        window.history.replaceState(null, "", entry);
+        navigateRef.current("/inbox", { replace: true });
+      } else if (!id && entry.pathname === "/" && !entry.searchParams.has("service")) {
+        navigateRef.current(chatPath(), { replace: true });
       }
       if (id) {
         current.current = id;
         recent.current = [id];
-        const entry = new URL(location.href);
         const anchor = reviewAnchor(entry.searchParams.get("task"));
-        if (entry.searchParams.has("task")) {
-          entry.searchParams.delete("task");
-          window.history.replaceState(null, "", entry);
+        if (entry.hash || entry.searchParams.has("task")) {
+          navigateRef.current(chatPath(id), { replace: true });
         }
         if (anchor) {
           try {
@@ -474,7 +500,7 @@ function App() {
       window.removeEventListener("focus", check);
       document.removeEventListener("visibilitychange", check);
     };
-  }, [user, resetSession]);
+  }, [user, resetSession, setPanel]);
   async function select(id: string, task?: ReviewTask) {
     setDeliveryReceipt("");
     const old = current.current;
@@ -483,17 +509,12 @@ function App() {
     if (draft) drafts.current.set(old, draft);
     else drafts.current.delete(old);
     current.current = id;
-    if (id !== location.hash.slice(1))
-      window.history.pushState(
-        null,
-        "",
-        id ? "#" + id : location.pathname + location.search,
-      );
+    if (chatPath(id) !== location.pathname || location.hash) navigateRef.current(chatPath(id));
     restore.current = { id, task };
     if (id) recent.current = [id, ...recent.current.filter((x) => x !== id)];
     ++pending.current;
     setP(null);
-    setPanel("");
+    setDialogPanel("");
     setFiles(attachments.current.get(id) || []);
     if (attachment.current) attachment.current.value = "";
     setDraft(drafts.current.get(id) || "");
@@ -507,12 +528,10 @@ function App() {
     }
   }
   useEffect(() => {
-    const navigate = () => {
-      const id = location.hash.slice(1);
-      if (user && id !== current.current) void select(id);
-    };
-    window.addEventListener("hashchange", navigate);
-    return () => window.removeEventListener("hashchange", navigate);
+    const path = route.pathname.replace(/\/+$/, "");
+    const id = projectFromPath(route.pathname, route.hash);
+    if (!user || (path !== "/chat" && !id) || id === current.current) return;
+    void select(id);
   });
   const visibleProject = p?.id;
   const [streamInterrupted, setStreamInterrupted] = useState(false);
@@ -793,14 +812,15 @@ function App() {
       }
       throw e;
     }
-  }, [boot]);
+  }, [boot, setPanel]);
   useEffect(() => {
-    if (panel !== "admin") return;
+    if (panel !== "admin" || user?.role !== "admin") return;
     const read = () => {
       if (!document.hidden)
         void refreshMembers().catch((e) => setErr(e.message));
     };
     const timer = window.setInterval(read, 30000);
+    read();
     window.addEventListener("focus", read);
     document.addEventListener("visibilitychange", read);
     return () => {
@@ -808,15 +828,7 @@ function App() {
       window.removeEventListener("focus", read);
       document.removeEventListener("visibilitychange", read);
     };
-  }, [panel, refreshMembers]);
-  async function admin() {
-    try {
-      await refreshMembers();
-      setPanel("admin");
-    } catch (e) {
-      setErr((e as Error).message);
-    }
-  }
+  }, [panel, refreshMembers, user?.role]);
   if (loading) return <main className="gate">正在打开企业空间…</main>;
   if (!state)
     return (
@@ -842,592 +854,562 @@ function App() {
     return (
       <ServiceEntry key={service + user.id} id={service} member={user.id} />
     );
-  return (
+  const title = workspacePage(panel)?.title ?? ({ agents: "Agent", outline: "分页提纲", courseWriter: "选择编稿 Agent" }[panel] || panel);
+  const pageContent = (
     <>
-      <header>
-        <div>
-          <button
-            aria-label="打开对话历史"
-            title="打开对话历史"
-            onClick={() => setPanel("history")}
-          >
-            <PanelLeft />
-          </button>
-          <strong>Alliance</strong>
-        </div>
-        <div>
-          {p && (
-            <button
-              aria-label="新对话"
-              title="新对话"
-              onClick={() => select("")}
-            >
-              <SquarePen />
+      {panel === "workflowTemplates" && (
+        <WorkflowTemplates initialTemplate={initialWorkflowTemplate} initialGoal={current.current ? "" : draft} back={current.current ? undefined : () => setPanel("agents")} openProject={async (id) => {
+          if (!current.current && files.length) {
+            attachments.current.set(id, files);
+            attachments.current.delete("");
+          }
+          await select(id);
+          await history();
+        }} />
+      )}
+      {panel === "courseWriter" && selectedDeck && selectedTeamsAvailable && (
+        <>
+          <p>选择一个文本 Agent 根据资料编写提纲。课件 Agent 会把提纲排成幻灯片。</p>
+          {writers.length === 0 && <p role="status">当前没有可用的编稿 Agent。</p>}
+          {writers.map((writer) => (
+            <button key={writer.id} className="list agent-choice" onClick={() => {
+              chooseAgents([writer, selectedDeck], selectedDeck.team);
+            }}>
+              <strong>{writer.publishedName || writer.name}</strong> · v{writer.published}
+              <span>{writer.publishedInstructions}</span>
             </button>
-          )}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={theme === "dark" ? "切换浅色主题" : "切换深色主题"}
-            title={theme === "dark" ? "切换浅色主题" : "切换深色主题"}
-          >
-            {theme === "dark" ? <Sun /> : <Moon />}
-          </button>
-          <button
-            aria-label="我的工作区"
-            title="我的工作区"
-            onClick={() => {
-              setPanel("account");
-              void catalog().catch((e) => setErr(e.message));
+          ))}
+        </>
+      )}
+      {panel === "outline" &&
+        !current.current &&
+        selectedTeamsAvailable && (
+          <SlideOutlineFields
+            name="outline"
+            initial={outlineFile?.outline}
+            save={(pages, text) => {
+              const item = {
+                key: outlineFile?.key || crypto.randomUUID(),
+                outline: pages,
+                file: new File([text], "课件分页提纲.md", {
+                  type: "text/markdown",
+                }),
+              };
+              keepFiles(
+                "",
+                outlineFile
+                  ? files.map((f) => (f.key === outlineFile.key ? item : f))
+                  : [...files, item],
+              );
+              setPanel("");
             }}
-          >
-            <UserRound />
-          </button>
-        </div>
-      </header>
-      <main className={p ? "chat" : "start"}>
-        {err && <p role="alert">{err}</p>}
-        {p && streamInterrupted && (
-          <p role="status">实时连接中断，正在重新连接。工作仍会在后台运行。</p>
+          />
         )}
-        {deliveryReceipt && (
-          <p role="status">
-            <strong>已确认交付</strong> · 回执 {deliveryReceipt}
-            。本次临时项目访问已结束。
+      {panel === "agents" && (
+        <AgentPicker
+          files={files.map(item => item.file)}
+          agents={agents}
+          models={models}
+          team={draftTeam}
+          teams={teams || []}
+          admin={user.role === "admin"}
+          refresh={catalog}
+          manage={() => setPanel("library")}
+          openTemplates={() => setPanel("templates")}
+          openWorkflowTemplates={() => openWorkflowTemplates()}
+          configure={() => setPanel("setup")}
+          selection={pickedAgents}
+          goal={draft}
+          memberEmail={user.email}
+          choose={chooseAgents}
+        />
+      )}
+      {panel === "history" && (
+        <ConversationHistory
+          current={current.current}
+          recent={recent.current}
+          query={
+            inbox === "grant"
+              ? grantQuery
+              : inbox === "budget"
+                ? budgetQuery
+                : historyQuery
+          }
+          setQuery={
+            inbox === "grant"
+              ? setGrantQuery
+              : inbox === "budget"
+                ? setBudgetQuery
+                : setHistoryQuery
+          }
+          inbox={inbox}
+          setInbox={setInbox}
+          open={select}
+        />
+      )}
+      {panel === "account" && (
+        <>
+          <p>
+            {user.name} · {state.name} ·{" "}
+            {user.role === "admin" ? "管理员" : "普通用户"}
           </p>
-        )}
-        {p ? (
-          <Suspense fallback={<p role="status">正在打开对话…</p>}>
-          <Work
-            key={p.id}
-            threadRef={restoreThread}
-            drafts={sessionDrafts?.project === p.id && sessionDrafts.run === p.run?.id ? sessionDrafts.drafts : []}
-            uploadedPins={planningUpload?.project === p.id ? planningUpload.pins : undefined}
-            planningSubmitted={(pins) => setPlanningUpload(current => current?.pins === pins ? null : current)}
-            revisions={revisions[p.id]}
-            changeRevision={(id, next, expected) =>
-              changeRevision(p.id, id, next, expected)
-            }
-            budgetDraft={{
-              value: budgetDrafts[p.id],
-              change: (next, expected) =>
-                updateBudgetDraft(p.id, next, expected),
-            }}
-            planDraft={planDrafts[p.id]}
-            changePlanDraft={(next, expected) => {
-              pendingAttachmentPlans.current.delete(p.id);
-              updatePlanDraft(p.id, next, expected);
-            }}
-            projectFeedbackDrafts={projectFeedbackDrafts.current}
-            feedbackDrafts={feedbackDrafts.current.get(p.id)!}
-            p={p}
-            user={user}
-            models={models}
-            agents={agents}
-            refresh={refresh}
-            onRecoveryDelivered={(receipt) => {
-              if (current.current === p.id) {
-                leaveProject(p.id);
-                setDeliveryReceipt(receipt);
+          <AccountNotices
+            member={user.id}
+            key={user.id}
+            role={user.role}
+            refreshIdentity={boot}
+          />
+          <button onClick={() => setPanel("library")}>团队能力库</button>
+          {user.role === "admin" &&
+            agents.some((a) => a.release?.state === "pending" && !a.draftPublished && a.revision !== a.published) && (
+              <button onClick={() => setPanel("library")}>处理 Agent 发布申请</button>
+            )}
+          <button onClick={() => setPanel("services")}>服务与渠道</button>
+          <button onClick={() => setPanel("prefs")}>个人偏好</button>
+          <CollaborationOptions>
+            {multipleDestinations && !current.current && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setPanel("");
+                  showTeam(true);
+                }}
+              >
+                更改项目归属
+              </button>
+            )}
+            <MyManagementScopes />
+            <ProjectAgentGrants />
+            {user.role !== "admin" && (
+              <>
+                <TracePolicies />
+                <BudgetPanel user={user} />
+              </>
+            )}
+            <ProjectRecovery
+              admin={user.role === "admin"}
+              open={(id) => void select(id)}
+            />
+            <ResponsibilityQueue open={(id) => void select(id)} />
+            <button onClick={() => setPanel("rules")}>团队规则</button>
+          </CollaborationOptions>
+          <details className="card">
+            <summary>账号设置</summary>
+            {state.sso && <LoginBinding />}
+            <FeishuIdentity />
+            <SlackIdentity />
+            <DingTalkIdentity />
+          </details>
+          <button
+            onClick={async () => {
+              try {
+                await api("logout", "POST");
+                location.replace(location.pathname);
+              } catch (e) {
+                setErr((e as Error).message);
               }
             }}
-            reloadCatalog={catalog}
-            openLibrary={() => setPanel("library")}
-            openWorkflowTemplates={openWorkflowTemplates}
-          />
-          </Suspense>
-        ) : current.current ? (
-          <section>
-            <h1>{err ? "对话加载失败" : "正在读取对话…"}</h1>
-            {err && (
-              <button onClick={() => select(current.current)}>重新读取</button>
-            )}
-          </section>
-        ) : (
-          <h1>新对话</h1>
-        )}
-        <form
-          hidden={!!current.current && !p}
-          className="composer"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void send();
+          >
+            退出登录
+          </button>
+        </>
+      )}
+      {panel === "services" && (
+        <Services
+          admin={user.role === "admin"}
+          agents={agents}
+          projects={list}
+        />
+      )}
+      {((panel === "setup" && user.role === "admin") || panel === "templates") && (
+        <TeamSetup
+          admin={panel === "setup"}
+          agents={agents}
+          teams={teams}
+          teamError={teamError}
+          preferredTeam={panel === "templates" ? draftTeam : ""}
+          back={panel === "templates" ? () => setPanel("agents") : undefined}
+          models={models}
+          refresh={catalog}
+          useAgent={panel === "templates" && !current.current ? (agent) => chooseAgents([agent], agent.team) : undefined}
+          openProject={async (id) => {
+            await history();
+            await select(id);
           }}
-        >
-          <textarea
-            disabled={busy || (!!current.current && !p)}
-            aria-label="消息"
-            placeholder={p ? "继续对话…" : "描述你想完成的工作…"}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (
-                e.key === "Enter" &&
-                !e.shiftKey &&
-                !e.nativeEvent.isComposing
-              ) {
+        />
+      )}
+      {panel === "rules" && <TeamRules admin={user.role === "admin"} />}
+      {panel === "prefs" && <Preferences agents={agents} />}
+      {panel === "library" && (
+        <Library
+          useAgent={!current.current && !hasPicks && !busy ? a => chooseAgents([a], a.team) : undefined}
+          teams={teams || []}
+          teamError={teamError}
+          agents={agents}
+          models={models}
+          admin={user.role === "admin"}
+          refresh={catalog}
+        />
+      )}
+      {panel === "admin" && user.role === "admin" && (
+        <EnterpriseWorkspace
+          user={user}
+          models={models}
+          members={members}
+          configure={() => setPanel("setup")}
+          refreshCatalog={catalog}
+          refreshMembers={refreshMembers}
+        />
+      )}
+    </>
+  );
+  const visiblePage = routePanel && !dialogPanel;
+  const recentProjects = [...list].sort((a, b) => {
+    const order = (id: string) => { const i = recent.current.indexOf(id); return i < 0 ? Number.MAX_SAFE_INTEGER : i; };
+    return order(a.id) - order(b.id);
+  });
+  return (
+    <div className="workspace-shell" data-collapsed={collapsed}>
+      <WorkspaceSidebar collapsed={collapsed} toggleCollapse={() => setCollapsed(!collapsed)}
+        onNew={() => void select("")} onSearch={() => { setInbox("recent"); setPanel("history"); }}
+        openPage={(page) => { if (page === "history") setInbox("review"); setPanel(page); }}
+        openProject={(id) => void select(id)} page={routePanel} current={current.current}
+        projects={recentProjects} userName={user.name} admin={user.role === "admin"} theme={theme} toggleTheme={toggleTheme} />
+      <div className="workspace-area">
+        {visiblePage ? (
+          <main className="workspace-page" aria-label={title}>
+            <header className="workspace-page-header">
+              <h1>{title}</h1>
+              <button onClick={() => setPanel("")}>返回对话</button>
+            </header>
+            <div className="workspace-page-content">
+              {err && <p role="alert">{err}</p>}
+              {routePanel === "admin" && user.role !== "admin" ? <p role="alert">需要企业管理员权限</p> : pageContent}
+            </div>
+          </main>
+        ) : (
+          <>
+            {p && <header className="conversation-bar"><strong>{p.title}</strong></header>}
+          <main className={p ? "chat" : "start"}>
+            {err && <p role="alert">{err}</p>}
+            {p && streamInterrupted && (
+              <p role="status">实时连接中断，正在重新连接。工作仍会在后台运行。</p>
+            )}
+            {deliveryReceipt && (
+              <p role="status">
+                <strong>已确认交付</strong> · 回执 {deliveryReceipt}
+                。本次临时项目访问已结束。
+              </p>
+            )}
+            {p ? (
+              <Suspense fallback={<p role="status">正在打开对话…</p>}>
+              <Work
+                key={p.id}
+                threadRef={restoreThread}
+                drafts={sessionDrafts?.project === p.id && sessionDrafts.run === p.run?.id ? sessionDrafts.drafts : []}
+                uploadedPins={planningUpload?.project === p.id ? planningUpload.pins : undefined}
+                planningSubmitted={(pins) => setPlanningUpload(current => current?.pins === pins ? null : current)}
+                revisions={revisions[p.id]}
+                changeRevision={(id, next, expected) =>
+                  changeRevision(p.id, id, next, expected)
+                }
+                budgetDraft={{
+                  value: budgetDrafts[p.id],
+                  change: (next, expected) =>
+                    updateBudgetDraft(p.id, next, expected),
+                }}
+                planDraft={planDrafts[p.id]}
+                changePlanDraft={(next, expected) => {
+                  pendingAttachmentPlans.current.delete(p.id);
+                  updatePlanDraft(p.id, next, expected);
+                }}
+                projectFeedbackDrafts={projectFeedbackDrafts.current}
+                feedbackDrafts={feedbackDrafts.current.get(p.id)!}
+                p={p}
+                user={user}
+                models={models}
+                agents={agents}
+                refresh={refresh}
+                onRecoveryDelivered={(receipt) => {
+                  if (current.current === p.id) {
+                    leaveProject(p.id);
+                    setDeliveryReceipt(receipt);
+                  }
+                }}
+                reloadCatalog={catalog}
+                openLibrary={() => setPanel("library")}
+                openWorkflowTemplates={openWorkflowTemplates}
+              />
+              </Suspense>
+            ) : current.current ? (
+              <section>
+                <h1>{err ? "对话加载失败" : "正在读取对话…"}</h1>
+                {err && (
+                  <button onClick={() => select(current.current)}>重新读取</button>
+                )}
+              </section>
+            ) : (
+              <h1>新对话</h1>
+            )}
+            <form
+              hidden={!!current.current && !p}
+              className="composer"
+              onSubmit={(e) => {
                 e.preventDefault();
                 void send();
-              }
-            }}
-          />
-          {!p && !current.current && (
-            <>
-              {teams &&
-                teams.length > 0 &&
-                (missingDestination || changeTeam) &&
-                (!hasPicks || (!canCreate && selectedTeamsAvailable)) && (
-                  <div className="compose-team" id="conversation-team">
-                    <label>
-                      项目所属团队
-                      <select
-                        ref={teamSelect}
-                        disabled={busy}
-                        value={draftTeam}
-                        onChange={(e) => {
-                          if (hasPicks) setAgentDestination(e.target.value);
-                          else setChosenTeam(e.target.value);
-                          showTeam(true);
-                        }}
-                      >
-                        {!canCreate && (
-                          <option value={draftTeam}>
-                            {draftTeam
-                              ? "原团队已不可用，请重新选择"
-                              : "请选择项目所属团队"}
-                          </option>
+              }}
+            >
+              <textarea
+                disabled={busy || (!!current.current && !p)}
+                aria-label="消息"
+                placeholder={p ? "继续对话…" : "描述你想完成的工作…"}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (
+                    e.key === "Enter" &&
+                    !e.shiftKey &&
+                    !e.nativeEvent.isComposing
+                  ) {
+                    e.preventDefault();
+                    void send();
+                  }
+                }}
+              />
+              {!p && !current.current && (
+                <>
+                  {teams &&
+                    teams.length > 0 &&
+                    (missingDestination || changeTeam) &&
+                    (!hasPicks || (!canCreate && selectedTeamsAvailable)) && (
+                      <div className="compose-team" id="conversation-team">
+                        <label>
+                          项目所属团队
+                          <select
+                            ref={teamSelect}
+                            disabled={busy}
+                            value={draftTeam}
+                            onChange={(e) => {
+                              if (hasPicks) setAgentDestination(e.target.value);
+                              else setChosenTeam(e.target.value);
+                              showTeam(true);
+                            }}
+                          >
+                            {!canCreate && (
+                              <option value={draftTeam}>
+                                {draftTeam
+                                  ? "原团队已不可用，请重新选择"
+                                  : "请选择项目所属团队"}
+                              </option>
+                            )}
+                            {teams.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        {changeTeam && !hasPicks && (canCreate || !draftTeam) && (
+                          <button
+                            type="button"
+                            className="project-scope-toggle"
+                            aria-label={"项目选项" + (projectScope ? " · " + projectScope.name : "")}
+                            aria-expanded="true"
+                            aria-controls="conversation-team"
+                            onClick={() => showTeam(false)}
+                          >
+                            收起
+                          </button>
                         )}
-                        {teams.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {changeTeam && !hasPicks && (canCreate || !draftTeam) && (
+                      </div>
+                    )}
+                  {projectScope && !changeTeam && (
+                    <button
+                      type="button"
+                      className="project-scope-toggle"
+                      aria-label={"项目选项 · " + projectScope.name}
+                      aria-expanded="false"
+                      disabled={busy}
+                      onClick={() => showTeam(true)}
+                    >
+                      项目归属 · {projectScope.name}
+                    </button>
+                  )}
+                  {recommendations.length > 0 && (
+                    <div className="agent-recommendations" role="group" aria-label="适合这项任务的 Agent">
+                      <small>推荐 Agent</small>
+                      {recommendations.map(({ agent, terms }) => (
+                        <button
+                          key={agent.id}
+                          type="button"
+                          disabled={busy}
+                          onClick={() => chooseAgents([agent], agent.team)}
+                        >
+                          <strong>{agent.publishedName}</strong>
+                          {teams && teams.length > 1 && <span> · {agent.teamName}</span>}
+                          {terms.length > 0 && <small>匹配 {terms.slice(0, 2).join("、")}</small>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {hasPicks && (
+                    <div className="picked-agent">
+                      <strong>
+                        {pickedAgents.length === 1
+                          ? pickedAgents[0].publishedName || pickedAgents[0].name
+                          : pickedAgents.length + " 个 Agent 依次协作"}
+                      </strong>
+                      {pickedAgents.length === 1 &&
+                        " · v" + pickedAgents[0].published}
+                      <small>
+                        {!selectedTeamsAvailable
+                          ? "权限已变化，请重新选择 Agent。"
+                          : pickedAgents.length === 1
+                            ? pickedAgents[0].teamName + "承担费用"
+                            : pickedAgents
+                                .map((a) => a.publishedName || a.name)
+                                .join(" → ")}
+                      </small>
+                      {pickedAgents.some(agent => agent.publishedVision) && (
+                        <small>读取固定版本的 PNG 或 JPEG，输出文字供审核。</small>
+                      )}
+                      {pickedAgents.some(agent => agent.publishedImageEdit) && (
+                        <small>请附一张 PNG 或 JPEG 作为参考图，编辑后交付 PNG。</small>
+                      )}
+                      {lookupCandidate && files.some(({ file }) => !isPictureName(file.name)) && (
+                        <label>
+                          <input type="checkbox" disabled={busy} checked={lookupAgent === lookupCandidate.id}
+                            onChange={e => {setLookupAgent(e.target.checked ? lookupCandidate.id : "");setCalculationAgent("");}} />
+                          检索原文后回答 · 最多两次模型调用
+                        </label>
+                      )}
+                      {lookupCandidate && hasFiles && lookupAgent === lookupCandidate.id && (
+                        <label><input type="checkbox" disabled={busy} checked={calculationAgent === lookupCandidate.id}
+                          onChange={e=>setCalculationAgent(e.target.checked ? lookupCandidate.id : "")} />
+                          允许按原文金额求和或算差额
+                        </label>
+                      )}
+                      {pickedAgents[0]?.publishedOutline && (
+                        <button
+                          type="button"
+                          disabled={busy || !selectedTeamsAvailable}
+                          onClick={() => setPanel("outline")}
+                        >
+                          {outlineFile ? "编辑分页提纲" : "编写分页提纲"}
+                        </button>
+                      )}
+                      {selectedDeck && writers.length > 0 && (
+                        <button type="button" disabled={busy || !selectedTeamsAvailable}
+                          onClick={() => setPanel("courseWriter")}>让 Agent 编稿</button>
+                      )}
+                      {pickedAgents.length > 1 && (
+                        <button type="button" disabled={busy} onClick={openAgents}>
+                          调整组合
+                        </button>
+                      )}
                       <button
                         type="button"
-                        className="project-scope-toggle"
-                        aria-label={"项目选项" + (projectScope ? " · " + projectScope.name : "")}
-                        aria-expanded="true"
-                        aria-controls="conversation-team"
-                        onClick={() => showTeam(false)}
+                        disabled={busy}
+                        aria-label="移除"
+                        title="移除所选 Agent"
+                        className="remove-chip"
+                        onClick={() => {pickAgents([]);setLookupAgent("");setCalculationAgent("")}}
                       >
-                        收起
+                        <X size={16} />
                       </button>
-                    )}
-                  </div>
-                )}
-              {projectScope && !changeTeam && (
-                <button
-                  type="button"
-                  className="project-scope-toggle"
-                  aria-label={"项目选项 · " + projectScope.name}
-                  aria-expanded="false"
-                  disabled={busy}
-                  onClick={() => showTeam(true)}
-                >
-                  项目归属 · {projectScope.name}
-                </button>
+                    </div>
+                  )}
+                  {teamError && <p role="alert">{teamError}</p>}
+                  {teams?.length === 0 && <small>请联系管理员开通可用的工作空间。</small>}
+                </>
               )}
-              {recommendations.length > 0 && (
-                <div className="agent-recommendations" role="group" aria-label="适合这项任务的 Agent">
-                  <small>推荐 Agent</small>
-                  {recommendations.map(({ agent, terms }) => (
-                    <button
-                      key={agent.id}
-                      type="button"
-                      disabled={busy}
-                      onClick={() => chooseAgents([agent], agent.team)}
-                    >
-                      <strong>{agent.publishedName}</strong>
-                      {teams && teams.length > 1 && <span> · {agent.teamName}</span>}
-                      {terms.length > 0 && <small>匹配 {terms.slice(0, 2).join("、")}</small>}
-                    </button>
+              {hasFiles && (
+                <div className="attachment-list">
+                  {files.map(({ key, file }) => (
+                    <div className="file-chip" key={key}>
+                      <Paperclip size={15} aria-hidden="true" />
+                      <span title={file.name}>{file.name}</span>
+                      <button
+                        type="button"
+                        className="remove-chip"
+                        disabled={busy}
+                        aria-label={"移除附件 " + file.name}
+                        onClick={() => {
+                          keepFiles(
+                            current.current,
+                            files.filter((item) => item.key !== key),
+                          );
+                        }}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
-              {hasPicks && (
-                <div className="picked-agent">
-                  <strong>
-                    {pickedAgents.length === 1
-                      ? pickedAgents[0].publishedName || pickedAgents[0].name
-                      : pickedAgents.length + " 个 Agent 依次协作"}
-                  </strong>
-                  {pickedAgents.length === 1 &&
-                    " · v" + pickedAgents[0].published}
-                  <small>
-                    {!selectedTeamsAvailable
-                      ? "权限已变化，请重新选择 Agent。"
-                      : pickedAgents.length === 1
-                        ? pickedAgents[0].teamName + "承担费用"
-                        : pickedAgents
-                            .map((a) => a.publishedName || a.name)
-                            .join(" → ")}
-                  </small>
-                  {pickedAgents.some(agent => agent.publishedVision) && (
-                    <small>读取固定版本的 PNG 或 JPEG，输出文字供审核。</small>
-                  )}
-                  {pickedAgents.some(agent => agent.publishedImageEdit) && (
-                    <small>请附一张 PNG 或 JPEG 作为参考图，编辑后交付 PNG。</small>
-                  )}
-                  {lookupCandidate && files.some(({ file }) => !isPictureName(file.name)) && (
-                    <label>
-                      <input type="checkbox" disabled={busy} checked={lookupAgent === lookupCandidate.id}
-                        onChange={e => {setLookupAgent(e.target.checked ? lookupCandidate.id : "");setCalculationAgent("");}} />
-                      检索原文后回答 · 最多两次模型调用
-                    </label>
-                  )}
-                  {lookupCandidate && hasFiles && lookupAgent === lookupCandidate.id && (
-                    <label><input type="checkbox" disabled={busy} checked={calculationAgent === lookupCandidate.id}
-                      onChange={e=>setCalculationAgent(e.target.checked ? lookupCandidate.id : "")} />
-                      允许按原文金额求和或算差额
-                    </label>
-                  )}
-                  {pickedAgents[0]?.publishedOutline && (
-                    <button
-                      type="button"
-                      disabled={busy || !selectedTeamsAvailable}
-                      onClick={() => setPanel("outline")}
-                    >
-                      {outlineFile ? "编辑分页提纲" : "编写分页提纲"}
-                    </button>
-                  )}
-                  {selectedDeck && writers.length > 0 && (
-                    <button type="button" disabled={busy || !selectedTeamsAvailable}
-                      onClick={() => setPanel("courseWriter")}>让 Agent 编稿</button>
-                  )}
-                  {pickedAgents.length > 1 && (
-                    <button type="button" disabled={busy} onClick={openAgents}>
-                      调整组合
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    disabled={busy}
-                    aria-label="移除"
-                    title="移除所选 Agent"
-                    className="remove-chip"
-                    onClick={() => {pickAgents([]);setLookupAgent("");setCalculationAgent("")}}
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              )}
-              {teamError && <p role="alert">{teamError}</p>}
-              {teams?.length === 0 && <small>请联系管理员开通可用的工作空间。</small>}
-            </>
-          )}
-          {hasFiles && (
-            <div className="attachment-list">
-              {files.map(({ key, file }) => (
-                <div className="file-chip" key={key}>
-                  <Paperclip size={15} aria-hidden="true" />
-                  <span title={file.name}>{file.name}</span>
-                  <button
-                    type="button"
-                    className="remove-chip"
-                    disabled={busy}
-                    aria-label={"移除附件 " + file.name}
-                    onClick={() => {
-                      keepFiles(
-                        current.current,
-                        files.filter((item) => item.key !== key),
-                      );
-                    }}
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="composer-tools">
-            <input
-              ref={attachment}
-              disabled={busy || (!!current.current && !p)}
-              type="file"
-              multiple
-              hidden
-              onChange={(e) => {
-                const added = Array.from(e.target.files || [], (file) => ({
-                  key: crypto.randomUUID(),
-                  file,
-                }));
-                keepFiles(current.current, [...files, ...added]);
-                e.target.value = "";
-              }}
-            />
-            <button
-              type="button"
-              disabled={busy || (!!current.current && !p)}
-              aria-label="附资料"
-              title="附资料"
-              onClick={() => attachment.current?.click()}
-            >
-              <Plus />
-            </button>
-            {!p && !current.current && (
-              <button
-                type="button"
-                className="agent-launch"
-                aria-label="选择或创建 Agent"
-                title="选择或创建 Agent"
-                disabled={busy}
-                onClick={openAgents}
-              >
-                <Bot /> Agent
-              </button>
-            )}
-            {(draft || hasFiles) && <small>草稿仅在本页暂存</small>}
-            <button
-              className="primary send"
-              aria-label="发送消息"
-              disabled={
-                busy ||
-                (!p && (missingDestination || !selectedTeamsAvailable)) ||
-                !(draft.trim() || (p && hasFiles)) ||
-                (!!current.current && !p)
-              }
-            >
-              <ArrowUp />
-            </button>
-          </div>
-        </form>
-      </main>
-      {panel && (
-        <Overlay
-          key={panel}
-          title={
-            {
-              agents: "Agent",
-              outline: "分页提纲",
-              courseWriter: "选择编稿 Agent",
-              history: "对话历史",
-              library: "团队能力库",
-              account: "我的工作区",
-              prefs: "个人偏好",
-              rules: "团队规则",
-              setup: "团队首次配置",
-              templates: "内置 Agent 模板",
-              workflowTemplates: "协作模板",
-              services: "服务与渠道",
-              admin: "企业管理",
-            }[panel] || panel
-          }
-          close={() => setPanel("")}
-        >
-          {panel === "workflowTemplates" && (
-            <WorkflowTemplates initialTemplate={initialWorkflowTemplate} initialGoal={current.current ? "" : draft} back={current.current ? undefined : () => setPanel("agents")} openProject={async (id) => {
-              if (!current.current && files.length) {
-                attachments.current.set(id, files);
-                attachments.current.delete("");
-              }
-              await select(id);
-              await history();
-            }} />
-          )}
-          {panel === "courseWriter" && selectedDeck && selectedTeamsAvailable && (
-            <>
-              <p>选择一个文本 Agent 根据资料编写提纲。课件 Agent 会把提纲排成幻灯片。</p>
-              {writers.length === 0 && <p role="status">当前没有可用的编稿 Agent。</p>}
-              {writers.map((writer) => (
-                <button key={writer.id} className="list agent-choice" onClick={() => {
-                  chooseAgents([writer, selectedDeck], selectedDeck.team);
-                }}>
-                  <strong>{writer.publishedName || writer.name}</strong> · v{writer.published}
-                  <span>{writer.publishedInstructions}</span>
-                </button>
-              ))}
-            </>
-          )}
-          {panel === "outline" &&
-            !current.current &&
-            selectedTeamsAvailable && (
-              <SlideOutlineFields
-                name="outline"
-                initial={outlineFile?.outline}
-                save={(pages, text) => {
-                  const item = {
-                    key: outlineFile?.key || crypto.randomUUID(),
-                    outline: pages,
-                    file: new File([text], "课件分页提纲.md", {
-                      type: "text/markdown",
-                    }),
-                  };
-                  keepFiles(
-                    "",
-                    outlineFile
-                      ? files.map((f) => (f.key === outlineFile.key ? item : f))
-                      : [...files, item],
-                  );
-                  setPanel("");
-                }}
-              />
-            )}
-          {panel === "agents" && (
-            <AgentPicker
-              files={files.map(item => item.file)}
-              agents={agents}
-              models={models}
-              team={draftTeam}
-              teams={teams || []}
-              admin={user.role === "admin"}
-              refresh={catalog}
-              manage={() => setPanel("library")}
-              openTemplates={() => setPanel("templates")}
-              openWorkflowTemplates={() => openWorkflowTemplates()}
-              configure={() => setPanel("setup")}
-              selection={pickedAgents}
-              goal={draft}
-              memberEmail={user.email}
-              choose={chooseAgents}
-            />
-          )}
-          {panel === "history" && (
-            <ConversationHistory
-              current={current.current}
-              recent={recent.current}
-              query={
-                inbox === "grant"
-                  ? grantQuery
-                  : inbox === "budget"
-                    ? budgetQuery
-                    : historyQuery
-              }
-              setQuery={
-                inbox === "grant"
-                  ? setGrantQuery
-                  : inbox === "budget"
-                    ? setBudgetQuery
-                    : setHistoryQuery
-              }
-              inbox={inbox}
-              setInbox={setInbox}
-              open={select}
-            />
-          )}
-          {panel === "account" && (
-            <>
-              <p>
-                {user.name} · {state.name} ·{" "}
-                {user.role === "admin" ? "管理员" : "普通用户"}
-              </p>
-              <AccountNotices
-                member={user.id}
-                key={user.id}
-                role={user.role}
-                refreshIdentity={boot}
-              />
-              <button onClick={() => setPanel("library")}>团队能力库</button>
-              {user.role === "admin" &&
-                agents.some((a) => a.release?.state === "pending" && !a.draftPublished && a.revision !== a.published) && (
-                  <button onClick={() => setPanel("library")}>处理 Agent 发布申请</button>
-                )}
-              <button onClick={() => setPanel("services")}>服务与渠道</button>
-              <button onClick={() => setPanel("prefs")}>个人偏好</button>
-              <CollaborationOptions>
-                {multipleDestinations && !current.current && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      setPanel("");
-                      showTeam(true);
-                    }}
-                  >
-                    更改项目归属
-                  </button>
-                )}
-                <MyManagementScopes />
-                <ProjectAgentGrants />
-                {user.role !== "admin" && (
-                  <>
-                    <TracePolicies />
-                    <BudgetPanel user={user} />
-                  </>
-                )}
-                <ProjectRecovery
-                  admin={user.role === "admin"}
-                  open={(id) => void select(id)}
+              <div className="composer-tools">
+                <input
+                  ref={attachment}
+                  disabled={busy || (!!current.current && !p)}
+                  type="file"
+                  multiple
+                  hidden
+                  onChange={(e) => {
+                    const added = Array.from(e.target.files || [], (file) => ({
+                      key: crypto.randomUUID(),
+                      file,
+                    }));
+                    keepFiles(current.current, [...files, ...added]);
+                    e.target.value = "";
+                  }}
                 />
-                <ResponsibilityQueue open={(id) => void select(id)} />
-                <button onClick={() => setPanel("rules")}>团队规则</button>
-              </CollaborationOptions>
-              <details className="card">
-                <summary>账号设置</summary>
-                {state.sso && <LoginBinding />}
-                <FeishuIdentity />
-                <SlackIdentity />
-                <DingTalkIdentity />
-              </details>
-              {user.role === "admin" && (
-                <button onClick={admin}>企业管理</button>
-              )}
-              <button
-                onClick={async () => {
-                  try {
-                    await api("logout", "POST");
-                    location.replace(location.pathname);
-                  } catch (e) {
-                    setErr((e as Error).message);
+                <button
+                  type="button"
+                  disabled={busy || (!!current.current && !p)}
+                  aria-label="附资料"
+                  title="附资料"
+                  onClick={() => attachment.current?.click()}
+                >
+                  <Plus />
+                </button>
+                {!p && !current.current && (
+                  <button
+                    type="button"
+                    className="agent-launch"
+                    aria-label="选择或创建 Agent"
+                    title="选择或创建 Agent"
+                    disabled={busy}
+                    onClick={openAgents}
+                  >
+                    <Bot /> Agent
+                  </button>
+                )}
+                {(draft || hasFiles) && <small>草稿仅在本页暂存</small>}
+                <button
+                  className="primary send"
+                  aria-label="发送消息"
+                  disabled={
+                    busy ||
+                    (!p && (missingDestination || !selectedTeamsAvailable)) ||
+                    !(draft.trim() || (p && hasFiles)) ||
+                    (!!current.current && !p)
                   }
-                }}
-              >
-                退出登录
-              </button>
-            </>
-          )}
-          {panel === "services" && (
-            <Services
-              admin={user.role === "admin"}
-              agents={agents}
-              projects={list}
-            />
-          )}
-          {((panel === "setup" && user.role === "admin") || panel === "templates") && (
-            <TeamSetup
-              admin={panel === "setup"}
-              agents={agents}
-              teams={teams}
-              teamError={teamError}
-              preferredTeam={panel === "templates" ? draftTeam : ""}
-              back={panel === "templates" ? () => setPanel("agents") : undefined}
-              models={models}
-              refresh={catalog}
-              useAgent={panel === "templates" && !current.current ? (agent) => chooseAgents([agent], agent.team) : undefined}
-              openProject={async (id) => {
-                await history();
-                await select(id);
-              }}
-            />
-          )}
-          {panel === "rules" && <TeamRules admin={user.role === "admin"} />}
-          {panel === "prefs" && <Preferences agents={agents} />}
-          {panel === "library" && (
-            <Library
-              useAgent={!current.current && !hasPicks && !busy ? a => chooseAgents([a], a.team) : undefined}
-              teams={teams || []}
-              teamError={teamError}
-              agents={agents}
-              models={models}
-              admin={user.role === "admin"}
-              refresh={catalog}
-            />
-          )}
-          {panel === "admin" && user.role === "admin" && (
-            <EnterpriseWorkspace
-              user={user}
-              models={models}
-              members={members}
-              configure={() => setPanel("setup")}
-              refreshCatalog={catalog}
-              refreshMembers={refreshMembers}
-            />
-          )}
+                >
+                  <ArrowUp />
+                </button>
+              </div>
+            </form>
+          </main>
+          </>
+        )}
+      </div>
+      {dialogPanel && (
+        <Overlay key={dialogPanel} title={title} close={() => setPanel("")}>
+          {pageContent}
         </Overlay>
       )}
-    </>
+    </div>
   );
 }
 const ssoMessage = consumeSSO();

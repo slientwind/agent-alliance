@@ -1,0 +1,38 @@
+export const workspacePages = {
+  history: { path: "/inbox", title: "待办与审核" },
+  library: { path: "/agents", title: "Agent 广场" },
+  account: { path: "/account", title: "我的工作区" },
+  prefs: { path: "/account/preferences", title: "个人偏好" },
+  rules: { path: "/account/team-rules", title: "团队规则" },
+  setup: { path: "/admin/setup", title: "团队首次配置" },
+  templates: { path: "/agents/templates", title: "内置 Agent 模板" },
+  workflowTemplates: { path: "/agents/workflows", title: "协作模板" },
+  services: { path: "/automations", title: "后台与定时" },
+  admin: { path: "/admin", title: "企业管理" },
+} as const;
+
+export type WorkspacePage = keyof typeof workspacePages;
+
+export function workspacePage(name: string) {
+  return Object.hasOwn(workspacePages, name) ? workspacePages[name as WorkspacePage] : undefined;
+}
+
+export function pageFromPath(pathname: string): WorkspacePage | "" {
+  const path = pathname.replace(/\/+$/, "");
+  const match = (Object.keys(workspacePages) as WorkspacePage[]).find((name) => workspacePages[name].path === path);
+  if (match) return match;
+  if (path.startsWith("/admin/")) return "admin";
+  if (path.startsWith("/agents/studio/") || path === "/agents/connect") return "library";
+  return "";
+}
+
+const projectSegment = /^[\w-]{1,128}$/;
+
+export function projectFromPath(pathname: string, hash = ""): string {
+  const segment = /^\/chat\/([^/]+)\/?$/.exec(pathname)?.[1] ?? (pathname === "/" ? hash.slice(1) : "");
+  return projectSegment.test(segment) ? segment : "";
+}
+
+export function chatPath(id = ""): string {
+  return id ? `/chat/${encodeURIComponent(id)}` : "/chat";
+}

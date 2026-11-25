@@ -9,12 +9,17 @@ export function reviewAnchor(value: string | null) {
   return value && anchors.test(value) ? value : "";
 }
 
-export function loginReturnPath(location: Pick<Location, "search" | "hash">) {
+export function loginReturnPath(location: Pick<Location, "search" | "hash"> & Partial<Pick<Location, "pathname">>) {
   const params = new URLSearchParams(location.search);
   const service = params.get("service");
   if (service && projectID.test(service)) return "/?service=" + service;
-  const project = location.hash.slice(1);
-  if (!projectID.test(project)) return "/";
+  const route = location.pathname?.match(/^\/chat\/([^/]+)\/?$/)?.[1];
+  const project = route ?? location.hash.slice(1);
+  if (!projectID.test(project)) {
+    if (location.pathname && /^\/(?:inbox|agents(?:\/connect)?|automations|admin(?:\/(?:monitor|models|integrations|releases|members|governance))?)$/.test(location.pathname)) return location.pathname;
+    return "/";
+  }
   const task = reviewAnchor(params.get("task"));
+  if (route) return "/chat/" + project + (task ? "?task=" + encodeURIComponent(task) : "");
   return (task ? "/?task=" + encodeURIComponent(task) : "/") + location.hash;
 }
