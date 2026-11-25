@@ -12,6 +12,8 @@ export const workspacePages = {
   workflowTemplates: { path: "/agents/workflows", title: "协作模板" },
   services: { path: "/automations", title: "后台与定时" },
   admin: { path: "/admin", title: "企业管理" },
+  members: { path: "/admin/members", title: "成员管理" },
+  governance: { path: "/admin/governance", title: "治理与回归体检" },
   monitor: { path: "/admin/monitor", title: "运行监控" },
   gateway: { path: "/admin/gateway", title: "模型网关" },
   integrations: { path: "/admin/integrations", title: "企业服务" },

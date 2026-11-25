@@ -1,8 +1,10 @@
-import { Activity, Boxes, ClipboardCheck, Settings, Waypoints } from "lucide-react";
+import { Activity, Boxes, ClipboardCheck, Settings, ShieldCheck, UsersRound, Waypoints } from "lucide-react";
 import type { WorkspacePage } from "./workspace-routes";
 
 const nav = [
   { id: "admin", name: "管理首页", Icon: Settings },
+  { id: "members", name: "成员管理", Icon: UsersRound },
+  { id: "governance", name: "治理与回归体检", Icon: ShieldCheck },
   { id: "monitor", name: "运行监控", Icon: Activity },
   { id: "gateway", name: "模型网关", Icon: Waypoints },
   { id: "integrations", name: "企业服务", Icon: Boxes },

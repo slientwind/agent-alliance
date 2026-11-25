@@ -404,6 +404,34 @@ function Members({
   );
 }
 
+type HandoffPreview = {
+  projects: number; agents: number; drafts: number; rules: number; automations: number;
+  mode?: string; teamId?: string; accountRevision?: string; requiresSuccessor?: boolean;
+  personal?: { projects: number; drafts: number; collections: number; oboGrants: number };
+  shared?: { collections: number; documents: number; connectors: number; businessBindings: number; writePolicies: number; events: number; approvals: number };
+  successors: { id: string; name: string; email: string }[];
+};
+
+function HandoffAssets({ preview }: { preview: HandoffPreview }) {
+  const { personal, shared } = preview;
+  return <div className="handoff-assets">
+    {personal && <section aria-label="个人资产封存">
+      <h4>个人资产封存</h4>
+      <p>{personal.projects} 个私有项目 · {personal.drafts} 份私有助手草稿 · {personal.collections} 个私有知识目录</p>
+      <p>撤销 {personal.oboGrants} 项员工业务授权及现有登录会话</p>
+    </section>}
+    <section aria-label="团队资产与职责移交">
+      <h4>团队资产与职责移交</h4>
+      <p>{preview.projects} 个项目 · {preview.agents + preview.drafts} 份 Agent 资产 · {preview.rules} 条团队规则 · {preview.automations} 项定时任务</p>
+      {shared && <>
+        <p>{shared.collections} 个知识目录 · {shared.documents ?? 0} 份知识文档 · {shared.connectors ?? 0} 个业务连接器 · {shared.businessBindings} 项连接器绑定</p>
+        <p>{shared.writePolicies ?? 0} 条写回策略 · {shared.events} 个业务事件触发器 · {shared.approvals} 项写回审批</p>
+        {shared.approvals > 0 && <p>原审批决定会撤回，仍有效的审批由接手人重新核对。</p>}
+      </>}
+    </section>
+  </div>;
+}
+
 function MemberChange({
   selected,
   reload,
@@ -425,24 +453,31 @@ function MemberChange({
     delegations: number;
   }>();
   const [dutiesError, setDutiesError] = useState("");
-  const [handoff, setHandoff] = useState<{
-    projects: number; agents: number; drafts: number; rules: number; automations: number;
-    successors: { id: string; name: string; email: string }[];
-  }>();
-  const [handoffError, setHandoffError] = useState("");
+  const [handoffResult, setHandoff] = useState<{ query: string; preview?: HandoffPreview; error?: string }>();
   const [search, setSearch] = useState("");
   const [successor, setSuccessor] = useState("");
+  const [team, setTeam] = useState("");
+  const transfer = employment === "transfer";
+  const leaving = employment === "depart";
+  const previewQuery = leaving ? "q=" + encodeURIComponent(search) :
+    transfer && team ? new URLSearchParams({ mode: "transfer", teamId: team, q: search }).toString() : "";
+  const result = handoffResult?.query === previewQuery ? handoffResult : undefined;
+  const handoff = result?.preview;
+  const handoffError = result?.error;
+  const needsSuccessor = transfer || handoff?.requiresSuccessor;
+  const readyToHandoff = !!handoff && (!handoff.accountRevision || handoff.accountRevision === selected.accountRevision) &&
+    (!needsSuccessor || handoff.successors.some(candidate => candidate.id === successor));
+
   useEffect(() => {
-    if (employment !== "depart") return;
+    if (!previewQuery) return;
     let active = true;
-    setHandoffError("");
     const timer = window.setTimeout(() => {
-      void api<NonNullable<typeof handoff>>("admin/members/" + selected.id + "/departure-handoff?q=" + encodeURIComponent(search))
-        .then(value => { if (active) setHandoff(value); })
-        .catch(error => { if (active) setHandoffError((error as Error).message); });
+      void api<HandoffPreview>("admin/members/" + selected.id + "/departure-handoff?" + previewQuery)
+        .then(preview => { if (active) setHandoff({ query: previewQuery, preview }); })
+        .catch(error => { if (active) setHandoff({ query: previewQuery, error: (error as Error).message }); });
     }, search ? 240 : 0);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [selected.id, employment, search]);
+  }, [selected.id, previewQuery, search, revision]);
   useEffect(() => {
     let active = true;
     setDuties(undefined);
@@ -460,8 +495,8 @@ function MemberChange({
       active = false;
     };
   }, [selected.id, revision]);
-  const nextRole = employment ? "member" : role;
-  const nextEnabled = employment ? employment === "return" : enabled;
+  const nextRole = transfer ? selected.role : employment ? "member" : role;
+  const nextEnabled = transfer || (employment ? employment === "return" : enabled);
   const roleLabel = (value: string) =>
     value === "admin" ? "管理员" : "普通用户";
   const statusLabel = (value: boolean, departed: boolean) =>
@@ -473,6 +508,7 @@ function MemberChange({
       className="card"
       onSubmit={async (e) => {
         e.preventDefault();
+        if ((leaving || transfer) && !readyToHandoff) return;
         const f = new FormData(e.currentTarget);
         setBusy(true);
         setErr("");
@@ -482,7 +518,8 @@ function MemberChange({
             role: nextRole,
             enabled: nextEnabled,
             employment,
-            ...(employment === "depart" && successor ? { successor } : {}),
+            ...((leaving || transfer) && successor ? { successor } : {}),
+            ...(transfer ? { teamId: team } : {}),
             reason: f.get("reason"),
             password: f.get("password"),
           });
@@ -503,6 +540,8 @@ function MemberChange({
           value={employment}
           onChange={(e) => {
             setEmployment(e.target.value);
+            setTeam("");
+            setHandoff(undefined);
             setSearch("");
             setSuccessor("");
           }}
@@ -512,6 +551,7 @@ function MemberChange({
           ) : (
             <>
               <option value="">角色与登录状态</option>
+              {selected.enabled && !!selected.teams?.length && <option value="transfer">办理调岗</option>}
               <option value="depart">办理正式离职</option>
             </>
           )}
@@ -519,9 +559,10 @@ function MemberChange({
       </label>
       {employment ? (
         <p role="status">
-          {employment === "depart"
+          {leaving
             ? "离职后，成员的会话、团队访问、应用委托和渠道绑定会失效，个人偏好进入隔离回收。"
-            : "以普通用户身份恢复登录。团队和项目须重新授权，有效偏好可由本人验证后逐项恢复。"}
+            : transfer ? "调岗将移出所选团队，交接团队职责、封存个人资产并撤销登录及员工业务授权。"
+              : "以普通用户身份恢复登录。团队和项目须重新授权，有效偏好可由本人验证后逐项恢复。"}
         </p>
       ) : (
         <>
@@ -545,20 +586,33 @@ function MemberChange({
           </label>
         </>
       )}
-      {employment === "depart" && <fieldset>
-        <legend>同时交接业务职责</legend>
-        {handoff && <p>
-          {handoff.projects} 个项目 · {handoff.agents + handoff.drafts} 份 Agent 资产 · {handoff.rules} 条团队规则 · {handoff.automations} 项定时任务
+      {(leaving || transfer) && <fieldset>
+        <legend>公私分离交接预览</legend>
+        {transfer && <label>移出的团队<select value={team} onChange={event => {
+          setTeam(event.target.value); setSearch(""); setSuccessor(""); setHandoff(undefined);
+        }} required>
+          <option value="">选择原团队</option>
+          {selected.teams?.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select></label>}
+        {handoff && <HandoffAssets preview={handoff} />}
+        {previewQuery && <>
+          <label>搜索接手人<input value={search} maxLength={120} onChange={event => {
+            setSearch(event.target.value); setSuccessor(""); setHandoff(undefined);
+          }} /></label>
+          <label>接手人<select value={successor} required={!!needsSuccessor} onChange={event => setSuccessor(event.target.value)}>
+            <option value="">{needsSuccessor ? "选择接手人" : "稍后交接"}</option>
+            {handoff?.successors.map(member => <option key={member.id} value={member.id}>{member.name} · {member.email}</option>)}
+          </select></label>
+          {!handoff && !handoffError && <p role="status">正在读取交接预览…</p>}
+        </>}
+        {handoff && !handoff.successors.length && <p>暂无符合条件的接手人。</p>}
+        {handoff?.accountRevision && handoff.accountRevision !== selected.accountRevision && <p role="alert">
+          账号资料已更新，请刷新成员资料后重新核对。
+          <button type="button" onClick={() => void reload().catch(error => setErr(error.message))}>刷新成员资料</button>
         </p>}
-        {handoff?.automations ? <p>定时任务交接后处于暂停状态，由接手人恢复。</p> : null}
-        <label>搜索接手人<input value={search} onChange={event => { setSearch(event.target.value); setSuccessor(""); }} /></label>
-        <label>接手人<select value={successor} onChange={event => setSuccessor(event.target.value)}>
-          <option value="">稍后交接</option>
-          {handoff?.successors?.map(member => <option key={member.id} value={member.id}>{member.name} · {member.email}</option>)}
-        </select></label>
-        {!handoff && !handoffError && <p role="status">正在查找相关团队成员…</p>}
-        {handoff && !handoff.successors?.length && <p>暂无已加入全部相关团队的接手人。</p>}
-        {handoffError && <p role="alert">{handoffError}</p>}
+        {handoffError && <><p role="alert">{handoffError}</p>
+          <button type="button" onClick={() => { setHandoff(undefined); setRevision(value => value + 1); }}>重读交接预览</button>
+        </>}
       </fieldset>}
       <section aria-label="变更影响">
         <p>
@@ -604,7 +658,7 @@ function MemberChange({
         管理员当前密码
         <input type="password" name="password" required />
       </label>
-      <button disabled={busy || !duties}>确认变更</button>
+      <button disabled={busy || !duties || ((leaving || transfer) && !readyToHandoff)}>确认变更</button>
       {err && <p role="alert">{err}</p>}
     </form>
   );

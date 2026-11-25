@@ -17,6 +17,10 @@ export type ModelProvider = {
   id: string; name: string; kind: string; endpoint: string; enabled: boolean; health: string;
   hasKey: boolean; revision: number; models: GlobalModel[];
 };
+export function enabledEvalModels(providers: ModelProvider[]) {
+  return providers.flatMap(provider => provider.models.map(model => ({ ...model, label: provider.name + " · " + model.name,
+    enabled: provider.enabled && model.enabled })));
+}
 type Impact = { tier: string; model: string; priority: number; availableAlternates: number };
 
 const route = "admin/models/providers";

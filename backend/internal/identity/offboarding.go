@@ -42,6 +42,7 @@ func (s Server) departurePreview(w http.ResponseWriter, r *http.Request, _ Membe
 	)
 	select jsonb_build_object(
 	 'mode',$4::text,'teamId',target.team_id,'accountRevision',leaving.account_revision::text,
+	 'requiresSuccessor',exists(select from required_teams),
 	 'teams',array(select jsonb_build_object('id',t.id,'spaceId',s.id,'name',s.name)
 	  from team_members tm join teams t on t.id=tm.team_id join spaces s on s.team_id=t.id and s.archived_at is null
 	  where tm.member_id=$1 order by s.name,s.id),
@@ -61,6 +62,12 @@ func (s Server) departurePreview(w http.ResponseWriter, r *http.Request, _ Membe
 	 'shared',jsonb_build_object(
 	  'collections',(select count(*) from kb_collections c join spaces s on s.id=c.space_id
 	    where c.maintainer=$1 and s.kind='team' and (target.team_id is null or s.team_id=target.team_id)),
+	  'documents',(select count(*) from kb_documents d join spaces s on s.id=d.space_id
+	    where d.maintainer=$1 and s.kind='team' and (target.team_id is null or s.team_id=target.team_id)),
+	  'connectors',(select count(*) from business_connectors c join spaces s on s.id=c.space_id
+	    where c.maintainer=$1 and s.kind='team' and (target.team_id is null or s.team_id=target.team_id)),
+	  'writePolicies',(select count(*) from business_mutation_policies p join spaces s on s.id=p.space_id
+	    where p.maintainer=$1 and s.kind='team' and (target.team_id is null or s.team_id=target.team_id)),
 	  'businessBindings',(select count(*) from business_connector_bindings b join spaces s on s.id=b.space_id
 	    where b.owner_id=$1 and s.kind='team' and (target.team_id is null or s.team_id=target.team_id)),
 	  'events',(select count(*) from event_triggers t join spaces s on s.id=t.space_id

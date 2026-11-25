@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./client";
 import { exactCny, microCny } from "./format-money";
 import "./admin-monitor.css";
-import { ModelProviders, type ModelProvider } from "./model-providers";
+import { ModelProviders, enabledEvalModels, type ModelProvider } from "./model-providers";
 import { EvaluationPanel } from "./eval-preflight";
 
 type Route = { modelId: string; model: string; provider: string; priority: number; weight: number; enabled: boolean; health: string };
@@ -117,8 +117,7 @@ export function AdminGateway() {
     return () => { live = false; };
   }, [pricePath, priceRefresh]);
 
-  const models = providers.flatMap(provider => provider.models.map(model => ({ ...model, label: provider.name + " · " + model.name,
-    enabled: provider.enabled && model.enabled })));
+  const models = enabledEvalModels(providers);
   const pricesShown = selected ? prices.filter(price => price.modelId === selected) : prices;
 
   async function addPrice(event: FormEvent<HTMLFormElement>) {

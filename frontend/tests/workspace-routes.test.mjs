@@ -17,6 +17,8 @@ test("workspace routes cover the sidebar and preserve legacy chat links", async 
   assert.equal(pageFromPath("/agents/studio"), "studio");
   assert.equal(pageFromPath("/agents/connect"), "externalConnect");
   assert.equal(pageFromPath("/admin/monitor"), "monitor");
+  assert.equal(pageFromPath("/admin/members"), "members");
+  assert.equal(pageFromPath("/admin/governance"), "governance");
   assert.equal(pageFromPath("/admin/gateway"), "gateway");
   assert.equal(pageFromPath("/admin/models"), "gateway");
   assert.equal(pageFromPath("/admin/setup"), "setup");

@@ -41,7 +41,7 @@ import {
   type WorkflowTemplateReference,
   type Summary,
 } from "./client";
-import { Account } from "./account";
+import { Account, AccountManagement } from "./account";
 import {
   ConversationHistory,
   taskAnchor,
@@ -90,6 +90,8 @@ const EnterpriseIntegrations = lazy(() => import("./enterprise-integrations").th
 const EcosystemSources = lazy(() => import("./ecosystem-sources").then(({ EcosystemSources }) => ({ default: EcosystemSources })));
 const StudioWorkspace = lazy(() => import("./studio-workspace").then(({ StudioWorkspace }) => ({ default: StudioWorkspace })));
 const AdminMonitor = lazy(() => import("./admin-monitor").then(({ AdminMonitor }) => ({ default: AdminMonitor })));
+const AdminGovernance = lazy(() => import("./admin-governance").then(({ AdminGovernance }) => ({ default: AdminGovernance })));
+const EventTriggers = lazy(() => import("./event-triggers").then(({ EventTriggers }) => ({ default: EventTriggers })));
 const AdminGateway = lazy(() => import("./admin-gateway").then(({ AdminGateway }) => ({ default: AdminGateway })));
 const KnowledgeWorkbench = lazy(() => import("./knowledge-workbench").then(({ KnowledgeWorkbench }) => ({ default: KnowledgeWorkbench })));
 const OutboundHosts = lazy(() => import("./outbound-hosts").then(({ OutboundHosts }) => ({ default: OutboundHosts })));
@@ -1062,14 +1064,14 @@ function App() {
       if (e instanceof RequestError && (e.status === 401 || e.status === 403)) {
         ++directoryRequest.current;
         setMembers([]);
-        setPanel((open) => (open === "admin" ? "" : open));
+        setPanel((open) => (open === "admin" || open === "members" ? "" : open));
         await boot();
       }
       throw e;
     }
   }, [boot, setPanel]);
   useEffect(() => {
-    if (panel !== "admin" || user?.role !== "admin") return;
+    if ((panel !== "admin" && panel !== "members") || user?.role !== "admin") return;
     const read = () => {
       if (!document.hidden)
         void refreshMembers().catch((e) => setErr(e.message));
@@ -1288,6 +1290,9 @@ function App() {
             <AutomationSchedules teams={teams || []} tiers={availableTiers} openProject={id => void select(id)}
               seed={automationSeed} seedOpened={() => setAutomationSeed(undefined)} />
           </Suspense>
+          <Suspense fallback={<p role="status">正在加载业务事件触发器…</p>}>
+            <EventTriggers key={scope?.id || "all"} spaces={spaces} preferred={scope?.id} actor={user.id} openProject={id => void select(id)} />
+          </Suspense>
           <Suspense fallback={<p role="status">正在加载企业服务目录…</p>}>
             <Services admin={user.role === "admin"} agents={agents} projects={list} />
           </Suspense>
@@ -1365,6 +1370,12 @@ function App() {
           <EnterpriseWorkspace user={user} models={models} members={members} configure={() => setPanel("setup")}
             refreshCatalog={catalog} refreshMembers={refreshMembers} />
         </Suspense>
+      )}
+      {panel === "members" && user.role === "admin" && (
+        <AccountManagement members={members} reload={refreshMembers} />
+      )}
+      {panel === "governance" && user.role === "admin" && (
+        <Suspense fallback={<p role="status">正在加载治理设置…</p>}><AdminGovernance /></Suspense>
       )}
       {panel === "monitor" && user.role === "admin" && (
         <Suspense fallback={<p role="status">正在打开运行监控…</p>}><AdminMonitor /></Suspense>
