@@ -171,7 +171,8 @@ func (s Server) applyRefinement(w http.ResponseWriter, r *http.Request, actor id
 		var revision int
 		var cipher []byte
 		if err := tx.QueryRow(ctx, `select expected,coalesce(applied_revision,0),response_cipher
-		 from studio_playground_calls where (id,draft_id)=($1,$2) and kind='refinement' and state in ('ready','applied') for update`,
+		 from studio_playground_calls where (id,draft_id)=($1,$2) and kind='refinement' and state in ('ready','applied')
+		  and expected>=(select shared_handoff_revision from studio_drafts where id=$2) for update`,
 			change, id).Scan(&revision, &applied, &cipher); err != nil {
 			return err
 		}

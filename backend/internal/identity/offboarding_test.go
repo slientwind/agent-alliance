@@ -129,15 +129,15 @@ func TestDepartureTransfersPendingWorkAndPrivateAssetsAtomically(t *testing.T) {
 	  +(select count(*) from feedback where id=$5 and reviewer=$2 and revision=2)
 	  +(select count(*) from artifact_comment_mentions where (comment_id,member_id)=($6,$2) and transferred_at is null),
 	 (select count(*) from agents where id=$7 and owner=$2)
-	  +(select count(*) from studio_drafts where id=$8 and owner=$2)
-	  +(select count(*) from automation_schedules where id=$10 and owner=$2 and state='paused'),
+	  +(select count(*) from studio_drafts where id=$8 and owner=$1 and privacy_state='sealed_private')
+	  +(select count(*) from automation_schedules where id=$10 and owner=$2 and state='active'),
 	 (select count(*) from staff_departure_batches where departing=$1 and successor=$2),
 	 (select count(*) from team_members where member_id=$1)+(select count(*) from sessions where member_id=$1)
 	  +(select count(*) from im_bindings where member_id=$1),
 	 (select enabled from members where id=$1),studio_release_usable($9,$2)`,
 		leaving, successor, p1, p2, feedback, comment, agent, draft, release, automation).
 		Scan(&owned, &reviews, &assets, &receipts, &unreleasedEdges, &oldActive, &privatePublished)
-	if err != nil || owned != 1 || reviews != 4 || assets != 3 || receipts != 1 || unreleasedEdges != 0 || oldActive || !privatePublished {
+	if err != nil || owned != 1 || reviews != 4 || assets != 3 || receipts != 1 || unreleasedEdges != 0 || oldActive || privatePublished {
 		t.Fatalf("batch did not settle: owned=%d review=%d assets=%d receipts=%d access=%d oldActive=%t publication=%t err=%v",
 			owned, reviews, assets, receipts, unreleasedEdges, oldActive, privatePublished, err)
 	}
@@ -181,6 +181,50 @@ func TestTeamTransferScopesPreviewAndHandoff(t *testing.T) {
 	exec(`insert into team_members(team_id,member_id) values($1,$3),($1,$4),($2,$3),($2,$5)`, team, retained, member, next, outsider)
 	exec(`insert into projects(id,owner,team_id,final_reviewer,title) values($1,$3,$4,$3,'Handoff'),($2,$3,$5,$3,'Retained')`, handed, unrelated, member, team, retained)
 	exec(`insert into project_memberships(project_id,member_id,can_review) values ($1,$3,true),($2,$3,true)`, handed, unrelated, member)
+	private, privateKB, privateDraft, sharedKB, conn, event := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
+	var personalSpace, teamSpace string
+	if err := db.QueryRow(ctx, "select id from spaces where owner_member_id=$1", member).Scan(&personalSpace); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(ctx, "select id from spaces where team_id=$1", team).Scan(&teamSpace); err != nil {
+		t.Fatal(err)
+	}
+	exec("insert into projects(id,owner,team_id,final_reviewer,title,space_id) values($1,$2,$3,$2,'Private session',$4)", private, member, retained, personalSpace)
+	exec("insert into project_memberships(project_id,member_id,can_review) values($1,$2,true)", private, member)
+	exec("insert into studio_drafts(id,owner,team_id,spec) values($1,$2,$3,'{\"name\":\"Private draft\"}')", privateDraft, member, retained)
+	exec(`insert into kb_collections(id,space_id,name,sync_provider,acl_mode,maintainer) values
+	 ($1,$2,'Private documents','manual','space',$5),($3,$4,'Team guides','manual','space',$5)`, privateKB, personalSpace, sharedKB, teamSpace, member)
+	exec(`insert into business_connectors(id,space_id,category,driver,provider,name,endpoint,auth_mode,maintainer)
+	 values($1,$2,'internal','openapi_rest','openapi','Business','https://fixture.example.test','obo',$3)`, conn, teamSpace, member)
+	exec("insert into business_connector_bindings(connector_id,space_id,owner_id) values($1,$2,$3)", conn, teamSpace, member)
+	department := uuid.NewString()
+	exec("insert into departments(id,name) values($1,$1::uuid::text)", department)
+	exec("update members set department_id=$2 where id=$1", member, department)
+	exec(`insert into business_obo_identities(connector_id,member_id,department_id,issuer_subject,employee_no,dept_code,verified_by)
+	 values($1,$2,$3,'employee','employee','department',$4)`, conn, member, department, admin)
+	exec(`insert into business_obo_grants(connector_id,member_id,connector_revision,identity_revision,token_cipher,expires_at)
+	 values($1,$2,1,1,'fixture',clock_timestamp()+interval '1 hour')`, conn, member)
+	exec(`insert into event_triggers(id,space_id,connector_id,name,webhook_token_hash,hmac_cipher,filter_cel,dedup_cel,cooldown_seconds,maintainer,notify_targets)
+	 values($1,$2,$3,'Business event',gen_random_bytes(32),'fixture','true','event.id',60,$4,$5)`,
+		event, teamSpace, conn, member, []map[string]string{{"channel": "feishu", "memberId": member}})
+	batch := uuid.NewString()
+	exec(`insert into event_trigger_batches(id,trigger_id,trigger_revision,ready_at,sample_cipher)
+	 values($1,$2,1,clock_timestamp()+interval '1 hour','fixture')`, batch, event)
+	exec("insert into sessions(token_hash,member_id,expires_at) values($1,$2,clock_timestamp()+interval '1 hour')", web.Hash(member), member)
+	run, policy, approval := uuid.NewString(), uuid.NewString(), uuid.NewString()
+	exec("insert into plans(project_id,version,brief,confirmed_by) values($1,1,'Review pending write',$2)", handed, member)
+	exec("update projects set plan_version=1 where id=$1", handed)
+	exec(`insert into runs(id,project_id,plan_version,actor,status,charge_team,request_key,request_hash,max_calls)
+	 values($1,$2,1,$3,'running',$4,$1::uuid::text,$5,4)`, run, handed, next, team, web.Hash(run))
+	exec("insert into general_agent_runs(run_id,tier) values($1,'default')", run)
+	exec("insert into general_agent_turns(run_id,turn,state,response) values($1,1,'tools','fixture')", run)
+	exec(`insert into general_agent_actions(run_id,turn,position,tool_name,call_id,args_cipher,fingerprint)
+	 values($1,1,1,'propose_business_write','pending','fixture','fixture')`, run)
+	exec("insert into business_mutation_policies(id,connector_id,space_id,label,spec,maintainer) values($1,$2,$3,'Approval','{}',$4)", policy, conn, teamSpace, member)
+	exec(`insert into pending_system_mutations(id,run_id,turn,position,space_id,connector_id,policy_id,policy_revision,connector_revision,
+	 approver_id,action_name,payload_cipher,proposal_fingerprint,status,approved_by,decision_channel,decided_at)
+	 values($1,$2,1,1,$3,$4,$5,1,1,$6,'Business approval','fixture',$7,'approved',$6,'web',clock_timestamp())`,
+		approval, run, teamSpace, conn, policy, member, web.Hash(approval))
 	server := Server{DB: db}
 	w := httptest.NewRecorder()
 	r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/departure-handoff?mode=transfer&teamId="+team, nil)
@@ -192,9 +236,13 @@ func TestTeamTransferScopesPreviewAndHandoff(t *testing.T) {
 		Projects              int
 		Mode, AccountRevision string
 		Successors            []struct{ ID string }
+		Personal              struct{ Projects, Drafts, Collections, OBOGrants int }
+		Shared                struct{ Collections, BusinessBindings, Events, Approvals int }
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &preview); err != nil || preview.Mode != "transfer" || preview.Projects != 1 ||
-		len(preview.Successors) != 1 || preview.Successors[0].ID != next || preview.AccountRevision == "" {
+		len(preview.Successors) != 1 || preview.Successors[0].ID != next || preview.AccountRevision == "" ||
+		preview.Personal.Projects != 1 || preview.Personal.Drafts != 1 || preview.Personal.Collections != 1 || preview.Personal.OBOGrants != 1 ||
+		preview.Shared.Collections != 1 || preview.Shared.BusinessBindings != 1 || preview.Shared.Events != 1 || preview.Shared.Approvals != 1 {
 		t.Fatalf("unexpected scoped preview: %s (%v)", w.Body, err)
 	}
 	patch := func(successor, revision string, want int) {
@@ -234,5 +282,21 @@ func TestTeamTransferScopesPreviewAndHandoff(t *testing.T) {
 		member, next, handed, unrelated, team).Scan(&held, &moved, &remaining, &receipt)
 	if err != nil || !held || !moved || !remaining || !receipt {
 		t.Fatalf("scoped transfer account=%t moved=%t retained=%t receipt=%t: %v", held, moved, remaining, receipt, err)
+	}
+	var sealed, transferred, reapproved bool
+	err = db.QueryRow(ctx, `select
+	  (select privacy_state='sealed_private' from projects where id=$2) and not project_space_member($2,$1)
+	  and (select privacy_state='sealed_private' and not enabled from kb_collections where id=$3)
+	  and (select privacy_state='sealed_private' and owner=$1 from studio_drafts where id=$4)
+	  and not exists(select from business_obo_grants where member_id=$1)
+	  and not exists(select from sessions where member_id=$1),
+	  (select maintainer=$5 from kb_collections where id=$6)
+	  and (select owner_id=$5 from business_connector_bindings where connector_id=$7)
+	  and (select t.maintainer=$5 and b.trigger_revision=t.revision and t.notify_targets->0->>'memberId'=$5::uuid::text
+	   from event_triggers t join event_trigger_batches b on b.trigger_id=t.id where b.id=$8),
+	  (select approver_id=$5 and status='pending' and approved_by is null from pending_system_mutations where id=$9)`,
+		member, private, privateKB, privateDraft, next, sharedKB, conn, batch, approval).Scan(&sealed, &transferred, &reapproved)
+	if err != nil || !sealed || !transferred || !reapproved {
+		t.Fatalf("asset handoff result: private sealed=%t shared transfer=%t approval reset=%t %v", sealed, transferred, reapproved, err)
 	}
 }

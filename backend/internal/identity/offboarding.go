@@ -47,9 +47,26 @@ func (s Server) departurePreview(w http.ResponseWriter, r *http.Request, _ Membe
 	  where tm.member_id=$1 order by s.name,s.id),
 	 'projects',(select count(*) from staff_departure_projects($1) p where target.team_id is null or p.team_id=target.team_id),
 	 'agents',(select count(*) from agents where owner=$1 and not removed and (target.team_id is null or team_id=target.team_id)),
-	 'drafts',(select count(*) from studio_drafts where owner=$1 and (target.team_id is null or team_id=target.team_id)),
+	 'drafts',(select count(*) from studio_drafts where owner=$1 and privacy_state='active' and studio_draft_shared(id)
+	  and (target.team_id is null or team_id=target.team_id)),
 	 'rules',(select count(*) from team_rules where maintainer=$1 and (target.team_id is null or team_id=target.team_id)),
 	 'automations',(select count(*) from automation_schedules where owner=$1 and state<>'deleted' and (target.team_id is null or team_id=target.team_id)),
+	 'personal',jsonb_build_object(
+	  'projects',(select count(*) from projects p join spaces s on s.id=p.space_id
+	    where s.kind='personal' and s.owner_member_id=$1 and p.privacy_state='active'),
+	  'drafts',(select count(*) from studio_drafts where owner=$1 and privacy_state='active' and not studio_draft_shared(id)),
+	  'collections',(select count(*) from kb_collections c join spaces s on s.id=c.space_id
+	    where s.kind='personal' and s.owner_member_id=$1 and c.privacy_state='active'),
+	  'oboGrants',(select count(*) from business_obo_grants where member_id=$1)),
+	 'shared',jsonb_build_object(
+	  'collections',(select count(*) from kb_collections c join spaces s on s.id=c.space_id
+	    where c.maintainer=$1 and s.kind='team' and (target.team_id is null or s.team_id=target.team_id)),
+	  'businessBindings',(select count(*) from business_connector_bindings b join spaces s on s.id=b.space_id
+	    where b.owner_id=$1 and s.kind='team' and (target.team_id is null or s.team_id=target.team_id)),
+	  'events',(select count(*) from event_triggers t join spaces s on s.id=t.space_id
+	    where t.maintainer=$1 and s.kind='team' and (target.team_id is null or s.team_id=target.team_id)),
+	  'approvals',(select count(*) from pending_system_mutations a join spaces s on s.id=a.space_id
+	    where a.approver_id=$1 and a.status in ('pending','approved') and (target.team_id is null or s.team_id=target.team_id))),
 	 'successors',array(select jsonb_build_object('id',m.id,'name',m.display_name,'email',m.email)
 	   from members m where m.id<>$1 and m.enabled and m.departed_at is null and m.kind='person'
 	   and ($2='' or strpos(lower(m.display_name),lower($2))>0 or strpos(lower(m.email),lower($2))>0)
@@ -131,6 +148,10 @@ func applyDepartureHandoff(ctx context.Context, tx pgx.Tx, actor, departing, suc
 	if !covered {
 		return web.Fail(409, "接手人须已加入所有相关团队，请重新选择")
 	}
+	sealed, err := sealPrivateAssets(ctx, tx, departing)
+	if err != nil {
+		return err
+	}
 	var projectIDs []string
 	if err := tx.QueryRow(ctx, `select array(select project_id from staff_departure_projects($1)
 	 where ($2='' or team_id=nullif($2,'')::uuid) order by project_id)`, departing, team).
@@ -167,7 +188,7 @@ func applyDepartureHandoff(ctx context.Context, tx pgx.Tx, actor, departing, suc
 		return err
 	}
 	var counts struct {
-		Feedback, Mentions, Requirements, Agents, Drafts, Rules, Automations int64
+		Feedback, Mentions, Requirements, Agents, Rules, Automations int64
 	}
 	feedback, err := tx.Exec(ctx, `with changed as (
 	 update feedback f set reviewer=$2,revision=f.revision+1 from artifacts a
@@ -210,9 +231,8 @@ func applyDepartureHandoff(ctx context.Context, tx pgx.Tx, actor, departing, suc
 		count *int64
 	}{
 		{"update agents set owner=$2,maintenance_vacant=false,maintenance_version=maintenance_version+1,proposed_owner=null,proposed_by=null,transfer_reason=null where owner=$1 and not removed", &counts.Agents},
-		{"update studio_drafts set owner=$2,revision=revision+1,updated_at=clock_timestamp() where owner=$1", &counts.Drafts},
 		{"update team_rules set maintainer=$2,maintenance_vacant=false,maintenance_version=maintenance_version+1,proposed_owner=null,proposed_by=null,transfer_reason=null where maintainer=$1", &counts.Rules},
-		{"update automation_schedules set owner=$2,state='paused',revision=revision+1,sync_next_at=clock_timestamp(),updated_at=clock_timestamp() where owner=$1 and state<>'deleted'", &counts.Automations},
+		{"update automation_schedules set owner=$2,revision=revision+1,sync_next_at=clock_timestamp(),updated_at=clock_timestamp() where owner=$1 and state<>'deleted'", &counts.Automations},
 	} {
 		tag, err := tx.Exec(ctx, change.sql+" and ($3='' or team_id=nullif($3,'')::uuid)", departing, successor, team)
 		if err != nil {
@@ -220,8 +240,12 @@ func applyDepartureHandoff(ctx context.Context, tx pgx.Tx, actor, departing, suc
 		}
 		*change.count = tag.RowsAffected()
 	}
+	shared, err := transferSharedAssets(ctx, tx, departing, successor, team)
+	if err != nil {
+		return err
+	}
 	detail := map[string]any{"projects": projectIDs, "feedback": counts.Feedback, "mentions": counts.Mentions, "requirements": counts.Requirements,
-		"agents": counts.Agents, "drafts": counts.Drafts, "rules": counts.Rules, "pausedAutomations": counts.Automations}
+		"agents": counts.Agents, "rules": counts.Rules, "automations": counts.Automations, "personal": sealed, "shared": shared}
 	action := "member.departure.handoff"
 	if team != "" {
 		detail["teamId"] = team

@@ -131,7 +131,7 @@ func (s Server) listCollections(w http.ResponseWriter, r *http.Request, actor id
 	}
 	rows, err := s.DB.Query(r.Context(), `select id,sync_provider,remote_root_id,name,acl_mode,settings,sync_status,sync_interval_minutes,
 	 revision,enabled,credential_cipher is not null,last_synced_at from kb_collections
-	 where space_id=$1 and space_role($1,$2) in ('space_admin','member')
+	 where space_id=$1 and privacy_state='active' and space_role($1,$2) in ('space_admin','member')
 	 and ((enabled and acl_mode='space') or space_role($1,$2)='space_admin') order by name,id limit 250`, space, actor.ID)
 	if err != nil {
 		return err
@@ -246,7 +246,8 @@ func (s Server) saveCollection(w http.ResponseWriter, r *http.Request, actor ide
 			err := tx.QueryRow(ctx, `update kb_collections set name=$3,sync_interval_minutes=$4,acl_mode=$5,enabled=$6,
 			 sync_status=case when not $6 then 'paused' when sync_provider='manual' then 'ready' else 'queued' end,
 			 credential_cipher=coalesce($7,credential_cipher),revision=revision+1,lease=null,scan_id=null,next_sync_at=clock_timestamp()
-			 where (id,space_id,revision,sync_provider,remote_root_id,settings)=($1,$2,$8,$9,$10,$11::jsonb) returning revision`,
+			 where (id,space_id,revision,sync_provider,remote_root_id,settings)=($1,$2,$8,$9,$10,$11::jsonb)
+			 and privacy_state='active' returning revision`,
 				id, space, in.Name, in.Interval, in.ACLMode, in.Enabled, cipher, in.Expected, in.Provider, in.Root, in.Settings).Scan(&revision)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return web.Fail(409, "目录已变更，请刷新。更换来源需创建新目录")

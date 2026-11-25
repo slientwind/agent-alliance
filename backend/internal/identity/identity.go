@@ -375,6 +375,17 @@ func (s Server) updateMember(w http.ResponseWriter, r *http.Request, u Member) e
 				if err := applyDepartureHandoff(ctx, tx, u.ID, id, in.Successor, in.Reason, ""); err != nil {
 					return err
 				}
+			} else {
+				var shared bool
+				if err := tx.QueryRow(ctx, "select exists(select from staff_departure_teams($1))", id).Scan(&shared); err != nil {
+					return err
+				}
+				if shared {
+					return web.Fail(409, "此成员仍有团队职责，请指定继任者")
+				}
+				if _, err := sealPrivateAssets(ctx, tx, id); err != nil {
+					return err
+				}
 			}
 			if _, err := tx.Exec(ctx, "update members set enabled=false,departed_at=now(),department_id=null where id=$1", id); err != nil {
 				return err

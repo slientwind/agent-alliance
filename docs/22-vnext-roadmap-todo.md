@@ -72,9 +72,9 @@
 - [x] **空间上下文自动装配与跨空间流转**
   - [x] 改造 `AdvanceTurn` 上下文构建器：按会话所属 `space_id` 自动分层合并 `当前任务短期集 → 当前空间（知识库 + 业务数据视图 + 术语口径 + 空间指令 + 默认母版）→ 全企公共底座`。
   - [x] 实现**「个人空间一键发布/移交至团队空间」**接口（`POST /api/spaces/{id}/promote`），仅拷贝选定成果版本或 Agent 配置至目标团队空间，自动剥离其余私人聊天记录。
-- [ ] **调岗/离职公私分离无感交接（升级 [`identity/offboarding.go`](../backend/internal/identity/offboarding.go)）**
+- [x] **调岗/离职公私分离无感交接（升级 [`identity/offboarding.go`](../backend/internal/identity/offboarding.go)）**
   - [x] 扩展交接预览与事务逻辑：支持「部门调岗（移出单个团队空间）」与「员工离职（全局停用）」两种模式。
-  - [ ] 在同一串行化事务内执行**公私分流**：个人空间会话与私夹自动置为 `sealed_private` 并吊销 OBO 个人令牌；各团队空间名下的共享知识库维护权、业务连接器绑定、事件触发器、定时委托、团队 Agent 与未结审签单原子平移给空间内继任者。
+  - [x] 在同一串行化事务内执行**公私分流**：个人空间会话与私夹自动置为 `sealed_private` 并吊销 OBO 个人令牌；各团队空间名下的共享知识库维护权、业务连接器绑定、事件触发器、定时委托、团队 Agent 与未结审签单原子平移给空间内继任者。
 
 ### 模块 I：企业知识库、权限感知混合检索与知识缺口雷达（Enterprise KB & Hybrid RAG）
 - [x] **多源目录级增量同步（升级 [`backend/internal/knowledgesync/`](../backend/internal/knowledgesync/providers.go)）**

@@ -188,7 +188,7 @@ func (s Server) getPrincipalMappings(w http.ResponseWriter, r *http.Request, act
 	  cross join lateral jsonb_array_elements(d.source_acl_principals) g(value)
 	  cross join lateral jsonb_array_elements_text(g.value) v(principal)
 	  where d.collection_id=c.id and d.source_state='present' and d.acl_verified_at is not null order by v.principal limit 250))
-	 from kb_collections c where (c.id,c.space_id)=($1,$2) and space_role(c.space_id,$3)='space_admin'`, space, id, actor.ID).Scan(&out)
+	 from kb_collections c where (c.id,c.space_id)=($1,$2) and c.privacy_state='active' and space_role(c.space_id,$3)='space_admin'`, space, id, actor.ID).Scan(&out)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return web.Fail(404, "找不到可管理的知识目录")
 	}
@@ -227,7 +227,7 @@ func (s Server) putPrincipalMappings(w http.ResponseWriter, r *http.Request, act
 		if err := lockCollectionSpace(ctx, tx, space, actor.ID); err != nil {
 			return err
 		}
-		if err := tx.QueryRow(ctx, "select acl_revision from kb_collections where (id,space_id)=($1,$2) for update", id, space).Scan(&revision); err != nil {
+		if err := tx.QueryRow(ctx, "select acl_revision from kb_collections where (id,space_id)=($1,$2) and privacy_state='active' for update", id, space).Scan(&revision); err != nil {
 			return err
 		}
 		if revision != in.Expected {

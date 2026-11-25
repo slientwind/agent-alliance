@@ -129,10 +129,10 @@ func (s Server) promote(w http.ResponseWriter, r *http.Request, actor identity.M
 func promotionAgent(ctx context.Context, tx pgx.Tx, item string, rev int, actor string) (json.RawMessage, string, error) {
 	var spec studio.Spec
 	err := tx.QueryRow(ctx, `select r.spec from studio_releases r join studio_drafts d on d.id=r.draft_id
-		where r.id=$1 and r.revision=$2 and d.owner=$3 and r.owner=$3 and r.agent_scope='personal' and r.state='published'
+		where r.id=$1 and r.revision=$2 and d.owner=$3 and r.owner=$3 and r.agent_scope='personal' and r.state='published' and d.privacy_state='active'
 		for share of r,d`, item, rev, actor).Scan(&spec)
 	if errors.Is(err, pgx.ErrNoRows) {
-		err = tx.QueryRow(ctx, `select spec from studio_drafts where id=$1 and revision=$2 and owner=$3
+		err = tx.QueryRow(ctx, `select spec from studio_drafts where id=$1 and revision=$2 and owner=$3 and privacy_state='active'
 			and nullif(spec->>'name','') is not null and (nullif(spec->>'instructions','') is not null
 			or jsonb_array_length(spec->'steps')>0) for share`, item, rev, actor).Scan(&spec)
 	}

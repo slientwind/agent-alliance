@@ -181,7 +181,8 @@ func (s Server) beginChat(ctx context.Context, id, actor, key string, in chatInp
 		}
 		var stored []byte
 		var state string
-		err = tx.QueryRow(ctx, "select request_hash,state,response from studio_turns where (draft_id,request_key)=($1,$2)",
+		err = tx.QueryRow(ctx, `select request_hash,state,response from studio_turns where (draft_id,request_key)=($1,$2)
+		 and expected>=(select shared_handoff_revision from studio_drafts where id=$1)`,
 			id, key).Scan(&stored, &state, &replay)
 		if err == nil {
 			if !bytes.Equal(stored, hash) {

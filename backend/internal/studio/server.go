@@ -103,7 +103,7 @@ func (s Server) loadedSkills(w http.ResponseWriter, r *http.Request, actor ident
 	return web.JSON(w, http.StatusOK, bindings)
 }
 
-const draftAccess = `from studio_drafts d join members m on m.id=d.owner and m.enabled and m.kind='person'
+const draftAccess = `from studio_drafts d join members m on m.id=d.owner and m.enabled and m.kind='person' and d.privacy_state='active'
  join team_members tm on (tm.team_id,tm.member_id)=(d.team_id,d.owner)`
 
 func getDraft(ctx context.Context, q resources.Query, id, actor string, lock bool) (draft, error) {
@@ -152,6 +152,7 @@ func (s Server) read(w http.ResponseWriter, r *http.Request, actor identity.Memb
 		}
 		rows, err := tx.Query(ctx, `select id,input_cipher,response from (
 		 select id,input_cipher,response,started_at from studio_turns where draft_id=$1 and state='completed'
+		  and expected>=(select shared_handoff_revision from studio_drafts where id=$1)
 		 order by started_at desc,id desc limit 40) recent order by started_at,id`, id)
 		if err != nil {
 			return err

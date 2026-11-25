@@ -155,7 +155,8 @@ func (s Server) playground(r *http.Request, actor, kind string, expected int, in
 		var prior, state string
 		var stored []byte
 		err := tx.QueryRow(ctx, `select id,request_hash,state,response_cipher from studio_playground_calls
-		 where (draft_id,kind,request_key)=($1,$2,$3)`, id, kind, key).Scan(&prior, &stored, &state, &replay)
+		 where (draft_id,kind,request_key)=($1,$2,$3) and expected>=(select shared_handoff_revision from studio_drafts where id=$1)`,
+			id, kind, key).Scan(&prior, &stored, &state, &replay)
 		if err == nil {
 			if !bytes.Equal(stored, hash) {
 				return web.Fail(409, "这个提交编号已用于另一条消息")
