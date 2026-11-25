@@ -15,12 +15,21 @@ type Schedule = {
   revision: number;
   sync: "ready" | "pending" | "retrying";
   cursor: string | null;
+  notifyFeishu: boolean;
+};
+type Notification = {
+  id: string;
+  channel: "feishu" | "email";
+  state: "pending" | "sending" | "accepted" | "failed" | "unknown" | "cancelled";
+  revision: number;
+  receipt?: string;
 };
 type Execution = {
   occurrence: string;
   scheduled: string;
   state: string;
   project?: string;
+  notifications?: Notification[];
 };
 type Draft = Pick<Schedule, "title" | "goal" | "team" | "tier" | "zone"> & {
   id: string;
@@ -28,13 +37,19 @@ type Draft = Pick<Schedule, "title" | "goal" | "team" | "tier" | "zone"> & {
   timing: "once" | "daily" | "weekdays" | "custom";
   localTime: string;
   cron: string;
+  notifyFeishu: boolean;
 };
 
 const blank = (team: string, tier: ConversationTier): Draft => ({
   id: "", revision: 0, title: "", goal: "", team, tier,
   zone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-  timing: "daily", localTime: "09:00", cron: "",
+  timing: "daily", localTime: "09:00", cron: "", notifyFeishu: false,
 });
+
+const notificationStatus: Record<Notification["state"], string> = {
+  pending: "待发送", sending: "发送中", accepted: "渠道已接收",
+  failed: "发送失败", unknown: "接收状态待确认", cancelled: "已取消",
+};
 
 function localMinute(time: Date, zone: string) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -60,8 +75,8 @@ function inZone(value: string, zone: string) {
 }
 
 function edit(schedule: Schedule): Draft {
-  const { id, revision, title, goal, team, tier, zone } = schedule;
-  const draft: Draft = { id, revision, title, goal, team, tier, zone, timing: "custom", localTime: "09:00", cron: schedule.cron || "" };
+  const { id, revision, title, goal, team, tier, zone, notifyFeishu } = schedule;
+  const draft: Draft = { id, revision, title, goal, team, tier, zone, notifyFeishu, timing: "custom", localTime: "09:00", cron: schedule.cron || "" };
   if (schedule.onceAt) return { ...draft, timing: "once", localTime: localMinute(new Date(schedule.onceAt), zone) };
   const clock = /^(\d+) (\d+) \* \* (\*|MON-FRI)$/.exec(draft.cron);
   return clock ? { ...draft, timing: clock[3] === "*" ? "daily" : "weekdays",
@@ -87,6 +102,7 @@ export function AutomationSchedules({ teams, tiers, openProject }: {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [requestKey, setRequestKey] = useState("");
+  const [feishuLinked, setFeishuLinked] = useState(false);
   const listRequest = useRef(0);
   const synchronizing = schedules.some(schedule => schedule.sync !== "ready");
   const firstTeam = teams.find(team => team.default)?.id || teams[0]?.id || "";
@@ -98,6 +114,9 @@ export function AutomationSchedules({ teams, tiers, openProject }: {
   useEffect(() => {
     let current = true;
     void reload().catch((e: Error) => { if (current) setError(e.message); });
+    void api<{ feishu: boolean }>("automations/notification-channels").then(channels => {
+      if (current) setFeishuLinked(channels.feishu === true);
+    }).catch(() => {});
     return () => { current = false; listRequest.current++; };
   }, [reload]);
   useEffect(() => {
@@ -119,6 +138,7 @@ export function AutomationSchedules({ teams, tiers, openProject }: {
       const cron = draft.timing === "once" ? null : draft.timing === "custom" ? draft.cron
         : `${Number(minute)} ${Number(hour)} * * ${draft.timing === "weekdays" ? "MON-FRI" : "*"}`;
       const input = { title: draft.title, goal: draft.goal, team: draft.team, tier: draft.tier, zone: draft.zone, cron,
+        notifyFeishu: feishuLinked || !draft.notifyFeishu ? draft.notifyFeishu : undefined,
         onceAt: draft.timing === "once" ? inZone(draft.localTime, draft.zone) : null, expected: draft.revision };
       if (draft.id) await api("automations/" + draft.id, "PUT", input);
       else await api("automations", "POST", input, { "Idempotency-Key": requestKey });
@@ -127,6 +147,20 @@ export function AutomationSchedules({ teams, tiers, openProject }: {
       await reload();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "保存失败，请稍后重试");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function retry(schedule: string, notification: Notification) {
+    setBusy(true);
+    setError("");
+    try {
+      await api(`automations/${schedule}/notifications/${notification.id}/retry`, "POST", { expected: notification.revision });
+      setHistory({ id: schedule, rows: await api<Execution[]>(`automations/${schedule}/runs`) });
+      setNotice("已安排补发通知");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "通知补发失败，请稍后重试");
     } finally {
       setBusy(false);
     }
@@ -202,6 +236,9 @@ export function AutomationSchedules({ teams, tiers, openProject }: {
             {["Asia/Shanghai", "Asia/Hong_Kong", "Asia/Tokyo", "UTC", "Europe/London", "America/New_York", "America/Los_Angeles"]
               .map(zone => <option key={zone} value={zone} />)}
           </datalist>
+          {(feishuLinked || draft.notifyFeishu) &&
+            <label><input type="checkbox" checked={draft.notifyFeishu}
+              onChange={event => setDraft({ ...draft, notifyFeishu: event.target.checked })} /> 完成时用飞书通知我</label>}
           <div className="row">
             <button className="primary" type="submit" disabled={busy}>保存定时委托</button>
             <button type="button" disabled={busy} onClick={() => setDraft(undefined)}>取消</button>
@@ -227,6 +264,14 @@ export function AutomationSchedules({ teams, tiers, openProject }: {
             <ul>{history.rows.map(row => (
               <li key={row.occurrence}>{localMinute(new Date(row.scheduled), item.zone).replace("T", " ")} · {row.state === "skipped" ? "已跳过" : statusLabel[row.state] ?? row.state}
                 {row.project && <button type="button" onClick={() => openProject(row.project!)}>查看对话</button>}
+                {row.notifications?.map(notification => (
+                  <p key={notification.id}>
+                    {notification.channel === "feishu" ? "飞书" : "邮件"} · {notificationStatus[notification.state]}
+                    {notification.receipt && <small> · {notification.receipt}</small>}
+                    {notification.state === "failed" && <button type="button" disabled={busy}
+                      onClick={() => void retry(item.id, notification)}>补发通知</button>}
+                  </p>
+                ))}
               </li>
             ))}</ul>
           ) : <p>暂无运行记录</p>)}

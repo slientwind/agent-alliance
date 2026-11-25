@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"alliance/internal/channels"
 	"alliance/internal/database"
 	"alliance/internal/identity"
 	"alliance/internal/resources"
@@ -83,6 +84,7 @@ func TestAutomationLifecycleWithDurableRunsAndCursor(t *testing.T) {
 	exec(`insert into enterprise(name,default_team) values('Schedule fixture',$1) on conflict do nothing`, team)
 	exec(`insert into members(id,email,display_name,password_hash,role) values($1,$2,'scheduler','','member')`, owner, owner+"@example.test")
 	exec(`insert into team_members(team_id,member_id) values($1,$2)`, team, owner)
+	exec(`insert into channel_links(tenant,open_id,member_id) values('automation-fixture',$1,$2)`, owner, owner)
 	exec(`insert into model_providers(id,name,kind,endpoint) values($1,$1::uuid::text,'openai','https://fixture.example.test/v1')`, provider)
 	exec(`insert into model_catalog(id,provider_id,upstream_model,capabilities,context_tokens,max_output_tokens)
 		values($1,$2,'schedule-test-model',array['text','tool_call'],8192,512)`, model, provider)
@@ -92,10 +94,11 @@ func TestAutomationLifecycleWithDurableRunsAndCursor(t *testing.T) {
 	defer db.Exec(context.Background(), "delete from model_tier_routes where model_id=$1", model)
 
 	a := Activities{DB: db, Vault: vault}
-	s := Server{DB: db, Vault: vault}
+	s := Server{DB: db, Vault: vault, Feishu: channels.Feishu{DB: db, App: "fixture", Secret: "fixture", Encrypt: "fixture",
+		Verify: "fixture", Tenant: "automation-fixture", Public: "https://fixture.example.test"}}
 	member := identity.Member{ID: owner}
 	ref := ScheduleRef{ID: uuid.NewString(), Revision: 1}
-	body := fmt.Sprintf(`{"title":"每周报告","goal":"整理待处理工作","team":%q,"zone":"Asia/Shanghai","cron":"30 9 * * MON"}`, team)
+	body := fmt.Sprintf(`{"title":"每周报告","goal":"整理待处理工作","team":%q,"zone":"Asia/Shanghai","cron":"30 9 * * MON","notifyFeishu":true}`, team)
 	for range 2 {
 		r := httptest.NewRequestWithContext(ctx, "POST", "/", strings.NewReader(body))
 		r.Header.Set("Idempotency-Key", ref.ID)
@@ -141,6 +144,74 @@ func TestAutomationLifecycleWithDurableRunsAndCursor(t *testing.T) {
 		t.Fatalf("successful run returned done=%t err=%v", done, err)
 	}
 	requireCursor(at)
+	var notice, project string
+	err = db.QueryRow(ctx, `select n.id,r.project_id from automation_notifications n join automation_runs r using(schedule_id,occurrence)
+		where n.schedule_id=$1 and n.occurrence=$2 and n.state='pending'`, ref.ID, first.Key).Scan(&notice, &project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sends int
+	dispatcher := Notifications{DB: db, Feishu: func(_ context.Context, id, member, binding, target string) (string, error) {
+		sends++
+		if id != notice || member != owner || binding == "" || target != project {
+			t.Errorf("unexpected notification destination: %s %s %s %s", id, member, binding, target)
+		}
+		if sends == 1 {
+			return "", errors.New("fixture confirmation rejected")
+		}
+		return "ou_msg_receipt_fixture", nil
+	}}
+	if err := dispatcher.deliverNext(ctx); err != nil {
+		t.Fatal(err)
+	}
+	readRun := func() runView {
+		t.Helper()
+		r := httptest.NewRequestWithContext(ctx, "GET", "/", nil)
+		r.SetPathValue("id", ref.ID)
+		w := httptest.NewRecorder()
+		if err := s.runs(w, r, member); err != nil {
+			t.Fatal(err)
+		}
+		var history []runView
+		if err := json.Unmarshal(w.Body.Bytes(), &history); err != nil {
+			t.Fatal(err)
+		}
+		for _, row := range history {
+			if row.Occurrence == first.Key {
+				return row
+			}
+		}
+		t.Fatal("run missing from history")
+		return runView{}
+	}
+	failedNotice := readRun()
+	if failedNotice.State != "completed" || len(failedNotice.Notifications) != 1 || failedNotice.Notifications[0].State != "failed" {
+		t.Fatalf("runner and delivery status were coupled: %+v", failedNotice)
+	}
+	retry := func(actor identity.Member) error {
+		r := httptest.NewRequestWithContext(ctx, "POST", "/",
+			strings.NewReader(fmt.Sprintf(`{"expected":%d}`, failedNotice.Notifications[0].Revision)))
+		r.SetPathValue("id", ref.ID)
+		r.SetPathValue("notice", notice)
+		return s.retryNotification(httptest.NewRecorder(), r, actor)
+	}
+	if err := retry(identity.Member{ID: uuid.NewString()}); err == nil {
+		t.Fatal("unrelated user could resend the notification")
+	}
+	if err := retry(member); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := dispatcher.deliverNext(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	delivered := readRun()
+	if len(delivered.Notifications) != 1 || delivered.Notifications[0].State != "accepted" ||
+		delivered.Notifications[0].Receipt != "ou_msg_receipt_fixture" || delivered.Notifications[0].AcceptedAt == nil || sends != 2 {
+		t.Fatalf("notification receipt or resend: %+v sends=%d", delivered, sends)
+	}
+	requireCursor(at)
 
 	second := Occurrence{Schedule: ref, Key: "second", At: at.Add(2 * time.Minute)}
 	run, err = a.Prepare(ctx, second)
@@ -157,6 +228,25 @@ func TestAutomationLifecycleWithDurableRunsAndCursor(t *testing.T) {
 		t.Fatalf("failed run returned done=%t err=%v", done, err)
 	}
 	requireCursor(at)
+
+	third := Occurrence{Schedule: ref, Key: "third", At: at.Add(3 * time.Minute)}
+	run, err = a.Prepare(ctx, third)
+	if err != nil || run == "" {
+		t.Fatalf("third occurrence: %q %v", run, err)
+	}
+	exec("update runs set status='completed',finished_at=now() where id=$1", run)
+	if done, err := a.Progress(ctx, third, run); err != nil || !done {
+		t.Fatalf("successful third run returned done=%t err=%v", done, err)
+	}
+	exec("delete from channel_links where (tenant,member_id)=('automation-fixture',$1)", owner)
+	if err := dispatcher.deliverNext(ctx); err != nil || sends != 2 {
+		t.Fatalf("notification escaped a deleted binding: %d %v", sends, err)
+	}
+	var cancelled string
+	if err := db.QueryRow(ctx, `select state from automation_notifications where schedule_id=$1 and occurrence=$2`, ref.ID, third.Key).
+		Scan(&cancelled); err != nil || cancelled != "cancelled" {
+		t.Fatalf("cancelled notification not recorded: %q %v", cancelled, err)
+	}
 
 	var tc client.Client
 	queue := "automation-test-" + ref.ID

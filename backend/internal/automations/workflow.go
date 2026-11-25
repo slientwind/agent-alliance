@@ -145,8 +145,10 @@ func (a Activities) Prepare(ctx context.Context, occurrence Occurrence) (string,
 }
 
 func recordRun(ctx context.Context, tx pgx.Tx, occurrence Occurrence, at time.Time, cursor *time.Time, project, run, state string) error {
-	_, err := tx.Exec(ctx, `insert into automation_runs(schedule_id,occurrence,schedule_revision,scheduled_at,cursor_at,project_id,run_id,state,finished_at)
-		values($1,$2,$3,$4,$5,nullif($6,'')::uuid,nullif($7,'')::uuid,$8,case when $8='running' then null else now() end)`,
+	_, err := tx.Exec(ctx, `insert into automation_runs(schedule_id,occurrence,schedule_revision,scheduled_at,cursor_at,project_id,run_id,
+		state,finished_at,notify_feishu)
+		select $1,$2,$3,$4,$5,nullif($6,'')::uuid,nullif($7,'')::uuid,$8,case when $8='running' then null else now() end,
+		a.notify_feishu from automation_schedules a where a.id=$1`,
 		occurrence.Schedule.ID, occurrence.Key, occurrence.Schedule.Revision, at, cursor, project, run, state)
 	return err
 }
@@ -172,7 +174,10 @@ func (a Activities) Progress(ctx context.Context, occurrence Occurrence, run str
 			return err
 		}
 		if status == "completed" {
-			_, err = tx.Exec(ctx, `update automation_schedules set cursor_at=greatest(cursor_at,$2) where id=$1`, id, at)
+			if _, err := tx.Exec(ctx, `update automation_schedules set cursor_at=greatest(cursor_at,$2) where id=$1`, id, at); err != nil {
+				return err
+			}
+			return enqueueNotifications(ctx, tx, id, occurrence.Key)
 		}
 		return err
 	})

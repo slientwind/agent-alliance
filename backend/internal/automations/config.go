@@ -14,14 +14,15 @@ import (
 )
 
 type config struct {
-	Title    string          `json:"title"`
-	Goal     string          `json:"goal"`
-	Team     string          `json:"team"`
-	Tier     llmgateway.Tier `json:"tier"`
-	Zone     string          `json:"zone"`
-	Cron     *string         `json:"cron"`
-	OnceAt   *time.Time      `json:"onceAt"`
-	Expected int             `json:"expected"`
+	Title        string          `json:"title"`
+	Goal         string          `json:"goal"`
+	Team         string          `json:"team"`
+	Tier         llmgateway.Tier `json:"tier"`
+	Zone         string          `json:"zone"`
+	Cron         *string         `json:"cron"`
+	OnceAt       *time.Time      `json:"onceAt"`
+	Expected     int             `json:"expected"`
+	NotifyFeishu *bool           `json:"notifyFeishu"`
 }
 
 func (c *config) validate(now time.Time) error {

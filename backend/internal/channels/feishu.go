@@ -15,6 +15,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -483,6 +484,7 @@ func recordReply(ctx context.Context, tx pgx.Tx, id string, attempts int, delive
 }
 
 var feishuOrigin = "https://open.feishu.cn"
+var errFeishuUnconfirmed = errors.New("飞书消息服务未确认")
 
 func feishuClient() http.Client {
 	return http.Client{Timeout: 6 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
@@ -514,8 +516,19 @@ func feishuPost(ctx context.Context, path, token string, payload any) (map[strin
 		return nil, err
 	}
 	defer rsp.Body.Close()
+	if rsp.StatusCode >= 500 || (rsp.StatusCode >= 200 && rsp.StatusCode < 300 && rsp.StatusCode != http.StatusOK) {
+		return nil, errFeishuUnconfirmed
+	}
 	var val map[string]any
-	if rsp.StatusCode != 200 || json.NewDecoder(io.LimitReader(rsp.Body, 1<<20)).Decode(&val) != nil || val["code"] != float64(0) {
+	if rsp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("飞书消息服务未确认")
+	}
+	if json.NewDecoder(io.LimitReader(rsp.Body, 1<<20)).Decode(&val) != nil {
+		return nil, errFeishuUnconfirmed
+	}
+	if code, ok := val["code"].(float64); !ok {
+		return nil, errFeishuUnconfirmed
+	} else if code != 0 {
 		return nil, fmt.Errorf("飞书消息服务未确认")
 	}
 	return val, nil
@@ -532,11 +545,15 @@ func (f Feishu) accessToken(ctx context.Context) (string, error) {
 	return token, nil
 }
 func sendFeishuText(ctx context.Context, token, endpoint, id, text, recipient string) error {
+	_, err := postFeishuText(ctx, token, endpoint, id, text, recipient)
+	return err
+}
+
+func postFeishuText(ctx context.Context, token, endpoint, id, text, recipient string) (map[string]any, error) {
 	content, _ := json.Marshal(map[string]string{"text": text})
 	payload := map[string]string{"msg_type": "text", "content": string(content), "uuid": id}
 	if recipient != "" {
 		payload["receive_id"] = recipient
 	}
-	_, err := feishuPost(ctx, endpoint, token, payload)
-	return err
+	return feishuPost(ctx, endpoint, token, payload)
 }

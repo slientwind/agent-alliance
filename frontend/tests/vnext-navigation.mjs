@@ -37,6 +37,7 @@ try {
       revision: 1, enabled: false, hasCredential: false, health: "unchecked",
     };
     let schedule = null;
+    const notification = { id: "notice", channel: "feishu", state: "failed", revision: 3 };
     await page.route("**/api/**", (route) => {
       const request = route.request();
       const url = new URL(request.url());
@@ -47,6 +48,7 @@ try {
           assert.ok(request.headers()["idempotency-key"]);
           assert.equal(next.onceAt, "2030-12-03T01:30:00.000Z");
           assert.equal(next.cron, null);
+          assert.equal(next.notifyFeishu, true);
           schedule = { ...next, id: "schedule", revision: 1, state: "active", sync: "ready", cursor: null };
           return route.fulfill({ status: 201, json: { id: schedule.id } });
         }
@@ -64,7 +66,15 @@ try {
         }
         return route.fulfill({ status: 204 });
       }
-      if (path === "/api/automations/schedule/runs") return route.fulfill({ json: [] });
+      if (path === "/api/automations/notification-channels") return route.fulfill({ json: { feishu: true } });
+      if (path === "/api/automations/schedule/runs") {
+        return route.fulfill({ json: [{ occurrence: "one", state: "completed", scheduled: schedule.onceAt, notifications: [notification] }] });
+      }
+      if (path === "/api/automations/schedule/notifications/notice/retry") {
+        assert.deepEqual(request.postDataJSON(), { expected: 3 });
+        Object.assign(notification, { state: "accepted", receipt: "receipt-1", revision: 5 });
+        return route.fulfill({ status: 204 });
+      }
       if (path === "/api/admin/integrations/search") {
         if (request.method() === "PUT") {
           const next = request.postDataJSON();
@@ -221,13 +231,16 @@ try {
     await page.getByRole("combobox", { name: /^执行频率/ }).selectOption("once");
     await page.getByLabel("执行时间").fill("2030-12-03T09:30");
     await page.getByLabel("时区").fill("Asia/Shanghai");
+    await page.getByLabel("完成时用飞书通知我").check();
     await page.getByRole("button", { name: "保存定时委托" }).click();
     await page.getByRole("heading", { name: "月度事项" }).waitFor();
     await page.getByText(/2030-12-03 09:30/).waitFor();
     await page.getByRole("button", { name: "暂停", exact: true }).click();
     await page.getByText(/已暂停/).waitFor();
     await page.getByRole("button", { name: "运行记录" }).click();
-    await page.getByText("暂无运行记录").waitFor();
+    await page.getByText(/飞书 · 发送失败/).waitFor();
+    await page.getByRole("button", { name: "补发通知" }).click();
+    await page.getByText("receipt-1").waitFor();
     await page.getByRole("button", { name: "删除计划" }).click();
     await page.getByRole("heading", { name: "月度事项" }).waitFor({ state: "hidden" });
     await checkWidth();

@@ -51,6 +51,7 @@ func main() {
 	go feishu.Notify(ctx)
 	go feishu.ImportAttachments(ctx)
 	go feishu.ReviewMonitor(ctx)
+	go (automations.Notifications{DB: c.DB, Feishu: feishu.SendAutomationNotice}).Serve(ctx)
 	slack := channels.NewSlack(c.DB, c.Vault)
 	slack.Routes(mux, s)
 	go slack.Serve(ctx)
@@ -75,7 +76,7 @@ func main() {
 	}
 	projects.Server{DB: c.DB, Vault: c.Vault, SessionUpdates: projectUpdates}.Routes(mux, s)
 	agentloop.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
-	automations.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
+	automations.Server{DB: c.DB, Vault: c.Vault, Feishu: feishu}.Routes(mux, s)
 	mux.Handle("GET /api/health", web.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		if err := c.DB.Ping(r.Context()); err != nil {
 			return web.Fail(503, "数据库不可用")

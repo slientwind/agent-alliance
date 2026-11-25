@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"alliance/internal/channels"
 	"alliance/internal/database"
 	"alliance/internal/identity"
 	"alliance/internal/resources"
@@ -17,8 +18,9 @@ import (
 )
 
 type Server struct {
-	DB    *pgxpool.Pool
-	Vault resources.Vault
+	DB     *pgxpool.Pool
+	Vault  resources.Vault
+	Feishu channels.Feishu
 }
 
 func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
@@ -28,6 +30,8 @@ func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("PATCH /api/automations/{id}", auth.Protect(false, s.setActive))
 	mux.Handle("DELETE /api/automations/{id}", auth.Protect(false, s.remove))
 	mux.Handle("GET /api/automations/{id}/runs", auth.Protect(false, s.runs))
+	mux.Handle("GET /api/automations/notification-channels", auth.Protect(false, s.notificationChannels))
+	mux.Handle("POST /api/automations/{id}/notifications/{notice}/retry", auth.Protect(false, s.retryNotification))
 }
 
 func goalScope(id string) string { return "automation/" + id + "/goal" }
@@ -37,23 +41,25 @@ const owned = `a.owner=$1 and a.state<>'deleted' and exists(
 	where (tm.team_id,tm.member_id)=(a.team_id,a.owner))`
 
 type scheduleView struct {
-	ID       string     `json:"id"`
-	Title    string     `json:"title"`
-	Goal     string     `json:"goal"`
-	Team     string     `json:"team"`
-	Tier     string     `json:"tier"`
-	Zone     string     `json:"zone"`
-	Cron     *string    `json:"cron"`
-	OnceAt   *time.Time `json:"onceAt"`
-	State    string     `json:"state"`
-	Revision int        `json:"revision"`
-	Sync     string     `json:"sync"`
-	Cursor   *time.Time `json:"cursor"`
+	ID           string     `json:"id"`
+	Title        string     `json:"title"`
+	Goal         string     `json:"goal"`
+	Team         string     `json:"team"`
+	Tier         string     `json:"tier"`
+	Zone         string     `json:"zone"`
+	Cron         *string    `json:"cron"`
+	OnceAt       *time.Time `json:"onceAt"`
+	State        string     `json:"state"`
+	Revision     int        `json:"revision"`
+	Sync         string     `json:"sync"`
+	Cursor       *time.Time `json:"cursor"`
+	NotifyFeishu bool       `json:"notifyFeishu"`
 }
 
 func (s Server) list(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
 	rows, err := s.DB.Query(r.Context(), `select a.id,a.title,a.goal_cipher,a.team_id,a.tier,a.time_zone,a.cron,a.once_at,
-		a.state,a.revision,case when a.synced_revision=a.revision then 'ready' when a.sync_failed then 'retrying' else 'pending' end,a.cursor_at
+		a.state,a.revision,case when a.synced_revision=a.revision then 'ready' when a.sync_failed then 'retrying' else 'pending' end,
+		a.cursor_at,a.notify_feishu is not null
 		from automation_schedules a where `+owned+` order by a.updated_at desc,a.id limit 250`, actor.ID)
 	if err != nil {
 		return err
@@ -64,7 +70,7 @@ func (s Server) list(w http.ResponseWriter, r *http.Request, actor identity.Memb
 		var item scheduleView
 		var goal []byte
 		if err := rows.Scan(&item.ID, &item.Title, &goal, &item.Team, &item.Tier, &item.Zone, &item.Cron, &item.OnceAt,
-			&item.State, &item.Revision, &item.Sync, &item.Cursor); err != nil {
+			&item.State, &item.Revision, &item.Sync, &item.Cursor, &item.NotifyFeishu); err != nil {
 			return err
 		}
 		item.Goal, err = s.Vault.Open(goal, goalScope(item.ID))
@@ -101,10 +107,14 @@ func (s Server) create(w http.ResponseWriter, r *http.Request, actor identity.Me
 	}
 	ctx := r.Context()
 	err = database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `insert into automation_schedules(id,owner,team_id,title,goal_cipher,tier,cron,once_at,time_zone)
-			select $1,$2,$3,$4,$5,$6,$7,$8,$9 from team_members t join members m on m.id=t.member_id
+		binding, err := s.selectedFeishu(ctx, tx, actor.ID, in.NotifyFeishu, nil)
+		if err != nil {
+			return err
+		}
+		tag, err := tx.Exec(ctx, `insert into automation_schedules(id,owner,team_id,title,goal_cipher,tier,cron,once_at,time_zone,notify_feishu)
+			select $1,$2,$3,$4,$5,$6,$7,$8,$9,$10 from team_members t join members m on m.id=t.member_id
 			where (t.team_id,t.member_id)=($3,$2) and m.enabled and m.kind='person'
-			on conflict(id) do nothing`, id, actor.ID, in.Team, in.Title, cipher, in.Tier, in.Cron, in.OnceAt, in.Zone)
+			on conflict(id) do nothing`, id, actor.ID, in.Team, in.Title, cipher, in.Tier, in.Cron, in.OnceAt, in.Zone, binding)
 		if err != nil {
 			return err
 		}
@@ -112,7 +122,8 @@ func (s Server) create(w http.ResponseWriter, r *http.Request, actor identity.Me
 			var previous []byte
 			err := tx.QueryRow(ctx, `select goal_cipher from automation_schedules a where `+owned+` and a.id=$2 and a.team_id=$3 and
 				a.title=$4 and a.tier=$5 and a.cron is not distinct from $6::text and a.once_at is not distinct from $7::timestamptz
-				and a.time_zone=$8 and a.revision=1`, actor.ID, id, in.Team, in.Title, in.Tier, in.Cron, in.OnceAt, in.Zone).Scan(&previous)
+				and a.time_zone=$8 and a.revision=1 and a.notify_feishu is not distinct from $9::uuid`,
+				actor.ID, id, in.Team, in.Title, in.Tier, in.Cron, in.OnceAt, in.Zone, binding).Scan(&previous)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return web.Fail(409, "团队不可用或该提交编号已使用")
 			}
@@ -152,8 +163,16 @@ func (s Server) update(w http.ResponseWriter, r *http.Request, actor identity.Me
 		if err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `update automation_schedules set title=$2,goal_cipher=$3,tier=$4,cron=$5,once_at=$6,time_zone=$7 where id=$1`,
-			id, in.Title, cipher, in.Tier, in.Cron, in.OnceAt, in.Zone)
+		var prior *string
+		if err := tx.QueryRow(ctx, "select notify_feishu from automation_schedules where id=$1", id).Scan(&prior); err != nil {
+			return err
+		}
+		binding, err := s.selectedFeishu(ctx, tx, actor.ID, in.NotifyFeishu, prior)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `update automation_schedules set title=$2,goal_cipher=$3,tier=$4,cron=$5,once_at=$6,time_zone=$7,
+			notify_feishu=$8 where id=$1`, id, in.Title, cipher, in.Tier, in.Cron, in.OnceAt, in.Zone, binding)
 		return err
 	})
 }
@@ -233,11 +252,12 @@ func (s Server) change(w http.ResponseWriter, r *http.Request, actor identity.Me
 }
 
 type runView struct {
-	Occurrence string     `json:"occurrence"`
-	Scheduled  time.Time  `json:"scheduled"`
-	State      string     `json:"state"`
-	Project    string     `json:"project,omitempty"`
-	Cursor     *time.Time `json:"cursor"`
+	Occurrence    string             `json:"occurrence"`
+	Scheduled     time.Time          `json:"scheduled"`
+	State         string             `json:"state"`
+	Project       string             `json:"project,omitempty"`
+	Cursor        *time.Time         `json:"cursor"`
+	Notifications []notificationView `json:"notifications"`
 }
 
 func (s Server) runs(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
@@ -246,7 +266,10 @@ func (s Server) runs(w http.ResponseWriter, r *http.Request, actor identity.Memb
 		return web.Fail(404, "找不到这项定时委托")
 	}
 	rows, err := s.DB.Query(r.Context(), `select r.occurrence,r.scheduled_at,r.state,
-		coalesce((select p.id::text from project_members p where (p.project_id,p.member_id)=(r.project_id,$1)),''),r.cursor_at
+		coalesce((select p.project_id::text from project_members p where (p.project_id,p.member_id)=(r.project_id,$1)),''),r.cursor_at,
+		coalesce((select jsonb_agg(jsonb_build_object('id',n.id,'channel',n.channel,'state',n.state,'revision',n.revision,
+		 'acceptedAt',n.accepted_at,'receipt',n.receipt) order by n.channel)
+		 from automation_notifications n where (n.schedule_id,n.occurrence)=(r.schedule_id,r.occurrence)),'[]')
 		from automation_runs r join automation_schedules a on a.id=r.schedule_id where `+owned+
 		` and a.id=$2 order by r.scheduled_at desc,r.occurrence limit 50`, actor.ID, id)
 	if err != nil {
