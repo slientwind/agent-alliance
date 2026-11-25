@@ -78,6 +78,7 @@ import { chatPath, pageFromPath, projectFromPath, workspacePage } from "./worksp
 import "./style.css";
 import "./workspace.css";
 const Work = lazy(() => import("./work").then(({ Work }) => ({ default: Work })));
+const ArtifactCanvas = lazy(() => import("./artifact-canvas").then(({ ArtifactCanvas }) => ({ default: ArtifactCanvas })));
 
 function Overlay({
   title,
@@ -130,6 +131,7 @@ function App() {
   const current = useRef("");
   const [dialogPanel, setDialogPanel] = useState("");
   const [commandsOpen, setCommandsOpen] = useState(false);
+  const [canvasTarget, setCanvasTarget] = useState("");
   const routePanel = pageFromPath(route.pathname);
   const panel = dialogPanel || routePanel;
   const [collapsed, setCollapsed] = useState(() => window.matchMedia("(max-width: 1023px)").matches);
@@ -509,6 +511,7 @@ function App() {
   }, [user, resetSession, setPanel]);
   async function select(id: string, task?: ReviewTask) {
     setDeliveryReceipt("");
+    setCanvasTarget("");
     const old = current.current;
     const thread = document.querySelector(".thread");
     if (old && thread) positions.current.set(old, thread.scrollTop);
@@ -544,6 +547,7 @@ function App() {
   const visibleProject = p?.id;
   const [streamInterrupted, setStreamInterrupted] = useState(false);
   const [sourcesRevision, setSourcesRevision] = useState(0);
+  const [commentRevision, setCommentRevision] = useState(0);
   const [sessionDrafts, setSessionDrafts] = useState<(SessionDrafts & { project: string })>();
   const restoreThread = useCallback((thread: HTMLDivElement | null) => {
     const request = restore.current;
@@ -619,6 +623,7 @@ function App() {
         window.clearTimeout(interruption);
         setStreamInterrupted(false);
         setSourcesRevision(value => value + 1);
+        setCommentRevision(value => value + 1);
       };
       connection.onerror = () => {
         if (!currentConnection()) return;
@@ -632,6 +637,7 @@ function App() {
         if (!currentConnection()) return;
         showDrafts(JSON.parse(event.data) as SessionDrafts);
         setSourcesRevision(value => value + 1);
+        setCommentRevision(value => value + 1);
         void sync();
       });
       connection.addEventListener("draft.delta", event => {
@@ -652,6 +658,9 @@ function App() {
       });
       connection.addEventListener("sources.changed", () => {
         if (currentConnection()) setSourcesRevision(value => value + 1);
+      });
+      connection.addEventListener("comments.changed", () => {
+        if (currentConnection()) setCommentRevision(value => value + 1);
       });
       connection.addEventListener("access-ended", () => {
         if (!currentConnection()) return;
@@ -1079,6 +1088,9 @@ function App() {
     </>
   );
   const visiblePage = routePanel && !dialogPanel;
+  const canvasArtifact = !visiblePage && canvasTarget
+    ? p?.artifacts.find(artifact => artifact.id === canvasTarget && artifact.reviewNotesReadable && !artifact.draftBlock)
+    : undefined;
   const recentProjects = [...list].sort((a, b) => {
     const order = (id: string) => { const i = recent.current.indexOf(id); return i < 0 ? Number.MAX_SAFE_INTEGER : i; };
     return order(a.id) - order(b.id);
@@ -1096,7 +1108,7 @@ function App() {
         onNew={newConversation} onSearch={() => setCommandsOpen(true)}
         openPage={openPage} openProject={openProject} page={routePanel} current={current.current}
         projects={recentProjects} userName={user.name} admin={user.role === "admin"} theme={theme} toggleTheme={toggleTheme} />
-      <div className="workspace-area">
+      <div className={"workspace-area" + (canvasArtifact ? " with-artifact-canvas" : "")}>
         {visiblePage ? (
           <main className="workspace-page" aria-label={title}>
             <header className="workspace-page-header">
@@ -1131,6 +1143,8 @@ function App() {
                 key={p.id}
                 threadRef={restoreThread}
                 sourcesRevision={sourcesRevision}
+                canvasArtifact={canvasArtifact?.id}
+                openArtifact={setCanvasTarget}
                 drafts={sessionDrafts?.project === p.id && sessionDrafts.run === p.run?.id ? sessionDrafts.drafts : []}
                 uploadedPins={planningUpload?.project === p.id ? planningUpload.pins : undefined}
                 planningSubmitted={(pins) => setPlanningUpload(current => current?.pins === pins ? null : current)}
@@ -1425,6 +1439,14 @@ function App() {
               </div>
             </form>
           </main>
+          {p && canvasArtifact && (
+            <Suspense fallback={<p role="status">正在打开成果…</p>}>
+              <ArtifactCanvas key={canvasArtifact.id} project={p} artifact={canvasArtifact} user={user}
+                commentRevision={commentRevision} draft={revisions[p.id]?.[canvasArtifact.id]}
+                update={(next, expected) => changeRevision(p.id, canvasArtifact.id, next, expected)}
+                refresh={refresh} close={() => setCanvasTarget("")} />
+            </Suspense>
+          )}
           </>
         )}
       </div>

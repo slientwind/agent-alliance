@@ -18,17 +18,25 @@ try {
       };
     });
     const id = "2b40fe15-8725-45cf-9576-5661de125cb5";
+    const artifact = {
+      id: "artifact-1", name: "采购成果", ordinal: 1, version: 2, body: "采购成果第二版", file: null,
+      approved: false, reviewNotesReadable: true, feedback: [], sourceChanges: [],
+    };
     const project = {
       id, title: "采购报价核对", stage: "brief", revision: 1, owner: "member", reviewer: "member", team: "team", planVersion: 0,
-      messages: [{ seq: 1, kind: "user", body: "整理报价表" }], artifacts: [],
+      messages: [{ seq: 1, kind: "user", body: "整理报价表" }], artifacts: [artifact],
       participants: [{ id: "member", name: "林予", role: "owner", canReview: true, canViewCosts: true, enabled: true }], handoffs: [],
       sharedAgents: [], deliveries: [], distributionCases: [], budget: { warning: false, pending: 0 }, costSummary: {},
       run: null, suggestion: null, plan: null,
     };
     const collaborationRequests = [];
+    const commentRequests = [];
+    const comments = [];
     await page.route("**/api/**", (route) => {
       const request = route.request();
-      const path = new URL(request.url()).pathname;
+      const url = new URL(request.url());
+      const path = url.pathname;
+      const artifactPath = "/api/projects/" + id + "/artifacts/" + artifact.id;
       if (path.endsWith("/session-events") || path.endsWith("/events")) {
         return route.fulfill({ contentType: "text/event-stream", body: ": ready\n\n" });
       }
@@ -42,6 +50,24 @@ try {
         collaborationRequests.push(request.postDataJSON());
         project.participants.pop();
         project.revision++;
+        return route.fulfill({ status: 204 });
+      }
+      if (path === artifactPath + "/versions") {
+        const versions = [{ version: 2, body: artifact.body, file: null }, { version: 1, body: "采购成果第一版", file: null }];
+        return route.fulfill({ json: url.searchParams.has("version") ? versions.filter(entry => entry.version === Number(url.searchParams.get("version"))) : versions });
+      }
+      if (path === artifactPath + "/comments") {
+        if (request.method() === "POST") {
+          const input = request.postDataJSON();
+          commentRequests.push(input);
+          comments.push({ id: "comment-1", author: "member", authorName: "林予", anchor: input.anchor, body: input.body, revision: 1 });
+          return route.fulfill({ status: 201, json: comments[0] });
+        }
+        return route.fulfill({ json: { comments: url.searchParams.get("version") === "2" ? comments : [] } });
+      }
+      if (path === artifactPath + "/comments/comment-1" && request.method() === "PATCH") {
+        commentRequests.push(request.postDataJSON());
+        comments[0].resolvedAt = new Date().toISOString();
         return route.fulfill({ status: 204 });
       }
       const data = {
@@ -90,6 +116,25 @@ try {
     assert.deepEqual(collaborationRequests, [{ email: "colleague@example.invalid", role: "reviewer", expected: 1 }, { expected: 2 }]);
     await checkWidth();
     await collaboration.getByRole("button", { name: "关闭协作成员" }).click();
+    await page.getByRole("button", { name: "打开成果 采购成果" }).click();
+    const canvas = page.getByRole("complementary", { name: "采购成果" });
+    await canvas.getByText("采购成果第二版", { exact: true }).waitFor();
+    await checkWidth();
+    await canvas.getByLabel("段落编号").fill("1");
+    await canvas.getByLabel("评论", { exact: true }).fill("请核对数字");
+    await canvas.getByRole("button", { name: "发送评论" }).click();
+    await canvas.getByText("请核对数字", { exact: true }).waitFor();
+    await canvas.getByRole("button", { name: "标记已解决" }).click();
+    await canvas.getByText("已解决", { exact: true }).waitFor();
+    assert.deepEqual(commentRequests, [
+      { expected_version: 2, anchor: { kind: "paragraph", index: 1 }, body: "请核对数字" },
+      { expected_revision: 1, resolved: true },
+    ]);
+    await canvas.getByLabel("成果版本").selectOption("1");
+    await canvas.getByText("采购成果第一版", { exact: true }).waitFor();
+    assert.equal(await canvas.getByRole("button", { name: "发送评论" }).count(), 0);
+    await canvas.getByRole("button", { name: "关闭成果面板" }).click();
+    await canvas.waitFor({ state: "detached" });
     await page.keyboard.press("Meta+n");
     await page.waitForURL("**/chat");
     const rail = page.locator(".workspace-shell");
@@ -135,7 +180,7 @@ try {
     assert.deepEqual(errors, []);
     await page.close();
   }
-  console.log("Workspace navigation, shortcuts, member collaboration, and theme persistence passed at desktop and mobile widths.");
+  console.log("Navigation, shortcuts, collaboration, live source updates, and the artifact panel passed at desktop and mobile widths.");
 } finally {
   await browser.close();
 }

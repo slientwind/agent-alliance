@@ -83,3 +83,14 @@ test("artifact revision conflicts show both versions and require explicit rebase
   assert.match(markup, /<button disabled="">保存新版本<\/button>/);
   assert.match(markup, /已核对新版，继续编辑草稿/);
 });
+
+test("the artifact panel offers anchors that match the file format", async () => {
+  const { artifactAnchorKind } = await server.ssrLoadModule("/src/artifact-canvas.tsx");
+  assert.equal(artifactAnchorKind(null), "paragraph");
+  assert.equal(artifactAnchorKind("分析.DOCX"), "paragraph");
+  assert.equal(artifactAnchorKind("采购.xlsx"), "row");
+  assert.equal(artifactAnchorKind("明细.csv"), "row");
+  assert.equal(artifactAnchorKind("汇报.pptx"), "page");
+  assert.equal(artifactAnchorKind("收据.pdf"), "page");
+  assert.equal(artifactAnchorKind("图片.png"), undefined);
+});

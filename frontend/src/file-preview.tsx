@@ -9,11 +9,12 @@ import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 export function canPreview(name: string, readable = false) {
   return readable || /\.(pdf|docx|xlsx|pptx|png|jpe?g|webp)$/i.test(name);
 }
-export function FilePreview({ url, name }: { url: string; name: string }) {
-  const [open, setOpen] = useState(false);
+export function FilePreview({ url, name, expanded = false }: { url: string; name: string; expanded?: boolean }) {
+  const [open, setOpen] = useState(expanded);
   return (
     <details
       className="file-preview"
+      open={open}
       onToggle={(e) => setOpen(e.currentTarget.open)}
     >
       <summary>预览 {name}</summary>

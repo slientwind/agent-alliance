@@ -50,6 +50,8 @@ type Props = {
   p: Project;
   threadRef: (thread: HTMLDivElement | null) => void;
   sourcesRevision: number;
+  canvasArtifact?: string;
+  openArtifact: (id: string) => void;
   drafts: DraftFragment[];
   uploadedPins?: PlanningPin[];
   planningSubmitted: (uploads?: PlanningPin[]) => void;
@@ -74,7 +76,7 @@ type Props = {
   reloadCatalog: () => Promise<void>;
 };
 export function Work({
-  p, threadRef, sourcesRevision, drafts, uploadedPins, planningSubmitted,
+  p, threadRef, sourcesRevision, canvasArtifact, openArtifact, drafts, uploadedPins, planningSubmitted,
   revisions,
   changeRevision,
   budgetDraft,
@@ -1028,6 +1030,10 @@ export function Work({
           <h2>
             {a.name} · v{a.version}
           </h2>
+          {a.reviewNotesReadable && !a.draftBlock && <button type="button"
+            aria-label={"打开成果 " + a.name} aria-pressed={canvasArtifact === a.id} onClick={() => openArtifact(a.id)}>
+            打开成果
+          </button>}
           {a.draftBlock ? (
             <p role="status">{a.draftBlock === "preference" ? "生成此候选时使用的个人偏好已失效。" : "生成此候选时使用的团队规则已失效。"}
               {p.owner === user.id ? "请核对重做范围。" : "请由项目发起人核对重做范围。"}</p>
@@ -1123,7 +1129,7 @@ export function Work({
             busy={busy}
             perform={perform}
           />
-          {!a.draftBlock && <ArtifactEditor
+          {!a.draftBlock && canvasArtifact !== a.id && <ArtifactEditor
             project={p}
             artifact={a}
             draft={revisions?.[a.id]}

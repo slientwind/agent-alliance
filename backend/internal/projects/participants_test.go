@@ -209,6 +209,13 @@ func TestTaskCollaborationRolesAndRevocationPostgres(t *testing.T) {
 	invite(owner, nominee, "contributor", 204)
 	expectRole(nominee, "contributor", false)
 	t.Run("versioned lightweight comments outside review", func(t *testing.T) {
+		subscription, err := server.Client().Do(streamReq.Clone(ctx))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer subscription.Body.Close()
+		events = bufio.NewScanner(subscription.Body)
+		waitForEvent("session.snapshot")
 		path := "/artifacts/" + artifact + "/comments"
 		payload := map[string]any{"expected_version": 1, "anchor": commentAnchor{Kind: "paragraph", Index: 1}, "body": "请核对这一段"}
 		created := request(http.MethodPost, path, nominee, payload, 201)
@@ -216,8 +223,10 @@ func TestTaskCollaborationRolesAndRevocationPostgres(t *testing.T) {
 		if err := json.Unmarshal(created.Body.Bytes(), &comment); err != nil || comment.Revision != 1 || comment.Author != nominee {
 			t.Fatalf("unexpected comment: %s", created.Body)
 		}
+		waitForEvent("comments.changed")
 		request(http.MethodGet, path+"?version=1", reviewer, nil, 200)
 		request(http.MethodPatch, path+"/"+comment.ID, reviewer, map[string]any{"resolved": true, "expected_revision": 1}, 204)
+		waitForEvent("comments.changed")
 		request(http.MethodPatch, path+"/"+comment.ID, nominee, map[string]any{"resolved": false, "expected_revision": 1}, 409)
 		resolved := request(http.MethodGet, path+"?version=1", nominee, nil, 200)
 		var page struct{ Comments []artifactComment }
