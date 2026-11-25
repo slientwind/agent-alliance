@@ -96,8 +96,8 @@
     2. **受控只读 SQL / 数仓连接器**：支持 MySQL、PostgreSQL、ClickHouse、StarRocks 只读账号，内置 SQL AST 语法校验器（强制只允许 `SELECT`、自动注入行数上限与 5 秒查询超时、阻断系统元数据探测）；
     3. **OpenAPI / Swagger 3.0 导入向导**：解析内部自研老系统接口文档自动生成受控工具定义；
     4. **内网受控只读浏览器表格采集兜底**。
-- [ ] **受控业务语义视图层（Semantic Layer）**
-  - [ ] 新增 `semantic_data_views`：封装核定好的业务维度、统计指标公式与关联关系，向通用 Agent 暴露业务语义视图而非底层裸表；每次取数自动生成结构化 **`QueryProvenance`（数据源、语义视图、时间范围、权限过滤说明、指标公式）**。
+- [x] **受控业务语义视图层（Semantic Layer）**
+  - [x] 新增 `semantic_data_views`：封装核定好的业务维度、统计指标公式与关联关系，向通用 Agent 暴露业务语义视图而非底层裸表；每次取数自动生成结构化 **`QueryProvenance`（数据源、语义视图、时间范围、权限过滤说明、指标公式）**。
 - [ ] **OBO 用户级行权限（RLS）与 L2 两阶段幂等写回对账**
   - [ ] 实现员工级 OAuth2 On-Behalf-Of 令牌加密托管与 `employee_no / dept_id` 行级过滤谓词硬注入（模型参数不可覆盖），确保跨人查询零越权。
   - [ ] 新增 `pending_system_mutations` 表与 L2 写回执行器：任何写回 ERP/CRM/电商的操作必须先生成「原状态 → 拟变更值」预览确认卡挂起 Workflow，经人工在网页或飞书确认后携带唯一 `idempotency_key` 执行写回，持久化下游正式业务单号 `external_receipt_no` 并支持超时自动对账防重单。

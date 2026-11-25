@@ -36,6 +36,15 @@ func metricFormula(raw string) (string, bool) {
 	return formatted.String(), true
 }
 
+func ParseMetricFormula(raw string) (ast.Expr, string, bool) {
+	canonical, ok := metricFormula(raw)
+	if !ok {
+		return nil, "", false
+	}
+	expression, err := parser.ParseExpr(canonical)
+	return expression, canonical, err == nil
+}
+
 func validExpression(value ast.Expr, depth int, nodes *int) bool {
 	*nodes = *nodes + 1
 	if depth > 10 || *nodes > maxFormulaNodes {

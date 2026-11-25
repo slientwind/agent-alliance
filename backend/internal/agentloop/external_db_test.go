@@ -223,6 +223,11 @@ func TestExternalAgentDirectAndDelegatedPostgres(t *testing.T) {
 	}
 	exec(`insert into dlp_rules(id,kind,name,sensitivity,encrypted_match) values
 	 ($1,'custom_term','fixture internal code','secret',$2)`, keywordID, keywordCipher)
+	defer func() {
+		if _, err := db.Exec(context.Background(), "delete from dlp_rules where id=$1", keywordID); err != nil {
+			t.Errorf("remove fixture DLP rule: %v", err)
+		}
+	}()
 	_, deniedRun := start("do not export "+secretTerm, true)
 	advance(deniedRun, 1, TurnResult{Tools: 1})
 	execute(deniedRun, ToolResult{Done: true})

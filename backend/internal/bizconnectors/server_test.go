@@ -115,3 +115,55 @@ func TestManageConnectorsKeepsCredentialsAndRowsPrivate(t *testing.T) {
 		t.Fatalf("duplicate connector allowed rebinding: %v", err)
 	}
 }
+
+func TestSpaceSemanticViewsGuardDefaultFiltersAndRelations(t *testing.T) {
+	db := connectorTestDB(t)
+	space, actors := connectorSpace(t, db)
+	id := uuid.NewString()
+	op := []Operation{{Name: "daily", Description: "Daily records", Method: "GET", Path: "/daily", Risk: "read"}}
+	if _, err := db.Exec(t.Context(), `insert into business_connectors(id,space_id,category,driver,provider,name,endpoint,auth_mode,operations,maintainer)
+	 values($1,$2,'internal','openapi_rest','openapi','Fixture','https://operations.example.test','service',$3,$4)`, id, space, op, actors[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	s := Server{DB: db, HTTP: businessFixture(func(r *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`[
+		 {"group_id":"Store A","returned":3,"sold":9,"scope":"final","private":"route credential"},
+		 {"group_id":"Store A","returned":3,"sold":3,"scope":"draft"}
+		]`))}, nil
+	})}
+	related, view := uuid.NewString(), uuid.NewString()
+	fields := map[string]ViewField{"shop": {Source: "group_id", Label: "门店", Type: "string"}, "returns": {Source: "returned", Label: "退货量", Type: "integer"},
+		"sales": {Source: "sold", Label: "销售量", Type: "integer"}, "status": {Source: "scope", Label: "统计状态", Type: "string"}}
+	configuration := SemanticView{Connector: id, Name: "Sales", Description: "Approved data", Operation: "daily",
+		Dimensions: fields, Sensitivity: "internal", Enabled: true}
+	configure := func(view string, in SemanticView) {
+		t.Helper()
+		raw, _ := json.Marshal(in)
+		r := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(string(raw))).WithContext(t.Context())
+		r.SetPathValue("space", space)
+		r.SetPathValue("view", view)
+		if err := s.configureView(httptest.NewRecorder(), r, actors[0]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	configure(related, configuration)
+	configuration.Name = "Return rate"
+	configuration.Relationships = []Relationship{{Dimension: "shop", RelatedView: related, RelatedDimension: "shop"}}
+	configuration.Defaults = map[string]any{"status": "final"}
+	configuration.Metrics = map[string]Metric{"return_rate": {Label: "退货率", Formula: "sum(returns) / sum(sales)"}}
+	configure(view, configuration)
+	list, err := s.Views(t.Context(), space, actors[1].ID, false)
+	if err != nil || len(list) != 2 || list[0].Dimensions["shop"].Source != "" || len(list[0].Relationships) != 1 {
+		t.Fatalf("member view visibility: %+v %v", list, err)
+	}
+	result, err := s.QueryView(t.Context(), space, actors[1].ID, ViewQuery{View: view, Dimensions: []string{"shop"}, Metrics: []string{"return_rate"}})
+	if err != nil || len(result.Rows) != 1 || result.Rows[0]["return_rate"] != json.Number("0.33333333") || len(result.Rows[0]) != 2 {
+		t.Fatalf("incorrect verified metric or extra fields: %+v %v", result, err)
+	}
+	if _, err := s.QueryView(t.Context(), space, actors[1].ID, ViewQuery{View: view, Dimensions: []string{"shop"}, Filters: map[string]any{"status": "draft"}}); err != ErrBadQuery {
+		t.Fatalf("mandatory metric filter was replaceable: %v", err)
+	}
+	if _, err := s.QueryView(t.Context(), space, actors[2].ID, ViewQuery{View: view, Dimensions: []string{"shop"}}); err == nil {
+		t.Fatal("actor outside the space could read the view")
+	}
+}

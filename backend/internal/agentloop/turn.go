@@ -1,6 +1,7 @@
 package agentloop
 
 import (
+	"alliance/internal/bizconnectors"
 	"alliance/internal/capability"
 	"alliance/internal/database"
 	"alliance/internal/ecosystem"
@@ -38,6 +39,7 @@ type Activities struct {
 	KBInference   knowledge.KBInference
 	MCP           *mcphub.Runtime
 	BrandRenderer *sandbox.BrandRenderer
+	Business      *bizconnectors.Server
 	Search        *websearch.Runtime
 	Hot           hotstream.Publisher
 	Gateway       interface {
@@ -171,6 +173,9 @@ func (a Activities) AdvanceTurn(ctx context.Context, ref TurnRef) (TurnResult, e
 		return result, err
 	}
 	request := llmgateway.Request{Tier: d.tier, Messages: messages, Tools: modelTools(d.capabilities), ProviderHistory: native}
+	if err := a.addBusinessTools(ctx, ref, d, &request); err != nil {
+		return TurnResult{}, err
+	}
 	choices, err := delegateChoices(ctx, a.DB, ref.RunID, "")
 	if err != nil {
 		return TurnResult{}, err
@@ -230,6 +235,9 @@ func (a Activities) AdvanceTurn(ctx context.Context, ref TurnRef) (TurnResult, e
 		OperationKey: runScope(ref.RunID, ref.Turn), TeamID: d.team, MemberID: d.actor, RunID: ref.RunID, Turn: ref.Turn,
 	}
 	if err := a.attachKnowledgeContext(ctx, ref, d, &call); err != nil {
+		return TurnResult{}, err
+	}
+	if err := a.attachBusinessProtection(ctx, ref, d, &call); err != nil {
 		return TurnResult{}, err
 	}
 	model, callErr := a.Gateway.Call(ctx, call, request)

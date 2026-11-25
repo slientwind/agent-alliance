@@ -188,6 +188,7 @@ func readBusinessRows(raw any, path []string, maximum int) (ReadResult, error) {
 	default:
 		return out, ErrUnavailable
 	}
+	out.Truncated = len(rows) > maximum
 	columns := make(map[string]bool)
 	for _, rawRow := range rows[:min(len(rows), maximum)] {
 		row, ok := rawRow.(map[string]any)
@@ -236,11 +237,41 @@ func (s Server) read(ctx context.Context, c Connector, credentials Credentials, 
 	if err != nil {
 		return ReadResult{}, err
 	}
+	more := paginatedBusinessResponse(body, 0)
 	if c.Driver == "saas_pack" {
 		body, err = saasReply(c, op, body)
 		if err != nil {
 			return ReadResult{}, err
 		}
 	}
-	return readBusinessRows(body, op.ResultPath, normalizeLimit(input.Limit))
+	result, err := readBusinessRows(body, op.ResultPath, normalizeLimit(input.Limit))
+	result.Truncated = result.Truncated || more
+	return result, err
+}
+
+func paginatedBusinessResponse(raw any, depth int) bool {
+	object, ok := raw.(map[string]any)
+	if !ok || depth > 4 {
+		return false
+	}
+	for key, value := range object {
+		switch key {
+		case "done", "isLast":
+			if value == false {
+				return true
+			}
+		case "has_more", "has_next", "hasNext", "hasNextPage", "has_next_page":
+			if value == true {
+				return true
+			}
+		case "next_page_token", "nextRecordsUrl":
+			if text, ok := value.(string); ok && text != "" {
+				return true
+			}
+		}
+		if nested, ok := value.(map[string]any); ok && paginatedBusinessResponse(nested, depth+1) {
+			return true
+		}
+	}
+	return false
 }

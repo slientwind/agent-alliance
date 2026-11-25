@@ -1,6 +1,7 @@
 package agentloop
 
 import (
+	"alliance/internal/bizconnectors"
 	"alliance/internal/brandkit"
 	"alliance/internal/capability"
 	"alliance/internal/database"
@@ -62,6 +63,11 @@ func (tool registeredTool) definition() resources.ToolDefinition {
 }
 
 func lookupTool(name string) registeredTool {
+	for _, tool := range businessTools {
+		if tool.name == name {
+			return tool
+		}
+	}
 	for _, tool := range registeredTools {
 		if tool.name == name {
 			return tool
@@ -82,6 +88,7 @@ type toolWork struct {
 	brand                          *brandkit.Template
 	brandSpace                     string
 	document                       documentInput
+	business                       *bizconnectors.QueryProvenance
 }
 
 func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, error) {
@@ -285,6 +292,8 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		reply.Text = string(observation)
 	} else if task.name == searchTool.Function.Name {
 		reply, toolErr = a.searchWeb(ctx, ref.RunID, task.args)
+	} else if task.name == businessViewList || task.name == businessViewQuery {
+		reply, task.business, toolErr = a.executeBusinessTool(ctx, ref, task)
 	} else if lookupTool(task.name).cap == capability.Images {
 		reply, toolErr = a.imageAction(ctx, ref, task)
 	} else if task.brand != nil {
@@ -307,6 +316,14 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		}
 		if toolErr != nil {
 			return a.recordObservation(ctx, tx, ref, "rejected", "工具未完成。", "", "", recoverToolObservation(task.name, toolErr))
+		}
+		if task.business != nil {
+			if err := a.recordBusinessProvenance(ctx, tx, ref, d, *task.business); err != nil {
+				if errors.Is(err, policy.ErrDenied) {
+					return a.recordObservation(ctx, tx, ref, "rejected", "取数权限已变化。", "", "")
+				}
+				return err
+			}
 		}
 		if task.brand != nil {
 			active, err := brandkit.Resolve(ctx, tx, task.brandSpace, d.actor, task.brand.Format, task.brand.ID)

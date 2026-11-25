@@ -76,8 +76,9 @@ type ReadRequest struct {
 }
 
 type ReadResult struct {
-	Columns []string         `json:"columns,omitempty"`
-	Rows    []map[string]any `json:"rows"`
+	Columns   []string         `json:"columns,omitempty"`
+	Rows      []map[string]any `json:"rows"`
+	Truncated bool             `json:"truncated,omitempty"`
 }
 
 var (

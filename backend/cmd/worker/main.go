@@ -4,6 +4,7 @@ import (
 	"alliance/internal/agentloop"
 	"alliance/internal/app"
 	"alliance/internal/automations"
+	"alliance/internal/bizconnectors"
 	"alliance/internal/ecosystem"
 	"alliance/internal/egress"
 	"alliance/internal/hotstream"
@@ -89,6 +90,8 @@ func main() {
 	gateway := app.ModelGateway(catalog)
 	general := agentloop.Activities{Planned: &a, Intake: intake.Server{DB: catalog.DB, Vault: catalog.Vault, Gateway: gateway}, DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Gateway: gateway, Hot: projectStream}
 	general.KBInference = knowledge.ConfiguredKBInference()
+	general.Business = &bizconnectors.Server{DB: catalog.DB, Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB},
+		BrowserURL: os.Getenv("BUSINESS_BROWSER_URL"), BrowserKey: os.Getenv("CONNECTOR_TOKEN")}
 	general.MCP = &mcphub.Runtime{DB: catalog.DB, Client: mcphub.Client{Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB}}}
 	if socket, root := os.Getenv("BRAND_RENDERER_SOCKET"), os.Getenv("BRAND_TEMPLATE_ROOT"); socket != "" && root != "" {
 		general.BrandRenderer = &sandbox.BrandRenderer{Pool: sandbox.Pool{DB: catalog.DB}, Objects: knowledge.ConfiguredObjects(), Root: root, Socket: socket}

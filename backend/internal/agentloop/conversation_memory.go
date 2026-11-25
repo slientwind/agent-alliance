@@ -40,6 +40,7 @@ func previousEpisodes(ctx context.Context, tx pgx.Tx, run string, offset, limit 
 		join artifact_versions v on (v.artifact_id,v.version)=(a.id,a.current_version)
 		where g.goal_message_seq=recent.seq and general_memory_origin_readable($1,previous.id,a.id,v.version)
 		  and general_delegate_observations_usable(previous.id)
+		  and not exists(select from business_query_provenance where run_id=previous.id)
 		order by previous.created_at desc,previous.id desc limit 1
 	) answer on true order by recent.seq desc`, run, offset, limit, maxModelTurns*maxToolsPerTurn+1)
 	if err != nil {

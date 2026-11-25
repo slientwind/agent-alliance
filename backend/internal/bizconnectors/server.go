@@ -32,6 +32,8 @@ func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("PUT "+root+"/{connector}", auth.Protect(false, s.configure))
 	mux.Handle("POST "+root+"/{connector}/test", auth.Protect(false, s.test))
 	mux.Handle("POST /api/spaces/{space}/business/openapi/import", auth.Protect(false, s.importOpenAPI))
+	mux.Handle("GET /api/spaces/{space}/business/views", auth.Protect(false, s.listViews))
+	mux.Handle("PUT /api/spaces/{space}/business/views/{view}", auth.Protect(false, s.configureView))
 }
 
 const safeColumns = `c.id,c.space_id,c.category,c.driver,c.provider,c.name,
