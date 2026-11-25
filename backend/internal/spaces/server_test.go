@@ -66,7 +66,7 @@ func TestSpaceModelAndScopedRoutesPostgres(t *testing.T) {
 	}
 
 	owner, outsider, guest, team := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
-	private, shared := uuid.NewString(), uuid.NewString()
+	var private, shared string
 	tokens := make(map[string]string)
 	for id, role := range map[string]string{owner: "member", outsider: "admin", guest: "member"} {
 		exec("insert into members(id,email,display_name,password_hash,role) values($1,$2,'Fixture','unused',$3)", id, id+"@example.test", role)
@@ -74,12 +74,14 @@ func TestSpaceModelAndScopedRoutesPostgres(t *testing.T) {
 		exec("insert into sessions(token_hash,member_id,expires_at) values($1,$2,now()+interval '5 minutes')", web.Hash(tokens[id]), id)
 	}
 	exec("insert into teams(id,name) values($1,$2)", team, team)
-	exec(`insert into spaces(id,kind,owner_member_id,slug,name,custom_instructions)
-		values($1,'personal',$2,$1::uuid::text,'私人工作','PRIVATE-FIXTURE')`, private, owner)
-	exec(`insert into spaces(id,kind,team_id,slug,name,custom_instructions,default_template_id)
-		values($1,'team',$2,$1::uuid::text,'采购团队','TEAM-INTERNAL',$3)`, shared, team, uuid.NewString())
-	exec(`insert into spaces(kind,slug,name) values('commons','commons','全企公共底座')
-		on conflict do nothing`)
+	if err := db.QueryRow(ctx, "select id from spaces where kind='personal' and owner_member_id=$1", owner).Scan(&private); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(ctx, "select id from spaces where kind='team' and team_id=$1", team).Scan(&shared); err != nil {
+		t.Fatal(err)
+	}
+	exec("update spaces set name='私人工作',custom_instructions='PRIVATE-FIXTURE' where id=$1", private)
+	exec("update spaces set name='采购团队',custom_instructions='TEAM-INTERNAL',default_template_id=$2 where id=$1", shared, uuid.NewString())
 	exec("insert into space_members(space_id,member_id,role) values($1,$2,'space_admin'),($1,$3,'guest')", shared, owner, guest)
 	reject("23514", "insert into spaces(kind,slug,name) values('personal',$1,'不合规')", uuid.NewString())
 	reject("23505", "insert into spaces(kind,owner_member_id,slug,name) values('personal',$1,$2,'重复')", owner, uuid.NewString())

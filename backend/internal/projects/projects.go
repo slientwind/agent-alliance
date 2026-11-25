@@ -7,6 +7,7 @@ import (
 	"alliance/internal/resources"
 	"alliance/internal/web"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -32,6 +33,8 @@ type Project struct {
 	PlanVersion int    `json:"planVersion"`
 	Owner       string `json:"owner"`
 	Reviewer    string `json:"reviewer"`
+	SpaceID     string `json:"spaceId"`
+	SpaceKind   string `json:"spaceKind"`
 	IsPartial   bool   `json:"isPartial,omitempty"`
 }
 
@@ -69,6 +72,7 @@ const remoteSummarySQL = `(select jsonb_build_object('step',j.ordinal,'state',i.
    order by q.created_at desc,q.id desc limit 1) last_input on true
  where(j.run_id,j.ordinal)=(i.run_id,i.ordinal))`
 const fields = "p.id,p.title,p.stage,p.revision,p.plan_version,p.owner,p.final_reviewer"
+const spaceFields = ",p.space_id,(select s.kind from spaces s where s.id=p.space_id)"
 const access = " from projects p join project_members m on m.project_id=p.id where m.member_id=$1 "
 
 func (s Server) Routes(m *http.ServeMux, g identity.Server) {
@@ -155,8 +159,8 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 }
 func lock(ctx context.Context, tx pgx.Tx, id, actor string) (Project, error) {
 	var p Project
-	err := tx.QueryRow(ctx, "select "+fields+access+"and p.id=$2 for update of p", actor, id).Scan(&p.ID, &p.Title, &p.Stage, &p.Revision, &p.PlanVersion, &p.Owner, &p.Reviewer)
-	if err == nil && actor != p.Owner {
+	err := tx.QueryRow(ctx, "select "+fields+spaceFields+access+"and p.id=$2 for update of p", actor, id).Scan(&p.ID, &p.Title, &p.Stage, &p.Revision, &p.PlanVersion, &p.Owner, &p.Reviewer, &p.SpaceID, &p.SpaceKind)
+	if err == nil {
 		// A request waiting on the project lock may predate a membership removal.
 		err = tx.QueryRow(ctx, "select 1 from project_members where project_id=$1 and member_id=$2", p.ID, actor).Scan(new(int))
 	}
@@ -172,10 +176,10 @@ func Touch(ctx context.Context, tx pgx.Tx, id, stage string) error {
 }
 func (s Server) create(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	var in struct {
-		Goal, Team, Agent string
-		AgentRevision     int
-		Agents            []string
-		AgentRevisions    []int
+		Goal, Team, Space, Agent string
+		AgentRevision            int
+		Agents                   []string
+		AgentRevisions           []int
 	}
 	if err := web.Read(r, &in); err != nil {
 		return err
@@ -205,7 +209,19 @@ func (s Server) create(w http.ResponseWriter, r *http.Request, u identity.Member
 	ctx := r.Context()
 	err := database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {
 		var err error
-		id, err = CreateProjectDraft(ctx, tx, u.ID, in.Team, goal)
+		space := in.Space
+		if space != "" {
+			if _, err := uuid.Parse(space); err != nil {
+				return web.Fail(404, "找不到此空间")
+			}
+		} else if in.Team == "" && len(in.Agents) == 0 {
+			err := tx.QueryRow(ctx, `select s.id from spaces s
+				where s.kind='personal' and s.owner_member_id=$1 and space_role(s.id,$1) is not null`, u.ID).Scan(&space)
+			if err != nil {
+				return err
+			}
+		}
+		id, err = createProjectDraft(ctx, tx, u.ID, in.Team, space, goal)
 		if err != nil || in.Agents == nil {
 			return err
 		}
@@ -218,18 +234,41 @@ func (s Server) create(w http.ResponseWriter, r *http.Request, u identity.Member
 }
 
 func CreateProjectDraft(ctx context.Context, tx pgx.Tx, actor, team, goal string) (string, error) {
+	return createProjectDraft(ctx, tx, actor, team, "", goal)
+}
+
+func createProjectDraft(ctx context.Context, tx pgx.Tx, actor, team, space, goal string) (string, error) {
+	if space != "" {
+		var kind string
+		var spaceTeam *string
+		err := tx.QueryRow(ctx, `select kind,team_id from spaces where id=$1 and kind in ('personal','team')
+			and space_role(id,$2) in ('space_admin','member') for share`, space, actor).Scan(&kind, &spaceTeam)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", web.Fail(404, "找不到此空间")
+		}
+		if err != nil {
+			return "", err
+		}
+		if kind == "team" {
+			if team != "" && team != *spaceTeam {
+				return "", web.Fail(422, "项目团队需要与当前空间一致")
+			}
+			team = *spaceTeam
+		}
+	}
+
 	title := []rune(goal)
 	if len(title) > 55 {
 		title = title[:55]
 	}
 	var id string
-	if err := tx.QueryRow(ctx, `insert into projects(owner, final_reviewer, team_id, title)
-select $1, $1, t.team_id, $2 from team_members t cross join enterprise e
+	if err := tx.QueryRow(ctx, `insert into projects(owner, final_reviewer, team_id, title, space_id)
+select $1, $1, t.team_id, $2, nullif($4,'')::uuid from team_members t cross join enterprise e
 where t.member_id=$1 and case when $3<>'' then t.team_id=nullif($3,'')::uuid
     else t.team_id=e.default_team or not exists(
         select from team_members other where other.member_id=$1 and other.team_id<>t.team_id
     ) end
-for share of t returning id`, actor, string(title), team).Scan(&id); err != nil {
+for share of t returning id`, actor, string(title), team, space).Scan(&id); err != nil {
 		if err == pgx.ErrNoRows {
 			if team == "" {
 				var joined bool
@@ -250,9 +289,15 @@ for share of t returning id`, actor, string(title), team).Scan(&id); err != nil 
 	return id, Note(ctx, tx, id, "user", goal, actor)
 }
 func (s Server) list(w http.ResponseWriter, r *http.Request, u identity.Member) error {
-	rows, err := s.DB.Query(r.Context(), "select "+fields+
+	space := r.URL.Query().Get("space")
+	if space != "" {
+		if _, err := uuid.Parse(space); err != nil {
+			return web.Fail(404, "找不到此空间")
+		}
+	}
+	rows, err := s.DB.Query(r.Context(), "select "+fields+spaceFields+
 		",(p.stage='delivered' and coalesce((select d.partial from deliveries d where d.project_id=p.id order by d.edition desc limit 1),false))"+
-		access+"order by p.updated_at desc", u.ID)
+		access+"and ($2='' or p.space_id=nullif($2,'')::uuid) order by p.updated_at desc", u.ID, space)
 	if err != nil {
 		return err
 	}
@@ -262,6 +307,7 @@ func (s Server) list(w http.ResponseWriter, r *http.Request, u identity.Member) 
 	}
 	return web.JSON(w, 200, items)
 }
+
 func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	ctx := r.Context()
 	id := r.PathValue("id")
@@ -273,7 +319,7 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
  feedback_notes_readable(f,$1) end as notes_readable
  from feedback f join artifact_access rights on rights.id=f.artifact_id
  ) select jsonb_build_object('id',p.id,'title',p.title,'stage',p.stage,'revision',p.revision,'planVersion',p.plan_version,'owner',p.owner,'reviewer',p.final_reviewer,'canReview',m.can_review,'canViewCosts',(m.can_view_costs or p.owner=$1),
- 'team',p.team_id,'workflowTemplate',`+projectWorkflowTemplateSQL+`,
+ 'team',p.team_id,'spaceId',p.space_id,'spaceKind',(select kind from spaces where id=p.space_id),'workflowTemplate',`+projectWorkflowTemplateSQL+`,
  'sharedAgents',array(select jsonb_build_object('id',g.agent_id,'name',v.name,'publishedName',v.name,'publishedOperation',agent_output_operation(v),'publishedLookup',v.resource_id is not null and agent_output_operation(v)='text' and not agent_uses_picture(v),'publishedVision',agent_uses_picture(v) and not agent_edits_picture(v),'publishedImageEdit',agent_edits_picture(v),'publishedOutline',coalesce(v.tool @> '{"operation":"pptx","contract":"pptx-outline-v1"}'::jsonb,false),'published',g.revision,'publishedReady',project_agent_admissible(p.id,g.agent_id,g.revision,$1)) from effective_project_agent_grants g join agent_revisions v on(v.agent_id,v.revision)=(g.agent_id,g.revision) where g.project_id=p.id and not project_agent_access(null,g.agent_id,g.revision,$1) order by v.name,g.agent_id),
  'adoption',(select jsonb_build_object('actor',member.display_name,'at',a.at) from answer_adoptions a join members member on member.id=a.actor where a.project_id=p.id),
  'distributionCases',`+distributionCasesSQL+`,'deliveries',array(select jsonb_build_object('id',d.id,'edition',d.edition,'time',d.created_at,'isPartial',d.partial,'distribution',distribution_state(d.id),'handoff',case when distribution_state(d.id) in('clear','reference') then d.handoff else '{}'::jsonb end) from deliveries d where d.project_id=p.id order by d.edition desc),
@@ -497,6 +543,9 @@ func (s Server) participant(w http.ResponseWriter, r *http.Request, u identity.M
 		p, err := lock(ctx, tx, r.PathValue("id"), u.ID)
 		if err != nil {
 			return err
+		}
+		if p.SpaceKind == "personal" {
+			return web.Fail(409, "请先将选定成果发布到团队空间，再邀请同事协作")
 		}
 		if p.Owner != u.ID && (in.Role != "" || !in.Final || p.Reviewer != u.ID) {
 			return web.Fail(403, "需要项目邀请或最终确认转交权限")

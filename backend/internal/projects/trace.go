@@ -139,7 +139,7 @@ func traceExcerpt(value *string) *string {
 func (s Server) monitorTrace(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
 	var project string
 	if err := s.DB.QueryRow(r.Context(), `select r.project_id from runs r join project_members m on m.project_id=r.project_id
-	 where r.id=$1 and m.member_id=$2`, r.PathValue("run"), actor.ID).Scan(&project); err != nil {
+	 where r.id=$1 and m.member_id=$2 and not personal_project(r.project_id)`, r.PathValue("run"), actor.ID).Scan(&project); err != nil {
 		return err
 	}
 	r.SetPathValue("id", project)

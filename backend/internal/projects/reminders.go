@@ -43,7 +43,7 @@ func (s Server) reminders(w http.ResponseWriter, r *http.Request, u identity.Mem
 		rows, err := tx.Query(ctx, `select c.project_id,p.title,c.kind,c.name,c.version,c.clock,c.clock_revision,t.phase,c.opened_at,c.original_due,c.due_at,
            now()>=c.due_at,c.owner=$1,c.subject,c.revision,c.ordinal,$1=any(c.recipients),array(select m.display_name from members m where m.id=any(c.recipients) order by m.display_name,m.id)
            from review_reminder_targets t join live_review_clocks c using(clock,clock_revision,project_id) join projects p on p.id=c.project_id
-           where t.recipient=$1 order by c.due_at,p.id,c.ordinal,c.clock`, u.ID)
+           where t.recipient=$1 and project_space_member(p.id,$1) order by c.due_at,p.id,c.ordinal,c.clock`, u.ID)
 		if err != nil {
 			return err
 		}

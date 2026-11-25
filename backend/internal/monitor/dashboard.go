@@ -86,7 +86,7 @@ func (s Server) activeQueue(w http.ResponseWriter, r *http.Request, actor identi
 	var data json.RawMessage
 	if err := s.DB.QueryRow(r.Context(), `with active as materialized (
 	 select r.id,r.created_at,r.status,p.team_id,p.id as project_id,
-	  case when exists(select from project_members m where m.project_id=p.id and m.member_id=$1) then p.title end as title
+	  case when not personal_project(p.id) and exists(select from project_members m where m.project_id=p.id and m.member_id=$1) then p.title end as title
 	 from runs r join projects p on p.id=r.project_id where r.status in ('queued','running','blocked','reconcile','paused')
 	 and ($2::uuid is null or p.team_id=$2)
 	), counts as (select status,count(*) n from active group by status),
@@ -112,7 +112,7 @@ func (s Server) agentRuns(w http.ResponseWriter, r *http.Request, actor identity
 	 'projectId',r.project_id,'title',r.title) order by r.created_at desc,r.id),'[]') from (
 	 select r.id,r.status,r.created_at,r.project_id,p.title from runs r join projects p on p.id=r.project_id
 	 join project_members m on m.project_id=r.project_id and m.member_id=$1
-	 where r.created_at>=$3 and r.created_at<$4 and ($5::uuid is null or p.team_id=$5) and (
+	 where not personal_project(p.id) and r.created_at>=$3 and r.created_at<$4 and ($5::uuid is null or p.team_id=$5) and (
 	  exists(select from effective_run_nodes n where n.run_id=r.id and n.agent_id=$2) or
 	  exists(select from model_gateway_attempts a where a.run_id=r.id and a.agent_id=$2))
 	 order by r.created_at desc,r.id limit 25) r`, actor.ID, r.PathValue("id"),

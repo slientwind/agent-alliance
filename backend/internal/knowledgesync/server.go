@@ -53,7 +53,7 @@ type sourceView struct {
 func (s Server) list(w http.ResponseWriter, r *http.Request, _ identity.Member) error {
 	rows, err := s.DB.Query(r.Context(), `select k.id,k.provider,k.name,k.settings,k.project_id,p.title,
 		k.encrypted_credentials is not null,k.enabled,k.revision,k.status,k.verdict,k.fetched_at,k.published_version
-		from enterprise_knowledge_sources k join projects p on p.id=k.project_id order by k.name,k.id`)
+		from enterprise_knowledge_sources k join projects p on p.id=k.project_id where not personal_project(p.id) order by k.name,k.id`)
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func (s Server) list(w http.ResponseWriter, r *http.Request, _ identity.Member) 
 func (s Server) targets(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
 	var out []byte
 	err := s.DB.QueryRow(r.Context(), `select coalesce(jsonb_agg(jsonb_build_object('id',id,'title',title) order by title,id),'[]')
-		from projects p where p.owner=$1 and exists(select from project_members pm where (pm.project_id,pm.member_id)=(p.id,p.owner))`, actor.ID).Scan(&out)
+		from projects p where p.owner=$1 and not personal_project(p.id) and exists(select from project_members pm where (pm.project_id,pm.member_id)=(p.id,p.owner))`, actor.ID).Scan(&out)
 	if err != nil {
 		return err
 	}
@@ -193,7 +193,7 @@ func lockTarget(ctx context.Context, tx pgx.Tx, project, actor string, requireOw
 	var member bool
 	err := tx.QueryRow(ctx, `select p.owner,exists(select from project_members pm join members m on m.id=pm.member_id
 		where (pm.project_id,pm.member_id)=(p.id,$2) and m.enabled and m.kind='person')
-		from projects p where p.id=$1 for update`, project, actor).Scan(&owner, &member)
+		from projects p where p.id=$1 and not personal_project(p.id) for update`, project, actor).Scan(&owner, &member)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && requireOwner && (owner != actor || !member)) {
 		return web.Fail(404, "请选择由你负责的项目")
 	}

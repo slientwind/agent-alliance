@@ -28,7 +28,7 @@ func (s Server) recoveryList(w http.ResponseWriter, r *http.Request, u identity.
  left join lateral(select h.* from reviewer_handoffs h where h.project_id=p.id and h.recovery_until>statement_timestamp() and h.access_ended_at is null
  and (h.state='pending' or (h.state='accepted' and h.id=p.reviewer_assignment)) order by (h.state='pending') desc limit 1)h on true
  left join members candidate on candidate.id=h.successor left join members sponsor on sponsor.id=h.proposer
- where tm.member_id=$1 and ((me.role='admin' and (`+orphanProject+` or h.id is not null)) or h.successor=$1)`, u.ID).Scan(&out)
+ where tm.member_id=$1 and not personal_project(p.id) and ((me.role='admin' and (`+orphanProject+` or h.id is not null)) or h.successor=$1)`, u.ID).Scan(&out)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ type recoveryProject struct {
 
 func lockRecovery(ctx context.Context, tx pgx.Tx, id, actor string) (recoveryProject, error) {
 	var p recoveryProject
-	err := tx.QueryRow(ctx, `select p.team_id,p.final_reviewer,p.stage,p.revision from projects p join team_members tm on tm.team_id=p.team_id and tm.member_id=$2 where p.id=$1 for update of p for share of tm`, id, actor).Scan(&p.team, &p.reviewer, &p.stage, &p.revision)
+	err := tx.QueryRow(ctx, `select p.team_id,p.final_reviewer,p.stage,p.revision from projects p join team_members tm on tm.team_id=p.team_id and tm.member_id=$2 where p.id=$1 and not personal_project(p.id) for update of p for share of tm`, id, actor).Scan(&p.team, &p.reviewer, &p.stage, &p.revision)
 	return p, err
 }
 func requireOrphan(ctx context.Context, tx pgx.Tx, id string, expected, current int) error {
