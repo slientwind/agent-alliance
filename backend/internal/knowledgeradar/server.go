@@ -15,6 +15,7 @@ import (
 func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("GET /api/spaces/{space}/knowledge/gaps", auth.Protect(false, s.gaps))
 	mux.Handle("PUT /api/spaces/{space}/knowledge/gaps/{gap}/assignee", auth.Protect(false, s.assignGap))
+	s.conflictRoutes(mux, auth)
 }
 
 func validID(raw string) bool {

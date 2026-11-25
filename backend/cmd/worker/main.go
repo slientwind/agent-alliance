@@ -116,7 +116,9 @@ func main() {
 	go a.CleanRetention(ctx)
 	go knowledge.MaintainPassages(ctx, catalog.DB)
 	go knowledge.ServeKnowledgeIndex(ctx, catalog.DB, knowledge.ConfiguredKBInference())
-	go (knowledgeradar.Server{DB: catalog.DB, Inference: general.KBInference}).ServeGaps(ctx)
+	radar := knowledgeradar.Server{DB: catalog.DB, Inference: general.KBInference}
+	go radar.ServeGaps(ctx)
+	go radar.ServeConflicts(ctx)
 	sync := knowledgesync.Server{DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Egress: egress.Policy{DB: catalog.DB}}
 	go sync.Serve(ctx)
 	go sync.ServeCollections(ctx)

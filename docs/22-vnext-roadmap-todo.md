@@ -85,9 +85,9 @@
   - [x] 实现 **`BM25 精确全文检索 + pgvector BGE-M3 向量检索 + Cross-Encoder Rerank`** 混合管线，自动叠加工效期权重并压制 `deprecated` 旧制度。
   - [x] 落地**双阶段实时 ACL 复核与页码级溯源**：SQL 召回层过滤空间与文档 ACL，送入模型前二次核验未撤权/未作废；返回精确页码/表格行锚点 `citation_anchor` 供前端点击高亮原文。
   - [x] 实现**「审签成果一键归档入知识库」**接口，支持将团队空间终审通过的正式成果直接沉淀为有效知识文档。
-- [ ] **知识缺口与制度冲突雷达（Knowledge Gap & Conflict Radar）**
+- [x] **知识缺口与制度冲突雷达（Knowledge Gap & Conflict Radar）**
   - [x] 新增 `kb_gap_events` 与后台定时聚类任务：自动捕获检索低置信度/无依据提问，剥离人名/单号等隐私后聚类生成 `kb_gap_clusters`，支持空间管理员一键指派责任人补齐 SOP 并同步飞书待办。
-  - [ ] 新增跨文档冲突巡检任务：自动检测同一空间现行有效文档间对同一指标/金额标准的前后矛盾表述，生成 `kb_conflict_alerts` 预警。
+  - [x] 新增跨文档冲突巡检任务：自动检测同一空间现行有效文档间对同一指标/金额标准的前后矛盾表述，生成 `kb_conflict_alerts` 预警。
 
 ### 模块 J：ERP / CRM / 电商核心业务系统打通与受控语义层（Business System Hub）
 - [ ] **业务系统连接器框架与四大驱动（新增 `internal/bizconnectors` & 扩展 `connectors/`）**
