@@ -51,10 +51,11 @@ func Serve(ctx context.Context, db *pgxpool.Pool) {
 	defer e.client.CloseIdleConnections()
 	for ctx.Err() == nil {
 		didWork, err := e.next(ctx)
-		if err != nil && ctx.Err() == nil {
+		modelWork, modelErr := e.nextGenAI(ctx)
+		if (err != nil || modelErr != nil) && ctx.Err() == nil {
 			slog.Warn("trace export pending")
 		}
-		if err != nil || !didWork {
+		if err != nil || modelErr != nil || !didWork && !modelWork {
 			select {
 			case <-ctx.Done():
 				return
@@ -78,18 +79,32 @@ func (e exporter) next(ctx context.Context) (bool, error) {
 	if err != nil {
 		return true, err
 	}
-	payload := &collector.ExportTraceServiceRequest{ResourceSpans: []*trace.ResourceSpans{{Resource: &resource.Resource{Attributes: []*common.KeyValue{textAttr("service.name", "alliance-worker")}}, ScopeSpans: []*trace.ScopeSpans{{Scope: &common.InstrumentationScope{Name: "alliance.runtime"}, Spans: []*trace.Span{span}}}}}}
-	body, err := proto.Marshal(payload)
+	outcome, retry, err := e.exportSpan(ctx, span)
 	if err != nil {
 		return true, err
 	}
-	outcome, retry := e.send(ctx, body)
 	if retry <= 0 {
 		retry = time.Duration(1<<min(j.attempt, 8)) * time.Second
 	}
 	_, err = e.db.Exec(ctx, `update telemetry_outbox set outcome=$1,lease=null,next_at=now()+$2*interval '1 second' where run_id=$3 and ordinal=$4 and lease=$5 and call_attempt=$6`, outcome, max(1, int(retry.Seconds())), j.run, j.ordinal, j.lease, j.callAttempt)
 	return true, err
 }
+
+func (e exporter) exportSpan(ctx context.Context, span *trace.Span) (string, time.Duration, error) {
+	payload := &collector.ExportTraceServiceRequest{ResourceSpans: []*trace.ResourceSpans{{
+		Resource: &resource.Resource{Attributes: []*common.KeyValue{textAttr("service.name", "alliance-worker")}},
+		ScopeSpans: []*trace.ScopeSpans{{
+			Scope: &common.InstrumentationScope{Name: "alliance.runtime"}, Spans: []*trace.Span{span},
+		}},
+	}}}
+	body, err := proto.Marshal(payload)
+	if err != nil {
+		return "", 0, err
+	}
+	outcome, retry := e.send(ctx, body)
+	return outcome, retry, nil
+}
+
 func textAttr(key, value string) *common.KeyValue {
 	return &common.KeyValue{Key: key, Value: &common.AnyValue{Value: &common.AnyValue_StringValue{StringValue: value}}}
 }
@@ -118,18 +133,24 @@ func (e exporter) span(ctx context.Context, j job) (*trace.Span, error) {
 		s.Name = "agent.invoke"
 		s.Kind = trace.Span_SPAN_KIND_CLIENT
 		s.ParentSpanId = spanID(j.run, 0)
-		var kind, agent string
+		var kind, agent, model string
 		var revision int64
 		var tokens *int64
 		var deps [][]byte
 		err = e.db.QueryRow(ctx, `select i.started_at,i.ended_at,i.status,i.tokens,call_span_id(i.run_id,i.ordinal,i.attempt_no),n.agent_id,n.agent_revision,
-   case when ar.tool is not null then 'tool' when ar.card is not null then 'external' else 'model' end,
+   case when ar.tool is not null then 'tool' when ar.card is not null then 'external' else 'model' end,coalesce(mr.model,''),
    array(select call_span_id(dep.run_id,dep.ordinal,dep.attempt_no) from node_edges ed join invocations dep on(dep.run_id,dep.ordinal)=(r.id,ed.depends_on) where(ed.project_id,ed.plan_version,ed.ordinal)=(n.project_id,n.plan_version,n.ordinal) and not exists(select from change_batches where run_id=r.id) order by depends_on)
    from call_attempts i join runs r on r.id=i.run_id join effective_run_nodes n on(n.run_id,n.ordinal)=(r.id,i.ordinal)
-   join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision) where i.run_id=$1 and i.ordinal=$2 and i.attempt_no=$3`, j.run, j.ordinal, j.callAttempt).Scan(&started, &ended, &status, &tokens, &s.SpanId, &agent, &revision, &kind, &deps)
+   join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision)
+   left join model_revisions mr on (mr.resource_id,mr.revision)=(ar.resource_id,ar.resource_revision)
+   where i.run_id=$1 and i.ordinal=$2 and i.attempt_no=$3`, j.run, j.ordinal, j.callAttempt).
+			Scan(&started, &ended, &status, &tokens, &s.SpanId, &agent, &revision, &kind, &model, &deps)
 		s.Attributes = append(s.Attributes, intAttr("alliance.call.attempt", int64(j.callAttempt)), intAttr("alliance.step", int64(j.ordinal)), textAttr("alliance.agent.id", agent), intAttr("alliance.agent.revision", revision), textAttr("alliance.operation", kind))
 		if tokens != nil {
 			s.Attributes = append(s.Attributes, intAttr("alliance.tokens", *tokens))
+		}
+		if kind == "model" && model != "" {
+			s.Attributes = append(s.Attributes, textAttr("gen_ai.request.model", model))
 		}
 		for _, parent := range deps {
 			s.Links = append(s.Links, &trace.Span_Link{TraceId: tid, SpanId: parent})

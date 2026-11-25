@@ -154,7 +154,13 @@ data: {"type":"message_stop"}
 `
 	var native anthropicResponse
 	var shown strings.Builder
-	if err := readAnthropicStream(strings.NewReader(input), &native, func(text string) { shown.WriteString(text) }); err != nil {
+	observed := 0
+	if err := readAnthropicStream(strings.NewReader(input), &native, func(text string) {
+		if observed != 1 {
+			t.Fatal("first output timing did not capture the reasoning chunk")
+		}
+		shown.WriteString(text)
+	}, func() { observed++ }); err != nil {
 		t.Fatal(err)
 	}
 	out, err := anthropicResult(Candidate{}, native, true)

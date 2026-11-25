@@ -42,6 +42,8 @@ type Attempt struct {
 	Fallback     bool
 	Started      time.Time
 	Finished     time.Time
+	FirstChunk   *time.Time
+	Streamed     bool
 	Status       string
 	ProviderCode int
 	Usage        *Usage
@@ -103,10 +105,10 @@ func (r Resilience) Complete(ctx context.Context, permit Permit, attempt Attempt
 			return err
 		}
 		if attempt.OperationKey != "" {
-			tag, err := tx.Exec(ctx, `insert into model_gateway_attempts(operation_key,model_id,attempt,fallback,status,provider_status,started_at,finished_at,run_id,agent_id,turn)
-			 values($1,$2,$3,$4,$5,nullif($6,0),$7,$8,nullif($9,'')::uuid,nullif($10,'')::uuid,nullif($11,0)) on conflict do nothing`,
+			tag, err := tx.Exec(ctx, `insert into model_gateway_attempts(operation_key,model_id,attempt,fallback,status,provider_status,started_at,finished_at,run_id,agent_id,turn,first_chunk_at,streamed)
+			 values($1,$2,$3,$4,$5,nullif($6,0),$7,$8,nullif($9,'')::uuid,nullif($10,'')::uuid,nullif($11,0),$12,$13) on conflict do nothing`,
 				attempt.OperationKey, permit.ModelID, attempt.Number, attempt.Fallback, attempt.Status, attempt.ProviderCode,
-				attempt.Started, attempt.Finished, attempt.RunID, attempt.AgentID, attempt.Turn)
+				attempt.Started, attempt.Finished, attempt.RunID, attempt.AgentID, attempt.Turn, attempt.FirstChunk, attempt.Streamed)
 			if err != nil || tag.RowsAffected() == 0 {
 				return err
 			}

@@ -155,7 +155,7 @@ func (p HTTPProvider) anthropicChat(ctx context.Context, model Candidate, in Req
 	var native anthropicResponse
 	media, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	if media == "text/event-stream" && in.EmitText != nil {
-		err = readAnthropicStream(resp.Body, &native, in.EmitText)
+		err = readAnthropicStream(resp.Body, &native, in.EmitText, in.observeChunk)
 	} else {
 		err = readProviderJSON(resp.Body, 4<<20, &native)
 	}
@@ -220,7 +220,7 @@ func anthropicResult(model Candidate, native anthropicResponse, allowTools bool)
 	return out, nil
 }
 
-func readAnthropicStream(body io.Reader, native *anthropicResponse, emit func(string)) error {
+func readAnthropicStream(body io.Reader, native *anthropicResponse, emit func(string), observeChunk func()) error {
 	const maxResponse = 4 << 20
 	scan := bufio.NewScanner(io.LimitReader(body, maxResponse))
 	scan.Buffer(make([]byte, 8192), 256<<10)
@@ -229,12 +229,19 @@ func readAnthropicStream(body io.Reader, native *anthropicResponse, emit func(st
 	var input strings.Builder
 	var started bool
 	var textBytes int
+	observe := func(nonempty bool) {
+		if nonempty && observeChunk != nil {
+			observeChunk()
+			observeChunk = nil
+		}
+	}
 	emitText := func(text string) error {
 		textBytes += len(text)
 		if textBytes > resources.TextStreamLimit || strings.ContainsRune(text, 0) {
 			return errors.New("invalid Anthropic text delta")
 		}
 		if text != "" {
+			observe(true)
 			emit(text)
 		}
 		return nil
@@ -272,6 +279,9 @@ func readAnthropicStream(body io.Reader, native *anthropicResponse, emit func(st
 			}
 			active = event.Index
 			blocks = append(blocks, event.Block)
+			observe(event.Block.Thinking != "" ||
+				event.Block.Type == "tool_use" && event.Block.Name != "" ||
+				event.Block.Type == "redacted_thinking" && event.Block.Data != "")
 			if event.Block.Type == "text" {
 				if err := emitText(event.Block.Text); err != nil {
 					return err
@@ -292,10 +302,12 @@ func readAnthropicStream(body io.Reader, native *anthropicResponse, emit func(st
 				}
 				b.Text += event.Delta.Text
 			case "thinking_delta":
+				observe(event.Delta.Thinking != "")
 				b.Thinking += event.Delta.Thinking
 			case "signature_delta":
 				b.Signature += event.Delta.Signature
 			case "input_json_delta":
+				observe(event.Delta.PartialJSON != "")
 				input.WriteString(event.Delta.PartialJSON)
 			}
 		case "content_block_stop":

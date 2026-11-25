@@ -29,10 +29,14 @@ func (m Model) StreamTextReply(ctx context.Context, messages []Message, emit fun
 }
 
 func DecodeStreamingChatReply(contentType string, body io.Reader, emit func(string), allowTools bool) (Reply, error) {
+	return DecodeObservedStreamingChatReply(contentType, body, emit, allowTools, nil)
+}
+
+func DecodeObservedStreamingChatReply(contentType string, body io.Reader, emit func(string), allowTools bool, observeChunk func()) (Reply, error) {
 	mediaType, _, _ := mime.ParseMediaType(contentType)
 	switch mediaType {
 	case "text/event-stream":
-		return decodeTextStream(body, emit, allowTools)
+		return decodeTextStream(body, emit, allowTools, observeChunk)
 	case "", "application/json":
 		reply, err := DecodeChatReply(body, allowTools)
 		if err != nil {
@@ -61,7 +65,7 @@ type streamedToolCall struct {
 	Arguments      strings.Builder
 }
 
-func decodeTextStream(input io.Reader, emit func(string), allowTools bool) (Reply, error) {
+func decodeTextStream(input io.Reader, emit func(string), allowTools bool, observeChunk func()) (Reply, error) {
 	scan := bufio.NewScanner(io.LimitReader(input, 4<<20))
 	scan.Buffer(make([]byte, 8192), 256<<10)
 	var frame, text, reasoning strings.Builder
@@ -140,15 +144,27 @@ func decodeTextStream(input io.Reader, emit func(string), allowTools bool) (Repl
 				if answer.FinishReason != "" || text.Len()+len(delta) > TextStreamLimit || strings.ContainsRune(delta, 0) {
 					return Reply{}, errTextStreamInterrupted
 				}
+				if observeChunk != nil {
+					observeChunk()
+					observeChunk = nil
+				}
 				text.WriteString(delta)
 				if emit != nil {
 					emit(delta)
 				}
 			}
+			if observeChunk != nil && choice.Delta.ReasoningContent != "" {
+				observeChunk()
+				observeChunk = nil
+			}
 			reasoning.WriteString(choice.Delta.ReasoningContent)
 			for _, delta := range choice.Delta.ToolCalls {
 				if !allowTools || answer.FinishReason != "" || !mergeToolDelta(&calls, delta) {
 					return Reply{}, errTextStreamInterrupted
+				}
+				if observeChunk != nil && (delta.Function.Name != "" || delta.Function.Arguments != "") {
+					observeChunk()
+					observeChunk = nil
 				}
 			}
 			if choice.FinishReason != "" {

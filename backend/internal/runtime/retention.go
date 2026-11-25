@@ -39,6 +39,9 @@ func (a Activities) CleanRetention(ctx context.Context) {
 		if err == nil {
 			_, err = a.Catalog.DB.Exec(ctx, "delete from telemetry_outbox o using runs r where r.id=o.run_id and r.trace_expires_at <= now()")
 		}
+		if err == nil {
+			_, err = a.Catalog.DB.Exec(ctx, "delete from genai_telemetry_outbox o using runs r where r.id=o.run_id and r.trace_expires_at <= now()")
+		}
 		if err != nil && ctx.Err() == nil {
 			slog.Warn("diagnostic retention cleanup pending")
 		}

@@ -134,6 +134,7 @@ func (g Gateway) callModel(ctx context.Context, model Candidate, in Request, per
 	call, cancel := context.WithCancel(ctx)
 	var mu sync.Mutex
 	var visible, timedOut, returned bool
+	var firstChunk *time.Time
 	var timer *time.Timer
 	if !deadline.IsZero() {
 		timer = time.AfterFunc(time.Until(deadline), func() {
@@ -146,6 +147,15 @@ func (g Gateway) callModel(ctx context.Context, model Candidate, in Request, per
 		})
 	}
 	if downstream := in.EmitText; downstream != nil {
+		attempt.Streamed = true
+		in.observeChunk = func() {
+			mu.Lock()
+			defer mu.Unlock()
+			if firstChunk == nil && !returned && !timedOut && call.Err() == nil {
+				now := time.Now()
+				firstChunk = &now
+			}
+		}
 		in.EmitText = func(chunk string) {
 			mu.Lock()
 			allowed := !timedOut && call.Err() == nil && chunk != ""
@@ -165,6 +175,7 @@ func (g Gateway) callModel(ctx context.Context, model Candidate, in Request, per
 	mu.Lock()
 	returned = true
 	retryAllowed, expired := !visible, timedOut
+	attempt.FirstChunk = firstChunk
 	mu.Unlock()
 	if timer != nil {
 		timer.Stop()

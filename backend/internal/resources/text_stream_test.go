@@ -17,7 +17,7 @@ func TestDecodeTextStreamReadsOnlyAssistantTextAndUsage(t *testing.T) {
 		"data: [DONE]", "", "",
 	}, "\r\n")
 	var displayed strings.Builder
-	reply, err := decodeTextStream(strings.NewReader(wire), func(chunk string) { displayed.WriteString(chunk) }, false)
+	reply, err := decodeTextStream(strings.NewReader(wire), func(chunk string) { displayed.WriteString(chunk) }, false, nil)
 	if err != nil || reply.Text != "甲乙" || displayed.String() != reply.Text || reply.Tokens != 37 || reply.FinishReason != "stop" || reply.ReasoningContent != "hidden" {
 		t.Fatalf("reply=%+v draft=%q err=%v", reply, displayed.String(), err)
 	}
@@ -34,14 +34,14 @@ data: [DONE]
 
 `
 	var display strings.Builder
-	reply, err := decodeTextStream(strings.NewReader(frames), func(chunk string) { display.WriteString(chunk) }, true)
+	reply, err := decodeTextStream(strings.NewReader(frames), func(chunk string) { display.WriteString(chunk) }, true, nil)
 	if err != nil || len(reply.ToolCalls) != 2 || reply.ToolCalls[0].ID != "a" || reply.ToolCalls[0].Function.Arguments != `{"id":7}` || reply.ToolCalls[1].ID != "b" {
 		t.Fatalf("reply=%+v err=%v", reply, err)
 	}
 	if display.Len() != 0 || reply.ReasoningContent != "private" || reply.Tokens != 16 || reply.PromptTokens != 12 || reply.CompletionTokens != 4 || reply.CachedTokens != 3 {
 		t.Fatalf("reply=%+v display=%q", reply, display.String())
 	}
-	if _, err := decodeTextStream(strings.NewReader(frames), nil, false); err == nil {
+	if _, err := decodeTextStream(strings.NewReader(frames), nil, false, nil); err == nil {
 		t.Fatal("accepted unrequested tool calls")
 	}
 }
@@ -57,7 +57,7 @@ func TestDecodeTextStreamDoesNotAcceptAnInterruptedDraft(t *testing.T) {
 		"data: {\"choices\":[{\"finish_reason\":\"stop\"}]}\n\n",
 	} {
 		var displayed strings.Builder
-		reply, err := decodeTextStream(strings.NewReader(text+suffix), func(chunk string) { displayed.WriteString(chunk) }, false)
+		reply, err := decodeTextStream(strings.NewReader(text+suffix), func(chunk string) { displayed.WriteString(chunk) }, false, nil)
 		if err == nil || reply.Text != "" || displayed.String() != "草稿" {
 			t.Errorf("suffix=%q reply=%+v draft=%q err=%v", suffix, reply, displayed.String(), err)
 		}

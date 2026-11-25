@@ -26,6 +26,7 @@ type Request struct {
 	Embeddings      []string
 	ImagePrompt     string
 	EmitText        func(string)
+	observeChunk    func()
 }
 
 type Result struct {
@@ -135,7 +136,7 @@ func (p HTTPProvider) compatibleChat(ctx context.Context, model Candidate, in Re
 	defer resp.Body.Close()
 	var reply resources.Reply
 	if in.EmitText != nil {
-		reply, err = resources.DecodeStreamingChatReply(resp.Header.Get("Content-Type"), resp.Body, in.EmitText, len(in.Tools) > 0)
+		reply, err = resources.DecodeObservedStreamingChatReply(resp.Header.Get("Content-Type"), resp.Body, in.EmitText, len(in.Tools) > 0, in.observeChunk)
 	} else {
 		reply, err = resources.DecodeChatReply(resp.Body, len(in.Tools) > 0)
 	}
