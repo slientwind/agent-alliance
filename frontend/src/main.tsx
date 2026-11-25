@@ -83,6 +83,7 @@ const AutomationSchedules = lazy(() => import("./automation-schedules").then(({ 
 const ExternalConnect = lazy(() => import("./external-connect").then(({ ExternalConnect }) => ({ default: ExternalConnect })));
 const AdminReleases = lazy(() => import("./admin-releases").then(({ AdminReleases }) => ({ default: AdminReleases })));
 const EcosystemSources = lazy(() => import("./ecosystem-sources").then(({ EcosystemSources }) => ({ default: EcosystemSources })));
+const EcosystemMarket = lazy(() => import("./ecosystem-market").then(({ EcosystemMarket }) => ({ default: EcosystemMarket })));
 const StudioWorkspace = lazy(() => import("./studio-workspace").then(({ StudioWorkspace }) => ({ default: StudioWorkspace })));
 
 function Overlay({
@@ -1163,6 +1164,7 @@ function App() {
             admin={user.role === "admin"}
             refresh={catalog}
           />
+          <Suspense fallback={<p role="status">正在加载生态目录…</p>}><EcosystemMarket /></Suspense>
         </>
       )}
       {panel === "studio" && (

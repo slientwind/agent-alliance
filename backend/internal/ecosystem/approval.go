@@ -47,10 +47,12 @@ func (s Server) catalogQueue(w http.ResponseWriter, r *http.Request, _ identity.
 	var out json.RawMessage
 	err := s.DB.QueryRow(r.Context(), `select to_jsonb(array(select jsonb_strip_nulls(jsonb_build_object(
 	 'id',c.id,'name',c.name,'kind',c.kind,'version',c.upstream_version,'description',c.description,'source',s.name,
-	 'review',r.report,'reviewDigest',ecosystem_review_digest(c.id),'approved',p.id is not null,'endpoint',c.metadata->>'endpoint'))
+	 'review',r.report,'reviewDigest',ecosystem_review_digest(c.id),'approved',p.id is not null,'endpoint',c.metadata->>'endpoint',
+	 'requestedBy',q.pending))
 	 from ecosystem_catalog c join ecosystem_sources s on s.id=c.source_id join ecosystem_candidate_reviews r on r.catalog_id=c.id
 	 left join enterprise_approved_packages p on p.catalog_id=c.id and p.revoked_at is null
-	 order by c.discovered_at desc,c.id limit 200))`).Scan(&out)
+	 cross join lateral(select count(*) as pending from ecosystem_admission_requests q where q.catalog_id=c.id and q.state='pending') q
+	 order by (q.pending>0) desc,c.discovered_at desc,c.id limit 200))`).Scan(&out)
 	if err != nil {
 		return err
 	}
@@ -149,6 +151,10 @@ func approveCandidate(ctx context.Context, tx pgx.Tx, id, actor string, in appro
 		if err := freezeSnapshot(out.Hash, item.snapshot); err != nil {
 			return out, 0, err
 		}
+	}
+	if _, err := tx.Exec(ctx, `update ecosystem_admission_requests set state='approved',decider=$2,decided_at=clock_timestamp()
+	 where catalog_id=$1 and state='pending'`, id, actor); err != nil {
+		return out, 0, err
 	}
 	return out, http.StatusCreated, database.Audit(ctx, tx, actor, "ecosystem.package.approve", out.ID,
 		map[string]string{"catalog": id, "review": item.review, "sha256": out.Hash})

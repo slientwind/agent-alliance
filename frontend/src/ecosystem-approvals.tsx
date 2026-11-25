@@ -13,6 +13,7 @@ type Candidate = {
     findings: { code: string; file?: string }[] };
   reviewDigest: string;
   approved: boolean;
+  requestedBy?: number;
 };
 
 const labels: Record<string, string> = {
@@ -46,14 +47,14 @@ export function EcosystemApprovals() {
     return () => { active = false; };
   }, []);
 
-  async function approve(item: Candidate) {
+  async function decide(item: Candidate, decision: "approve" | "return-requests") {
     setBusy(item.id);
     setStatus("");
     setError("");
     try {
-      await api(`${path}/${item.id}/approve`, "POST", { expected: item.reviewDigest, reason: (review[item.id] || "").trim() });
-      setItems(current => current.map(row => row.id === item.id ? { ...row, approved: true } : row));
-      setStatus(`${item.name} 已准入并固化版本`);
+      await api(`${path}/${item.id}/${decision}`, "POST", { expected: item.reviewDigest, reason: (review[item.id] || "").trim() });
+      setItems(current => current.map(row => row.id === item.id ? { ...row, approved: decision === "approve", requestedBy: 0 } : row));
+      setStatus(decision === "approve" ? `${item.name} 已准入并固化版本` : `${item.name} 的准入申请已退回`);
     } catch (error) {
       setError((error as Error).message);
     } finally {
@@ -67,9 +68,10 @@ export function EcosystemApprovals() {
       {error && <p role="alert">{error}</p>}
       {status && <p role="status">{status}</p>}
       {!loading && !error && !items.length && <p>暂无可复核的生态条目。</p>}
-      {items.map(item => <article className="card" key={item.id} aria-label={item.name}>
+      {[...items].sort((first, second) => (second.requestedBy || 0) - (first.requestedBy || 0)).map(item => <article className="card" key={item.id} aria-label={item.name}>
         <h2>{item.name}</h2>
         <p>{item.source} · {item.version} · {item.approved ? "已准入" : labels[item.review.status]}</p>
+        {!!item.requestedBy && <p>{item.requestedBy} 人申请准入</p>}
         <details>
           <summary>查看体检报告</summary>
           {item.description && <p>{item.description}</p>}
@@ -79,11 +81,13 @@ export function EcosystemApprovals() {
             <li key={index}>{labels[code] || code}{file ? " · " + file : ""}</li>)}</ul>}
           {item.kind === "agent" && item.endpoint && <p>申请准入前，请在企业服务核对该域名的访问许可。<br /><code>{item.endpoint}</code></p>}
         </details>
-        {!item.approved && item.review.status !== "blocked" && <>
-          {item.review.status === "review_required" && <label>人工复核意见<textarea maxLength={800}
+        {!item.approved && <>
+          {(item.review.status === "review_required" || !!item.requestedBy) && <label>人工复核意见<textarea maxLength={800}
             value={review[item.id] || ""} disabled={!!busy} onChange={event => setReview(value => ({ ...value, [item.id]: event.target.value }))} /></label>}
-          <button className="primary" type="button" disabled={!!busy || item.review.status === "review_required" && !(review[item.id] || "").trim()}
-            onClick={() => void approve(item)}>批准准入</button>
+          {item.review.status !== "blocked" && <button className="primary" type="button" disabled={!!busy || item.review.status === "review_required" && !(review[item.id] || "").trim()}
+            onClick={() => void decide(item, "approve")}>批准准入</button>}
+          {!!item.requestedBy && <button type="button" disabled={!!busy || !(review[item.id] || "").trim()}
+            onClick={() => void decide(item, "return-requests")}>退回申请</button>}
         </>}
       </article>)}
     </section>

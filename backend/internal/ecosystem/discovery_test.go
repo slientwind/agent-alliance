@@ -22,6 +22,7 @@ import (
 	"alliance/internal/resources"
 	"alliance/internal/web"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
@@ -137,14 +138,21 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 	}
 	exec("insert into outbound_host_allowlist(host,port,trusted_networks) values($1,$2,array['127.0.0.1/32'::cidr])", address.Hostname(), port)
 	admin, token := uuid.NewString(), web.Token()
+	employee, employeeToken := uuid.NewString(), web.Token()
 	exec("insert into members(id,email,display_name,password_hash,role) values($1,$1::uuid::text||'@example.test','discovery test','','admin')", admin)
+	exec("insert into members(id,email,display_name,password_hash,role) values($1,$1::uuid::text||'@example.test','discovery test','','member')", employee)
 	exec("insert into sessions(token_hash,member_id,expires_at) values($1,$2,now()+interval '3 minutes')", web.Hash(token), admin)
+	exec("insert into sessions(token_hash,member_id,expires_at) values($1,$2,now()+interval '3 minutes')", web.Hash(employeeToken), employee)
 	routes := http.NewServeMux()
 	Server{DB: db, Vault: vault}.Routes(routes, identity.Server{DB: db})
-	call := func(method, path, body, key string, status int) []byte {
+	call := func(method, path, body, key string, status int, session ...string) []byte {
 		t.Helper()
 		request := httptest.NewRequestWithContext(ctx, method, path, strings.NewReader(body))
-		request.AddCookie(&http.Cookie{Name: "aa_session", Value: token})
+		secret := token
+		if len(session) > 0 {
+			secret = session[0]
+		}
+		request.AddCookie(&http.Cookie{Name: "aa_session", Value: secret})
 		request.Header.Set("Idempotency-Key", key)
 		response := httptest.NewRecorder()
 		routes.ServeHTTP(response, request)
@@ -289,6 +297,27 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 		}
 	}
 	approvedBody := fmt.Sprintf(`{"expected":%q}`, skillDigest)
+	const market = "/api/ecosystem/catalog"
+	list := string(call("GET", market, "", "", 200, employeeToken))
+	if !strings.Contains(list, skillID) || strings.Contains(list, "Fixture private_git") {
+		t.Fatalf("unexpected employee catalog: %s", list)
+	}
+	requestPath := market + "/" + skillID + "/request"
+	first = call("PUT", requestPath, "", "", 202, employeeToken)
+	if replay := call("PUT", requestPath, "", "", 202, employeeToken); string(replay) != string(first) {
+		t.Fatalf("duplicate request: %s", replay)
+	}
+	list = string(call("GET", queue, "", "", 200))
+	if !strings.Contains(list, `"requestedBy":1`) {
+		t.Fatalf("employee request did not reach the release queue: %s", list)
+	}
+	call("GET", queue, "", "", 403, employeeToken)
+	call("PUT", market+"/"+agentID+"/request", "", "", 202, employeeToken)
+	call("POST", queue+"/"+agentID+"/return-requests", fmt.Sprintf(`{"expected":%q,"reason":"请先核对服务域名"}`, agentDigest), "", 204)
+	list = string(call("GET", market, "", "", 200, employeeToken))
+	if !strings.Contains(list, `"reply":"请先核对服务域名"`) {
+		t.Fatalf("missing employee decision: %s", list)
+	}
 	original := call("POST", queue+"/"+skillID+"/approve", approvedBody, "", 201)
 	var approved approvalReceipt
 	err = json.Unmarshal(original, &approved)
@@ -305,11 +334,52 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(os.Getenv("OBJECT_ROOT"), "skills", approved.Hash)); err != nil {
 		t.Fatal(err)
 	}
+	list = string(call("GET", market, "", "", 200, employeeToken))
+	if !strings.Contains(list, `"request":"approved"`) {
+		t.Fatalf("approval did not resolve the application: %s", list)
+	}
+	bindingPath := "/api/ecosystem/bindings/" + approved.ID
+	const enable = `{"enabled":true,"expected":0}`
+	first = call("PUT", bindingPath, enable, "", 200, employeeToken)
+	if replay := call("PUT", bindingPath, enable, "", 200, employeeToken); string(replay) != string(first) {
+		t.Fatalf("duplicate binding changed the receipt: %s", replay)
+	}
+	items, err := SkillsForMember(ctx, db, employee)
+	if err != nil || len(items) != 1 || items[0].ID != approved.ID {
+		t.Fatalf("incorrect personal Skill selection: %+v %v", items, err)
+	}
+	if context, err := ContextForMember(ctx, db, admin); err != nil || context != "" {
+		t.Fatalf("selection leaked to another member: %q %v", context, err)
+	}
+	if context, err := ContextForMember(ctx, db, employee); err != nil || !strings.Contains(context, "Organize the approved columns.") {
+		t.Fatalf("Studio did not load the frozen Skill: %q %v", context, err)
+	}
+	team, project, run := uuid.NewString(), uuid.NewString(), uuid.NewString()
+	exec("insert into teams(id,name) values($1,$1::uuid::text)", team)
+	exec("insert into projects(id,owner,team_id,final_reviewer,title) values($1,$2,$3,$2,'Skill fixture')", project, employee, team)
+	exec("insert into plans(project_id,version,brief) values($1,1,'Skill fixture')", project)
+	exec("insert into runs(id,project_id,plan_version,actor,charge_team,request_key,request_hash,max_calls) values($1,$2,1,$3,$4,'skill-fixture','',1)", run, project, employee, team)
+	exec("insert into general_agent_runs(run_id,tier) values($1,'default')", run)
+	if err := database.WithTx(ctx, db, func(tx pgx.Tx) error { return PinSkills(ctx, tx, run, employee) }); err != nil {
+		t.Fatal(err)
+	}
+	if context, err := ContextForRun(ctx, db, run); err != nil || !strings.Contains(context, "Organize the approved columns.") {
+		t.Fatalf("General Agent did not load the pinned Skill: %q %v", context, err)
+	}
+	call("PUT", bindingPath, `{"enabled":false,"expected":1}`, "", 200, employeeToken)
+	call("PUT", bindingPath, enable, "", 409, employeeToken)
+	var usable bool
+	if err := db.QueryRow(ctx, "select general_ecosystem_skills_usable($1)", run).Scan(&usable); err != nil || usable {
+		t.Fatalf("a previous binding stayed usable after unloading: %t %v", usable, err)
+	}
+	if context, err := ContextForMember(ctx, db, employee); err != nil || context != "" {
+		t.Fatalf("Studio did not remove the unloaded Skill: %q %v", context, err)
+	}
 	agentBody := fmt.Sprintf(`{"expected":%q,"reason":"Reviewed the endpoint ownership"}`, agentDigest)
 	call("POST", queue+"/"+agentID+"/approve", agentBody, "", 409)
 	exec("insert into outbound_host_allowlist(host,port) values($1,443) on conflict do nothing", agentDomain)
 	call("POST", queue+"/"+agentID+"/approve", agentBody, "", 201)
-	list := string(call("GET", queue, "", "", 200))
+	list = string(call("GET", queue, "", "", 200))
 	if !strings.Contains(list, `"approved":true`) || strings.Contains(list, `"snapshot"`) || strings.Contains(list, "fixture-repo-key") {
 		t.Fatalf("unexpected queue receipt: %s", list)
 	}

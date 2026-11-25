@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"alliance/internal/database"
+	"alliance/internal/ecosystem"
 	"alliance/internal/identity"
 	"alliance/internal/llmgateway"
 	"alliance/internal/resources"
@@ -46,6 +47,7 @@ func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("POST /api/studio/{id}/refinements/{change}/apply", auth.Protect(false, s.applyRefinement))
 	mux.Handle("GET /api/studio/{id}/capabilities", auth.Protect(false, s.capabilities))
 	mux.Handle("PUT /api/studio/{id}/capabilities", auth.Protect(false, s.setCapabilities))
+	mux.Handle("GET /api/studio/{id}/skills", auth.Protect(false, s.loadedSkills))
 	mux.Handle("GET /api/studio/published", auth.Protect(false, s.published))
 	mux.Handle("POST /api/studio/{id}/publish", auth.Protect(false, s.publish))
 	mux.Handle("POST /api/studio/{id}/releases/{release}/withdraw", auth.Protect(false, s.withdrawRelease))
@@ -83,6 +85,22 @@ func (s Server) create(w http.ResponseWriter, r *http.Request, actor identity.Me
 		return err
 	}
 	return web.JSON(w, http.StatusCreated, d)
+}
+
+func (s Server) loadedSkills(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
+	id, err := studioID(r)
+	if err != nil {
+		return err
+	}
+	ctx := r.Context()
+	if _, err := getDraft(ctx, s.DB, id, actor.ID, false); err != nil {
+		return err
+	}
+	skills, err := ecosystem.SkillsForMember(ctx, s.DB, actor.ID)
+	if err != nil {
+		return err
+	}
+	return web.JSON(w, http.StatusOK, skills)
 }
 
 const draftAccess = `from studio_drafts d join members m on m.id=d.owner and m.enabled and m.kind='person'

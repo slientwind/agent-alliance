@@ -93,6 +93,7 @@ try {
       "/api/studio/published": published ? [published] : [],
       "/api/general-tiers": ["default"],
       [draftPath]: draft,
+      [draftPath + "/skills"]: [{ id: "skill", name: "报表编排 Skill", version: "v1" }],
       [draftPath + "/capabilities"]: [
         { id: "office", label: "表格与文档处理", enabled: spec.capabilities.includes("office"), available: true },
         { id: "knowledge", label: "企业知识库", enabled: spec.capabilities.includes("knowledge"), available: true },
@@ -114,6 +115,7 @@ try {
   await page.getByRole("button", { name: "发送构建需求" }).click();
   await page.getByText("已生成报价核对草稿。").waitFor();
   await page.getByRole("button", { name: "配置清单", exact: true }).click();
+  await page.getByText("报表编排 Skill · v1").waitFor();
   await page.getByLabel("企业知识库", { exact: true }).click();
   await page.waitForFunction(() => Array.from(document.querySelectorAll(".studio-check")).some(
     label => label.textContent.trim() === "企业知识库" && label.querySelector("input")?.checked,

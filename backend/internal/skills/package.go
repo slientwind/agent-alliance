@@ -65,6 +65,24 @@ func PackageMetadata(raw []byte) (string, string, error) {
 	return pack.Name, pack.Description, err
 }
 
+func PackageContext(raw []byte) (string, error) {
+	pack, err := readPackage(raw)
+	if err != nil {
+		return "", err
+	}
+	if len(pack.Dependencies) != 0 {
+		return "", errors.New("Skill 依赖必须在企业准入流程中单独绑定")
+	}
+	var body strings.Builder
+	fmt.Fprintf(&body, "Skill %s\n", pack.Name)
+	for _, file := range pack.Files {
+		if file.InContext {
+			fmt.Fprintf(&body, "%s\n%s\n", file.Path, file.Text)
+		}
+	}
+	return body.String(), nil
+}
+
 var namePattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 var pathPattern = regexp.MustCompile(`^[a-zA-Z0-9._/-]+$`)
 

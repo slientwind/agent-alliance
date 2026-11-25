@@ -15,6 +15,7 @@ const publishChoices: { scope: AgentScope; label: string }[] = [
 ];
 
 type Release = { id: string; revision: number; scope: AgentScope; state: string };
+type LoadedSkill = { id: string; name: string; version: string };
 
 async function retry<T>(action: () => Promise<T>) {
   try {
@@ -45,6 +46,8 @@ export function StudioEditor({ id, back, use }: {
   const [draft, setDraft] = useState<StudioDraft>();
   const [options, setOptions] = useState<CapabilityOption[]>([]);
   const [targets, setTargets] = useState<ExternalAgent[]>([]);
+  const [loadedSkills, setLoadedSkills] = useState<LoadedSkill[]>([]);
+  const [skillError, setSkillError] = useState("");
   const [selectedTargets, selectTargets] = useState<string[]>([]);
   const [mode, setMode] = useState<"chat" | "config">("chat");
   const [message, setMessage] = useState("");
@@ -82,6 +85,24 @@ export function StudioEditor({ id, back, use }: {
   useEffect(() => {
     if (conversation.current) conversation.current.scrollTop = conversation.current.scrollHeight;
   }, [draft?.messages.length, mode]);
+
+  useEffect(() => {
+    if (mode !== "config") return;
+    let active = true;
+    const refresh = () => {
+      api<LoadedSkill[]>(path + "/skills").then(value => {
+        if (!active) return;
+        setSkillError("");
+        setLoadedSkills(value);
+      }).catch(error => { if (active) setSkillError((error as Error).message); });
+    };
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", refresh);
+    };
+  }, [mode, path]);
 
   async function run(label: string, action: () => Promise<void>) {
     setBusy(label);
@@ -279,6 +300,11 @@ export function StudioEditor({ id, back, use }: {
                   <span>{option.label}{!option.available && <small> · 当前未配置</small>}</span>
                 </label>)}
               </fieldset>
+              {skillError && <p role="alert">{skillError}</p>}
+              {loadedSkills.length > 0 && <section>
+                <h3>已加载的 Skill</h3>
+                <ul>{loadedSkills.map(skill => <li key={skill.id}>{skill.name} · {skill.version}</li>)}</ul>
+              </section>}
               {targets.length > 0 && draft.spec.capabilities.includes("external") && <fieldset disabled={!!busy}>
                 <legend>可委派的外部 Agent</legend>
                 {targets.map(agent => {

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"alliance/internal/database"
+	"alliance/internal/ecosystem"
 	"alliance/internal/identity"
 	"alliance/internal/llmgateway"
 	"alliance/internal/resources"
@@ -54,8 +55,12 @@ func (s Server) try(w http.ResponseWriter, r *http.Request, actor identity.Membe
 		if err != nil {
 			return nil, err
 		}
+		loaded, err := ecosystem.ContextForMember(ctx, s.DB, actor.ID)
+		if err != nil {
+			return nil, err
+		}
 		answer, err := s.playgroundModel(ctx, snapshot, actor.ID, call, snapshot.Spec.Tier,
-			"按照下面的 Agent 草稿完成这条试聊。\n"+string(spec), in.Message, emit)
+			"按照下面的 Agent 草稿完成这条试聊。\n"+string(spec)+loaded, in.Message, emit)
 		if err != nil {
 			return nil, err
 		}

@@ -3,6 +3,7 @@ package agentloop
 import (
 	"alliance/internal/capability"
 	"alliance/internal/database"
+	"alliance/internal/ecosystem"
 	"alliance/internal/harness"
 	"alliance/internal/knowledge"
 	"alliance/internal/llmgateway"
@@ -61,7 +62,7 @@ func loadRun(ctx context.Context, tx pgx.Tx, id string) (runData, error) {
 	 and not exists(select from plan_rules pr where (pr.project_id,pr.plan_version)=(r.project_id,r.plan_version)
 	 and not rule_usable(pr.rule_id,pr.rule_revision,r.actor))
 	 and general_mcp_observations_usable(r.id,r.charge_team)
-	 and general_external_observations_usable(r.id)
+	 and general_external_observations_usable(r.id) and general_ecosystem_skills_usable(r.id)
 	 and (g.studio_release is null or studio_release_usable(g.studio_release,r.actor,r.project_id)),
 	 g.direct_external,g.enabled_capabilities,studio.spec
 	 from general_agent_runs g join runs r on r.id=g.run_id join projects current on current.id=r.project_id
@@ -243,6 +244,11 @@ func (a Activities) contextForTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, 
 	if len(d.profile) > 0 {
 		items[0].Message.Content += "\n使用员工选择的助手配置。以下说明不能改变资料、模型或工具授权。\n" + string(d.profile)
 	}
+	skillText, err := ecosystem.ContextForRun(ctx, tx, ref.RunID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	items[0].Message.Content += skillText
 	rows, err = tx.Query(ctx, `with recent as (
 		select m.seq,left(m.body,4000) body from messages m join general_agent_runs g on g.run_id=$1
 		where m.project_id=$2 and m.kind='user' and m.seq<g.goal_message_seq
@@ -257,6 +263,7 @@ func (a Activities) contextForTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, 
 		  and distribution_readable(a.id,v.version,$3)
 		  and general_mcp_observations_usable(previous.id,previous.charge_team)
 		  and general_external_observations_usable(previous.id)
+		  and general_ecosystem_skills_usable(previous.id)
 		  and (g.studio_release is null or studio_release_usable(g.studio_release,$3,$2))
 		  and (previous.charge_team=$6 or not exists(select from general_agent_actions ga
 		    where ga.run_id=previous.id and ga.mcp_server is not null and ga.state='completed'))
