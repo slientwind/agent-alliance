@@ -8,6 +8,15 @@ try {
       baseURL: process.env.SMOKE_ORIGIN || "http://127.0.0.1:15173",
       viewport: { width, height },
     });
+    await page.addInitScript(() => {
+      const NativeEventSource = window.EventSource;
+      window.EventSource = class extends NativeEventSource {
+        constructor(url, options) {
+          super(url, options);
+          if (String(url).endsWith("/session-events")) window.testSessionStream = this;
+        }
+      };
+    });
     const id = "2b40fe15-8725-45cf-9576-5661de125cb5";
     const project = {
       id, title: "采购报价核对", stage: "brief", revision: 1, owner: "member", reviewer: "member", team: "team", planVersion: 0,
@@ -58,9 +67,16 @@ try {
     assert.equal(await search.evaluate(input => input === document.activeElement), true);
     await search.fill("报价");
     await page.getByRole("option", { name: "采购报价核对 历史对话" }).waitFor();
+    const sourceResponse = response => new URL(response.url()).pathname === "/api/projects/" + id + "/sources";
+    const initialSources = page.waitForResponse(sourceResponse);
     await search.press("Enter");
     await page.waitForURL("**/chat/" + id);
     await page.getByText("整理报价表", { exact: true }).waitFor();
+    await initialSources;
+    await page.waitForFunction(() => !!window.testSessionStream);
+    const changedSources = page.waitForResponse(sourceResponse);
+    await page.evaluate(() => window.testSessionStream.dispatchEvent(new MessageEvent("sources.changed", { data: "{}" })));
+    await changedSources;
     await page.getByRole("button", { name: "拉同事协作" }).click();
     const collaboration = page.getByRole("dialog", { name: "协作成员" });
     await collaboration.getByLabel("企业成员邮箱").fill("colleague@example.invalid");

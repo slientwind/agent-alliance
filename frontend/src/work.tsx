@@ -49,6 +49,7 @@ import { Sources, type Source, type Preference } from "./knowledge";
 type Props = {
   p: Project;
   threadRef: (thread: HTMLDivElement | null) => void;
+  sourcesRevision: number;
   drafts: DraftFragment[];
   uploadedPins?: PlanningPin[];
   planningSubmitted: (uploads?: PlanningPin[]) => void;
@@ -73,7 +74,7 @@ type Props = {
   reloadCatalog: () => Promise<void>;
 };
 export function Work({
-  p, threadRef, drafts, uploadedPins, planningSubmitted,
+  p, threadRef, sourcesRevision, drafts, uploadedPins, planningSubmitted,
   revisions,
   changeRevision,
   budgetDraft,
@@ -121,16 +122,14 @@ export function Work({
         void reloadSources().catch((e) => setErr(e.message));
     };
     sync();
-    const timer = window.setInterval(sync, 15000);
     window.addEventListener("focus", sync);
     document.addEventListener("visibilitychange", sync);
     return () => {
       ++sourceRequest.current;
-      clearInterval(timer);
       window.removeEventListener("focus", sync);
       document.removeEventListener("visibilitychange", sync);
     };
-  }, [reloadSources, p.planVersion, uploadedPins]);
+  }, [reloadSources, p.planVersion, uploadedPins, sourcesRevision]);
   useEffect(() => {
     void api<Preference[]>("preferences")
       .then(setPrefs)

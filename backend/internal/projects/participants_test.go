@@ -186,6 +186,13 @@ func TestTaskCollaborationRolesAndRevocationPostgres(t *testing.T) {
 		t.Fatalf("missing %s from SSE stream, HTTP %d: %v", event, stream.StatusCode, events.Err())
 	}
 	waitForEvent("session.snapshot")
+	source := uuid.NewString()
+	exec("insert into sources(id,project_id,name,created_by) values($1,$2,'采购表.csv',$3)", source, project, owner)
+	waitForEvent("sources.changed")
+	exec("insert into objects(hash,size_bytes) values(repeat('8',64),0) on conflict do nothing")
+	exec("insert into source_versions(source_id,version,object_hash,media_type,author) values($1,1,repeat('8',64),'text/csv',$2)", source, owner)
+	exec("update source_versions set extraction_state='ready',extracted='完成提取' where source_id=$1 and version=1", source)
+	waitForEvent("sources.changed")
 	revoke(nominee, owner, revision(), 204)
 	waitForEvent("access-ended")
 	request(http.MethodGet, "", nominee, nil, 404)

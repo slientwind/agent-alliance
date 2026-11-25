@@ -543,6 +543,7 @@ function App() {
   }, [route.pathname, route.hash, user]);
   const visibleProject = p?.id;
   const [streamInterrupted, setStreamInterrupted] = useState(false);
+  const [sourcesRevision, setSourcesRevision] = useState(0);
   const [sessionDrafts, setSessionDrafts] = useState<(SessionDrafts & { project: string })>();
   const restoreThread = useCallback((thread: HTMLDivElement | null) => {
     const request = restore.current;
@@ -617,6 +618,7 @@ function App() {
         connected = true;
         window.clearTimeout(interruption);
         setStreamInterrupted(false);
+        setSourcesRevision(value => value + 1);
       };
       connection.onerror = () => {
         if (!currentConnection()) return;
@@ -629,6 +631,7 @@ function App() {
       connection.addEventListener("session.snapshot", event => {
         if (!currentConnection()) return;
         showDrafts(JSON.parse(event.data) as SessionDrafts);
+        setSourcesRevision(value => value + 1);
         void sync();
       });
       connection.addEventListener("draft.delta", event => {
@@ -646,6 +649,9 @@ function App() {
       });
       connection.addEventListener("project.changed", () => {
         if (currentConnection()) check();
+      });
+      connection.addEventListener("sources.changed", () => {
+        if (currentConnection()) setSourcesRevision(value => value + 1);
       });
       connection.addEventListener("access-ended", () => {
         if (!currentConnection()) return;
@@ -1124,6 +1130,7 @@ function App() {
               <Work
                 key={p.id}
                 threadRef={restoreThread}
+                sourcesRevision={sourcesRevision}
                 drafts={sessionDrafts?.project === p.id && sessionDrafts.run === p.run?.id ? sessionDrafts.drafts : []}
                 uploadedPins={planningUpload?.project === p.id ? planningUpload.pins : undefined}
                 planningSubmitted={(pins) => setPlanningUpload(current => current?.pins === pins ? null : current)}

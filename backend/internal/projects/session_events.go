@@ -181,10 +181,10 @@ func readSessionBatch(ctx context.Context, tx pgx.Tx, project, actor string, cur
 		return batch, nil
 	}
 	rows, err := tx.Query(ctx, `with next as materialized (
-		select seq,run_id,draft_seq from project_session_events
+		select seq,run_id,draft_seq,change_kind from project_session_events
 		where project_id=$1 and seq>$2 and created_at>now()-interval '1 hour' order by seq limit $6
 	)
-	select n.seq,n.run_id is null,coalesce(d.ordinal,0),coalesce(d.attempt_no,0),
+	select n.seq,case when n.run_id is null then n.change_kind else '' end,coalesce(d.ordinal,0),coalesce(d.attempt_no,0),
 		coalesce(d.byte_offset,0),coalesce(d.body,''),coalesce(d.status,'')
 	from next n left join lateral (
 		select f.ordinal,f.attempt_no,f.byte_offset,f.body,i.status
@@ -199,14 +199,14 @@ func readSessionBatch(ctx context.Context, tx pgx.Tx, project, actor string, cur
 	var scanned int
 	var last int64
 	for rows.Next() {
-		var changed bool
+		var change string
 		var fragment draftFragment
-		if err := rows.Scan(&last, &changed, &fragment.Step, &fragment.Attempt, &fragment.Offset, &fragment.Text, &fragment.Status); err != nil {
+		if err := rows.Scan(&last, &change, &fragment.Step, &fragment.Attempt, &fragment.Offset, &fragment.Text, &fragment.Status); err != nil {
 			return sessionBatch{}, err
 		}
 		scanned++
-		if changed {
-			batch.records = append(batch.records, sessionRecord{last, "project.changed", struct{}{}})
+		if change != "" {
+			batch.records = append(batch.records, sessionRecord{last, change, struct{}{}})
 		} else if fragment.Step != 0 {
 			batch.records = append(batch.records, sessionRecord{last, "draft.delta", sessionDelta{run, fragment}})
 		}
