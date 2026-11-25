@@ -208,4 +208,32 @@ func TestTaskCollaborationRolesAndRevocationPostgres(t *testing.T) {
 	}
 	invite(owner, nominee, "contributor", 204)
 	expectRole(nominee, "contributor", false)
+	t.Run("versioned lightweight comments outside review", func(t *testing.T) {
+		path := "/artifacts/" + artifact + "/comments"
+		payload := map[string]any{"expected_version": 1, "anchor": commentAnchor{Kind: "paragraph", Index: 1}, "body": "请核对这一段"}
+		created := request(http.MethodPost, path, nominee, payload, 201)
+		var comment artifactComment
+		if err := json.Unmarshal(created.Body.Bytes(), &comment); err != nil || comment.Revision != 1 || comment.Author != nominee {
+			t.Fatalf("unexpected comment: %s", created.Body)
+		}
+		request(http.MethodGet, path+"?version=1", reviewer, nil, 200)
+		request(http.MethodPatch, path+"/"+comment.ID, reviewer, map[string]any{"resolved": true, "expected_revision": 1}, 204)
+		request(http.MethodPatch, path+"/"+comment.ID, nominee, map[string]any{"resolved": false, "expected_revision": 1}, 409)
+		resolved := request(http.MethodGet, path+"?version=1", nominee, nil, 200)
+		var page struct{ Comments []artifactComment }
+		if err := json.Unmarshal(resolved.Body.Bytes(), &page); err != nil || len(page.Comments) != 1 ||
+			page.Comments[0].ResolvedAt == nil || page.Comments[0].Revision != 2 || page.Comments[0].Anchor.Index != 1 {
+			t.Fatalf("unexpected resolved comment: %s", resolved.Body)
+		}
+		exec("insert into artifact_versions(artifact_id,version,body,reason) values($1,2,'更新文本','修订')", artifact)
+		exec("update artifacts set current_version=2 where id=$1", artifact)
+		request(http.MethodPost, path, nominee, payload, 409)
+		latest := request(http.MethodGet, path+"?version=2", nominee, nil, 200)
+		if !strings.Contains(latest.Body.String(), `"comments":[]`) {
+			t.Fatalf("new version inherited old anchors: %s", latest.Body)
+		}
+		revoke(nominee, owner, revision(), 204)
+		request(http.MethodGet, path+"?version=1", nominee, nil, 404)
+		request(http.MethodPatch, path+"/"+comment.ID, nominee, map[string]any{"resolved": false, "expected_revision": 2}, 404)
+	})
 }

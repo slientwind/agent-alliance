@@ -103,7 +103,7 @@
 - [ ] **实时在线态与多人同屏协同**
   - [ ] 基于冷热分离热流通道支持同任务多成员在线头像栈（`presence.joined/left`）及 AI 流式草稿/产物更新向全部有权协作成员实时广播。
 - [ ] **Canvas 行内锚点评论与 `@同事 / @Agent` 派单**
-  - [ ] 新增 `artifact_comments` 表与接口（解除当前仅 `stage == "review"` 才能评论的限制），支持锚定到表格行、文档段落或 PPT 页码，记录解决状态。
+  - [x] 新增 `artifact_comments` 表与接口（解除当前仅 `stage == "review"` 才能评论的限制），支持锚定到表格行、文档段落或 PPT 页码，记录解决状态。
   - [ ] 评论内 `@同事` 自动写入「待办与审核」并推送飞书/钉钉通知卡片；`@Agent` 直接触发针对该锚点的局部改稿与局部重跑。
   - [ ] 保留并接入乐观版本锁（`expected_version`），多人并发修订/审核时给出清晰版本对比防止覆盖。
 
@@ -150,7 +150,7 @@
   - [ ] 抽象 `HotStreamBus` 承载高频 Token Delta、思考进度、Presence 和实时评论，支持单机进程内与可选 Redis Streams，并移除旧草稿通道的高频数据库访问。
   - [x] 修改 `current_run.actor=$2` 限制：允许同任务所有获授权协作成员实时观看流式进展与产物更新。
 - [ ] **[`backend/internal/projects/feedback.go`](../backend/internal/projects/feedback.go)**
-  - [ ] 解绑“仅 `stage == review` 才允许评论”的硬限制，区分轻量行内协同评论（全阶段可用）与正式版本审签意见（审签阶段绑定不可变版本）。
+  - [x] 解绑“仅 `stage == review` 才允许评论”的硬限制，区分轻量行内协同评论（全阶段可用）与正式版本审签意见（审签阶段绑定不可变版本）。
 - [ ] **[`backend/internal/skills/catalog.go`](../backend/internal/skills/catalog.go)** & **[`package.go`](../backend/internal/skills/package.go)**
   - [ ] 在保留 ZIP/SHA-256/防路径穿越校验的基础上，扩展企业级共享作用域（不限于单团队）、上游来源元数据、许可证/安全扫描报告字段及按用户加载绑定查询。
 - [ ] **[`backend/internal/billing/billing.go`](../backend/internal/billing/billing.go)**
