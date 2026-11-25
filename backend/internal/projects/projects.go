@@ -17,13 +17,12 @@ import (
 )
 
 type Server struct {
-	DB              *pgxpool.Pool
-	Vault           resources.Vault
-	SessionUpdates  *SessionUpdates
-	Hot             hotstream.HotStreamBus
-	FeishuMentions  string
-	DingMentions    string
-	QueueAnchorEdit func(context.Context, pgx.Tx, string, string, string) (string, error)
+	DB                 *pgxpool.Pool
+	Vault              resources.Vault
+	SessionUpdates     *SessionUpdates
+	Hot                hotstream.HotStreamBus
+	CommentConnections func() (string, string)
+	QueueAnchorEdit    func(context.Context, pgx.Tx, string, string, string) (string, error)
 }
 type Project struct {
 	ID          string `json:"id"`

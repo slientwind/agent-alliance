@@ -21,20 +21,27 @@ func main() {
 	flag.Parse()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if *inputs != "" || *run == "" {
+	address := os.Getenv("DATABASE_URL")
+	if *run != "" && (*outputs == "" || address == "") {
+		log.Fatal("provide --outputs and DATABASE_URL to register artifacts")
+	}
+	if address == "" {
 		if err := sandbox.Run(ctx, *inputs, *outputs); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+	db, err := database.Open(ctx, address)
+	if err != nil {
+		log.Fatal("could not open the Alliance database")
+	}
+	defer db.Close()
+	if *inputs != "" || *run == "" {
+		if err := (sandbox.Pool{DB: db}).Run(ctx, *inputs, *outputs); err != nil {
 			log.Fatal(err)
 		}
 	}
 	if *run != "" {
-		if *outputs == "" || os.Getenv("DATABASE_URL") == "" {
-			log.Fatal("provide --outputs and DATABASE_URL to register artifacts")
-		}
-		db, err := database.Open(ctx, os.Getenv("DATABASE_URL"))
-		if err != nil {
-			log.Fatal("could not open the Alliance database")
-		}
-		defer db.Close()
 		artifacts, err := sandbox.ImportArtifacts(ctx, db, knowledge.ConfiguredObjects(), *run, *outputs)
 		if err != nil {
 			log.Fatal(err)

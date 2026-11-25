@@ -33,19 +33,19 @@
 
 ## 一、之前功能未实现 / 未闭环部分（Legacy Gaps）
 
-对照 [11-technical-blueprint.md](archive/11-technical-blueprint.md#platform-implementation-baseline) 与 [15-rebuild.md](archive/15-rebuild.md)，以下为历史基线已设计但尚未完成真实闭环的欠账：
+对照 [11-technical-blueprint.md](archive/11-technical-blueprint.md#platform-implementation-baseline) 与 [15-rebuild.md](archive/15-rebuild.md)，以下记录历史基线的待办及当前完成情况。
 
 ### 1.1 通用执行内核与记忆欠账（EA01–EA04）
 - [x] **通用多动作有界 Loop**：通用执行有回合和工具次数上限，保留工具调用及结果的配对，使用统一停滞判定。模型可按任务授权动态选择外部 Agent，并在连接器失败后修正参数或改用获准工具。
-- [x] **可重建语义摘要与派生依赖自动清理（EA03）**：`memory` 仅支持短期消息窗与规则/偏好显式读取，尚未实现长对话窗口压缩摘要（成对保留 `tool_call / tool_result`）、以及偏好/来源撤权后对历史派生摘要的异步失效重建。
+- [x] **可重建语义摘要与派生依赖自动清理（EA03）**：长对话可生成加密摘要并成对保留工具调用和结果。偏好或资料撤权后使旧摘要失效，后台根据仍有权读取的内容重建。
 - [x] **组合回退与嵌套子 Agent 跨团队撤权演练（EA04）**：普通对话支持固定版本的三层文本 Agent 委派和指定备用 Agent。使用真实 PostgreSQL 与本地模型替身验证了中途撤权、失效结果阻断、调用记录保留和获准备用分支。
 
 ### 1.2 真实供应商、渠道与端到端实测欠账（EA05–EA10）
 - [ ] **真实多供应商模型质量与计费校验**：当前绝大多数验收使用本地模型替身或合成数据，尚未对百炼、火山方舟、DeepSeek、OpenAI/Anthropic 的真实工具调用稳定性、视觉识图、生图/局部修图异步取图及真实账单精度完成端到端实测。
 - [ ] **真实企业 IM 租户全链路验收（EA07）**：Slack 与钉钉目前仅有本地协议走查，飞书的真实企业租户原生附件拉取、主动推送送达回执、跨端幂等审批与撤权隐藏仍待真实环境验收。
 - [x] **通用消息归并与多事项跟踪（EA09）**：批量消息经通用 Loop 提取多意图并保留逐条原文依据，支持人工消歧、幂等归单以及按授权资料和事项版本局部续跑。
-- [x] **跨项目批量离职交接**：单 Agent 维护者交接已有实现，但员工离职时的跨项目待审成果、未结待办与私有资产一键批量移交尚未完整闭环。
-- [x] **统一安全策略执行点（EA10）**：当前权限、出站域名、脱敏裁剪分散在各模块 SQL 中，尚未收口为统一可审计的 `Policy.Decide` + 出站数据分级裁剪层。
+- [x] **跨项目批量离职交接**：员工离职时可批量移交待审成果、未结待办、Agent、助手草稿和定时任务。授权检查与交接在同一事务完成。
+- [x] **统一安全策略执行点（EA10）**：模型、通用工具、MCP、外部 Agent、公开搜索和评论通知采用可审计的 `Policy.Decide`，执行时复核授权与数据范围。
 
 ---
 
@@ -78,9 +78,9 @@
   - [x] 实现精确 Token 计价引擎与企业、团队、员工三级月度预算账本，支持幂等预占与结算、硬上限判断，并登记 80%/100% 告警事件。
   - [x] 将三级月度预算接入 L0 模型请求，实现静默扣减，并将额度告警推送给管理员。
   - [x] 新增管理员接口：`/api/admin/models/tiers`、`/api/admin/models/providers`（含连通探测与影响面预览）、`/api/admin/models/pricing`。
-- [ ] **企业服务资源中心（`/admin/integrations`）**
+- [x] **企业服务资源中心（`/admin/integrations`）**
   - [x] 在企业服务资源中心提供联网搜索配置与健康检测，支持博查与 Tavily。
-  - [ ] 在同一中心接入 Docker Compose 沙箱池配额、企业知识源连接器（飞书/钉钉文档/Confluence 同步状态）、企业 MCP Server 目录、IM 渠道机器人配置（数据库加密托管替代 env）。
+  - [x] 在同一中心接入 Docker Compose 沙箱池配额、企业知识源连接器（飞书/钉钉文档/Confluence 同步状态）、企业 MCP Server 目录、IM 渠道机器人配置（数据库加密托管替代 env）。
   - [x] 新增 **UI 动态出站域名白名单表 `outbound_host_allowlist`** 及管理接口，并增加 SSRF 防护（解析目标 DNS/IP，默认阻断内网与云元数据网段，仅允许管理员显式标记的受信任内网自研网段）。
 
 ### 模块 C：外部 Agent 多协议/框架模板接入（Adapter Hub）
@@ -103,7 +103,7 @@
   - [x] 新增 `agent_scope`（`personal / team / enterprise`）：`personal` **免审批保存即用**（绑定本人与主团队额度）；`team` 需 1 次样例自测通过并冻结版本；`enterprise` 冻结不可变依赖清单进入 `/admin/releases` 审批队列。
 
 ### 模块 E：团队多人协同工作台（企业核心特色）
-- [ ] **单人对话一键升档团队协同任务**
+- [x] **单人对话一键升档团队协同任务**
   - [x] 扩展 `task_participants`（兼容现有 `project_members`），支持在任意对话顶部一键拉入同事并指定业务分工角色（`owner` 发起人、`contributor` 资料补件人、`reviewer` 内容审核人、`approver` 最终确认人），支持随时移出并即时撤权。
 - [x] **实时在线态与多人同屏协同**
   - [x] 基于冷热分离热流通道支持同任务多成员在线头像栈（`presence.joined/left`）及 AI 流式草稿/产物更新向全部有权协作成员实时广播。
@@ -124,13 +124,13 @@
   - [x] **版本升级提醒**：扫描器发现上游新版时仅生成「有新版可用 + 差异摘要」通知管理员，绝不静默覆盖在用冻结版本。
 
 ### 模块 G：企业级监控大盘（Observability & 双轨口径）
-- [ ] **隐式正向信号埋点（轻量任务有效完成率）**
+- [x] **隐式正向信号埋点（轻量任务有效完成率）**
   - [x] 新增 `POST /api/telemetry/signals` 与 `run_quality_signals` 表，记录 `artifact_downloaded`、`reply_copied`、`feedback_thumbs_up/down`、`reply_regenerated`、`user_cancelled_midway`。
   - [x] 实现双轨聚合口径计算：**轻量有效完成率**（隐式正向信号 + 无负面重试）与 **协作审签采纳率**（人工审核交付）分列输出。
-- [ ] **小时/天预聚合监控表与大盘 API**
+- [x] **小时/天预聚合监控表与大盘 API**
   - [x] 新增 Worker 定时聚合任务（每 5 分钟 Rollup）写入 `monitor_agent_hourly_stats` 与 `monitor_model_hourly_stats`（按 `team / agent / source_type / model / tier` 多维统计调用量、成功率、双轨有效率、P50/P95 延迟、Input/Output/Cache Token、精确费用、外部未披露次数）。
   - [x] 新增全屏监控大盘接口：KPI 总览、四阶质量漏斗、双趋势图、**Agent 运行效能榜单（支持排序下钻）**、实时运行/阻塞队列接口、以及按权限裁剪的 **Trace 瀑布流详情接口**（`Run → Turn → LLM/Tool/Sandbox/External Span`）。
-- [ ] **主动告警推送引擎**
+- [x] **主动告警推送引擎**
   - [x] 新增 `alert_rules` 与巡检任务（外部 Agent 连续超时/失败、模型档位触发 Fallback 降级、部门日消耗突增、预算达 80%/100%），通过飞书/钉钉 Webhook 自动推送并支持静默去重。
 
 ---
@@ -154,23 +154,23 @@
   - [x] 会话 SSE 由 PostgreSQL 提交通知唤醒并补读持久事件游标，闲置连接只做低频心跳与授权复核。
   - [x] 抽象 `HotStreamBus` 承载高频 Token Delta、思考进度、Presence 和实时评论，支持单机进程内与可选 Redis Streams，并移除旧草稿通道的高频数据库访问。
   - [x] 修改 `current_run.actor=$2` 限制：允许同任务所有获授权协作成员实时观看流式进展与产物更新。
-- [ ] **[`backend/internal/projects/feedback.go`](../backend/internal/projects/feedback.go)**
+- [x] **[`backend/internal/projects/feedback.go`](../backend/internal/projects/feedback.go)**
   - [x] 解绑“仅 `stage == review` 才允许评论”的硬限制，区分轻量行内协同评论（全阶段可用）与正式版本审签意见（审签阶段绑定不可变版本）。
 - [x] **[`backend/internal/skills/catalog.go`](../backend/internal/skills/catalog.go)** & **[`package.go`](../backend/internal/skills/package.go)**
   - [x] 在保留 ZIP/SHA-256/防路径穿越校验的基础上，扩展企业级共享作用域（不限于单团队）、上游来源元数据、许可证/安全扫描报告字段及按用户加载绑定查询。
-- [ ] **[`backend/internal/billing/billing.go`](../backend/internal/billing/billing.go)**
+- [x] **[`backend/internal/billing/billing.go`](../backend/internal/billing/billing.go)**
   - [x] 增加增量余额与已用汇总，替代 `Reserve` 在行锁内对 `spend` 做整表聚合。
   - [x] L0 个人任务在有效额度内自动静默放行，去除繁琐的前置费用确认。
-- [ ] **[`backend/internal/monitor/usage.sql`](../backend/internal/monitor/usage.sql)** & **[`monitor.go`](../backend/internal/monitor/monitor.go)**
+- [x] **[`backend/internal/monitor/usage.sql`](../backend/internal/monitor/usage.sql)** & **[`monitor.go`](../backend/internal/monitor/monitor.go)**
   - [x] 将实时全表查询切换至小时预聚合表，并补全按 Agent、模型、来源、时间趋势、双轨有效率与 P50/P95 延迟的接口返回。
-- [ ] **[`connectors/server.py`](../connectors/server.py)**
+- [x] **[`connectors/server.py`](../connectors/server.py)**
   - [x] 将单线程 `HTTPServer` 改为 `ThreadingHTTPServer`，避免单个工具请求阻塞其他请求。
   - [x] 将现有高确定性财务汇总/Office 能力作为 Trusted Tool 注册到通用 Loop 中。
 
 ### 3.2 前端代码重构清单（对齐 [vnext-prototype.html](uiux/vnext-prototype.html)）
-- [ ] **引入核心基础依赖（[`frontend/package.json`](../frontend/package.json)）**
+- [x] **引入核心基础依赖（[`frontend/package.json`](../frontend/package.json)）**
   - [x] 引入前端路由（`react-router-dom`）、Markdown + GFM 表格 + 代码高亮渲染器（如 `react-markdown` + `remark-gfm`）、统一 SVG/轻量图表组件。
-- [ ] **视觉设计系统重写（[`frontend/src/style.css`](../frontend/src/style.css)）**
+- [x] **视觉设计系统重写（[`frontend/src/style.css`](../frontend/src/style.css)）**
   - [x] 全面替换为 [21-vnext-uiux-spec.md](21-vnext-uiux-spec.md) 的 **暖灰白纸面 + 深墨绿强调色 Design Tokens**，支持 `data-theme="light|dark"` 一键切换与持久化。
   - [x] 统一全站 Lucide 线性图标（`16/18/20px`，`stroke-width: 1.65`）与 `tabular-nums` 等宽数字，淘汰黑白灰菱形/圆点编码。
 - [x] **拆除巨型单文件与 `<dialog>` 弹窗后台（[`main.tsx`](../frontend/src/main.tsx) · [`work.tsx`](../frontend/src/work.tsx) · [`enterprise-workspace.tsx`](../frontend/src/enterprise-workspace.tsx)）**
@@ -207,7 +207,7 @@
 ### 4.3 产品体验与部署运维
 - [x] **前台文案全面降噪排查**：对照 [18-vnext-product-ia.md 第 5 节](18-vnext-product-ia.md) 清理后端错误提示（`web.Fail`）与前端文案中的工程术语（如“调用意图”“控制修订”“发布代次”）。
 - [x] **初始化引导（Onboarding）升级**：首次部署启动后，管理员引导一步完成「接入首个模型供应商 → 自动映射到 6 档位 → 选择启用的正规生态扫描源 → 邀请团队成员」，10 分钟开箱即用。
-- [ ] **开展 5–8 名非技术员工无引导可用性走查**：在 Phase 2 前端合入前，先用 [vnext-prototype.html](uiux/vnext-prototype.html) 跑完 [UT-01 ~ UT-07](19-vnext-research-addendum.md#42-七个核心走查任务与观测红线) 实测，根据真实卡点微调交互后再写页面代码。
+- [ ] **开展 5–8 名非技术员工无引导可用性走查**：在独立验收阶段，用 [vnext-prototype.html](uiux/vnext-prototype.html) 和现有工作台实测 [UT-01 ~ UT-07](19-vnext-research-addendum.md#42-七个核心走查任务与观测红线)，记录真实卡点后安排交互调整。
 
 ---
 

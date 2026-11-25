@@ -402,3 +402,36 @@ func runInputs(ctx context.Context, tx pgx.Tx, run string, step int, includeText
 	b.WriteString(recalled)
 	return b.String(), files, nil
 }
+
+// UpdateSyncedText replaces only the previously published version in its original project.
+func (o Objects) UpdateSyncedText(ctx context.Context, tx pgx.Tx, project, id, actor, name, text string, previous int) error {
+	tag, err := tx.Exec(ctx, `update sources set current_version=current_version+1,name=$4
+		where project_id=$1 and id=$2 and current_version=$3 and revoked_at is null`, project, id, previous, name)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return pgx.ErrNoRows
+	}
+	if err := o.saveSourceVersion(ctx, tx, id, actor, name, previous+1, strings.NewReader(text), 256<<10,
+		"text/plain; charset=utf-8", extraction{text: &text}); err != nil {
+		return err
+	}
+	if err := recordSourceChange(ctx, tx, project, id, "source_updated"); err != nil {
+		return err
+	}
+	return database.Audit(ctx, tx, actor, "source.save", id, map[string]int{"version": previous + 1})
+}
+
+// RevokeSyncedText revokes a connected source and invalidates dependent run inputs.
+func (o Objects) RevokeSyncedText(ctx context.Context, tx pgx.Tx, project, id, actor string) error {
+	tag, err := tx.Exec(ctx, `update sources set revoked_at=now()
+		where project_id=$1 and id=$2 and revoked_at is null`, project, id)
+	if err != nil || tag.RowsAffected() == 0 {
+		return err
+	}
+	if err := recordSourceChange(ctx, tx, project, id, "source_revoked"); err != nil {
+		return err
+	}
+	return database.Audit(ctx, tx, actor, "source.revoke", id, map[string]bool{"revoked": true})
+}

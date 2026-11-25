@@ -261,6 +261,15 @@
 
 外部 Agent 明确返回失败或拒绝时，项目发起人可以在「控制运行」填写原因并确认执行失败。单步改稿也可由仍有审核权的改稿发起人在「管理本次修改」处理。所有已派发调用（含风险重做前的调用）须有可核验的终态回执。确认结束后，保留已有成果和调用费用，当前改稿的候选分支结束。应用从进度接口读取 `canConcludeFailure`，向运行的 `actions` 提交 `confirm_failure`、当前控制版本和原因。升级数据库 072 时，在同一维护窗口更新 API 和 Worker，使执行进程识别失败终态。
 
+### 管理企业服务
+
+管理员从「企业管理 → 企业服务」配置域名访问许可、沙箱配额、企业知识源、MCP 服务和 IM 机器人。
+
+- **沙箱配额**管理连接同一 Alliance 数据库的 `backend/cmd/sandbox` 实例。构建 Compose 的 `sandbox` 镜像后，在运行命令的宿主机设置 `DATABASE_URL`。各实例共享并发配额，设为 0 暂停接收新任务。沙箱容器继续断网运行，任务时限可设为 5–60 秒。
+- **企业知识源**按文档 ID 同步到管理员负责的项目。当前支持飞书新版文档纯文本、钉钉在线文档 Markdown、Confluence Cloud 页面正文，每份正文最多 256 KiB。为上游域名添加 HTTPS 访问许可，使用有权读取该文档的飞书应用、钉钉官方文档 MCP 凭据或 Confluence 账号及 API Token。保存后可立即同步，成功后每 15 分钟复核。内容变化发布为项目资料的新版本，暂停同步或确认上游权限失效时撤回连接发布的资料。临时网络或格式故障显示失败原因并保留最近成功版本。 [飞书文档 API](https://open.feishu.cn/document/server-docs/docs/docs/docx-v1/document/raw_content) · [钉钉文档 MCP](https://help.aliyun.com/zh/polardb/polardb-for-postgresql/sync-dingtalk-documents-to-the-knowledge-base) · [Confluence 页面 API](https://developer.atlassian.com/cloud/confluence/rest/v2/api-group-page/#api-pages-id-get)
+- **企业 MCP 服务**保存并启用后可检测连通性、查看服务声明的工具。选择工具的免费查询、付费查询或写入权限，再授权使用团队。
+- **IM 渠道机器人**支持飞书、钉钉和 Slack，使用部署的 `PUBLIC_BASE_URL` 生成 HTTPS 工作区链接。保存新配置时填写该渠道所需的全套凭据。数据库配置生效后可在页面轮换或停用机器人。尚未保存数据库配置的渠道沿用部署环境的配置。
+
 ### 回收、恢复和清除项目资料
 
 从「项目资料 → 资料版本与引用影响」查看本次操作涉及的版本、方案、运行、候选成果与历史交付。资料创建人和项目发起人须仍是该项目成员，才可提交处理原因并确认操作。
@@ -377,7 +386,7 @@
 
 ### 飞书任务入口
 
-为 API 配置企业实例的 HTTPS 外部地址 `PUBLIC_BASE_URL`，以及 `FEISHU_APP_ID`、`FEISHU_APP_SECRET`、`FEISHU_ENCRYPT_KEY`、`FEISHU_VERIFICATION_TOKEN`、`FEISHU_TENANT_KEY`。群内定向消息另需机器人的 `FEISHU_BOT_OPEN_ID`。企业自建应用须开通机器人、接收指定范围的消息和回复消息的权限，并发布到试用成员可用的范围。把加密事件订阅地址设成企业实例的 `/api/channels/feishu/events`，订阅 `im.message.receive_v1`。[接收消息事件](https://open.feishu.cn/document/server-docs/im-v1/message/events/receive) · [回复消息](https://open.feishu.cn/document/server-docs/im-v1/message/reply)
+为 API 配置企业实例的 HTTPS 外部地址 `PUBLIC_BASE_URL`。从「企业管理 → 企业服务 → IM 渠道机器人」填写飞书 App ID、App Secret、Encrypt Key、Verification Token 和租户 Key。群内定向消息另需机器人 Open ID。企业自建应用须开通机器人、接收指定范围的消息和回复消息的权限，并发布到试用成员可用的范围。把加密事件订阅地址设成企业实例的 `/api/channels/feishu/events`，订阅 `im.message.receive_v1`。[接收消息事件](https://open.feishu.cn/document/server-docs/im-v1/message/events/receive) · [回复消息](https://open.feishu.cn/document/server-docs/im-v1/message/reply)
 
 成员从「我的工作区 → 飞书账号绑定」领取指令，在与机器人的单聊中绑定。发送「服务 关键词」查找可用入口，再发送「发起 服务ID 工作目标」。机器人会列出服务版本、调用次数、费用承担团队和最终确认人，确认指令在十分钟内有效。使用同一单聊查询「进度」「待办」「成果」，发送「反馈 成果ID v版本号 具体意见」提出定向修改建议，打开项目链接审核及交付。群内须明确 @ 机器人；群回复只提供网页入口或操作指引。项目成员资格与审核权在平台核验。
 

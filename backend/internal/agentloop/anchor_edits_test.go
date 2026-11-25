@@ -94,7 +94,7 @@ func TestCommentMentionsAndBoundedAnchorWorkflowPostgres(t *testing.T) {
 	exec("insert into im_bindings(connection,external_user,member_id) values($1,'fixt-ding',$2)", team, reviewer)
 	api := http.NewServeMux()
 	general := Server{DB: db, Vault: vault}
-	projects.Server{DB: db, Vault: vault, FeishuMentions: team, DingMentions: team, QueueAnchorEdit: general.QueueAnchorEdit}.
+	projects.Server{DB: db, Vault: vault, CommentConnections: func() (string, string) { return team, team }, QueueAnchorEdit: general.QueueAnchorEdit}.
 		Routes(api, identity.Server{DB: db})
 	commentsPath := "/api/projects/" + project + "/artifacts/" + artifact + "/comments"
 	request := func(method, path, member, key, body string, status int) string {

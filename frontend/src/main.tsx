@@ -82,6 +82,7 @@ const MailIntegration = lazy(() => import("./mail-integration").then(({ MailInte
 const AutomationSchedules = lazy(() => import("./automation-schedules").then(({ AutomationSchedules }) => ({ default: AutomationSchedules })));
 const ExternalConnect = lazy(() => import("./external-connect").then(({ ExternalConnect }) => ({ default: ExternalConnect })));
 const AdminReleases = lazy(() => import("./admin-releases").then(({ AdminReleases }) => ({ default: AdminReleases })));
+const EnterpriseIntegrations = lazy(() => import("./enterprise-integrations").then(({ EnterpriseIntegrations }) => ({ default: EnterpriseIntegrations })));
 const EcosystemSources = lazy(() => import("./ecosystem-sources").then(({ EcosystemSources }) => ({ default: EcosystemSources })));
 const StudioWorkspace = lazy(() => import("./studio-workspace").then(({ StudioWorkspace }) => ({ default: StudioWorkspace })));
 const AdminMonitor = lazy(() => import("./admin-monitor").then(({ AdminMonitor }) => ({ default: AdminMonitor })));
@@ -1307,6 +1308,7 @@ function App() {
           <SearchIntegration />
           <MailIntegration />
           <OutboundHosts />
+          <EnterpriseIntegrations />
           <EcosystemSources />
         </Suspense>
       )}

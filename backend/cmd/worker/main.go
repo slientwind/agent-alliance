@@ -9,6 +9,7 @@ import (
 	"alliance/internal/hotstream"
 	"alliance/internal/intake"
 	"alliance/internal/knowledge"
+	"alliance/internal/knowledgesync"
 	"alliance/internal/mcphub"
 	"alliance/internal/runtime"
 	"alliance/internal/telemetry"
@@ -107,6 +108,8 @@ func main() {
 	go a.FollowRemote(ctx, c)
 	go a.CleanRetention(ctx)
 	go knowledge.MaintainPassages(ctx, catalog.DB)
+	go (knowledgesync.Server{DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(),
+		Egress: egress.Policy{DB: catalog.DB}}).Serve(ctx)
 	go knowledge.ConfiguredObjects().ServeArtifactPreviews(ctx, catalog.DB)
 	go telemetry.Serve(ctx, catalog.DB)
 	a.Dispatch(ctx, c)

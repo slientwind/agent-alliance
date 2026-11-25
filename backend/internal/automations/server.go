@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"alliance/internal/channels"
 	"alliance/internal/database"
 	"alliance/internal/identity"
 	"alliance/internal/resources"
@@ -20,7 +19,11 @@ import (
 type Server struct {
 	DB     *pgxpool.Pool
 	Vault  resources.Vault
-	Feishu channels.Feishu
+	Feishu interface {
+		AutomationBinding(context.Context, interface {
+			QueryRow(context.Context, string, ...any) pgx.Row
+		}, string) (string, error)
+	}
 }
 
 func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {

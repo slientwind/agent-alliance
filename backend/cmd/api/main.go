@@ -12,6 +12,7 @@ import (
 	"alliance/internal/identity"
 	"alliance/internal/intake"
 	"alliance/internal/knowledge"
+	"alliance/internal/knowledgesync"
 	"alliance/internal/llmgateway"
 	"alliance/internal/mailrelay"
 	"alliance/internal/mcphub"
@@ -19,6 +20,7 @@ import (
 	"alliance/internal/onboarding"
 	"alliance/internal/planner"
 	"alliance/internal/projects"
+	"alliance/internal/sandbox"
 	"alliance/internal/services"
 	"alliance/internal/studio"
 	"alliance/internal/web"
@@ -52,21 +54,13 @@ func main() {
 	}
 	mux := http.NewServeMux()
 	s.Routes(mux)
-	feishu := channels.NewFeishu(c.DB, c.Vault)
-	feishu.Routes(mux, s)
-	go feishu.Notify(ctx)
-	go feishu.ImportAttachments(ctx)
-	go feishu.ReviewMonitor(ctx)
+	bots := &channels.Bots{DB: c.DB, Vault: c.Vault}
+	bots.Routes(ctx, mux, s)
 	mail := mailrelay.Relay{DB: c.DB, Vault: c.Vault, Egress: egress.Policy{DB: c.DB}, Public: os.Getenv("PUBLIC_BASE_URL")}
 	mail.Routes(mux, s)
-	go (automations.Notifications{DB: c.DB, Feishu: feishu.SendAutomationNotice, Email: mail.Send}).Serve(ctx)
-	slack := channels.NewSlack(c.DB, c.Vault)
-	slack.Routes(mux, s)
-	go slack.Serve(ctx)
-	dingTalk := channels.NewDingTalk(c.DB, c.Vault)
-	dingTalk.Routes(mux, s)
-	go dingTalk.Serve(ctx)
-	go channels.ServeCommentNotices(ctx, c.DB, feishu, dingTalk)
+	go (automations.Notifications{DB: c.DB, Feishu: bots.SendAutomationNotice, Email: mail.Send}).Serve(ctx)
+	sandbox.Pool{DB: c.DB}.Routes(mux, s)
+	knowledgesync.Server{DB: c.DB, Vault: c.Vault, Objects: knowledge.ConfiguredObjects()}.Routes(mux, s)
 	billing.Server{DB: c.DB}.Routes(mux, s)
 	monitor.Server{DB: c.DB}.Routes(mux, s)
 	monitor.Alerts{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
@@ -96,12 +90,12 @@ func main() {
 	}
 	general := agentloop.Server{DB: c.DB, Vault: c.Vault}
 	projects.Server{DB: c.DB, Vault: c.Vault, SessionUpdates: projectUpdates, Hot: projectStream, QueueAnchorEdit: general.QueueAnchorEdit,
-		FeishuMentions: feishu.CommentConnection(), DingMentions: dingTalk.CommentConnection()}.Routes(mux, s)
+		CommentConnections: bots.CommentConnections}.Routes(mux, s)
 	general.Routes(mux, s)
 	intake.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
 	studio.Server{DB: c.DB, Vault: c.Vault, Gateway: app.ModelGateway(c)}.Routes(mux, s)
 	ecosystem.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
-	automations.Server{DB: c.DB, Vault: c.Vault, Feishu: feishu}.Routes(mux, s)
+	automations.Server{DB: c.DB, Vault: c.Vault, Feishu: bots}.Routes(mux, s)
 	mux.Handle("GET /api/health", web.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		if err := c.DB.Ping(r.Context()); err != nil {
 			return web.Fail(503, "数据库不可用")

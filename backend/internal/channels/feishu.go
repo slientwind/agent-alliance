@@ -342,7 +342,10 @@ func (f Feishu) Notify(ctx context.Context) {
 				if _, err := tx.Exec(ctx, "delete from channel_card_actions where expires_at<=now()"); err != nil {
 					return err
 				}
-				err := tx.QueryRow(ctx, "select id,message_id,note,member_id,project_id,attempts,binding_id,private_chat,reply_kind,argument,chat_id from channel_replies where sent_at is null and suppressed_at is null and next_at<=now() and attempts<6 and reply_kind<>'attachment_pending' order by next_at limit 1 for update skip locked").Scan(&id, &message, &note, &actor, &project, &attempts, &binding, &private, &kind, &arg, &chat)
+				err := tx.QueryRow(ctx, `select r.id,r.message_id,r.note,r.member_id,r.project_id,r.attempts,r.binding_id,r.private_chat,r.reply_kind,r.argument,r.chat_id
+					from channel_replies r join channel_events e on e.id=r.event_id and e.tenant=$1
+					where r.sent_at is null and r.suppressed_at is null and r.next_at<=now() and r.attempts<6 and r.reply_kind<>'attachment_pending'
+					order by r.next_at limit 1 for update of r skip locked`, f.Tenant).Scan(&id, &message, &note, &actor, &project, &attempts, &binding, &private, &kind, &arg, &chat)
 				if err == pgx.ErrNoRows {
 					return nil
 				}

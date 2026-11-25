@@ -130,7 +130,7 @@ func deliveryState(receipt string, err error) string {
 }
 
 func (s Server) notificationChannels(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
-	binding, err := s.Feishu.AutomationBinding(r.Context(), s.DB, actor.ID)
+	binding, err := s.feishuBinding(r.Context(), s.DB, actor.ID)
 	if err != nil {
 		return err
 	}
@@ -160,6 +160,15 @@ func selectedEmail(ctx context.Context, tx pgx.Tx, actor string, choice *bool, p
 	return web.Hash(email), nil
 }
 
+func (s Server) feishuBinding(ctx context.Context, q interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, actor string) (string, error) {
+	if s.Feishu == nil {
+		return "", nil
+	}
+	return s.Feishu.AutomationBinding(ctx, q, actor)
+}
+
 func (s Server) selectedFeishu(ctx context.Context, tx pgx.Tx, actor string, choice *bool, prior *string) (*string, error) {
 	if choice == nil {
 		return prior, nil
@@ -167,7 +176,7 @@ func (s Server) selectedFeishu(ctx context.Context, tx pgx.Tx, actor string, cho
 	if !*choice {
 		return nil, nil
 	}
-	binding, err := s.Feishu.AutomationBinding(ctx, tx, actor)
+	binding, err := s.feishuBinding(ctx, tx, actor)
 	if err != nil {
 		return nil, err
 	}
