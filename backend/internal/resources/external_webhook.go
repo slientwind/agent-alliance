@@ -125,7 +125,7 @@ func normalizeWebhookState(raw string) string {
 	}
 }
 
-func (m Model) webhookStart(ctx context.Context, messages []Message) (Reply, error) {
+func (m webhookProtocol) submit(ctx context.Context, messages []Message, _ func(string)) (Reply, error) {
 	if !m.Adapter.valid() {
 		return Reply{}, errExternalReply
 	}
@@ -145,7 +145,7 @@ func (m Model) webhookStart(ctx context.Context, messages []Message) (Reply, err
 	return out.attach(spec.reply(out.payload, "", false))
 }
 
-func (m Model) webhookFollow(ctx context.Context, receipt RemoteWait, cancel bool) (Reply, error) {
+func (m webhookProtocol) follow(ctx context.Context, receipt RemoteWait, cancel bool) (Reply, error) {
 	if !m.Adapter.valid() || !remoteTaskID.MatchString(receipt.Task) {
 		return Reply{}, errExternalReply
 	}

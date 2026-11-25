@@ -147,9 +147,9 @@
 - [ ] **[`backend/internal/resources/model.go`](../backend/internal/resources/model.go)** & **[`catalog.go`](../backend/internal/resources/catalog.go)**
   - [x] 重构 `Message` / `Reply` 支持原生 `tools`、`tool_calls`、`tool_call_id`、`reasoning_content` 及 `PromptTokens / CompletionTokens / CachedTokens` 细项；移除硬编码 `max_tokens: 1800`。
   - [ ] 解耦模型资源与单一 `team_id` 的强绑定，升级为全局资源池 + 6 档位路由映射；保留兼容旧已发布修订的平滑读取。
-- [ ] **[`backend/internal/resources/external.go`](../backend/internal/resources/external.go)**
+- [x] **[`backend/internal/resources/external.go`](../backend/internal/resources/external.go)**
   - [x] 改造 `PermittedAgentEndpoint`：从 `os.Getenv("AGENT_ALLOWED_HOSTS")` 迁移至 DB 白名单表 + DNS/IP SSRF 校验。
-  - [ ] 抽象多协议适配接口，拆分 A2A 实现并接入 OpenAI-Compatible / Dify / Coze / LangGraph / Webhook 适配及可选用量回传头解析。
+  - [x] 抽象多协议适配接口，拆分 A2A 实现并接入 OpenAI-Compatible / Dify / Coze / LangGraph / Webhook 适配及可选用量回传头解析。
 - [ ] **[`backend/internal/projects/session_events.go`](../backend/internal/projects/session_events.go)**
   - [x] 会话 SSE 由 PostgreSQL 提交通知唤醒并补读持久事件游标，闲置连接只做低频心跳与授权复核。
   - [ ] 抽象 `HotStreamBus` 承载高频 Token Delta、思考进度、Presence 和实时评论，支持单机进程内与可选 Redis Streams，并移除旧草稿通道的高频数据库访问。

@@ -10,7 +10,6 @@ import (
 	"mime"
 	"net/http"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"alliance/internal/identity"
@@ -105,36 +104,7 @@ func (c Catalog) saveAdapter(w http.ResponseWriter, r *http.Request, u identity.
 var errExternalReply = errors.New("外部 Agent 未返回完整答复")
 var errRemoteTaskMismatch = errors.New("远端回执与原任务不符")
 
-func (m Model) generateExternal(ctx context.Context, messages []Message, emit func(string)) (Reply, error) {
-	sub, cancel := context.WithTimeout(ctx, time.Duration(m.Policy.ExecutionSeconds)*time.Second)
-	defer cancel()
-	if m.Adapter != nil {
-		switch m.Adapter.Protocol {
-		case AdapterOpenAICompat:
-			return m.chatAdapter(sub, messages, emit)
-		case AdapterWebhook:
-			return m.webhookStart(sub, messages)
-		default:
-			return Reply{}, errExternalReply
-		}
-	}
-	var parts []part
-	for _, msg := range messages {
-		if msg.Role == "user" {
-			parts = append(parts, part{Kind: "text", Text: msg.Content})
-		}
-	}
-	id := m.Operation
-	if id == "" {
-		id = web.Token()
-	}
-	return m.remote(sub, "message/send", nil, map[string]any{
-		"message":       map[string]any{"kind": "message", "messageId": id, "role": "user", "parts": parts},
-		"configuration": map[string]any{"blocking": true, "acceptedOutputModes": []string{"text/plain"}},
-	})
-}
-
-func (m Model) chatAdapter(ctx context.Context, messages []Message, emit func(string)) (Reply, error) {
+func (m chatProtocol) submit(ctx context.Context, messages []Message, emit func(string)) (Reply, error) {
 	spec := m.Adapter
 	if !spec.valid() || !Endpoint(m.Endpoint) {
 		return Reply{}, errExternalReply
