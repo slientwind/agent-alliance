@@ -80,6 +80,7 @@ const SearchIntegration = lazy(() => import("./search-integration").then(({ Sear
 const MailIntegration = lazy(() => import("./mail-integration").then(({ MailIntegration }) => ({ default: MailIntegration })));
 const AutomationSchedules = lazy(() => import("./automation-schedules").then(({ AutomationSchedules }) => ({ default: AutomationSchedules })));
 const ExternalConnect = lazy(() => import("./external-connect").then(({ ExternalConnect }) => ({ default: ExternalConnect })));
+const AdminReleases = lazy(() => import("./admin-releases").then(({ AdminReleases }) => ({ default: AdminReleases })));
 
 function Overlay({
   title,
@@ -1150,7 +1151,10 @@ function App() {
       )}
       {panel === "admin" && user.role === "admin" && (
         <>
-          <button type="button" onClick={() => setPanel("integrations")}>企业服务</button>
+          <div className="row">
+            <button type="button" onClick={() => setPanel("integrations")}>企业服务</button>
+            <button type="button" onClick={() => setPanel("releases")}>发布审批</button>
+          </div>
           <EnterpriseWorkspace
             user={user}
             models={models}
@@ -1165,6 +1169,11 @@ function App() {
         <Suspense fallback={<p role="status">正在加载企业服务…</p>}>
           <SearchIntegration />
           <MailIntegration />
+        </Suspense>
+      )}
+      {panel === "releases" && user.role === "admin" && (
+        <Suspense fallback={<p role="status">正在加载发布审批…</p>}>
+          <AdminReleases />
         </Suspense>
       )}
     </>
@@ -1199,7 +1208,8 @@ function App() {
             </header>
             <div className="workspace-page-content">
               {err && <p role="alert">{err}</p>}
-              {(routePanel === "admin" || routePanel === "integrations") && user.role !== "admin" ? <p role="alert">需要企业管理员权限</p> : pageContent}
+              {workspacePage(routePanel)?.path.startsWith("/admin") && user.role !== "admin"
+                ? <p role="alert">需要企业管理员权限</p> : pageContent}
             </div>
           </main>
         ) : (

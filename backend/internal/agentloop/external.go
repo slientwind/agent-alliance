@@ -51,14 +51,14 @@ func validateExternalSelection(in StartInput) error {
 	return nil
 }
 
-func (s Server) bindExternalAgents(ctx context.Context, tx pgx.Tx, run, actor string, refs []externalRef) error {
+func (s Server) bindExternalAgents(ctx context.Context, tx pgx.Tx, run, actor string, refs []externalRef, latestOnly bool) error {
 	catalog := resources.Catalog{DB: s.DB, Vault: s.Vault}
 	for _, ref := range refs {
 		tag, err := tx.Exec(ctx, `insert into general_external_agents(run_id,agent_id,revision)
 		 select $1,x.agent_id,x.revision from external_agent_admissions x join agents a on a.id=x.agent_id
 		 where (x.agent_id,x.revision)=($2,$3) and external_admission_can_use(x.agent_id,x.revision,$4)
-		 and (x.revision=a.published_revision or x.revision=(select max(revision) from agent_revisions where agent_id=a.id))`,
-			run, ref.ID, ref.Revision, actor)
+		 and (not $5 or x.revision=a.published_revision or x.revision=(select max(revision) from agent_revisions where agent_id=a.id))`,
+			run, ref.ID, ref.Revision, actor, latestOnly)
 		if err != nil {
 			return err
 		}

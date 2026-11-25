@@ -54,14 +54,15 @@ func (s Server) tiers(w http.ResponseWriter, r *http.Request, _ identity.Member)
 }
 
 type StartInput struct {
-	Expected     int                      `json:"expected"`
-	Goal         string                   `json:"goal"`
-	Tier         llmgateway.Tier          `json:"tier"`
-	Sources      []harness.SourceRevision `json:"sources,omitempty"`
-	SearchQuery  string                   `json:"searchQuery,omitempty"`
-	External     []externalRef            `json:"externalAgents,omitempty"`
-	Direct       bool                     `json:"directExternal,omitempty"`
-	Capabilities *[]string                `json:"capabilities,omitempty"`
+	Expected      int                      `json:"expected"`
+	Goal          string                   `json:"goal"`
+	Tier          llmgateway.Tier          `json:"tier"`
+	Sources       []harness.SourceRevision `json:"sources,omitempty"`
+	SearchQuery   string                   `json:"searchQuery,omitempty"`
+	External      []externalRef            `json:"externalAgents,omitempty"`
+	Direct        bool                     `json:"directExternal,omitempty"`
+	Capabilities  *[]string                `json:"capabilities,omitempty"`
+	StudioRelease string                   `json:"studioRelease,omitempty"`
 }
 
 func (s Server) start(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
@@ -85,6 +86,11 @@ func (s Server) start(w http.ResponseWriter, r *http.Request, actor identity.Mem
 func (s Server) StartTx(ctx context.Context, tx pgx.Tx, project, actor, key string, in StartInput) (string, error) {
 	in.Goal = strings.TrimSpace(in.Goal)
 	in.SearchQuery = strings.TrimSpace(in.SearchQuery)
+	if in.StudioRelease != "" {
+		if err := applyStudioRelease(ctx, tx, project, actor, &in); err != nil {
+			return "", err
+		}
+	}
 	if err := validateExternalSelection(in); err != nil {
 		return "", err
 	}
@@ -211,11 +217,11 @@ func (s Server) StartTx(ctx context.Context, tx pgx.Tx, project, actor, key stri
 		project, plan, actor, team, key, hash, maxModelTurns, reviewer).Scan(&run); err != nil {
 		return "", err
 	}
-	if _, err := tx.Exec(ctx, `insert into general_agent_runs(run_id,tier,goal_message_seq,direct_external,enabled_capabilities)
-	 values($1,$2,$3,$4,$5)`, run, in.Tier, initialMessage, in.Direct, enabled); err != nil {
+	if _, err := tx.Exec(ctx, `insert into general_agent_runs(run_id,tier,goal_message_seq,direct_external,enabled_capabilities,studio_release)
+	 values($1,$2,$3,$4,$5,nullif($6,'')::uuid)`, run, in.Tier, initialMessage, in.Direct, enabled, in.StudioRelease); err != nil {
 		return "", err
 	}
-	if err := s.bindExternalAgents(ctx, tx, run, actor, in.External); err != nil {
+	if err := s.bindExternalAgents(ctx, tx, run, actor, in.External, in.StudioRelease == ""); err != nil {
 		return "", err
 	}
 	if !in.Direct {

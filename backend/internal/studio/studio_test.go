@@ -14,12 +14,14 @@ import (
 	"strings"
 	"testing"
 
+	"alliance/internal/agentloop"
 	"alliance/internal/database"
 	"alliance/internal/identity"
 	"alliance/internal/llmgateway"
 	"alliance/internal/resources"
 	"alliance/internal/web"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -163,16 +165,20 @@ func TestStudioBuilderPostgres(t *testing.T) {
 	team := uuid.NewString()
 	exec("insert into teams(id,name) values($1,$1::uuid::text)", team)
 	exec("insert into enterprise(name,default_team) values('Studio fixture',$1) on conflict do nothing", team)
-	member := func() (string, string) {
+	member := func(team, role string) (string, string) {
 		t.Helper()
 		id, token := uuid.NewString(), web.Token()
-		exec("insert into members(id,email,display_name,password_hash,role) values($1,$2,'Studio user','','member')", id, id+"@example.test")
+		exec("insert into members(id,email,display_name,password_hash,role) values($1,$2,'Studio user','',$3)", id, id+"@example.test", role)
 		exec("insert into team_members(team_id,member_id) values($1,$2)", team, id)
 		exec("insert into sessions(token_hash,member_id,expires_at) values($1,$2,now()+interval '2 minutes')", web.Hash(token), id)
 		return id, token
 	}
-	owner, token := member()
-	_, teammate := member()
+	owner, token := member(team, "member")
+	_, teammate := member(team, "member")
+	otherTeam := uuid.NewString()
+	exec("insert into teams(id,name) values($1,$1::uuid::text)", otherTeam)
+	_, admin := member(otherTeam, "admin")
+	employee, employeeToken := member(otherTeam, "member")
 	const message = "帮我做一个报价核对助手"
 	const modelAnswer = `{"reply":"已生成草稿","questions":["需要按周汇总吗？"],"patch":[
 	  {"op":"replace","path":"/name","value":"报价核对"},
@@ -206,6 +212,8 @@ func TestStudioBuilderPostgres(t *testing.T) {
 				t.Fatalf("refinement must receive only the selected output: %s", in)
 			}
 			output = `{"match":"金额左对齐","replacement":"金额右对齐"}`
+		case 6:
+			output = "通过发布样例"
 		}
 		return llmgateway.RoutedResult{Result: llmgateway.Result{Reply: resources.Reply{Text: output}}}, nil
 	})}
@@ -359,6 +367,101 @@ func TestStudioBuilderPostgres(t *testing.T) {
 		t.Fatalf("capabilities were not set: %s", raw)
 	}
 	call(token, "PUT", capabilityPath, `{"expected":3,"capabilities":["office"]}`, "application/json", "", 409)
+	call(token, "POST", path+"/publish", `{"expected":4,"scope":"team"}`, "application/json", "", 422)
+	var personal releaseReceipt
+	err = json.Unmarshal([]byte(call(token, "POST", path+"/publish", `{"expected":4,"scope":"personal"}`, "application/json", "", 201)), &personal)
+	if err != nil || personal.State != "published" || personal.ID == "" {
+		t.Fatalf("personal release was not available after saving: %+v %v", personal, err)
+	}
+	previousTrial := `{"expected":4,"scope":"team","trial":"` + trial.ID + `"}`
+	call(token, "POST", path+"/publish", previousTrial, "application/json", "", 409)
+	err = json.Unmarshal([]byte(call(token, "POST", path+"/try", `{"expected":4,"message":"发布样例"}`, "application/json", "release-test", 200)), &trial)
+	if err != nil || trial.Revision != 4 {
+		t.Fatalf("release trial did not use the current draft: %+v %v", trial, err)
+	}
+	publish := func(scope string) releaseReceipt {
+		t.Helper()
+		var release releaseReceipt
+		body := `{"expected":4,"scope":"` + scope + `","trial":"` + trial.ID + `"}`
+		if err := json.Unmarshal([]byte(call(token, "POST", path+"/publish", body, "application/json", "", 201)), &release); err != nil {
+			t.Fatal(err)
+		}
+		if replay := call(token, "POST", path+"/publish", body, "application/json", "", 200); !strings.Contains(replay, release.ID) {
+			t.Fatal(replay)
+		}
+		return release
+	}
+	shared, enterprise := publish("team"), publish("enterprise")
+	if shared.State != "published" || enterprise.State != "pending" {
+		t.Fatalf("unexpected release states: %+v %+v", shared, enterprise)
+	}
+	const publishedPath = "/api/studio/published"
+	if list := call(teammate, "GET", publishedPath, "", "", "", 200); !strings.Contains(list, shared.ID) ||
+		strings.Contains(list, personal.ID) || strings.Contains(list, enterprise.ID) {
+		t.Fatalf("team member saw wrong releases: %s", list)
+	}
+	if list := call(employeeToken, "GET", publishedPath, "", "", "", 200); list != "[]\n" {
+		t.Fatalf("outside employee saw unreleased draft: %s", list)
+	}
+	const queue = "/api/admin/studio/releases"
+	call(teammate, "GET", queue, "", "", "", 403)
+	if rows := call(admin, "GET", queue, "", "", "", 200); !strings.Contains(rows, enterprise.Digest) ||
+		!strings.Contains(rows, "dependencies") || !strings.Contains(rows, "金额右对齐") || strings.Contains(rows, "通过发布样例") {
+		t.Fatalf("missing or over-disclosed admin review: %s", rows)
+	}
+	call(admin, "POST", queue+"/"+enterprise.ID, `{"action":"approve","digest":"`+strings.Repeat("0", 64)+`"}`, "application/json", "", 409)
+	call(admin, "POST", queue+"/"+enterprise.ID, `{"action":"approve","digest":"`+enterprise.Digest+`"}`, "application/json", "", 204)
+	if list := call(employeeToken, "GET", publishedPath, "", "", "", 200); !strings.Contains(list, enterprise.ID) ||
+		strings.Contains(list, shared.ID) || strings.Contains(list, personal.ID) {
+		t.Fatalf("wrong employee inventory: %s", list)
+	}
+	if _, err := db.Exec(ctx, "update studio_releases set spec='{}' where id=$1", enterprise.ID); err == nil {
+		t.Fatal("mutated a frozen release")
+	}
+	exec(`update studio_drafts set revision=revision+1,spec=jsonb_set(spec,'{instructions}','"新草稿的指令"') where id=$1`, draft.ID)
+	provider, model := uuid.NewString(), uuid.NewString()
+	exec("insert into model_providers(id,name,kind,endpoint) values($1,$1::uuid::text,'openai','https://fixture.example.test/v1')", provider)
+	exec(`insert into model_catalog(id,provider_id,upstream_model,capabilities,context_tokens,max_output_tokens)
+	 values($1,$2,'studio-release-fixture',array['text','tool_call'],8192,512)`, model, provider)
+	exec(`insert into model_pricing(model_id,effective_at,input_per_1m_micro_cny,output_per_1m_micro_cny,cached_per_1m_micro_cny,per_image_micro_cny)
+	 values($1,now(),0,0,0,0)`, model)
+	exec("insert into model_tier_routes(tier,model_id,priority) values('default',$1,32767)", model)
+	defer db.Exec(context.Background(), "delete from model_tier_routes where model_id=$1", model)
+	executeRelease := func(release string) string {
+		t.Helper()
+		project := uuid.NewString()
+		exec("insert into projects(id,owner,team_id,final_reviewer,title) values($1,$2,$3,$2,'enterprise fixture')", project, employee, otherTeam)
+		exec("insert into project_memberships(project_id,member_id) values($1,$2)", project, employee)
+		var run string
+		err := database.WithTx(ctx, db, func(tx pgx.Tx) error {
+			var err error
+			run, err = (agentloop.Server{DB: db, Vault: vault}).StartTx(ctx, tx, project, employee, project,
+				agentloop.StartInput{Goal: "普通员工的新任务", Expected: 1, StudioRelease: release})
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return run
+	}
+	modelCalls := 0
+	worker := agentloop.Activities{DB: db, Vault: vault, Gateway: gatewayFixture(func(_ context.Context, call llmgateway.CallIdentity, in llmgateway.Request) (llmgateway.RoutedResult, error) {
+		modelCalls++
+		if call.TeamID != otherTeam || call.MemberID != employee || !strings.Contains(in.Messages[0].Content, "金额右对齐") ||
+			strings.Contains(in.Messages[0].Content, "新草稿的指令") {
+			t.Errorf("stored Agent did not use its frozen configuration or current quota")
+		}
+		return llmgateway.RoutedResult{Result: llmgateway.Result{Reply: resources.Reply{Text: "员工的答复", FinishReason: "stop"}}}, nil
+	})}
+	enterpriseRun := executeRelease(enterprise.ID)
+	if result, err := worker.AdvanceTurn(ctx, agentloop.TurnRef{RunID: enterpriseRun, Turn: 1}); err != nil || !result.Done || modelCalls != 1 {
+		t.Fatalf("frozen release did not execute: %+v %v calls=%d", result, err, modelCalls)
+	}
+	revokedRun := executeRelease(enterprise.ID)
+	call(token, "POST", path+"/releases/"+enterprise.ID+"/withdraw", "", "", "", 204)
+	if result, err := worker.AdvanceTurn(ctx, agentloop.TurnRef{RunID: revokedRun, Turn: 1}); err != nil || !result.Done || modelCalls != 1 {
+		t.Fatalf("withdrawn release reached the model: %+v %v calls=%d", result, err, modelCalls)
+	}
 	exec("delete from team_members where (team_id,member_id)=($1,$2)", team, owner)
 	call(token, "GET", path, "", "", "", 404)
 }

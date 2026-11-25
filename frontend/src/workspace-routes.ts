@@ -11,6 +11,7 @@ export const workspacePages = {
   services: { path: "/automations", title: "后台与定时" },
   admin: { path: "/admin", title: "企业管理" },
   integrations: { path: "/admin/integrations", title: "企业服务" },
+  releases: { path: "/admin/releases", title: "发布审批" },
 } as const;
 
 export type WorkspacePage = keyof typeof workspacePages;
