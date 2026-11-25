@@ -25,13 +25,16 @@ func (m Model) StreamTextReply(ctx context.Context, messages []Message, emit fun
 		return Reply{}, err
 	}
 	defer resp.Body.Close()
-	mediaType, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
-	allowTools := len(m.Tools) != 0
+	return DecodeStreamingChatReply(resp.Header.Get("Content-Type"), resp.Body, emit, len(m.Tools) != 0)
+}
+
+func DecodeStreamingChatReply(contentType string, body io.Reader, emit func(string), allowTools bool) (Reply, error) {
+	mediaType, _, _ := mime.ParseMediaType(contentType)
 	switch mediaType {
 	case "text/event-stream":
-		return decodeTextStream(resp.Body, emit, allowTools)
+		return decodeTextStream(body, emit, allowTools)
 	case "", "application/json":
-		reply, err := decodeTextReply(resp.Body, allowTools)
+		reply, err := DecodeChatReply(body, allowTools)
 		if err != nil {
 			return Reply{}, err
 		}

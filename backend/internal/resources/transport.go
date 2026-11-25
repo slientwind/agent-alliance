@@ -46,3 +46,13 @@ var providerClient = sync.OnceValues(func() (*http.Client, error) {
 	}
 	return &http.Client{Transport: tr, Timeout: providerTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, nil
 })
+
+// ProviderHTTPClient returns a copy configured with the enterprise trust store.
+func ProviderHTTPClient() (*http.Client, error) {
+	client, err := providerClient()
+	if err != nil {
+		return nil, err
+	}
+	copy := *client
+	return &copy, nil
+}

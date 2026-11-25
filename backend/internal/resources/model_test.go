@@ -22,7 +22,7 @@ func TestTextRequestIncludesOptInToolsAndPairedMessages(t *testing.T) {
 			model.OutputOperation = VisionOperation
 			model.Pictures = []knowledge.Picture{{Media: "image/png", Data: []byte{1}, Name: "document", Version: 1}}
 		}
-		body, err := model.textRequestBody(messages, true)
+		body, err := model.EncodeChatRequest(messages, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -55,7 +55,7 @@ func TestTextRequestIncludesOptInToolsAndPairedMessages(t *testing.T) {
 }
 
 func TestLegacyTextRequestOmitsUnconfiguredSettings(t *testing.T) {
-	body, err := (Model{Name: "model"}).textRequestBody([]Message{{Role: "user", Content: "hello"}}, false)
+	body, err := (Model{Name: "model"}).EncodeChatRequest([]Message{{Role: "user", Content: "hello"}}, false)
 	if err != nil || string(body) != `{"messages":[{"role":"user","content":"hello"}],"model":"model"}` {
 		t.Fatalf("body=%s err=%v", body, err)
 	}
@@ -63,17 +63,17 @@ func TestLegacyTextRequestOmitsUnconfiguredSettings(t *testing.T) {
 
 func TestDecodeTextReplyRecognizesToolOnlyResponseAndUsage(t *testing.T) {
 	const wire = `{"choices":[{"message":{"role":"assistant","content":null,"reasoning_content":"checking","tool_calls":[{"id":"call1","type":"function","function":{"name":"lookup","arguments":"{}"}}]},"finish_reason":"tool_calls"}],"usage":{"total_tokens":12,"prompt_tokens":8,"completion_tokens":4,"prompt_cache_hit_tokens":6,"prompt_tokens_details":{"cached_tokens":5}}}`
-	reply, err := decodeTextReply(strings.NewReader(wire), true)
+	reply, err := DecodeChatReply(strings.NewReader(wire), true)
 	if err != nil || reply.Text != "" || reply.ReasoningContent != "checking" || len(reply.ToolCalls) != 1 || reply.ToolCalls[0].Function.Name != "lookup" {
 		t.Fatalf("reply=%+v err=%v", reply, err)
 	}
 	if reply.Tokens != 12 || reply.PromptTokens != 8 || reply.CompletionTokens != 4 || reply.CachedTokens != 5 {
 		t.Fatalf("incorrect provider usage %+v", reply)
 	}
-	if _, err := decodeTextReply(strings.NewReader(wire), false); err == nil {
+	if _, err := DecodeChatReply(strings.NewReader(wire), false); err == nil {
 		t.Fatal("accepted unrequested tool calls")
 	}
-	if _, err := decodeTextReply(strings.NewReader(strings.Replace(wire, `"id":"call1"`, `"id":""`, 1)), true); err == nil {
+	if _, err := DecodeChatReply(strings.NewReader(strings.Replace(wire, `"id":"call1"`, `"id":""`, 1)), true); err == nil {
 		t.Fatal("accepted an unidentifiable tool call")
 	}
 }

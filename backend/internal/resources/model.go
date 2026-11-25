@@ -97,6 +97,7 @@ type Reply struct {
 	PromptTokens     int
 	CompletionTokens int
 	CachedTokens     int
+	UsageReported    bool
 	ToolCalls        []ToolCall
 	ReasoningContent string
 	FinishReason     string
@@ -112,6 +113,8 @@ type Model struct {
 	RemoteOperations *RemoteOperations
 	Tools            []ToolDefinition
 	MaxTokens        int
+	TokenLimitField  string
+	ReasoningEffort  string
 
 	SourceRevision                                 int
 	Policy                                         RemotePolicy
@@ -167,10 +170,10 @@ func (m Model) Generate(ctx context.Context, messages []Message) (Reply, error) 
 		return Reply{}, err
 	}
 	defer resp.Body.Close()
-	return decodeTextReply(resp.Body, len(m.Tools) != 0)
+	return DecodeChatReply(resp.Body, len(m.Tools) != 0)
 }
 
-func (m Model) textRequestBody(messages []Message, stream bool) ([]byte, error) {
+func (m Model) EncodeChatRequest(messages []Message, stream bool) ([]byte, error) {
 	var providerMessages any = messages
 	if m.OutputOperation == VisionOperation {
 		var err error
@@ -181,7 +184,14 @@ func (m Model) textRequestBody(messages []Message, stream bool) ([]byte, error) 
 	}
 	request := map[string]any{"model": m.Name, "messages": providerMessages}
 	if m.MaxTokens > 0 {
-		request["max_tokens"] = m.MaxTokens
+		field := "max_tokens"
+		if m.TokenLimitField == "max_completion_tokens" {
+			field = m.TokenLimitField
+		}
+		request[field] = m.MaxTokens
+	}
+	if m.ReasoningEffort != "" {
+		request["reasoning_effort"] = m.ReasoningEffort
 	}
 	if len(m.Tools) != 0 {
 		request["tools"] = m.Tools
@@ -194,7 +204,7 @@ func (m Model) textRequestBody(messages []Message, stream bool) ([]byte, error) 
 }
 
 func (m Model) requestText(ctx context.Context, messages []Message, stream bool) (*http.Response, error) {
-	body, err := m.textRequestBody(messages, stream)
+	body, err := m.EncodeChatRequest(messages, stream)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +229,7 @@ func (m Model) requestText(ctx context.Context, messages []Message, stream bool)
 	return resp, nil
 }
 
-func decodeTextReply(body io.Reader, allowTools bool) (Reply, error) {
+func DecodeChatReply(body io.Reader, allowTools bool) (Reply, error) {
 	var result struct {
 		Choices []struct {
 			Message      Message
@@ -247,10 +257,10 @@ func decodeTextReply(body io.Reader, allowTools bool) (Reply, error) {
 }
 
 type modelUsage struct {
-	Total      int `json:"total_tokens"`
-	Prompt     int `json:"prompt_tokens"`
-	Completion int `json:"completion_tokens"`
-	CacheHit   int `json:"prompt_cache_hit_tokens"`
+	Total      int  `json:"total_tokens"`
+	Prompt     *int `json:"prompt_tokens"`
+	Completion *int `json:"completion_tokens"`
+	CacheHit   int  `json:"prompt_cache_hit_tokens"`
 	Details    struct {
 		Cached *int `json:"cached_tokens"`
 	} `json:"prompt_tokens_details"`
@@ -258,15 +268,21 @@ type modelUsage struct {
 
 func (u modelUsage) apply(reply *Reply) {
 	reply.Tokens = u.Total
-	if reply.Tokens == 0 {
-		reply.Tokens = u.Prompt + u.Completion
+	if u.Prompt != nil {
+		reply.PromptTokens = *u.Prompt
 	}
-	reply.PromptTokens = u.Prompt
-	reply.CompletionTokens = u.Completion
+	if u.Completion != nil {
+		reply.CompletionTokens = *u.Completion
+	}
+	if reply.Tokens == 0 {
+		reply.Tokens = reply.PromptTokens + reply.CompletionTokens
+	}
 	reply.CachedTokens = u.CacheHit
 	if u.Details.Cached != nil {
 		reply.CachedTokens = *u.Details.Cached
 	}
+	reply.UsageReported = u.Prompt != nil && u.Completion != nil && reply.PromptTokens >= 0 && reply.CompletionTokens >= 0 &&
+		reply.CachedTokens >= 0 && reply.CachedTokens <= reply.PromptTokens
 }
 
 func validToolCalls(calls []ToolCall) bool {
