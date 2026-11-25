@@ -6,7 +6,7 @@ services:
   worker:
     environment:
       RETRIEVAL_URL: http://retrieval:18728
-    networks: [default, retrieval-internal]
+    networks: [default, preview-internal, ecosystem-inspection, knowledge-parse-internal, retrieval-internal]
   retrieval:
     build: ../retrieval
     networks: [retrieval-internal]
@@ -17,7 +17,7 @@ services:
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
-    mem_limit: 512m
+    mem_limit: ${RETRIEVAL_MEMORY_LIMIT:-3g}
     cpus: 2.0
     pids_limit: 64
     restart: unless-stopped

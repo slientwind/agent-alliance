@@ -24,6 +24,7 @@ type Server struct {
 	Vault     resources.Vault
 	Objects   knowledge.Objects
 	Egress    egress.Policy
+	Inference knowledge.KBInference
 	fetch     func(context.Context, providerRequest) (string, error)
 	directory func(context.Context, collectionView, collectionSecret) (remoteDirectory, error)
 }
@@ -35,6 +36,7 @@ func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("POST /api/admin/integrations/knowledge/{id}/sync", auth.Protect(true, s.queue))
 	s.collectionRoutes(mux, auth)
 	s.lifecycleRoutes(mux, auth)
+	mux.Handle("GET /api/spaces/{space}/knowledge/search", auth.Protect(false, s.searchDocuments))
 }
 
 type sourceView struct {

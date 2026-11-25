@@ -113,6 +113,7 @@ func main() {
 	go a.FollowRemote(ctx, c)
 	go a.CleanRetention(ctx)
 	go knowledge.MaintainPassages(ctx, catalog.DB)
+	go knowledge.ServeKnowledgeIndex(ctx, catalog.DB, knowledge.ConfiguredKBInference())
 	sync := knowledgesync.Server{DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Egress: egress.Policy{DB: catalog.DB}}
 	go sync.Serve(ctx)
 	go sync.ServeCollections(ctx)
