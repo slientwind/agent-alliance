@@ -127,13 +127,16 @@ func (c Catalog) saveExternal(w http.ResponseWriter, r *http.Request, u identity
 			}
 			var oldKey []byte
 			var oldURL, oldProtocol, oldTemplate string
+			var oldWebhook []byte
 			if err := tx.QueryRow(ctx, `select key_override,rpc_endpoint,coalesce(card->>'protocolVersion',''),
-				coalesce(card#>>'{allianceAdapter,template}','') from agent_revisions where agent_id=$1 and revision=$2 and card is not null`,
-				id, rev-1).Scan(&oldKey, &oldURL, &oldProtocol, &oldTemplate); err != nil {
+				coalesce(card#>>'{allianceAdapter,template}',''),card#>'{allianceAdapter,webhook}'
+				from agent_revisions where agent_id=$1 and revision=$2 and card is not null`,
+				id, rev-1).Scan(&oldKey, &oldURL, &oldProtocol, &oldTemplate, &oldWebhook); err != nil {
 				return err
 			}
 			if len(oldKey) > 0 {
-				if oldURL != endpoint || oldProtocol != card.Protocol || (card.Adapter != nil && oldTemplate != card.Adapter.Template) {
+				if oldURL != endpoint || oldProtocol != card.Protocol || (card.Adapter != nil &&
+					(oldTemplate != card.Adapter.Template || !card.Adapter.sameWebhookRoute(oldWebhook))) {
 					return web.Fail(422, "端点变化，请重新提供凭据或明确选择无需凭据")
 				}
 				key, err := c.Vault.Open(oldKey, fmt.Sprintf("agent/%s/%d", id, rev-1))
@@ -201,7 +204,7 @@ func (m Model) SupplementRemote(ctx context.Context, receipt RemoteWait, message
 }
 
 func (m Model) CheckRemote(ctx context.Context, receipt RemoteWait, cancel bool) (Reply, error) {
-	if !m.External || m.Adapter != nil || receipt.Task == "" {
+	if !m.External || receipt.Task == "" || (m.Adapter != nil && m.Adapter.Protocol != AdapterWebhook) {
 		return Reply{}, errors.New("需要已登记的外部任务编号")
 	}
 	if !m.RemoteOperations.CanFollow(cancel) {
@@ -215,6 +218,9 @@ func (m Model) CheckRemote(ctx context.Context, receipt RemoteWait, cancel bool)
 	}
 	sub, stop := context.WithTimeout(ctx, time.Duration(m.Policy.QuerySeconds)*time.Second)
 	defer stop()
+	if m.Adapter != nil {
+		return m.webhookFollow(sub, receipt, cancel)
+	}
 	return m.remote(sub, method, &receipt, params)
 }
 func (m Model) remote(ctx context.Context, method string, expected *RemoteWait, params any) (Reply, error) {
@@ -235,18 +241,9 @@ func (m Model) remote(ctx context.Context, method string, expected *RemoteWait, 
 	if m.Key != "" {
 		req.Header.Set("Authorization", "Bearer "+m.Key)
 	}
-	base, err := providerClient()
+	rsp, err := m.externalResponse(req)
 	if err != nil {
 		return Reply{}, err
-	}
-	client, err := m.outbound.Client(ctx, m.Endpoint, false, base)
-	if err != nil {
-		return Reply{}, errors.New("外部主机未获准或无法核对连接地址")
-	}
-	defer client.CloseIdleConnections()
-	rsp, err := client.Do(req)
-	if err != nil {
-		return Reply{}, errors.New("外部提交结果待核对")
 	}
 	defer rsp.Body.Close()
 	if rsp.StatusCode != 200 {

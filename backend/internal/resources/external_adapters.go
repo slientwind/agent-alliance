@@ -18,12 +18,14 @@ import (
 )
 
 const AdapterOpenAICompat = "openai_compat"
+const AdapterWebhook = "async_webhook"
 
 type AdapterSpec struct {
-	Protocol string `json:"protocol"`
-	Template string `json:"template"`
-	Model    string `json:"model,omitempty"`
-	Stream   bool   `json:"stream"`
+	Protocol string       `json:"protocol"`
+	Template string       `json:"template"`
+	Model    string       `json:"model,omitempty"`
+	Stream   bool         `json:"stream"`
+	Webhook  *WebhookSpec `json:"webhook,omitempty"`
 }
 
 type adapterTemplate struct {
@@ -32,6 +34,7 @@ type adapterTemplate struct {
 	Route     string `json:"route"`
 	Model     string `json:"model,omitempty"`
 	Streaming bool   `json:"requiresStreaming"`
+	Protocol  string `json:"protocol,omitempty"`
 }
 
 var chatAdapterTemplates = []adapterTemplate{
@@ -40,6 +43,8 @@ var chatAdapterTemplates = []adapterTemplate{
 	{ID: "coze", Name: "Coze", Route: "/v3/chat", Model: "Bot ID", Streaming: true},
 	{ID: "fastgpt", Name: "FastGPT", Route: "/api/v1/chat/completions", Model: "App ID"},
 	{ID: "langgraph", Name: "LangGraph", Route: "/runs/stream", Model: "Assistant ID", Streaming: true},
+	{ID: "webhook", Name: "异步 Webhook", Protocol: AdapterWebhook},
+	{ID: "manus", Name: "Manus", Route: "/v2/task.create", Protocol: AdapterWebhook},
 }
 
 func (c Catalog) adapterTemplates(w http.ResponseWriter, _ *http.Request, _ identity.Member) error {
@@ -47,11 +52,15 @@ func (c Catalog) adapterTemplates(w http.ResponseWriter, _ *http.Request, _ iden
 }
 
 func (spec AdapterSpec) valid() bool {
-	if spec.Protocol != AdapterOpenAICompat || len(spec.Model) > 256 || strings.ContainsRune(spec.Model, 0) {
+	if spec.Protocol == AdapterWebhook {
+		return !spec.Stream && spec.Model == "" && (spec.Template == "manus" && spec.Webhook == nil ||
+			spec.Template == "webhook" && spec.Webhook != nil && spec.Webhook.valid())
+	}
+	if spec.Protocol != AdapterOpenAICompat || spec.Webhook != nil || len(spec.Model) > 256 || strings.ContainsRune(spec.Model, 0) {
 		return false
 	}
 	for _, template := range chatAdapterTemplates {
-		if template.ID == spec.Template {
+		if template.ID == spec.Template && template.Protocol == "" {
 			return (!template.Streaming || spec.Stream) && (template.Model == "" || spec.Model != "")
 		}
 	}
@@ -71,6 +80,9 @@ func (c Catalog) saveAdapter(w http.ResponseWriter, r *http.Request, u identity.
 	in.Name, in.Description = strings.TrimSpace(in.Name), strings.TrimSpace(in.Description)
 	in.Adapter.Model = strings.TrimSpace(in.Adapter.Model)
 	in.Endpoint = strings.TrimSpace(in.Endpoint)
+	if in.Adapter.Webhook != nil {
+		in.Adapter.Webhook.defaults()
+	}
 	if !in.Adapter.valid() || !in.Policy.valid() || in.Expected < 0 || in.Name == "" || utf8.RuneCountInString(in.Name) > 120 ||
 		len(in.Description) > 4096 || strings.ContainsRune(in.Name+in.Description, 0) || len(in.Key) > 4096 ||
 		strings.ContainsFunc(in.Key, func(c rune) bool { return c <= ' ' || c >= 127 }) {
@@ -98,6 +110,8 @@ func (m Model) generateExternal(ctx context.Context, messages []Message, emit fu
 		switch m.Adapter.Protocol {
 		case AdapterOpenAICompat:
 			return m.chatAdapter(sub, messages, emit)
+		case AdapterWebhook:
+			return m.webhookStart(sub, messages)
 		default:
 			return Reply{}, errExternalReply
 		}
@@ -123,15 +137,9 @@ func (m Model) chatAdapter(ctx context.Context, messages []Message, emit func(st
 	if !spec.valid() || !Endpoint(m.Endpoint) {
 		return Reply{}, errExternalReply
 	}
-	var parts []string
-	for _, message := range messages {
-		if message.Role == "user" && strings.TrimSpace(message.Content) != "" {
-			parts = append(parts, message.Content)
-		}
-	}
-	brief := strings.Join(parts, "\n\n")
-	if brief == "" || len(brief) > 256<<10 {
-		return Reply{}, errExternalReply
+	brief, err := externalBrief(messages)
+	if err != nil {
+		return Reply{}, err
 	}
 	req, err := http.NewRequestWithContext(ctx, "POST", m.Endpoint, nil)
 	if err != nil {
@@ -157,24 +165,46 @@ func (m Model) chatAdapter(ctx context.Context, messages []Message, emit func(st
 			req.Header.Set("Authorization", "Bearer "+m.Key)
 		}
 	}
-	base, err := providerClient()
+	response, err := m.externalResponse(req)
 	if err != nil {
-		return Reply{}, errExternalReply
-	}
-	client, err := m.outbound.Client(ctx, m.Endpoint, false, base)
-	if err != nil {
-		return Reply{}, errors.New("外部主机未获准或无法核对连接地址")
-	}
-	defer client.CloseIdleConnections()
-	response, err := client.Do(req)
-	if err != nil {
-		return Reply{}, errors.New("外部提交结果待核对")
+		return Reply{}, err
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		return Reply{}, fmt.Errorf("外部服务 HTTP %d", response.StatusCode)
 	}
 	return spec.decode(response.Header.Get("Content-Type"), response.Body, emit)
+}
+
+func externalBrief(messages []Message) (string, error) {
+	var parts []string
+	for _, message := range messages {
+		if message.Role == "user" && strings.TrimSpace(message.Content) != "" {
+			parts = append(parts, message.Content)
+		}
+	}
+	brief := strings.Join(parts, "\n\n")
+	if brief == "" || len(brief) > 256<<10 {
+		return "", errExternalReply
+	}
+	return brief, nil
+}
+
+func (m Model) externalResponse(req *http.Request) (*http.Response, error) {
+	base, err := providerClient()
+	if err != nil {
+		return nil, errExternalReply
+	}
+	client, err := m.outbound.Client(req.Context(), req.URL.String(), false, base)
+	if err != nil {
+		return nil, errors.New("外部主机未获准或无法核对连接地址")
+	}
+	defer client.CloseIdleConnections()
+	response, err := client.Do(req)
+	if err != nil {
+		return nil, errors.New("外部提交结果待核对")
+	}
+	return response, nil
 }
 
 func (spec AdapterSpec) request(brief, actor, run string) map[string]any {
