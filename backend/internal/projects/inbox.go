@@ -19,6 +19,7 @@ type ReviewTodo struct {
 	Revision int    `json:"revision"`
 	Step     int    `json:"step"`
 	Position string `json:"position,omitempty"`
+	Artifact string `json:"artifact,omitempty"`
 }
 
 // Derive work from the currently visible artifact versions and assignments.
@@ -27,8 +28,8 @@ func ReviewTodos(ctx context.Context, q interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }, member, project string, limit *int) ([]ReviewTodo, error) {
 	const query = `with visible as (
-		select p.id,p.title,p.revision,p.updated_at from projects p join project_members m on m.project_id=p.id
-        where m.member_id=$1 and p.stage in('running','review','delivered') and (nullif($2,'')::uuid is null or p.id=nullif($2,'')::uuid)
+		select p.id,p.title,p.revision,p.updated_at,p.stage from projects p join project_members m on m.project_id=p.id
+		where m.member_id=$1 and (nullif($2,'')::uuid is null or p.id=nullif($2,'')::uuid)
     ), pending as (
         select a.project_id,a.ordinal,a.kind,a.name,a.subject,a.version,a.revision,a.position
         from visible p join review_actions a on p.id=a.project_id
@@ -41,10 +42,18 @@ func ReviewTodos(ctx context.Context, q interface {
         select p.id,0,'tool',a.mcp_tool_label,q.id,0,q.revision,a.mcp_recipient
         from visible p join runs r on r.project_id=p.id join general_agent_tool_approvals q on q.run_id=r.id
         join general_agent_actions a using(run_id,turn,position)
-        where r.status in ('running','paused') and q.state='pending' and a.state='queued'
+		where p.stage in ('running','review','delivered') and r.status in ('running','paused') and q.state='pending' and a.state='queued'
           and general_mcp_binding_current(r.id,a.mcp_server) and general_tool_approver(r.id,q.level,$1)
+		union all
+		select p.id,a.ordinal,'mention',a.name,c.id,c.version,c.revision,
+		 case c.anchor_kind when 'row' then '第 '||c.anchor_index||' 行' when 'page' then '第 '||c.anchor_index||' 页'
+		 else '第 '||c.anchor_index||' 段' end
+		from artifact_comment_mentions m join artifact_comments c on c.id=m.comment_id and c.resolved_at is null
+		join artifacts a on a.id=c.artifact_id join visible p on p.id=a.project_id
+		where m.member_id=$1 and artifact_comment_readable(c.id,$1)
 	)
-	select p.id,p.title,t.kind,t.name,t.subject,t.version,t.revision,t.ordinal,t.position from pending t join visible p on p.id=t.project_id
+	select p.id,p.title,t.kind,t.name,t.subject,t.version,t.revision,t.ordinal,t.position,coalesce(c.artifact_id::text,'')
+	 from pending t join visible p on p.id=t.project_id left join artifact_comments c on t.kind='mention' and c.id=t.subject
 	order by p.updated_at desc,p.id,t.ordinal,t.kind,t.subject limit $3`
 	rows, err := q.Query(ctx, query, member, project, limit)
 	if err != nil {

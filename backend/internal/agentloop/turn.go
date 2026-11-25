@@ -75,6 +75,13 @@ func actionScope(ref ToolRef) string {
 }
 
 func (a Activities) AdvanceTurn(ctx context.Context, ref TurnRef) (TurnResult, error) {
+	var anchor bool
+	if err := a.DB.QueryRow(ctx, "select exists(select from general_anchor_edits where run_id=$1)", ref.RunID).Scan(&anchor); err != nil {
+		return TurnResult{}, err
+	}
+	if anchor {
+		return a.advanceAnchorEdit(ctx, ref.RunID)
+	}
 	var result TurnResult
 	var messages []resources.Message
 	var native map[int]llmgateway.ProviderMessage

@@ -65,6 +65,7 @@ func main() {
 	dingTalk := channels.NewDingTalk(c.DB, c.Vault)
 	dingTalk.Routes(mux, s)
 	go dingTalk.Serve(ctx)
+	go channels.ServeCommentNotices(ctx, c.DB, feishu, dingTalk)
 	billing.Server{DB: c.DB}.Routes(mux, s)
 	monitor.Server{DB: c.DB}.Routes(mux, s)
 	monitor.Alerts{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
@@ -92,8 +93,10 @@ func main() {
 	} else {
 		mux.Handle("POST "+hotstream.RelayPath, hotstream.RelayHandler(projectStream, os.Getenv("CONNECTOR_TOKEN")))
 	}
-	projects.Server{DB: c.DB, Vault: c.Vault, SessionUpdates: projectUpdates, Hot: projectStream}.Routes(mux, s)
-	agentloop.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
+	general := agentloop.Server{DB: c.DB, Vault: c.Vault}
+	projects.Server{DB: c.DB, Vault: c.Vault, SessionUpdates: projectUpdates, Hot: projectStream, QueueAnchorEdit: general.QueueAnchorEdit,
+		FeishuMentions: feishu.CommentConnection(), DingMentions: dingTalk.CommentConnection()}.Routes(mux, s)
+	general.Routes(mux, s)
 	studio.Server{DB: c.DB, Vault: c.Vault, Gateway: app.ModelGateway(c)}.Routes(mux, s)
 	ecosystem.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
 	automations.Server{DB: c.DB, Vault: c.Vault, Feishu: feishu}.Routes(mux, s)

@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from xml.etree import ElementTree
 
 from package_checks import ATTACHMENT_LIMIT, PARTS, check_package
+from anchor import REQUEST_LIMIT
 
 PDF_LIMIT = 16 << 20
 
@@ -89,10 +90,11 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def do_POST(self):
-        intake = self.path.startswith("/extract/")
-        fmt = self.path.removeprefix("/extract/" if intake else "/convert/")
-        if fmt not in (
-            set(PARTS) | {"pdf"} if intake else PARTS
+        route, _, fmt = self.path.lstrip("/").partition("/")
+        intake = route == "extract"
+        anchor = route == "anchor"
+        if route not in ("extract", "anchor", "convert") or fmt not in (
+            set(PARTS) | {"pdf"} if intake or anchor else PARTS
         ) or not hmac.compare_digest(
             self.headers.get("Authorization", ""), "Bearer " + TOKEN
         ):
@@ -100,15 +102,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < length <= ATTACHMENT_LIMIT:
+            if not 0 < length <= (REQUEST_LIMIT if anchor else ATTACHMENT_LIMIT):
                 self.send_error(413)
                 return
             source = self.rfile.read(length)
-            if intake:
+            if intake or anchor:
                 process = subprocess.Popen(
                     [
                         sys.executable,
-                        str(pathlib.Path(__file__).with_name("extract.py")),
+                        str(pathlib.Path(__file__).with_name("anchor.py" if anchor else "extract.py")),
                         fmt,
                     ],
                     stdin=subprocess.PIPE,
@@ -127,6 +129,9 @@ class Handler(BaseHTTPRequestHandler):
                     os.killpg(process.pid, signal.SIGKILL)
                     process.wait()
                     raise
+                if anchor and process.returncode in (2, -signal.SIGXCPU, -signal.SIGXFSZ):
+                    self.send_error(422)
+                    return
                 if process.returncode in (-signal.SIGXCPU, -signal.SIGXFSZ):
                     data = b'{"state":"limited","segments":[]}'
                 elif process.returncode or not data:
@@ -151,7 +156,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         self.send_response(200)
         self.send_header(
-            "Content-Type", "application/json" if intake else "application/pdf"
+            "Content-Type", "application/octet-stream" if anchor else "application/json" if intake else "application/pdf"
         )
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()

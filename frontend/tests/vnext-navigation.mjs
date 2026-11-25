@@ -25,13 +25,17 @@ try {
     const project = {
       id, title: "采购报价核对", stage: "brief", revision: 1, owner: "member", reviewer: "member", team: "team", planVersion: 0,
       messages: [{ seq: 1, kind: "user", body: "整理报价表" }], artifacts: [artifact],
-      participants: [{ id: "member", name: "林予", role: "owner", canReview: true, canViewCosts: true, enabled: true }], handoffs: [],
+      participants: [
+        { id: "member", name: "林予", role: "owner", canReview: true, canViewCosts: true, enabled: true },
+        { id: "72cc7480-9e2b-4e46-a5d5-9d76b353ed4c", name: "叶青", role: "contributor", canReview: false, canViewCosts: false, enabled: true },
+      ], handoffs: [],
       sharedAgents: [], deliveries: [], distributionCases: [], budget: { warning: false, pending: 0 }, costSummary: {},
       run: null, suggestion: null, plan: null,
     };
     const collaborationRequests = [];
     const commentRequests = [];
     const comments = [];
+    const mentionID = "59478ac3-5971-4583-b4c2-af8e3ca97ad6";
     const searchSettings = {
       provider: "tavily", endpoint: "https://api.tavily.com/search",
       revision: 1, enabled: false, hasCredential: false, health: "unchecked",
@@ -131,17 +135,22 @@ try {
         return route.fulfill({ status: 204 });
       }
       if (path === artifactPath + "/versions") {
-        const versions = [{ version: 2, body: artifact.body, file: null }, { version: 1, body: "采购成果第一版", file: null }];
+        const versions = [{ version: 2, body: "采购成果第二版", file: null }, { version: 1, body: "采购成果第一版", file: null }];
+        if (artifact.version === 3) versions.unshift({ version: 3, body: artifact.body, file: null });
         return route.fulfill({ json: url.searchParams.has("version") ? versions.filter(entry => entry.version === Number(url.searchParams.get("version"))) : versions });
       }
       if (path === artifactPath + "/comments") {
         if (request.method() === "POST") {
           const input = request.postDataJSON();
           commentRequests.push(input);
-          comments.push({ id: "comment-1", author: "member", authorName: "林予", anchor: input.anchor, body: input.body, revision: 1 });
-          return route.fulfill({ status: 201, json: comments[0] });
+          assert.match(request.headers()["idempotency-key"], /^[a-f0-9-]{36}$/);
+          const entry = { id: input.agent ? mentionID : "comment-1", author: "member", authorName: "林予", anchor: input.anchor, body: input.body,
+            mentions: input.mentions, agentRun: input.agent ? { id: "fake-run", status: "queued" } : undefined, revision: 1 };
+          comments.push(entry);
+          return route.fulfill({ status: 201, json: entry });
         }
-        return route.fulfill({ json: { comments: url.searchParams.get("version") === "2" ? comments : [] } });
+        const focus = url.searchParams.get("focus");
+        return route.fulfill({ json: { comments: url.searchParams.get("version") === "2" ? comments.filter(comment => !focus || comment.id === focus) : [] } });
       }
       if (path === artifactPath + "/comments/comment-1" && request.method() === "PATCH") {
         commentRequests.push(request.postDataJSON());
@@ -153,6 +162,8 @@ try {
         "/api/me": { id: "member", name: "林予", role: "admin", enabled: true },
         "/api/general-tiers": ["default"],
         "/api/projects": [project],
+        "/api/projects/review-inbox": [{ project: id, title: project.title, kind: "mention", name: artifact.name,
+          subject: mentionID, version: 2, revision: 1, step: 1, artifact: artifact.id }],
         ["/api/projects/" + id]: project,
         "/api/teams": [{ id: "team", name: "团队", default: true, joined: true }],
       };
@@ -212,6 +223,25 @@ try {
     await canvas.getByLabel("成果版本").selectOption("1");
     await canvas.getByText("采购成果第一版", { exact: true }).waitFor();
     assert.equal(await canvas.getByRole("button", { name: "发送评论" }).count(), 0);
+    await canvas.getByLabel("成果版本").selectOption("");
+    await canvas.getByLabel("段落编号").fill("1");
+    await canvas.getByLabel("评论", { exact: true }).fill("把单价改为 27");
+    await canvas.getByRole("button", { name: "@同事" }).click();
+    await canvas.getByRole("checkbox", { name: "叶青" }).check();
+    await canvas.getByRole("checkbox", { name: "@Agent 局部修改此处" }).check();
+    await canvas.getByRole("button", { name: "发送评论" }).click();
+    await canvas.getByText("Agent 正在处理此处", { exact: true }).waitFor();
+    assert.deepEqual(commentRequests[2], { expected_version: 2, anchor: { kind: "paragraph", index: 1 }, body: "把单价改为 27",
+      mentions: ["72cc7480-9e2b-4e46-a5d5-9d76b353ed4c"], agent: true });
+    comments[1].agentRun = { id: "fake-run", status: "completed", version: 3 };
+    artifact.version = 3;
+    artifact.body = "单价 27";
+    await page.goto("/chat/" + id + "?task=mention-" + mentionID);
+    await canvas.getByRole("button", { name: "查看局部修订 v3" }).waitFor();
+    assert.equal(await canvas.locator("article:focus").count(), 1);
+    await canvas.getByRole("button", { name: "查看局部修订 v3" }).click();
+    await canvas.getByText("单价 27", { exact: true }).waitFor();
+    await checkWidth();
     await canvas.getByRole("button", { name: "关闭成果面板" }).click();
     await canvas.waitFor({ state: "detached" });
     await page.keyboard.press("Meta+n");

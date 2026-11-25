@@ -143,6 +143,7 @@ function App() {
   const [dialogPanel, setDialogPanel] = useState("");
   const [commandsOpen, setCommandsOpen] = useState(false);
   const [canvasTarget, setCanvasTarget] = useState("");
+  const [canvasFocus, setCanvasFocus] = useState<{ comment: string; version: number }>();
   const routePanel = pageFromPath(route.pathname);
   const panel = dialogPanel || routePanel;
   const [collapsed, setCollapsed] = useState(() => window.matchMedia("(max-width: 1023px)").matches);
@@ -534,6 +535,7 @@ function App() {
   async function select(id: string, task?: ReviewTask) {
     setDeliveryReceipt("");
     setCanvasTarget("");
+    setCanvasFocus(undefined);
     const old = current.current;
     const thread = document.querySelector(".thread");
     if (old && thread) positions.current.set(old, thread.scrollTop);
@@ -576,6 +578,11 @@ function App() {
     const request = restore.current;
     if (!thread || !visibleProject || request?.id !== visibleProject) return;
     restore.current = null;
+    if (request.task?.kind === "mention" && request.task.artifact) {
+      setCanvasTarget(request.task.artifact);
+      setCanvasFocus({ comment: request.task.subject, version: request.task.version });
+      return;
+    }
     if (request.task) {
       const target = document.getElementById(taskAnchor(request.task));
       if (!target)
@@ -1357,7 +1364,7 @@ function App() {
                 threadRef={restoreThread}
                 sourcesRevision={sourcesRevision}
                 canvasArtifact={canvasArtifact?.id}
-                openArtifact={setCanvasTarget}
+                openArtifact={artifact => { setCanvasFocus(undefined); setCanvasTarget(artifact); }}
                 drafts={sessionDrafts?.project === p.id && sessionDrafts.run === p.run?.id ? sessionDrafts.drafts : []}
                 uploadedPins={planningUpload?.project === p.id ? planningUpload.pins : undefined}
                 planningSubmitted={(pins) => setPlanningUpload(current => current?.pins === pins ? null : current)}
@@ -1563,9 +1570,9 @@ function App() {
           {p && canvasArtifact && (
             <Suspense fallback={<p role="status">正在打开成果…</p>}>
               <ArtifactCanvas key={canvasArtifact.id} project={p} artifact={canvasArtifact} user={user}
-                commentRevision={commentRevision} draft={revisions[p.id]?.[canvasArtifact.id]}
+                commentRevision={commentRevision} focus={canvasFocus} draft={revisions[p.id]?.[canvasArtifact.id]}
                 update={(next, expected) => changeRevision(p.id, canvasArtifact.id, next, expected)}
-                refresh={refresh} close={() => setCanvasTarget("")} />
+                refresh={refresh} close={() => { setCanvasTarget(""); setCanvasFocus(undefined); }} />
             </Suspense>
           )}
           </>

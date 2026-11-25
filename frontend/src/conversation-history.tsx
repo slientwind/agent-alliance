@@ -14,6 +14,7 @@ export type ReviewTask = {
     | "coverage"
     | "distribution"
     | "tool"
+    | "mention"
     | "suggested"
     | "required"
     | "investigate"
@@ -24,6 +25,7 @@ export type ReviewTask = {
   revision: number;
   step: number;
   position?: string;
+  artifact?: string;
 };
 const actionLabels: Record<ReviewTask["kind"], string> = {
   review: "审核成果",
@@ -31,6 +33,7 @@ const actionLabels: Record<ReviewTask["kind"], string> = {
   coverage: "核对必交项和缺项安排",
   distribution: "查看资料撤权影响",
   tool: "处理助手请求",
+  mention: "同事在评论中提到了你",
   suggested: "处理建议",
   required: "跟进修改",
   investigate: "核实验收问题",
@@ -39,6 +42,7 @@ const actionLabels: Record<ReviewTask["kind"], string> = {
 export function taskAnchor(t: ReviewTask) {
   if (t.kind === "distribution") return "delivery-distribution";
   if (t.kind === "tool") return "approval-" + t.subject;
+  if (t.kind === "mention") return "mention-" + t.subject;
   if (t.kind === "review") return "review-" + t.subject + "-" + t.version;
   if (t.kind === "deliver") return "deliver-" + t.revision;
   if (t.kind === "coverage") return "delivery-coverage";

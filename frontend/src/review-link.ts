@@ -1,6 +1,6 @@
 const uuid = "[a-f\\d]{8}(?:-[a-f\\d]{4}){3}-[a-f\\d]{12}";
 const anchors = new RegExp(
-  `^(?:(?:review-${uuid}|deliver)-[1-9]\\d{0,9}|feedback-${uuid}-[1-9]\\d{0,9}-[1-9]\\d{0,9}|delivery-(?:distribution|coverage))$`,
+  `^(?:(?:review-${uuid}|deliver)-[1-9]\\d{0,9}|feedback-${uuid}-[1-9]\\d{0,9}-[1-9]\\d{0,9}|mention-${uuid}|delivery-(?:distribution|coverage))$`,
   "i",
 );
 const projectID = new RegExp(`^${uuid}$`, "i");

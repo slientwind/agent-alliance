@@ -154,7 +154,7 @@ func readSessionBatch(ctx context.Context, tx pgx.Tx, project, actor string, cur
 		left join lateral (select seq from project_session_events
 			where project_id=p.id and created_at>now()-interval '1 hour' order by seq limit 1) retained on true
 		left join lateral (select r.id,r.service_id,r.draft_seq,r.status from runs r where r.project_id=p.id
-			and not exists(select from change_batches c where c.run_id=r.id) order by r.created_at desc,r.id desc limit 1) current_run on true
+			and not exists(select from change_batches c where c.run_id=r.id) and not exists(select from general_anchor_edits e where e.run_id=r.id) order by r.created_at desc,r.id desc limit 1) current_run on true
 		where p.id=$1`, project, actor).Scan(&head, &floor, &review, &costs, &owner, &run, &heldDrafts, &reviewEvidence, &remoteEvidence, &upstreamEvidence)
 	if err != nil {
 		return sessionBatch{}, err
