@@ -45,6 +45,9 @@ func (c Catalog) Routes(m *http.ServeMux, s identity.Server) {
 	m.Handle("POST /api/agents/cards", s.Protect(false, c.external))
 	m.Handle("GET /api/agents/adapter-templates", s.Protect(false, c.adapterTemplates))
 	m.Handle("POST /api/agents/adapters", s.Protect(false, c.saveAdapter))
+	m.Handle("GET /api/agents/admissions", s.Protect(false, c.externalAdmissions))
+	m.Handle("PUT /api/agents/{id}/external-testers", s.Protect(false, c.externalTesters))
+	m.Handle("GET /api/admin/external-agents/releases", s.Protect(true, c.externalVerificationQueue))
 	m.Handle("POST /api/admin/catalog/{kind}/{id}", s.Protect(true, c.state))
 	m.Handle("GET /api/agents/{id}/evidence", s.Protect(false, c.evidence))
 	m.Handle("GET /api/agents/{id}/evidence/{trial}/sample", s.Protect(false, c.trialSample))
@@ -398,7 +401,14 @@ func (c Catalog) resolveRun(ctx context.Context, q Query, project, actor, id str
 		err = builder.CheckPublished(ctx, q, id, rev)
 	}
 	if err == nil && model.External {
-		model.RemoteOperations, err = ReadRemoteOperations(ctx, q, id, rev)
+		var allowed bool
+		err = q.QueryRow(ctx, "select external_admission_can_use($1,$2,$3)", id, rev, actor).Scan(&allowed)
+		if err == nil && !allowed {
+			return Model{}, "", web.Fail(403, "此版本的使用权限已变化")
+		}
+		if err == nil {
+			model.RemoteOperations, err = ReadRemoteOperations(ctx, q, id, rev)
+		}
 	}
 	return model, instructions, err
 }
@@ -492,12 +502,13 @@ func (c Catalog) validate(w http.ResponseWriter, r *http.Request, u identity.Mem
 		Revision                          int
 		Input, Expected, CheckID, Project string
 		AuthorizeOneCall                  bool
+		AdmissionTest                     bool
 		Picture                           *knowledge.PictureUpload
 	}
 	if err := web.ReadLimited(w, r, &in, 5<<20); err != nil {
 		return err
 	}
-	if !in.AuthorizeOneCall || web.Blank(in.Input) || web.Blank(in.Expected) || len(in.Input)+len(in.Expected) > 2<<20 {
+	if !in.AuthorizeOneCall || web.Blank(in.Input) || (!in.AdmissionTest && web.Blank(in.Expected)) || len(in.Input)+len(in.Expected) > 2<<20 {
 		return web.Fail(422, "需要测试输入、预期片段和单次未知费用调用授权")
 	}
 	var picture knowledge.Picture
@@ -525,6 +536,17 @@ func (c Catalog) validate(w http.ResponseWriter, r *http.Request, u identity.Mem
 		var locked int
 		if err := tx.QueryRow(ctx, `select r.revision from agent_revisions r join agents a on a.id=r.agent_id join team_members t on t.team_id=a.team_id where r.agent_id=$1 and r.revision=$2 and t.member_id=$3 for share of r`, id, in.Revision, u.ID).Scan(&locked); err != nil {
 			return err
+		}
+		if in.AdmissionTest {
+			var allowed bool
+			if err := tx.QueryRow(ctx, `select exists(select from external_agent_admissions x join agents a on a.id=x.agent_id
+				where (x.agent_id,x.revision,a.owner)=($1,$2,$3)
+				 and x.revision=(select max(revision) from agent_revisions where agent_id=a.id))`, id, in.Revision, u.ID).Scan(&allowed); err != nil {
+				return err
+			}
+			if !allowed || in.CheckID != "" || in.Project != "" || in.Picture != nil || len(in.Input) > 8<<10 {
+				return web.Fail(422, "请由连接负责人为当前版本发送一条测试消息")
+			}
 		}
 		if in.Project != "" {
 			// A scoped trial uses an already bound revision and the current actor's
@@ -556,17 +578,18 @@ func (c Catalog) validate(w http.ResponseWriter, r *http.Request, u identity.Mem
 				return web.Fail(409, "必要检查的输入与预期已固定")
 			}
 		}
-		err := tx.QueryRow(ctx, `insert into validations(agent_id,revision,actor,status,input_text,expected,request_key,check_id)
-    select r.agent_id,r.revision,t.member_id,'submitted',$4,$5,$6,nullif($7,'')::uuid
+		err := tx.QueryRow(ctx, `insert into validations(agent_id,revision,actor,status,input_text,expected,request_key,check_id,admission_test)
+    select r.agent_id,r.revision,t.member_id,'submitted',$4,$5,$6,nullif($7,'')::uuid,$8
     from agent_revisions r join agents a on a.id=r.agent_id join team_members t on t.team_id=a.team_id
-    where r.agent_id=$1 and r.revision=$2 and t.member_id=$3 on conflict(actor,request_key) do nothing returning id`, id, in.Revision, u.ID, in.Input, in.Expected, key, in.CheckID).Scan(&evidence)
+    where r.agent_id=$1 and r.revision=$2 and t.member_id=$3 on conflict(actor,request_key) do nothing returning id`, id, in.Revision, u.ID, in.Input, in.Expected, key, in.CheckID, in.AdmissionTest).Scan(&evidence)
 		if err == pgx.ErrNoRows {
 			var match bool
 			err = tx.QueryRow(ctx, `select v.agent_id=$3 and v.revision=$4 and v.input_text=$5 and v.expected=$6 and v.check_id is not distinct from nullif($7,'')::uuid and s.project_id is not distinct from nullif($8,'')::uuid
-    and coalesce(p.object_hash,'')=$9 and coalesce(p.filename,'')=$10,v.id,v.current_status,v.evidence
+    and coalesce(p.object_hash,'')=$9 and coalesce(p.filename,'')=$10 and stored.admission_test=$11,v.id,v.current_status,v.evidence
     from trial_results v join spend s on s.op_key='validation/'||v.id::text join agents a on a.id=v.agent_id join team_members t on t.team_id=a.team_id and t.member_id=v.actor
+    join validations stored on stored.id=v.id
     left join validation_pictures p on p.trial_id=v.id
-    where v.actor=$1 and v.request_key=$2`, u.ID, key, id, in.Revision, in.Input, in.Expected, in.CheckID, in.Project, pictureHash, picture.Name).Scan(&match, &evidence, &priorStatus, &priorBody)
+    where v.actor=$1 and v.request_key=$2`, u.ID, key, id, in.Revision, in.Input, in.Expected, in.CheckID, in.Project, pictureHash, picture.Name, in.AdmissionTest).Scan(&match, &evidence, &priorStatus, &priorBody)
 			if err != nil {
 				return err
 			}

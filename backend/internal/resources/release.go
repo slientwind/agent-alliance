@@ -7,6 +7,7 @@ import (
 
 	"alliance/internal/builder"
 	"alliance/internal/database"
+	"alliance/internal/egress"
 	"alliance/internal/identity"
 	"alliance/internal/web"
 	"github.com/jackc/pgx/v5"
@@ -37,6 +38,20 @@ func (c Catalog) requestRelease(w http.ResponseWriter, r *http.Request, u identi
 		}
 		if err := currentReleaseDraft(ctx, tx, id, in.Revision); err != nil {
 			return err
+		}
+		var owner string
+		var phase *string
+		if err := tx.QueryRow(ctx, "select owner,external_admission_phase(id,$2) from agents where id=$1", id, in.Revision).
+			Scan(&owner, &phase); err != nil {
+			return err
+		}
+		if phase != nil {
+			if owner != u.ID {
+				return web.Fail(403, "请由连接负责人提交认证申请")
+			}
+			if (*phase != "beta" && *phase != "pending_verify") || in.BuildDigest == "" || in.EvidenceDigest == "" {
+				return web.Fail(409, "请先通过连接测试并核对申请内容")
+			}
 		}
 		if err := requireFirstPublication(ctx, tx, id, in.Revision); err != nil {
 			return err
@@ -126,7 +141,7 @@ func (c Catalog) decideRelease(w http.ResponseWriter, r *http.Request, u identit
 		if err := identity.RequireAdmin(ctx, tx, u.ID); err != nil {
 			return err
 		}
-		if err := lockTeamAgent(ctx, tx, u.ID, id, ""); err != nil {
+		if err := lockVerificationAgent(ctx, tx, u.ID, id, in.Revision); err != nil {
 			return err
 		}
 		var state string
@@ -173,9 +188,26 @@ func (c Catalog) publishRevision(ctx context.Context, tx pgx.Tx, actor, id strin
 			return err
 		}
 	}
-	model, _, err := c.Resolve(ctx, tx, actor, id, revision)
-	if err != nil {
+	var endpoint string
+	var phase *string
+	if err := tx.QueryRow(ctx, `select coalesce(rpc_endpoint,''),external_admission_phase(agent_id,revision)
+		from agent_revisions where (agent_id,revision)=($1,$2)`, id, revision).Scan(&endpoint, &phase); err != nil {
 		return err
+	}
+	external := phase != nil
+	if external {
+		if !permittedAgentEndpoint(ctx, egress.Policy{DB: tx}, endpoint) {
+			return web.Fail(409, "外部地址当前未获得访问许可")
+		}
+		if change == (publicationChange{}) && (*phase != "pending_verify" || seen.BuildDigest == "" || seen.EvidenceDigest == "") {
+			return web.Fail(409, "请先提交并核对当前认证申请")
+		}
+	} else {
+		model, _, err := c.Resolve(ctx, tx, actor, id, revision)
+		if err != nil {
+			return err
+		}
+		external = model.External
 	}
 	if err := builder.CheckPublished(ctx, tx, id, revision); err != nil {
 		return err
@@ -196,7 +228,7 @@ func (c Catalog) publishRevision(ctx context.Context, tx pgx.Tx, actor, id strin
 	if err := tx.QueryRow(ctx, "select published_revision,publication_generation from agents where id=$1", id).Scan(&prior, &generation); err != nil {
 		return err
 	}
-	if model.External {
+	if external {
 		var legacyUse bool
 		if err := tx.QueryRow(ctx, `select agent_released_remote_operation_evidence($1,$2) is null and (
           exists(select from agents where id=$1 and published_revision=$2) or

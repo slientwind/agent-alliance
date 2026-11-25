@@ -90,7 +90,7 @@
   - [x] 每次外部请求统一注入标准追踪头：`X-Alliance-Run-Id`、`X-Alliance-Turn-Id`、`X-Alliance-User-Id`、`traceparent`。
   - [x] 实现**可选用量与 Trace 回传解析器**：优先解析标准 `usage` 或响应头 `X-Alliance-Usage` / `X-Alliance-Trace-Url`；未上报明确记为 `cost_disclosure = 'undisclosed'`。
 - [ ] **两档准入与双调用形态**
-  - [ ] 实现状态机：`draft → beta`（发一条测试消息通过即刻给本人/测试组使用）→ `pending_verify → verified`（管理员审批全企上架）。
+  - [x] 实现状态机：`draft → beta`（发一条测试消息通过即刻给本人/测试组使用）→ `pending_verify → verified`（管理员审批全企上架）。
   - [ ] 支持员工在对话中 `@外部Agent` 直连，以及由 Personal Agent 在通用 Loop 中按授权作为 Sub-Agent 自动委派。
 
 ### 模块 D：面向非研发的自然语言 Agent 构建器（Conversational Studio）

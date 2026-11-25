@@ -61,13 +61,14 @@ func permittedAgentEndpoint(ctx context.Context, policy egress.Policy, raw strin
 }
 
 type externalDraft struct {
-	ID, Team       string
-	Expected       int
-	Endpoint       string
-	Card           json.RawMessage
-	Key            string
-	KeepCredential bool
-	Policy         RemotePolicy
+	ID, Team            string
+	Expected            int
+	Endpoint            string
+	Card                json.RawMessage
+	Key                 string
+	KeepCredential      bool
+	Policy              RemotePolicy
+	EnterpriseAdmission bool
 }
 
 func (c Catalog) external(w http.ResponseWriter, r *http.Request, u identity.Member) error {
@@ -94,6 +95,7 @@ func (c Catalog) saveExternal(w http.ResponseWriter, r *http.Request, u identity
 	ctx := r.Context()
 	id := in.ID
 	rev := 0
+	enrolled := in.EnterpriseAdmission
 	err := database.WithTx(ctx, c.DB, func(tx pgx.Tx) error {
 		if id == "" {
 			var err error
@@ -105,8 +107,17 @@ func (c Catalog) saveExternal(w http.ResponseWriter, r *http.Request, u identity
 			if err := lockTeamAgent(ctx, tx, u.ID, id, in.Team); err != nil {
 				return err
 			}
-			if err := tx.QueryRow(ctx, "select max(revision) from agent_revisions where agent_id=$1", id).Scan(&rev); err != nil {
+			var owner string
+			var hadAdmission bool
+			if err := tx.QueryRow(ctx, `select owner,
+				(select max(revision) from agent_revisions where agent_id=a.id),
+				exists(select from external_agent_admissions where agent_id=a.id) from agents a where id=$1`, id).
+				Scan(&owner, &rev, &hadAdmission); err != nil {
 				return err
+			}
+			enrolled = enrolled || hadAdmission
+			if enrolled && owner != u.ID {
+				return web.Fail(403, "请由连接负责人更新外部 Agent")
 			}
 		}
 		if in.Expected != rev {
@@ -151,6 +162,11 @@ func (c Catalog) saveExternal(w http.ResponseWriter, r *http.Request, u identity
 		}
 		if _, err := tx.Exec(ctx, "insert into agent_revisions(agent_id,revision,name,instructions,card,key_override,created_by,remote_policy,rpc_endpoint) values($1,$2,$3,$4,$5,$6,$7,$8,$9)", id, rev, card.Name, card.Description, in.Card, encrypted, u.ID, in.Policy, endpoint); err != nil {
 			return err
+		}
+		if enrolled {
+			if _, err := tx.Exec(ctx, "insert into external_agent_admissions(agent_id,revision) values($1,$2)", id, rev); err != nil {
+				return err
+			}
 		}
 		return database.Audit(ctx, tx, u.ID, "agent.card", id, map[string]int{"revision": rev})
 	})

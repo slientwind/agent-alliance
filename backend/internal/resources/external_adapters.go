@@ -98,6 +98,7 @@ func (c Catalog) saveAdapter(w http.ResponseWriter, r *http.Request, u identity.
 		return err
 	}
 	in.Card = data
+	in.EnterpriseAdmission = true
 	return c.saveExternal(w, r, u, in.externalDraft, card, in.Endpoint)
 }
 

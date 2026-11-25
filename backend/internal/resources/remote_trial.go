@@ -41,7 +41,7 @@ func (c Catalog) saveTrial(ctx context.Context, id string, m Model, expected str
 				body = "补件响应待核对，请查询原任务"
 			}
 		}
-	} else if strings.Contains(body, expected) {
+	} else if !web.Blank(body) && strings.Contains(body, expected) {
 		status = "passed"
 	}
 	if errors.Is(callErr, ErrImageFormat) || errors.Is(callErr, ErrSlideContract) || errors.Is(callErr, ErrOfficeFile) {

@@ -19,7 +19,9 @@ type RemoteOperations struct {
 
 func ReadRemoteOperations(ctx context.Context, q Query, agent string, revision int) (*RemoteOperations, error) {
 	var ops *RemoteOperations
-	err := q.QueryRow(ctx, "select remote_operation_availability(agent_released_remote_operation_evidence($1,$2))", agent, revision).Scan(&ops)
+	err := q.QueryRow(ctx, `select remote_operation_availability(coalesce(agent_released_remote_operation_evidence($1,$2),
+		case when external_admission_phase($1,$2) in ('beta','pending_verify') then
+		 agent_remote_operation_evidence($1,$2,agent_build_digest(agent_build_definition($1,$2))) end))`, agent, revision).Scan(&ops)
 	return ops, err
 }
 
