@@ -28,6 +28,8 @@ var registeredTools = []registeredTool{
 	{"create_docx", "按给定内容生成 Word 文档。", documentSchema, harness.FileGeneration},
 	{"create_xlsx", "按给定内容生成 Excel 文档。", documentSchema, harness.FileGeneration},
 	{"create_pptx", "按给定内容生成 PowerPoint 文档。", documentSchema, harness.FileGeneration},
+	{"aggregate_csv", "对已选表格按指定分组和金额字段执行确定性汇总。",
+		`{"type":"object","properties":{"group":{"type":"string"},"amount":{"type":"string"},"filterColumn":{"type":"string"},"filterValue":{"type":"string"}},"required":["group","amount"],"additionalProperties":false}`, harness.FileGeneration},
 }
 
 const documentSchema = `{"type":"object","properties":{"title":{"type":"string","maxLength":200},"content":{"type":"string","maxLength":32000}},"required":["title","content"],"additionalProperties":false}`
@@ -108,7 +110,7 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		if err != nil {
 			return err
 		}
-		if task.name == "read_sources" {
+		if task.name == "read_sources" || task.name == "aggregate_csv" {
 			_, task.sources, err = knowledge.RunInputs(ctx, tx, ref.RunID, 0, false)
 			if err != nil {
 				return err
@@ -172,6 +174,16 @@ func invokeTrusted(ctx context.Context, task toolWork) (resources.Reply, error) 
 			return resources.Reply{}, harness.ErrToolArguments
 		}
 		model := resources.Model{Tool: &resources.Tool{Operation: strings.TrimPrefix(task.name, "create_"), Config: map[string]string{"title": args.Title}}, ToolInput: args.Content}
+		return model.Generate(ctx, nil)
+	case "aggregate_csv":
+		var args struct{ Group, Amount, FilterColumn, FilterValue string }
+		if err := decodeToolArgs(task.args, &args); err != nil || strings.TrimSpace(args.Group) == "" || strings.TrimSpace(args.Amount) == "" || len(task.sources) == 0 ||
+			(args.FilterValue != "" && strings.TrimSpace(args.FilterColumn) == "") {
+			return resources.Reply{}, harness.ErrToolArguments
+		}
+		model := resources.Model{Tool: &resources.Tool{Operation: "aggregate", Config: map[string]string{
+			"group": args.Group, "amount": args.Amount, "filterColumn": args.FilterColumn, "filterValue": args.FilterValue,
+		}}, Sources: task.sources}
 		return model.Generate(ctx, nil)
 	default:
 		return resources.Reply{}, harness.ErrToolArguments
