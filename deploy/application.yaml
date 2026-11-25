@@ -1,6 +1,6 @@
 services:
   api:
-    networks: [default, preview-internal]
+    networks: [default, preview-internal, business-browser-internal]
     build:
       context: ..
     image: alliance-workspace:local
@@ -12,6 +12,7 @@ services:
       RESOURCE_PREVIOUS_KEYS: ${RESOURCE_PREVIOUS_KEYS:-}
       HOT_STREAM_REDIS_URL: ${HOT_STREAM_REDIS_URL:-}
       PREVIEW_URL: http://preview:18727
+      BUSINESS_BROWSER_URL: http://business-browser:18731
       AGENT_ALLOWED_HOSTS: ${AGENT_ALLOWED_HOSTS:-}
       CONNECTOR_URL: http://tools:18726
       CONNECTOR_TOKEN: ${CONNECTOR_TOKEN:?Generate a private connector token}
@@ -45,7 +46,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
   worker:
-    networks: [default, preview-internal, ecosystem-inspection, knowledge-parse-internal]
+    networks: [default, preview-internal, ecosystem-inspection, knowledge-parse-internal, business-browser-internal]
     image: alliance-workspace:local
     command: ["worker"]
     volumes: [objects:/data/objects, brand-templates:/data/templates, brand-socket:/run/alliance-brand:ro]
@@ -66,6 +67,7 @@ services:
       BRAND_TEMPLATE_ROOT: /data/templates
       BRAND_RENDERER_SOCKET: /run/alliance-brand/render.sock
       KB_PARSE_URL: http://knowledge-parser:18730
+      BUSINESS_BROWSER_URL: http://business-browser:18731
     depends_on: [api, temporal, brand-renderer, knowledge-parser]
     restart: unless-stopped
 
@@ -158,6 +160,22 @@ services:
     pids_limit: 40
     init: true
     restart: unless-stopped
+  business-browser:
+    build:
+      context: ../connectors
+      dockerfile: browser.Dockerfile
+    environment:
+      CONNECTOR_TOKEN: ${CONNECTOR_TOKEN}
+    networks: [business-browser-internal]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:size=192m,mode=1777"]
+    mem_limit: 640m
+    cpus: 1.0
+    pids_limit: 96
+    init: true
+    restart: unless-stopped
 networks:
   preview-internal:
     internal: true
@@ -166,6 +184,8 @@ networks:
   ecosystem-inspection:
     internal: true
   knowledge-parse-internal:
+    internal: true
+  business-browser-internal:
     internal: true
 volumes:
   objects:

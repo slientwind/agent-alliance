@@ -2,11 +2,11 @@ services:
   api:
     environment:
       RETRIEVAL_URL: http://retrieval:18728
-    networks: [default, preview-internal, retrieval-internal]
+    networks: [default, preview-internal, business-browser-internal, retrieval-internal]
   worker:
     environment:
       RETRIEVAL_URL: http://retrieval:18728
-    networks: [default, preview-internal, ecosystem-inspection, knowledge-parse-internal, retrieval-internal]
+    networks: [default, preview-internal, ecosystem-inspection, knowledge-parse-internal, business-browser-internal, retrieval-internal]
   retrieval:
     build: ../retrieval
     networks: [retrieval-internal]

@@ -6,11 +6,13 @@ require (
 	filippo.io/age v1.3.2
 	github.com/aws/aws-sdk-go-v2 v1.39.6
 	github.com/coreos/go-oidc/v3 v3.21.0
+	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/redis/go-redis/v9 v9.24.0
+	github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2
 	go.opentelemetry.io/proto/otlp v1.7.1
 	go.temporal.io/api v1.64.3
 	golang.org/x/crypto v0.55.0
@@ -20,6 +22,7 @@ require (
 )
 
 require (
+	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/aws/smithy-go v1.23.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	go.uber.org/atomic v1.12.0 // indirect

@@ -90,8 +90,8 @@
   - [x] 新增跨文档冲突巡检任务：自动检测同一空间现行有效文档间对同一指标/金额标准的前后矛盾表述，生成 `kb_conflict_alerts` 预警。
 
 ### 模块 J：ERP / CRM / 电商核心业务系统打通与受控语义层（Business System Hub）
-- [ ] **业务系统连接器框架与四大驱动（新增 `internal/bizconnectors` & 扩展 `connectors/`）**
-  - [ ] 新增 `business_connectors` 表与统一连接器协议，首批内置：
+- [x] **业务系统连接器框架与四大驱动（新增 `internal/bizconnectors` & 扩展 `connectors/`）**
+  - [x] 新增 `business_connectors` 表与统一连接器协议，首批内置：
     1. **核心套件连接器包**：金蝶云星空 / 用友 BIP（库存批次、采购申请、供应商）、纷享销客 / Salesforce / 飞书客户（商机、客户回款）、抖店 / 千牛 / 聚水潭（实时订单、SKU 净退货率、差评流、售后工单）；
     2. **受控只读 SQL / 数仓连接器**：支持 MySQL、PostgreSQL、ClickHouse、StarRocks 只读账号，内置 SQL AST 语法校验器（强制只允许 `SELECT`、自动注入行数上限与 5 秒查询超时、阻断系统元数据探测）；
     3. **OpenAPI / Swagger 3.0 导入向导**：解析内部自研老系统接口文档自动生成受控工具定义；

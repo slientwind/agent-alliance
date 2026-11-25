@@ -5,6 +5,7 @@ import (
 	"alliance/internal/app"
 	"alliance/internal/automations"
 	"alliance/internal/billing"
+	"alliance/internal/bizconnectors"
 	"alliance/internal/brandkit"
 	"alliance/internal/channels"
 	"alliance/internal/ecosystem"
@@ -70,6 +71,8 @@ func main() {
 	sandbox.Pool{DB: c.DB}.Routes(mux, s)
 	knowledgesync.Server{DB: c.DB, Vault: c.Vault, Objects: knowledge.ConfiguredObjects(), Inference: knowledge.ConfiguredKBInference()}.Routes(mux, s)
 	knowledgeradar.Server{DB: c.DB}.Routes(mux, s)
+	bizconnectors.Server{DB: c.DB, Vault: c.Vault, Egress: egress.Policy{DB: c.DB},
+		BrowserURL: os.Getenv("BUSINESS_BROWSER_URL"), BrowserKey: os.Getenv("CONNECTOR_TOKEN")}.Routes(mux, s)
 	billing.Server{DB: c.DB}.Routes(mux, s)
 	monitor.Server{DB: c.DB}.Routes(mux, s)
 	monitor.Alerts{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
