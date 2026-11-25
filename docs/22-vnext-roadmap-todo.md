@@ -143,7 +143,7 @@
   - [x] 注册新路由组：`llmgateway`、`studio`、`ecosystem`、`automations`、协同评论与隐式信号埋点；按上传接口分级放宽 `MaxBytesReader`（如标杆/附件上传支持 25 MiB）。
 - [ ] **[`backend/cmd/worker/main.go`](../backend/cmd/worker/main.go)**
   - [ ] 冻结现有 23 个历史特化 Activity（仅做旧运行兼容恢复，不再新增单场景 Activity），新流量统一走通用 `GeneralAgentWorkflow` + `AdvanceTurn` + `ExecuteTool`。
-  - [ ] 挂载定时任务调度：`EcosystemScanWorkflow`、监控 5 分钟预聚合 Rollup、主动告警巡检、Temporal Schedule 后台委托。
+  - [x] 挂载定时任务调度：`EcosystemScanWorkflow`、监控 5 分钟预聚合 Rollup、主动告警巡检、Temporal Schedule 后台委托。
 - [ ] **[`backend/internal/resources/model.go`](../backend/internal/resources/model.go)** & **[`catalog.go`](../backend/internal/resources/catalog.go)**
   - [x] 重构 `Message` / `Reply` 支持原生 `tools`、`tool_calls`、`tool_call_id`、`reasoning_content` 及 `PromptTokens / CompletionTokens / CachedTokens` 细项；移除硬编码 `max_tokens: 1800`。
   - [ ] 解耦模型资源与单一 `team_id` 的强绑定，升级为全局资源池 + 6 档位路由映射；保留兼容旧已发布修订的平滑读取。

@@ -8,7 +8,6 @@ import (
 	"alliance/internal/egress"
 	"alliance/internal/knowledge"
 	"alliance/internal/mcphub"
-	"alliance/internal/monitor"
 	"alliance/internal/runtime"
 	"alliance/internal/telemetry"
 	"alliance/internal/websearch"
@@ -75,26 +74,20 @@ func main() {
 	generalWorker.RegisterActivityWithOptions(general.AdvanceTurn, activity.RegisterOptions{Name: agentloop.AdvanceTurnActivity})
 	generalWorker.RegisterActivityWithOptions(general.ExecuteTool, activity.RegisterOptions{Name: agentloop.ExecuteToolActivity})
 	scheduled := automations.Activities{DB: catalog.DB, Vault: catalog.Vault}
-	generalWorker.RegisterWorkflowWithOptions(automations.AutomationWorkflow, workflow.RegisterOptions{Name: automations.WorkflowName})
-	generalWorker.RegisterActivityWithOptions(scheduled.Prepare, activity.RegisterOptions{Name: automations.PrepareActivity})
-	generalWorker.RegisterActivityWithOptions(scheduled.Progress, activity.RegisterOptions{Name: automations.ProgressActivity})
 	discovery := ecosystem.Activities{DB: catalog.DB, Vault: catalog.Vault, InspectorURL: os.Getenv("ECOSYSTEM_INSPECTOR_URL"),
 		InspectorToken: os.Getenv("CONNECTOR_TOKEN")}
-	generalWorker.RegisterWorkflowWithOptions(ecosystem.EcosystemScanWorkflow, workflow.RegisterOptions{Name: ecosystem.ScanWorkflowName})
-	generalWorker.RegisterActivityWithOptions(discovery.Scan, activity.RegisterOptions{Name: ecosystem.ScanActivityName})
+	registerScheduledWorkflows(generalWorker, scheduled, discovery)
 	if err := generalWorker.Start(); err != nil {
 		log.Fatal(err)
 	}
 	defer generalWorker.Stop()
+	stopScheduled := runScheduledJobs(ctx, catalog, c, generalQueue)
+	defer stopScheduled()
 	go general.Dispatch(ctx, c, generalQueue)
-	go automations.Serve(ctx, catalog.DB, c.ScheduleClient(), generalQueue)
-	go ecosystem.Serve(ctx, catalog.DB, c, generalQueue)
 	go a.FollowRemote(ctx, c)
 	go a.CleanRetention(ctx)
 	go knowledge.MaintainPassages(ctx, catalog.DB)
 	go knowledge.ConfiguredObjects().ServeArtifactPreviews(ctx, catalog.DB)
-	go monitor.ServeRollups(ctx, catalog.DB)
-	go (monitor.Alerts{DB: catalog.DB, Vault: catalog.Vault}).Serve(ctx)
 	go telemetry.Serve(ctx, catalog.DB)
 	a.Dispatch(ctx, c)
 }
