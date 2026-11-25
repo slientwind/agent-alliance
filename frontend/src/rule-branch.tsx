@@ -45,7 +45,7 @@ export function RuleBranchReview({ run, busy, perform }: {
 
   return <section className="card" aria-label="执行依据失效后的分支恢复">
     <h2>恢复受影响的工作</h2>
-    <p>核对要重做的步骤、可沿用的成果和本次授权。</p>
+    <p>仅更新受影响的部分。请核对要更新的步骤和可沿用的成果。</p>
     {request ? <>
       <BranchSteps steps={request.preview.steps}/>
       {request.preview.skipUnavailablePreferences && <p>重做会略过已失效的个人偏好，继续使用仍有效的原修订。</p>}

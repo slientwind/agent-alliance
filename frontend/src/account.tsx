@@ -593,7 +593,7 @@ type Usage = {
 };
 const outcomeMetrics = [
   ["completed", "执行完成"],
-  ["passedAgentChecks", "能力样例检查通过"],
+  ["passedAgentChecks", "测试通过"],
   ["reviewedVersions", "成果版本审核通过"],
   ["adoptedAnswers", "简单回答已采纳"],
   ["deliveredEditions", "正式交付批次"],

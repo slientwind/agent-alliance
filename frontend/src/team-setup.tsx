@@ -94,7 +94,7 @@ export function TeamSetup({
         </small>
       ) : teams && teams.length > 0 ? (
         <label>
-          {props.admin ? "配置团队" : "模板归属及费用承担方"}
+          {props.admin ? "配置团队" : "模板团队"}
           <select value={team?.id || ""} onChange={(e) => setTeam(e.target.value)}>
             {!team && <option value="">请选择归属</option>}
             {teams.map((t) => (

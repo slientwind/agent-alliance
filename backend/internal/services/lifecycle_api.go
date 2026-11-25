@@ -258,7 +258,7 @@ func (s Server) action(w http.ResponseWriter, r *http.Request) error {
 				return web.Fail(422, "请指定步骤并填写补充信息")
 			}
 			if control != in.Expected || (status != "queued" && status != "running" && status != "paused" && status != "blocked") {
-				return web.Fail(409, "请重新核对运行状态与控制版本")
+				return web.Fail(409, "任务状态已变化，请重新核对")
 			}
 			var acceptable bool
 			if err := tx.QueryRow(ctx, `select exists(select from runs r join nodes n on(n.project_id,n.plan_version)=(r.project_id,r.plan_version) join agent_revisions ar on(ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision) where r.id=$1 and n.ordinal=$2 and ar.tool is null and not exists(select from invocations where run_id=r.id and ordinal=n.ordinal) and not exists(select from run_candidate_artifacts where run_id=r.id and ordinal=n.ordinal) and not exists(select from rule_branch_steps b where b.run_id=r.id and b.ordinal=n.ordinal and b.finished)) and (select count(*)<8 from service_supplements where run_id=$1 and ordinal=$2)`, id, in.Step).Scan(&acceptable); err != nil {

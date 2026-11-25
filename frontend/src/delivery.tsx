@@ -110,7 +110,7 @@ function DeliveryGaps({ coverage }: { coverage?: DeliveryCoverage | null }) {
   if (!missing.length) return null;
   return (
     <section>
-      <h3>仍待补齐的必交项</h3>
+      <h3>仍待补齐的交付内容</h3>
       <ul>
         {missing.map(item => (
           <li key={item.item}>

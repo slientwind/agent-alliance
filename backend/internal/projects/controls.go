@@ -23,7 +23,7 @@ func (s Server) control(w http.ResponseWriter, r *http.Request, u identity.Membe
 	}
 	key := r.Header.Get("Idempotency-Key")
 	if key == "" || len(key) > 180 || web.Blank(in.Reason) {
-		return web.Fail(422, "需要幂等键与操作原因")
+		return web.Fail(422, "请填写操作原因并重新提交")
 	}
 	ctx := r.Context()
 	id := r.PathValue("id")
@@ -57,7 +57,7 @@ func controlTx(ctx context.Context, tx pgx.Tx, id, actor, key, action string, ex
 	err = tx.QueryRow(ctx, "select signature=$1,revision from controls where actor=$2 and request_key=$3", sig, actor, key).Scan(&ok, &prev)
 	if err == nil {
 		if !ok {
-			return 0, web.Fail(409, "幂等键内容冲突")
+			return 0, web.Fail(409, "上一次提交的内容不同，请重新提交")
 		}
 		return prev, nil
 	}
@@ -65,7 +65,7 @@ func controlTx(ctx context.Context, tx pgx.Tx, id, actor, key, action string, ex
 		return 0, err
 	}
 	if rev != expected {
-		return 0, web.Fail(409, "运行控制版本已变化")
+		return 0, web.Fail(409, "任务状态已变化，请刷新后继续")
 	}
 	var target string
 	switch action {

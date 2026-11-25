@@ -68,7 +68,7 @@ func (s Server) suggest(w http.ResponseWriter, r *http.Request, u identity.Membe
 	}
 	key := r.Header.Get("Idempotency-Key")
 	if !in.AuthorizeOneCall || key == "" || len(key) > 180 {
-		return web.Fail(422, "需要幂等键与单次规划调用授权")
+		return web.Fail(422, "请刷新页面并确认生成方案")
 	}
 	formats, ok := requestedFormats(in.RequiredOutput, in.RequiredOutputs)
 	if !ok {
@@ -100,7 +100,7 @@ func (s Server) suggest(w http.ResponseWriter, r *http.Request, u identity.Membe
 		err := tx.QueryRow(ctx, `select id,current_status,case when current_status='ready' then result end,(project_id=$3 and project_revision=$4 and resource_id=$5 and resource_revision=$6 and input_sources is not distinct from $7::jsonb and required_output=$8) from current_planning_requests where actor=$1 and request_key=$2`, u.ID, key, pid, in.Expected, in.Resource, in.Revision, pins, scope).Scan(&id, &status, &cached, &same)
 		if err == nil {
 			if !same {
-				return web.Fail(409, "幂等键已用于不同规划调用")
+				return web.Fail(409, "上一次提交的内容不同，请重新发起规划")
 			}
 			reused = true
 			return nil

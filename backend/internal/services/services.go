@@ -600,7 +600,7 @@ func serviceReplay(ctx context.Context, tx pgx.Tx, sub subject, key string, sig 
 	err := tx.QueryRow(ctx, "select id,project_id,request_hash=$3 from runs where actor=$1 and request_key=$2", sub.Actor, key, sig[:]).Scan(&run, &project, &matches)
 	if err == nil {
 		if !matches {
-			return nil, web.Fail(409, "幂等键已用于不同服务输入")
+			return nil, web.Fail(409, "上一次提交的内容不同，请重新发起服务")
 		}
 		var canRead bool
 		if err := tx.QueryRow(ctx, "select exists(select from project_members pm join services s on s.id=$3 join team_members t on t.team_id=s.team_id and t.member_id=pm.member_id where pm.project_id=$1 and pm.member_id=$2)", project, sub.Actor, sub.Service).Scan(&canRead); err != nil {
@@ -741,7 +741,7 @@ func (s Server) invoke(w http.ResponseWriter, r *http.Request, actor string) err
 	}
 	key := r.Header.Get("Idempotency-Key")
 	if key == "" || len(key) > 160 || web.Blank(in.Input) || len(in.Input) > 64000 {
-		return web.Fail(422, "需要幂等键和有界的业务输入")
+		return web.Fail(422, "请填写要处理的内容后重新提交")
 	}
 	if err := in.validateFiles(); err != nil {
 		return err

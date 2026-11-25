@@ -297,7 +297,7 @@ func (s Server) deliver(w http.ResponseWriter, r *http.Request, u identity.Membe
 			return err
 		}
 		if !bytes.Equal(sealedCoverage, latestCoverage) {
-			return web.Fail(409, "必交项核对或接手权限已变化，请重新核对后确认")
+			return web.Fail(409, "交付清单或接手权限已变化，请重新核对后确认")
 		}
 		if err := Touch(ctx, tx, p.ID, "delivered"); err != nil {
 			return err

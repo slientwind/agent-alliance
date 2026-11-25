@@ -36,7 +36,7 @@ function RequirementAssessment({
   const fileEvidence = fileChoice === undefined ? item.fileEvidence : fileChoice;
   return (
     <details>
-      <summary>核对此必交项{item.version ? " · v" + item.version : ""}</summary>
+      <summary>核对此项{item.version ? " · v" + item.version : ""}</summary>
       <form onSubmit={event => {
         event.preventDefault();
         if (!state) return;
@@ -110,7 +110,7 @@ function RequirementAssessment({
             </label>}
           </>
         )}
-        <button disabled={busy || !state}>保存必交项核对</button>
+        <button disabled={busy || !state}>保存核对结果</button>
       </form>
     </details>
   );
@@ -150,15 +150,17 @@ export function CoverageReview({ project, busy, save }: {
   save: (data: Assessment) => void;
 }) {
   const coverage = project.deliveryCoverage;
-  if (!coverage || project.stage === "delivered" && !coverage.items.some(item => item.fileEvidence || item.remoteEvidenceRecorded || item.upstreamEvidenceStep)) return null;
+  const reviewing = project.stage === "review";
+  const delivered = project.stage === "delivered" && coverage?.items.some(item => item.fileEvidence || item.remoteEvidenceRecorded || item.upstreamEvidenceStep);
+  if (!coverage || (!reviewing && !delivered)) return null;
   const blocked = new Set(project.artifacts.filter(a => a.draftBlock).map(a => a.id));
   const covered = coverage.items.filter(item => item.state === "covered" && !blocked.has(item.artifact ?? "")).length;
   const missing = coverage.items.filter(item => item.state === "missing");
   return (
-    <section className="card" aria-label="必交项核对" id="delivery-coverage" tabIndex={-1}>
-      <h2>必交项核对</h2>
+    <section className="card" aria-label="交付清单" id="delivery-coverage" tabIndex={-1}>
+      <h2>交付清单（已齐 {covered}/{coverage.items.length}）</h2>
       <p role="status">
-        已核对通过 {covered}/{coverage.items.length} 项
+        已核对 {covered}/{coverage.items.length} 项
         {missing.length > 0 && ` · 缺 ${missing.length} 项`}
         {missing.length > 0 && !coverage.allowPartial && " · 等待补齐后交付"}
       </p>
@@ -168,7 +170,7 @@ export function CoverageReview({ project, busy, save }: {
           return (
           <li key={item.item}>
             <strong>{item.label}</strong>{" · "}
-            {blocked.has(item.artifact ?? "") ? "候选待重做" : item.state === "covered" ? "已满足" : item.state === "missing" ? "缺项" : "待核对"}
+            {blocked.has(item.artifact ?? "") ? "成果待更新" : item.state === "covered" ? "已满足" : item.state === "missing" ? "缺项" : "待核对"}
             {item.version && <small>步骤 {item.step} · 成果 v{item.version}</small>}
             {item.evidence && !blocked.has(item.artifact ?? "") && (
               <RequirementEvidence key={item.artifact + ":" + item.version} evidence={item.evidence} reviewed={item.state !== "unchecked"} />

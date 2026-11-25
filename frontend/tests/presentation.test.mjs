@@ -130,3 +130,23 @@ test("reasoning and fast routes use available tiers and preserve explicit Agent 
   assert.equal(usesGeneralConversation(project, "other", false, false), false);
   assert.equal(usesGeneralConversation({ ...project, run: { status: "paused", general: true } }, "me", false, false), false);
 });
+
+test("delivery readiness only appears for collaborative review and uses plain status", async () => {
+  const { CoverageReview } = await server.ssrLoadModule("/src/delivery-coverage.tsx");
+  const { AgentTeamField } = await server.ssrLoadModule("/src/agent-team.tsx");
+  const review = { stage: "review", artifacts: [], canReview: false, deliveryCoverage: {
+    items: [{ item: 1, label: "采购预算", state: "covered" }, { item: 2, label: "报价有效期", state: "missing" }],
+    allowPartial: false,
+  } };
+  const render = project => renderToStaticMarkup(createElement(CoverageReview, { project, busy: false, save: () => {} }));
+  assert.match(render(review), /交付清单（已齐 1\/2）/);
+  assert.doesNotMatch(render(review), /覆盖断言|必交项核对/);
+  assert.equal(render({ ...review, stage: "brief" }), "");
+  const membership = { id: "purchasing", name: "采购", joined: true, default: true };
+  const single = renderToStaticMarkup(createElement(AgentTeamField, { teams: [membership] }));
+  assert.match(single, /type="hidden"/);
+  assert.doesNotMatch(single, /承担|支付/);
+  const two = renderToStaticMarkup(createElement(AgentTeamField, { teams: [membership, { id: "sales", name: "市场", joined: true, default: false }] }));
+  assert.match(two, /所属团队/);
+  assert.doesNotMatch(two, /归属及费用承担团队/);
+});

@@ -131,7 +131,7 @@ export function Diagnostics({
   const [open, setOpen] = useState(false);
   return (
     <details className="card" onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary>运行诊断与 Trace</summary>
+      <summary>运行记录与授权</summary>
       {open && <Directory project={project} owner={owner} refresh={refresh} />}
     </details>
   );

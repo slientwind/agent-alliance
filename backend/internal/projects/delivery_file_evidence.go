@@ -68,7 +68,7 @@ func (s Server) deliveryFilePassages(w http.ResponseWriter, r *http.Request, act
 	term := strings.TrimSpace(query.Get("search"))
 	if itemErr != nil || verErr != nil || projectErr != nil || runErr != nil || artErr != nil || item < 1 || version < 1 ||
 		utf8.RuneCountInString(term) > 100 || strings.ContainsRune(term, 0) {
-		return web.Fail(422, "请选择要核对的必交项和当前成果版本")
+		return web.Fail(422, "请选择要核对的交付项和当前成果版本")
 	}
 	after := 0
 	if query.Has("after") {

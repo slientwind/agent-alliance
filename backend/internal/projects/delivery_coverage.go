@@ -126,13 +126,13 @@ func (c deliveryCoverage) authorize(partial bool) error {
 		case "missing":
 			missing = true
 			if !c.AllowPartial || !partial {
-				return web.Fail(409, "仍有必交项缺失，请补齐后再确认交付")
+				return web.Fail(409, "交付清单还有缺项，请补齐后再确认")
 			}
 			if !item.ResponsibleActive || item.ContinueWhen == "" {
 				return web.Fail(409, "请为每个缺项指定有权接手的负责人及继续条件")
 			}
 		default:
-			return web.Fail(409, "请先核对所有必交项与当前成果版本")
+			return web.Fail(409, "请核对交付清单上的各项要求和当前成果版本")
 		}
 	}
 	if partial && !missing {
@@ -210,7 +210,7 @@ func (s Server) assessDeliveryItem(w http.ResponseWriter, r *http.Request, u ide
 			}
 		}
 		if current.Run != in.Run || current.Artifact != in.Artifact || current.Version != in.Version {
-			return web.Fail(409, "必交项或候选版本已变化，请重新核对")
+			return web.Fail(409, "交付清单或成果版本已变化，请重新核对")
 		}
 		if in.Artifact != "" {
 			var readable bool

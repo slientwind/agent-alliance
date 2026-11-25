@@ -779,7 +779,7 @@ func (s Server) start(w http.ResponseWriter, r *http.Request, u identity.Member)
 		err = tx.QueryRow(ctx, "select id,request_hash=$3 from runs where actor=$1 and request_key=$2", u.ID, key, sig).Scan(&run, &matches)
 		if err == nil {
 			if !matches {
-				return web.Fail(409, "幂等键已用于不同请求")
+				return web.Fail(409, "上一次提交的内容不同，请重新提交")
 			}
 			return nil
 		}

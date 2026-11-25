@@ -146,7 +146,7 @@ function DraftSummary({
             {s.vision && " · 读取图片"}
             {s.editsImage && " · 编辑参考图"}
             {s.toolChoice && " 或 " + s.toolChoice.name + " · v" + s.toolChoice.revision}
-            {s.lookup && (s.calculate ? " · 引文金额核算" : " · 检索原文后回答")} ·{" "}
+            {s.calculate && " · 核算资料中的金额"} ·{" "}
             {s.followUp && (s.evidenceReview ? "允许再次核对新依据 · " : "补查有新依据时续答 · ")}
             {s.inputs.length
               ? "引用步骤 " +
@@ -438,16 +438,14 @@ export function PlanEditor({
       {draft && (
         <small role="status">
           {draft.templateUpdate ? `模板 v${draft.templateUpdate.toVersion} 的修改暂存在本页 · 基于` : "方案草稿仅在本页暂存 · 基于"}
-          {draft.baseVersion ? "方案 v" + draft.baseVersion : "初始需求"} ·
-          项目修订 {draft.baseRevision}
+          {draft.baseVersion ? "方案 v" + draft.baseVersion : "初始需求"}
         </small>
       )}
       {stale && (
         <section className="card">
           <strong>项目已更新，请核对后继续编辑</strong>
           <p>
-            当前项目修订 {project.revision}
-            。下面是当前已保存内容，编辑区保留你的草稿。
+            下面是当前已保存内容，编辑区保留你的草稿。
           </p>
           <DraftSummary
             value={latest}
@@ -482,10 +480,10 @@ export function PlanEditor({
         </label>
         {!!steps.length && (
           <details open={requiredItems.length || value.allowPartial || reviewDelivery ? true : undefined}>
-            <summary>必交项与缺项处理</summary>
+            <summary>交付清单与缺项处理</summary>
             {steps.map((step, i) => (
               <label key={step.key}>
-                步骤 {i + 1} · {step.name} 的必交项
+                步骤 {i + 1} · {step.name} 的交付清单
                 <textarea rows={2} value={step.completion || ""} placeholder="每行填写一个要核对的对象或条件"
                   onChange={e => edit({ steps: steps.map(current => current.key === step.key
                     ? { ...current, completion: e.target.value } : current) })} />
@@ -498,8 +496,8 @@ export function PlanEditor({
             {templateSuggestsPartial && <small>模板支持部分交付。本次交付以这里的选择为准。</small>}
             {reviewDelivery && (
               <>
-                {[{ label: project.plan ? "原方案必交项" : "模板必交项", steps: value.templateUpdate && !project.plan ? [] : latest.steps },
-                  { label: "新版模板必交项", steps: value.templateUpdate?.deliverySteps ?? [] }].map(baseline => {
+                {[{ label: project.plan ? "原方案交付清单" : "模板交付清单", steps: value.templateUpdate && !project.plan ? [] : latest.steps },
+                  { label: "新版模板交付清单", steps: value.templateUpdate?.deliverySteps ?? [] }].map(baseline => {
                   const items = conditionItems(baseline.steps);
                   return items.length > 0 && <div key={baseline.label}>
                     <strong>{baseline.label}</strong>
@@ -509,11 +507,11 @@ export function PlanEditor({
                 <label>
                   <input type="checkbox" checked={!deliveryReviewPending}
                     onChange={e => setDeliveryReviewed(e.target.checked ? deliveryReviewKey : "")} />
-                  我已核对改动后的必交项和对应步骤
+                  我已核对更新后的交付清单和对应步骤
                 </label>
               </>
             )}
-            {invalidDeliveryContract && <small role="status">最多 32 项，每项 180 字。部分交付需要至少一个必交项。</small>}
+            {invalidDeliveryContract && <small role="status">最多 32 项，每项 180 字。部分交付需要至少一项交付要求。</small>}
           </details>
         )}
         <label>
@@ -637,7 +635,7 @@ export function PlanEditor({
                       })
                     }
                   />
-                  检索原文后回答（最多两次调用）
+                  查阅原文后回答
                 </label>
               )}
               {s.lookup && (

@@ -111,7 +111,7 @@ try {
         memberPage.evaluate(() => window.dispatchEvent(new Event("focus"))),
       ]);
     }
-    const toolTeam = tool.getByLabel("归属及费用承担团队");
+    const toolTeam = tool.getByLabel("所属团队");
     await toolTeam.selectOption(temporary);
     await tool.getByLabel("名称", { exact: true }).fill("借用核算助手");
     await tool.getByLabel("能力描述").fill("核算已通过审核的地区成交额");
@@ -139,7 +139,7 @@ try {
       await tool.getByLabel(field).fill(val);
     const toolID = await save(tool, "保存工具草稿", "agents/tools");
     const card = await draft("注册已有 Agent Card");
-    await card.getByLabel("归属及费用承担团队").selectOption(team);
+    await card.getByLabel("所属团队").selectOption(team);
     await card.getByLabel("Agent Card JSON").fill(
       JSON.stringify({
         protocolVersion: "0.3.0",

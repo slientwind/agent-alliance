@@ -92,7 +92,7 @@ func (s Server) startChange(w http.ResponseWriter, r *http.Request, u identity.M
 	}
 	key := r.Header.Get("Idempotency-Key")
 	if key == "" || len(key) > 180 || !in.AuthorizeOneCall {
-		return web.Fail(422, "请明确授权本次单步调用并提供幂等键")
+		return web.Fail(422, "请确认只重新处理此步骤后再提交")
 	}
 	if len([]rune(in.Replacement)) > 64000 || strings.Count(in.Replacement, "\n") >= 400 {
 		return web.Fail(422, "替换稿最多 64000 字、400 行")
@@ -124,7 +124,7 @@ func (s Server) startChange(w http.ResponseWriter, r *http.Request, u identity.M
 		err = tx.QueryRow(ctx, "select id,request_hash=$1 and project_id=$4 from runs where actor=$2 and request_key=$3", sig, u.ID, key, p.ID).Scan(&run, &match)
 		if err == nil {
 			if !match {
-				return web.Fail(409, "该幂等键已用于其他请求")
+				return web.Fail(409, "上一次提交的内容不同，请重新提交")
 			}
 			return nil
 		}

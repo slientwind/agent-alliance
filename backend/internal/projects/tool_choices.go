@@ -88,7 +88,7 @@ func (s Server) confirmToolChoice(w http.ResponseWriter, r *http.Request, u iden
 	}
 	key := r.Header.Get("Idempotency-Key")
 	if (in.Choice != 1 && in.Choice != 2) || in.Step < 1 || in.Step > 12 || key == "" || len(key) > 180 {
-		return web.Fail(422, "请选择原方案中的工具并提供幂等键")
+		return web.Fail(422, "请重新核对方案并选择其中的工具")
 	}
 	ctx, run := r.Context(), r.PathValue("id")
 	var controlRevision int

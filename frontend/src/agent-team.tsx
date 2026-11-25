@@ -70,9 +70,10 @@ export function AgentTeamField({ teams }: { teams: AgentTeam[] }) {
   const { id, choose, available } = useDraftTeam(teams);
   if (teams.length === 1 && available)
     return <input type="hidden" name="team" value={id} />;
+  const selected = teams.find(team => team.id === id && !team.default);
   return (
     <label>
-      归属及费用承担团队
+      所属团队
       <select
         name="team"
         required
@@ -84,7 +85,7 @@ export function AgentTeamField({ teams }: { teams: AgentTeam[] }) {
             {id
               ? "原团队已不可用，请重新选择"
               : teams.length
-                ? "请选择归属团队"
+                ? "请选择团队"
                 : "需要已加入的团队"}
           </option>
         )}
@@ -94,6 +95,7 @@ export function AgentTeamField({ teams }: { teams: AgentTeam[] }) {
           </option>
         ))}
       </select>
+      {selected && <small>由{selected.name}额度支付</small>}
     </label>
   );
 }

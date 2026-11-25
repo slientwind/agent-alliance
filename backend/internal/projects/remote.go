@@ -36,7 +36,7 @@ func (s Server) recheckRemote(w http.ResponseWriter, r *http.Request, u identity
 		}
 	}
 	if len(key) > 180 {
-		return web.Fail(422, "幂等键过长")
+		return web.Fail(422, "提交信息过长，请刷新页面后重试")
 	}
 	signature := web.Hash(fmt.Sprintf("remote-check/%s/%d/%d/%s", run, step, in.Expected, in.Reason))
 	if in.InputRevision > 0 {
@@ -59,7 +59,7 @@ func (s Server) recheckRemote(w http.ResponseWriter, r *http.Request, u identity
 		err = tx.QueryRow(ctx, "select signature=$1 from controls where actor=$2 and request_key=$3", signature, u.ID, key).Scan(&match)
 		if err == nil {
 			if !match {
-				return web.Fail(409, "幂等键内容冲突")
+				return web.Fail(409, "上一次提交的内容不同，请重新提交")
 			}
 			return nil
 		}

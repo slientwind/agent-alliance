@@ -527,7 +527,7 @@ func (c Catalog) validate(w http.ResponseWriter, r *http.Request, u identity.Mem
 	id := r.PathValue("id")
 	key := r.Header.Get("Idempotency-Key")
 	if len(key) > 180 {
-		return web.Fail(422, "幂等键过长")
+		return web.Fail(422, "提交信息过长，请刷新页面后重试")
 	}
 	if key == "" {
 		key = web.Token()

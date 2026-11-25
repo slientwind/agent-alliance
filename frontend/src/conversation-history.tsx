@@ -30,7 +30,7 @@ export type ReviewTask = {
 const actionLabels: Record<ReviewTask["kind"], string> = {
   review: "审核成果",
   deliver: "最终确认交付",
-  coverage: "核对必交项和缺项安排",
+  coverage: "核对交付清单",
   distribution: "查看资料撤权影响",
   tool: "处理助手请求",
   mention: "同事在评论中提到了你",

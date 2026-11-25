@@ -150,14 +150,7 @@ export function SuggestedPlan(props: Props) {
                 {formats.length > 1 && formats.includes(produced) && (
                   <small>产出 · {plannedOutputs[produced]}</small>
                 )}
-                {s.lookup && (
-                  <small>
-                    {s.calculate
-                      ? "引文金额核算 · 可求和或算差额"
-                      : "检索原文后回答"}{" "}
-                    · 最多两次模型调用
-                  </small>
-                )}
+                {s.calculate && <small>核算资料中的金额</small>}
                 {s.reason && <small>规划助手建议 · {s.reason}</small>}
               </li>
             );

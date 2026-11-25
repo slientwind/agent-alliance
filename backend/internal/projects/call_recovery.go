@@ -70,7 +70,7 @@ func CanonicalColumnCorrections(corrections []knowledge.ColumnCorrection) ([]kno
 // service decisions. The service transport authenticates the run owner first.
 func ReviewCallTx(ctx context.Context, tx pgx.Tx, run, actor, key string, ordinal int, in CallReviewInput) (int, error) {
 	if ordinal < 1 || ordinal > 12 || in.Attempt < 1 || in.Expected < 1 || key == "" || len(key) > 180 || web.Blank(in.Evidence) || utf8.RuneCountInString(in.Evidence) > 1600 {
-		return 0, web.Fail(422, "请选择调用批次，填写核对依据（最多 1600 字）并提供幂等键")
+		return 0, web.Fail(422, "请选择要核对的记录，并填写依据（最多 1600 字）")
 	}
 	if (in.Decision != "hold" && in.Decision != "redo") || in.AuthorizeOneCall != (in.Decision == "redo") {
 		return 0, web.Fail(422, "重新执行需要明确承担重复执行风险并授权一次新调用")
@@ -143,7 +143,7 @@ func ReviewCallTx(ctx context.Context, tx pgx.Tx, run, actor, key string, ordina
 	err = tx.QueryRow(ctx, "select signature=$1,revision from controls where actor=$2 and request_key=$3", signature, actor, key).Scan(&same, &prior)
 	if err == nil {
 		if !same {
-			return 0, web.Fail(409, "幂等键已用于其他决定")
+			return 0, web.Fail(409, "上一次提交的决定不同，请重新核对")
 		}
 		return prior, nil
 	}

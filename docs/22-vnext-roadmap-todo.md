@@ -205,7 +205,7 @@
 - [x] **OTel 指标与 Trace 深化**：在 [`telemetry/export.go`](../backend/internal/telemetry/export.go) 中补齐 `gen_ai.*` 标准语义属性（模型名、Input/Output/Cached Token、耗时拆解、用户反馈 Score），便于无缝对接 Langfuse / Grafana Tempo。
 
 ### 4.3 产品体验与部署运维
-- [ ] **前台文案全面降噪排查**：对照 [18-vnext-product-ia.md 第 5 节](18-vnext-product-ia.md) 清理后端错误提示（`web.Fail`）与前端文案中的工程术语（如“调用意图”“控制修订”“发布代次”）。
+- [x] **前台文案全面降噪排查**：对照 [18-vnext-product-ia.md 第 5 节](18-vnext-product-ia.md) 清理后端错误提示（`web.Fail`）与前端文案中的工程术语（如“调用意图”“控制修订”“发布代次”）。
 - [x] **初始化引导（Onboarding）升级**：首次部署启动后，管理员引导一步完成「接入首个模型供应商 → 自动映射到 6 档位 → 选择启用的正规生态扫描源 → 邀请团队成员」，10 分钟开箱即用。
 - [ ] **开展 5–8 名非技术员工无引导可用性走查**：在 Phase 2 前端合入前，先用 [vnext-prototype.html](uiux/vnext-prototype.html) 跑完 [UT-01 ~ UT-07](19-vnext-research-addendum.md#42-七个核心走查任务与观测红线) 实测，根据真实卡点微调交互后再写页面代码。
 

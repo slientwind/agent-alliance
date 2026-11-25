@@ -163,7 +163,7 @@ export function Library({
           {!commonTeam && <small>归属团队 · {a.teamName}</small>}
           <p>{a.instructions}</p>
           <small>
-            {a.draftPublished ? "最新修订" : "草稿"} v{a.revision} · {a.validated ? "验证通过" : "待试运行"} ·{" "}
+            {a.draftPublished ? "最新版" : "草稿 v" + a.revision} · {a.validated ? "测试通过" : "待试运行"} ·{" "}
             {a.published
               ? "已发布 v" +
                 a.published +

@@ -267,7 +267,7 @@ import { chromium } from "playwright";
       .click();
     await verifyDeliveryEditions(p, manifest);
     const diagnostics = p
-      .getByText("运行诊断与 Trace", { exact: true })
+      .getByText("运行记录与授权", { exact: true })
       .locator("..");
     await diagnostics.locator(":scope > summary").click();
     // The newest run is a scoped fourth-step revision.

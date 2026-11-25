@@ -132,7 +132,7 @@ func (s Server) bindGap(w http.ResponseWriter, r *http.Request, u identity.Membe
 				}
 			}
 			if !ready {
-				return web.Fail(409, "此候选修订的权限、验证、配置或预算已变化，请重新比较")
+				return web.Fail(409, "此版本的使用条件已变化，请重新比较")
 			}
 			if _, _, err = s.Catalog.ResolveRun(ctx, tx, project, u.ID, agent, version); err != nil {
 				return err
