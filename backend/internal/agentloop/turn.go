@@ -28,6 +28,9 @@ import (
 
 type Activities struct {
 	Planned *runtime.Activities
+	Intake  interface {
+		Advance(context.Context, string) (bool, error)
+	}
 	DB      *pgxpool.Pool
 	Vault   resources.Vault
 	Objects knowledge.Objects
@@ -83,6 +86,12 @@ func (a Activities) AdvanceTurn(ctx context.Context, ref TurnRef) (TurnResult, e
 		}
 		planned, err := a.Planned.ProcessApprovedPlan(ctx, *ref.Planned, false)
 		return TurnResult{Planned: &planned}, err
+	}
+	if a.Intake != nil {
+		handled, err := a.Intake.Advance(ctx, ref.RunID)
+		if handled || err != nil {
+			return TurnResult{Done: handled}, err
+		}
 	}
 	var anchor bool
 	if err := a.DB.QueryRow(ctx, "select exists(select from general_anchor_edits where run_id=$1)", ref.RunID).Scan(&anchor); err != nil {

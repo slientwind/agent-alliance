@@ -75,6 +75,7 @@ import "./style.css";
 import "./workspace.css";
 const Work = lazy(() => import("./work").then(({ Work }) => ({ default: Work })));
 const ConversationActivity = lazy(() => import("./conversation-activity").then(({ ConversationActivity }) => ({ default: ConversationActivity })));
+const MessageIntake = lazy(() => import("./message-intake").then(({ MessageIntake }) => ({ default: MessageIntake })));
 const ArtifactCanvas = lazy(() => import("./artifact-canvas").then(({ ArtifactCanvas }) => ({ default: ArtifactCanvas })));
 const SearchIntegration = lazy(() => import("./search-integration").then(({ SearchIntegration }) => ({ default: SearchIntegration })));
 const MailIntegration = lazy(() => import("./mail-integration").then(({ MailIntegration }) => ({ default: MailIntegration })));
@@ -1048,7 +1049,7 @@ function App() {
     return (
       <ServiceEntry key={service + user.id} id={service} member={user.id} />
     );
-  const title = workspacePage(panel)?.title ?? ({ agents: "Agent", outline: "分页提纲", courseWriter: "选择编稿 Agent", onboarding: "首次设置" }[panel] || panel);
+  const title = workspacePage(panel)?.title ?? ({ agents: "Agent", outline: "分页提纲", courseWriter: "选择编稿 Agent", onboarding: "首次设置", intake: "消息与事项" }[panel] || panel);
   const pageContent = (
     <>
       {panel === "workflowTemplates" && (
@@ -1222,6 +1223,11 @@ function App() {
           </Suspense>
         </>
       )}
+      {panel === "intake" && p && (
+        <Suspense fallback={<p role="status">正在打开消息整理…</p>}>
+          <MessageIntake key={p.id} project={p.id} mayReview={p.canReview || p.owner === user.id} revision={activityRevision + sourcesRevision} />
+        </Suspense>
+      )}
       {panel === "onboarding" && user.role === "admin" && (
         <Suspense fallback={<p role="status">正在打开首次设置…</p>}>
           <InitialWorkspaceSetup close={() => setPanel("")} manage={() => setPanel("gateway")} refresh={catalog} />
@@ -1354,6 +1360,7 @@ function App() {
               <strong>{p.title}</strong>
               <div className="conversation-participants">
                 {online?.project === p.id && <PresenceStack members={online.members} />}
+                <button type="button" onClick={() => setPanel("intake")}>整理消息</button>
                 <TaskCollaboration key={p.id} project={p} user={user} refresh={refresh} />
               </div>
             </header>}

@@ -58,7 +58,8 @@ func (s Server) liveWindow(ctx context.Context, project, member string) (liveWin
 		 join members u on u.id=pm.member_id and u.enabled
 		 left join lateral (select id,status,control_revision,plan_version,actor,charge_team from runs r where r.project_id=p.id and r.service_id is null
 		  and not exists(select from change_batches c where c.run_id=r.id)
-		  and not exists(select from general_anchor_edits a where a.run_id=r.id) order by created_at desc,id desc limit 1) r on true
+		  and not exists(select from general_anchor_edits a where a.run_id=r.id)
+		  and not exists(select from general_intake_work w where w.run_id=r.id) order by created_at desc,id desc limit 1) r on true
 		 left join general_agent_runs g on g.run_id=r.id where p.id=$1`, project, member).
 			Scan(&window.run, &status, &window.control, &general, &mayRead)
 		if err != nil {

@@ -156,7 +156,7 @@ func (s Server) StartTx(ctx context.Context, tx pgx.Tx, project, actor, key stri
 		return "", web.Fail(409, "当前任务正在执行或已变化，请刷新后重试")
 	}
 	var active bool
-	if err := tx.QueryRow(ctx, `select exists(select from runs where project_id=$1 and status in ('queued','running','blocked','reconcile','paused'))`, project).Scan(&active); err != nil {
+	if err := tx.QueryRow(ctx, `select exists(select from runs r where project_id=$1 and status in ('queued','running','blocked','reconcile','paused') and not exists(select from general_intake_work w where w.run_id=r.id))`, project).Scan(&active); err != nil {
 		return "", err
 	}
 	if active {

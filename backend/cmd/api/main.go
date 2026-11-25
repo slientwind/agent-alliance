@@ -10,6 +10,7 @@ import (
 	"alliance/internal/egress"
 	"alliance/internal/hotstream"
 	"alliance/internal/identity"
+	"alliance/internal/intake"
 	"alliance/internal/knowledge"
 	"alliance/internal/llmgateway"
 	"alliance/internal/mailrelay"
@@ -97,6 +98,7 @@ func main() {
 	projects.Server{DB: c.DB, Vault: c.Vault, SessionUpdates: projectUpdates, Hot: projectStream, QueueAnchorEdit: general.QueueAnchorEdit,
 		FeishuMentions: feishu.CommentConnection(), DingMentions: dingTalk.CommentConnection()}.Routes(mux, s)
 	general.Routes(mux, s)
+	intake.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
 	studio.Server{DB: c.DB, Vault: c.Vault, Gateway: app.ModelGateway(c)}.Routes(mux, s)
 	ecosystem.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
 	automations.Server{DB: c.DB, Vault: c.Vault, Feishu: feishu}.Routes(mux, s)

@@ -7,6 +7,7 @@ import (
 	"alliance/internal/ecosystem"
 	"alliance/internal/egress"
 	"alliance/internal/hotstream"
+	"alliance/internal/intake"
 	"alliance/internal/knowledge"
 	"alliance/internal/mcphub"
 	"alliance/internal/runtime"
@@ -81,7 +82,8 @@ func main() {
 		log.Fatal(err)
 	}
 	defer w.Stop()
-	general := agentloop.Activities{Planned: &a, DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Gateway: app.ModelGateway(catalog), Hot: projectStream}
+	gateway := app.ModelGateway(catalog)
+	general := agentloop.Activities{Planned: &a, Intake: intake.Server{DB: catalog.DB, Vault: catalog.Vault, Gateway: gateway}, DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Gateway: gateway, Hot: projectStream}
 	general.MCP = &mcphub.Runtime{DB: catalog.DB, Client: mcphub.Client{Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB}}}
 	general.Search = &websearch.Runtime{DB: catalog.DB, Client: websearch.Client{Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB}}}
 	generalQueue := runtime.GeneralQueue()
