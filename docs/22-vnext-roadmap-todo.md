@@ -59,7 +59,7 @@
   - [x] 实现通用停滞检测（比较工具名 + 规范化参数 + 来源版本 + 未决对象）与安全上下文压缩（保留 System、最新用户纠偏、未闭合 Tool Pair、来源引用）。
 - [ ] **Docker Compose 隔离容器沙箱池（Workspace Sandbox）**
   - [x] 在现有 `deploy/application.yaml` 下新增 `sandbox` 服务镜像与独立断网内部网络 `sandbox-internal`（`internal: true`），预装 Python 3.12、`pandas`、`openpyxl`、`python-docx`、`python-pptx`、`pypdf`、`matplotlib`、`pillow`、`duckdb` 及中文字体包。
-  - [ ] 实现按任务隔离目录挂载与执行限额：`/workspace/inputs:ro`、`/workspace/outputs:rw`、只读根文件系统、`cap_drop: [ALL]`、`no-new-privileges:true`、CPU/RAM/PID/60s 超时硬限、零凭据注入。
+  - [x] 实现按任务隔离目录挂载与执行限额：`/workspace/inputs:ro`、`/workspace/outputs:rw`、只读根文件系统、`cap_drop: [ALL]`、`no-new-privileges:true`、CPU/RAM/PID/60s 超时硬限、零凭据注入。
   - [ ] 实现产物自动回收：扫描 `/workspace/outputs` 哈希登记为受控 Artifact 版本，并自动触发 `preview` 生成可预览视图。
 - [ ] **标准 MCP Client Hub**
   - [ ] 实现 Go MCP Client（支持 `Streamable HTTP` 与 `SSE` 传输），支持工具发现（`tools/list`）、Schema 注入、运行时凭据代注入与风险等级标签（`read_only -> L0`，`write -> L2`）。
