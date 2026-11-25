@@ -19,6 +19,7 @@ import (
 	"alliance/internal/monitor"
 	"alliance/internal/onboarding"
 	"alliance/internal/planner"
+	"alliance/internal/policy"
 	"alliance/internal/projects"
 	"alliance/internal/sandbox"
 	"alliance/internal/services"
@@ -67,6 +68,7 @@ func main() {
 	monitor.Server{DB: c.DB}.Routes(mux, s)
 	monitor.Alerts{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
 	egress.Admin{DB: c.DB}.Routes(mux, s)
+	policy.DLPAdmin{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
 	llmgateway.Admin{DB: c.DB, Vault: c.Vault, Provider: llmgateway.HTTPProvider{Vault: c.Vault, Egress: &egress.Policy{DB: c.DB}}}.Routes(mux, s)
 	mcphub.Admin{DB: c.DB, Client: mcphub.Client{Vault: c.Vault, Egress: egress.Policy{DB: c.DB}}}.Routes(mux, s)
 	websearch.Server{DB: c.DB, Client: websearch.Client{Vault: c.Vault, Egress: egress.Policy{DB: c.DB}}}.Routes(mux, s)
