@@ -137,12 +137,12 @@ func (m Model) webhookStart(ctx context.Context, messages []Message) (Reply, err
 		return m.manusStart(ctx, brief)
 	}
 	spec := m.Adapter.Webhook
-	raw, _, err := m.webhookRequest(ctx, spec.Submit, spec.Auth, spec.TaskField, "",
+	out, err := m.webhookRequest(ctx, spec.Submit, spec.Auth, spec.TaskField, "",
 		map[string]any{spec.InputField: brief})
 	if err != nil {
-		return Reply{}, err
+		return out.attach(Reply{}, err)
 	}
-	return spec.reply(raw, "", false)
+	return out.attach(spec.reply(out.payload, "", false))
 }
 
 func (m Model) webhookFollow(ctx context.Context, receipt RemoteWait, cancel bool) (Reply, error) {
@@ -160,19 +160,32 @@ func (m Model) webhookFollow(ctx context.Context, receipt RemoteWait, cancel boo
 		}
 		route = *spec.Cancel
 	}
-	raw, status, err := m.webhookRequest(ctx, route, spec.Auth, spec.TaskField, receipt.Task, nil)
+	out, err := m.webhookRequest(ctx, route, spec.Auth, spec.TaskField, receipt.Task, nil)
 	if err != nil {
-		return Reply{}, err
+		return out.attach(Reply{}, err)
 	}
-	if cancel && status == http.StatusNoContent {
-		return Reply{}, &RemoteWait{Task: receipt.Task, State: "canceled"}
+	if cancel && out.status == http.StatusNoContent {
+		return out.attach(Reply{}, &RemoteWait{Task: receipt.Task, State: "canceled"})
 	}
-	return spec.reply(raw, receipt.Task, cancel)
+	return out.attach(spec.reply(out.payload, receipt.Task, cancel))
 }
 
-func (m Model) webhookRequest(ctx context.Context, route WebhookRoute, auth, taskField, task string, payload map[string]any) (json.RawMessage, int, error) {
+type webhookResponse struct {
+	payload  json.RawMessage
+	status   int
+	metadata ExternalMetadata
+}
+
+func (out webhookResponse) attach(reply Reply, err error) (Reply, error) {
+	if !errors.Is(err, errRemoteTaskMismatch) {
+		reply.ExternalMetadata = out.metadata
+	}
+	return reply, err
+}
+
+func (m Model) webhookRequest(ctx context.Context, route WebhookRoute, auth, taskField, task string, payload map[string]any) (webhookResponse, error) {
 	if !Endpoint(m.Endpoint) {
-		return nil, 0, errExternalReply
+		return webhookResponse{}, errExternalReply
 	}
 	target, _ := url.Parse(m.Endpoint)
 	target.Path = strings.TrimRight(target.Path, "/") + strings.ReplaceAll(route.Path, "{task}", task)
@@ -194,13 +207,13 @@ func (m Model) webhookRequest(ctx context.Context, route WebhookRoute, auth, tas
 	if payload != nil {
 		raw, err := json.Marshal(payload)
 		if err != nil {
-			return nil, 0, errExternalReply
+			return webhookResponse{}, errExternalReply
 		}
 		body = bytes.NewReader(raw)
 	}
 	req, err := http.NewRequestWithContext(ctx, route.Method, target.String(), body)
 	if err != nil {
-		return nil, 0, errExternalReply
+		return webhookResponse{}, errExternalReply
 	}
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
@@ -221,18 +234,18 @@ func (m Model) webhookRequest(ctx context.Context, route WebhookRoute, auth, tas
 	}
 	response, err := m.externalResponse(req)
 	if err != nil {
-		return nil, 0, err
+		return webhookResponse{}, err
 	}
 	defer response.Body.Close()
-	status := response.StatusCode
-	if status < 200 || status >= 300 {
-		return nil, status, fmt.Errorf("外部服务 HTTP %d", status)
+	out := webhookResponse{status: response.StatusCode, metadata: externalMetadata(response.Header, nil)}
+	if out.status < 200 || out.status >= 300 {
+		return out, fmt.Errorf("外部服务 HTTP %d", out.status)
 	}
-	var wire json.RawMessage
-	if status != http.StatusNoContent && decodeAdapterJSON(response.Body, &wire) != nil {
-		return nil, status, errExternalReply
+	if out.status != http.StatusNoContent && decodeAdapterJSON(response.Body, &out.payload) != nil {
+		return out, errExternalReply
 	}
-	return wire, status, nil
+	out.metadata = externalMetadata(response.Header, externalUsageFromPayload(out.payload))
+	return out, nil
 }
 
 func (s WebhookSpec) reply(raw json.RawMessage, expected string, cancel bool) (Reply, error) {
@@ -244,7 +257,7 @@ func (s WebhookSpec) reply(raw json.RawMessage, expected string, cancel bool) (R
 		task = string(value)
 	}
 	if task != "" && (!remoteTaskID.MatchString(task) || expected != "" && expected != task) {
-		return Reply{}, errors.New("远端回执与原任务不符")
+		return Reply{}, errRemoteTaskMismatch
 	}
 	if task == "" {
 		task = expected
@@ -291,19 +304,19 @@ func webhookReply(task, state, text string) (Reply, error) {
 }
 
 func (m Model) manusStart(ctx context.Context, brief string) (Reply, error) {
-	raw, _, err := m.webhookRequest(ctx, WebhookRoute{Method: http.MethodPost, Path: "/v2/task.create"},
+	out, err := m.webhookRequest(ctx, WebhookRoute{Method: http.MethodPost, Path: "/v2/task.create"},
 		"x-manus-api-key", "", "", map[string]any{"message": map[string]string{"content": brief}, "share_visibility": "private"})
 	if err != nil {
-		return Reply{}, err
+		return out.attach(Reply{}, err)
 	}
-	if string(readJSONPath(raw, "$.ok")) != "true" {
-		return Reply{}, errExternalReply
+	if string(readJSONPath(out.payload, "$.ok")) != "true" {
+		return out.attach(Reply{}, errExternalReply)
 	}
-	task := pathString(raw, "$.task_id")
+	task := pathString(out.payload, "$.task_id")
 	if !remoteTaskID.MatchString(task) {
-		return Reply{}, errExternalReply
+		return out.attach(Reply{}, errExternalReply)
 	}
-	return webhookReply(task, "submitted", "")
+	return out.attach(webhookReply(task, "submitted", ""))
 }
 
 func (m Model) manusFollow(ctx context.Context, receipt RemoteWait, cancel bool) (Reply, error) {
@@ -311,18 +324,18 @@ func (m Model) manusFollow(ctx context.Context, receipt RemoteWait, cancel bool)
 	if cancel {
 		route = WebhookRoute{Method: http.MethodPost, Path: "/v2/task.stop"}
 	}
-	raw, _, err := m.webhookRequest(ctx, route, "x-manus-api-key", "task_id", receipt.Task, nil)
+	out, err := m.webhookRequest(ctx, route, "x-manus-api-key", "task_id", receipt.Task, nil)
 	if err != nil {
-		return Reply{}, err
+		return out.attach(Reply{}, err)
 	}
-	if string(readJSONPath(raw, "$.ok")) != "true" {
-		return Reply{}, errExternalReply
+	if string(readJSONPath(out.payload, "$.ok")) != "true" {
+		return out.attach(Reply{}, errExternalReply)
 	}
 	if cancel {
-		return webhookReply(receipt.Task, "canceled", "")
+		return out.attach(webhookReply(receipt.Task, "canceled", ""))
 	}
-	if pathString(raw, "$.task_id") != receipt.Task {
-		return Reply{}, errors.New("远端回执与原任务不符")
+	if pathString(out.payload, "$.task_id") != receipt.Task {
+		return Reply{}, errRemoteTaskMismatch
 	}
 	var response struct {
 		Messages []struct {
@@ -336,8 +349,8 @@ func (m Model) manusFollow(ctx context.Context, receipt RemoteWait, cancel bool)
 			} `json:"assistant_message"`
 		}
 	}
-	if json.Unmarshal(raw, &response) != nil {
-		return Reply{}, errExternalReply
+	if json.Unmarshal(out.payload, &response) != nil {
+		return out.attach(Reply{}, errExternalReply)
 	}
 	state, text := "", ""
 	for _, item := range response.Messages {
@@ -354,12 +367,12 @@ func (m Model) manusFollow(ctx context.Context, receipt RemoteWait, cancel bool)
 	}
 	switch state {
 	case "stopped":
-		return webhookReply(receipt.Task, "completed", text)
+		return out.attach(webhookReply(receipt.Task, "completed", text))
 	case "error":
-		return webhookReply(receipt.Task, "failed", "")
+		return out.attach(webhookReply(receipt.Task, "failed", ""))
 	case "waiting":
-		return webhookReply(receipt.Task, "input-required", "")
+		return out.attach(webhookReply(receipt.Task, "input-required", ""))
 	default:
-		return webhookReply(receipt.Task, "working", "")
+		return out.attach(webhookReply(receipt.Task, "working", ""))
 	}
 }

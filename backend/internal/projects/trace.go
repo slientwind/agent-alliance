@@ -98,6 +98,11 @@ const traceSpansSQL = `select jsonb_build_object('run',r.id,'traceId',replace(r.
 	 jsonb_build_object('promptTokens',c.prompt_tokens,'completionTokens',c.completion_tokens,'cachedTokens',c.cached_tokens,'costMicroCny',c.cost_micro_cny::text)
 	 else '{}'::jsonb end) from model_gateway_attempts g join model_gateway_charges c using(operation_key)
 	 join model_catalog m on m.id=g.model_id where g.run_id=r.id order by g.started_at,g.operation_key),
+ 'externalReceipts',array(select jsonb_strip_nulls(jsonb_build_object('id',e.id,'step',e.turn,'attempt',e.attempt,
+  'operation',e.operation,'costDisclosure',e.cost_disclosure,'receivedAt',e.received_at,
+  'usage',case when exists(select from project_members pm join projects p on p.id=pm.project_id
+  where pm.project_id=r.project_id and pm.member_id=$2 and (pm.can_view_costs or p.owner=$2)) then e.usage end))
+  from external_agent_receipts e where e.run_id=r.id order by e.received_at desc,e.id limit 100),
  'events',array(select jsonb_build_object('sequence',e.seq,'time',e.occurred_at,'step',e.ordinal,'kind',e.kind,'code',e.code) from trace_events e where e.run_id=r.id order by seq))
  from runs r left join change_batches cb on cb.run_id=r.id left join artifacts a on a.id=cb.artifact_id where r.id=$1`
 
@@ -197,7 +202,14 @@ func (s Server) trace(w http.ResponseWriter, r *http.Request, u identity.Member)
 			if !allowed {
 				return web.Fail(403, "引用资料、团队规则或个人偏好的当前权限不足")
 			}
-			content = map[string]any{"step": step, "brief": traceExcerpt(brief), "committedOutput": traceExcerpt(body), "remoteTask": traceExcerpt(remoteTask), "remoteContext": traceExcerpt(remoteContext)}
+			var links json.RawMessage
+			if err := tx.QueryRow(ctx, `select to_jsonb(array(select jsonb_build_object('id',id,'url',trace_url)
+				from external_agent_receipts where run_id=$1 and turn=$2 and trace_url is not null order by received_at desc,id limit 30))`,
+				run, step).Scan(&links); err != nil {
+				return err
+			}
+			content = map[string]any{"step": step, "brief": traceExcerpt(brief), "committedOutput": traceExcerpt(body), "remoteTask": traceExcerpt(remoteTask),
+				"remoteContext": traceExcerpt(remoteContext), "externalTraces": links}
 		}
 		if err := authorize(); err != nil {
 			return err

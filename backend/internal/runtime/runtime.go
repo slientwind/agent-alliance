@@ -798,6 +798,12 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
          from invocations i where i.run_id=$1 and i.ordinal=$2`, step.Run, step.Ordinal, dispatchedAttempt).Scan(&currentAttempt, &replaced); err != nil {
 			return err
 		}
+		if d.model.External {
+			if err := resources.RecordExternalReceipt(ctx, tx, resources.ExternalReceiptRef{Request: "external/" + d.model.Operation,
+				Run: step.Run, Turn: step.Ordinal, Attempt: dispatchedAttempt, Operation: "submit"}, reply.ExternalMetadata); err != nil {
+				return err
+			}
+		}
 		if replaced || currentAttempt != dispatchedAttempt {
 			result.Stop = runEnded(status)
 			result.Wait = !result.Stop

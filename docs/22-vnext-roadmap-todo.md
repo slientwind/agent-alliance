@@ -84,11 +84,11 @@
   - [x] 新增 **UI 动态出站域名白名单表 `outbound_host_allowlist`** 及管理接口，并增加 SSRF 防护（解析目标 DNS/IP，默认阻断内网与云元数据网段，仅允许管理员显式标记的受信任内网自研网段）。
 
 ### 模块 C：外部 Agent 多协议/框架模板接入（Adapter Hub）
-- [ ] **多协议适配器与一键模板**
+- [x] **多协议适配器与一键模板**
   - [x] 扩展外部适配层支持 `openai_compat`，提供 Dify、Coze、FastGPT、LangGraph 的预置字段和 SSE 接收，复用既有 `a2a_jsonrpc`。
   - [x] 接入 `async_webhook`，支持配置 Submit/Poll/Cancel 和 JSONPath 提取，兼容 Manus 等商业 Agent。
   - [x] 每次外部请求统一注入标准追踪头：`X-Alliance-Run-Id`、`X-Alliance-Turn-Id`、`X-Alliance-User-Id`、`traceparent`。
-  - [ ] 实现**可选用量与 Trace 回传解析器**：优先解析标准 `usage` 或响应头 `X-Alliance-Usage` / `X-Alliance-Trace-Url`；未上报明确记为 `cost_disclosure = 'undisclosed'`。
+  - [x] 实现**可选用量与 Trace 回传解析器**：优先解析标准 `usage` 或响应头 `X-Alliance-Usage` / `X-Alliance-Trace-Url`；未上报明确记为 `cost_disclosure = 'undisclosed'`。
 - [ ] **两档准入与双调用形态**
   - [ ] 实现状态机：`draft → beta`（发一条测试消息通过即刻给本人/测试组使用）→ `pending_verify → verified`（管理员审批全企上架）。
   - [ ] 支持员工在对话中 `@外部Agent` 直连，以及由 Personal Agent 在通用 Loop 中按授权作为 Sub-Agent 自动委派。

@@ -264,6 +264,16 @@ func (a Activities) applyRemoteOutcome(ctx context.Context, job remoteJob, reply
 		if err != nil {
 			return err
 		}
+		operation := "poll"
+		if job.inputID != "" {
+			operation = "supplement"
+		} else if job.cancel {
+			operation = "cancel"
+		}
+		if err := resources.RecordExternalReceipt(ctx, tx, resources.ExternalReceiptRef{Request: "external/" + job.lease,
+			Run: job.Run, Turn: job.Ordinal, Attempt: job.attempt, Operation: operation}, reply.ExternalMetadata); err != nil {
+			return err
+		}
 		receipt := reply.Receipt
 		if job.inputID != "" {
 			if callErr != nil {

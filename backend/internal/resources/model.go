@@ -100,6 +100,8 @@ type Reply struct {
 	ToolCalls        []ToolCall
 	ReasoningContent string
 	FinishReason     string
+	ExternalMetadata ExternalMetadata `json:"-"`
+	wireUsage        *ExternalUsage
 }
 
 type Model struct {
@@ -247,17 +249,20 @@ func DecodeChatReply(body io.Reader, allowTools bool) (Reply, error) {
 }
 
 type modelUsage struct {
-	Total      int  `json:"total_tokens"`
+	Total      *int `json:"total_tokens"`
 	Prompt     *int `json:"prompt_tokens"`
 	Completion *int `json:"completion_tokens"`
-	CacheHit   int  `json:"prompt_cache_hit_tokens"`
+	CacheHit   *int `json:"prompt_cache_hit_tokens"`
 	Details    struct {
 		Cached *int `json:"cached_tokens"`
 	} `json:"prompt_tokens_details"`
 }
 
 func (u modelUsage) apply(reply *Reply) {
-	reply.Tokens = u.Total
+	reply.Tokens = 0
+	if u.Total != nil {
+		reply.Tokens = *u.Total
+	}
 	if u.Prompt != nil {
 		reply.PromptTokens = *u.Prompt
 	}
@@ -267,12 +272,20 @@ func (u modelUsage) apply(reply *Reply) {
 	if reply.Tokens == 0 {
 		reply.Tokens = reply.PromptTokens + reply.CompletionTokens
 	}
-	reply.CachedTokens = u.CacheHit
+	reply.CachedTokens = 0
+	if u.CacheHit != nil {
+		reply.CachedTokens = *u.CacheHit
+	}
 	if u.Details.Cached != nil {
 		reply.CachedTokens = *u.Details.Cached
 	}
 	reply.UsageReported = u.Prompt != nil && u.Completion != nil && reply.PromptTokens >= 0 && reply.CompletionTokens >= 0 &&
 		reply.CachedTokens >= 0 && reply.CachedTokens <= reply.PromptTokens
+	usage := validateExternalUsage(&ExternalUsage{Input: externalInt(u.Prompt), Output: externalInt(u.Completion),
+		Total: externalInt(u.Total), Cached: firstInt(externalInt(u.Details.Cached), externalInt(u.CacheHit))})
+	if usage != nil {
+		reply.wireUsage = usage
+	}
 }
 
 func validToolCalls(calls []ToolCall) bool {

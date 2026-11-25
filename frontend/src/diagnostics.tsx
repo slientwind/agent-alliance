@@ -46,13 +46,25 @@ type Excerpt = {
   step: number;
   brief: string;
   committedOutput: string | null;
+  externalTraces?: { id: string; url: string }[];
 };
+type ExternalReceipt = {
+  id: string;
+  step: number;
+  attempt: number;
+  operation: "submit" | "poll" | "cancel" | "supplement";
+  costDisclosure: "reported" | "undisclosed";
+  receivedAt: string;
+  usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number; cachedTokens?: number };
+};
+const remoteOperations = { submit: "提交", poll: "查询", cancel: "取消", supplement: "补件" };
 type Response = {
   trace: {
     run: string;
     traceId: string;
     spans: Span[];
     events: TraceEvent[];
+    externalReceipts?: ExternalReceipt[];
     end: string | null;
   };
   rights: Record<Scope, boolean>;
@@ -436,9 +448,16 @@ function TraceView({ endpoint }: { endpoint: string }) {
                       ).toFixed(2) +
                       " 秒"}
                 </small>
-                {s.type === "external" && (
-                  <small>外部服务仅显示平台可观察的调用。</small>
-                )}
+                {trace.externalReceipts?.filter(receipt => receipt.step === s.step).map(receipt => (
+                  <small key={receipt.id}>
+                    {remoteOperations[receipt.operation]} · 第 {receipt.attempt} 次 · {date(receipt.receivedAt)}
+                    {" · "}{receipt.costDisclosure === "reported" ? "已上报用量" : "未上报用量"}
+                    {receipt.usage?.totalTokens !== undefined && ` · 共 ${receipt.usage.totalTokens} token`}
+                    {receipt.usage?.inputTokens !== undefined && ` · 输入 ${receipt.usage.inputTokens} token`}
+                    {receipt.usage?.outputTokens !== undefined && ` · 输出 ${receipt.usage.outputTokens} token`}
+                    {receipt.usage?.cachedTokens !== undefined && ` · 缓存 ${receipt.usage.cachedTokens} token`}
+                  </small>
+                ))}
               </div>
             ))}
           <details>
@@ -475,6 +494,11 @@ function TraceView({ endpoint }: { endpoint: string }) {
                   )}
                 </p>
               )}
+              {excerpt.externalTraces?.map((entry, index) => (
+                <p key={entry.id}>
+                  <a href={entry.url} target="_blank" rel="noreferrer">查看外部追踪 {index + 1}</a>
+                </p>
+              ))}
               <h3>计划简报</h3>
               <p className="preserve">{excerpt.brief}</p>
               <h3>已提交成果</h3>

@@ -106,6 +106,7 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 		switch rpc.Method {
 		case "message/send":
 			sent.Add(1)
+			w.Header().Set("X-Alliance-Usage", `{"total_tokens":90}`)
 			if len(rpc.Params.Message.Parts) == 0 {
 				http.Error(w, "fixture needs a prompt", http.StatusBadRequest)
 				return
@@ -166,7 +167,12 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 			http.Error(w, "unexpected method", http.StatusBadRequest)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": rpc.ID, "result": result})
+		w.Header().Set("X-Alliance-Trace-Url", "https://trace.example.test/original")
+		envelope := map[string]any{"jsonrpc": "2.0", "id": rpc.ID, "result": result}
+		if rpc.Method == "message/send" {
+			envelope["usage"] = map[string]int{"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7}
+		}
+		_ = json.NewEncoder(w).Encode(envelope)
 	}))
 	defer provider.Close()
 	ca := filepath.Join(t.TempDir(), "provider.pem")
@@ -229,6 +235,13 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 		if v.Status != want || v.ID == "" {
 			t.Fatalf("trial %s: %+v, want %s", prompt, v, want)
 		}
+		var disclosure, trace string
+		var total int
+		if err := db.QueryRow(ctx, `select cost_disclosure,(usage->>'totalTokens')::int,trace_url from external_agent_receipts
+			where trial_id=$1 and operation='submit'`, v.ID).Scan(&disclosure, &total, &trace); err != nil ||
+			disclosure != "reported" || total != 7 || trace != "https://trace.example.test/original" {
+			t.Fatalf("external trial metadata was not persisted with body precedence: %s %d %s %v", disclosure, total, trace, err)
+		}
 		return v.ID
 	}
 	followTrial := func(id, action, want string) {
@@ -237,6 +250,13 @@ func TestRemoteOperationsPostgres(t *testing.T) {
 		decode(call("POST", path+"/evidence/"+id+"/receipt", map[string]string{"action": action}, 200), &v)
 		if v.Status != want {
 			t.Fatalf("%s trial: %+v, want %s", action, v, want)
+		}
+		if action == "query" {
+			var disclosure string
+			if err := db.QueryRow(ctx, `select cost_disclosure from external_agent_receipts where trial_id=$1
+				and operation='poll' order by received_at desc limit 1`, id).Scan(&disclosure); err != nil || disclosure != "undisclosed" {
+				t.Fatalf("an unreported polling cost was disclosed: %s %v", disclosure, err)
+			}
 		}
 	}
 	operations := func(rev int) (view struct {

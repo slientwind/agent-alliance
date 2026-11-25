@@ -52,8 +52,10 @@ func TestMonitorTraceChecksProjectAndDiagnosticAccess(t *testing.T) {
 	ownerToken, observerToken := web.Token(), web.Token()
 	lookupTestSQL(t, ctx, db, `insert into sessions(token_hash,member_id,expires_at) values($1,$2,now()+interval '20 minutes'),($3,$4,now()+interval '20 minutes')`,
 		web.Hash(ownerToken), owner, web.Hash(observerToken), other)
+	lookupTestSQL(t, ctx, db, `insert into external_agent_receipts(request_key,run_id,turn,attempt,operation,cost_disclosure,usage,trace_url)
+		values($1,$2,1,1,'submit','reported','{"totalTokens":123}','https://diagnostics.example.test/private')`, uuid.NewString(), seed.Run)
 
-	check := func(token, suffix string, status int, field string) {
+	check := func(token, suffix string, status int, field string) string {
 		t.Helper()
 		w := httptest.NewRecorder()
 		r := httptest.NewRequestWithContext(ctx, "GET", "/api/admin/monitor/trace/"+seed.Run+suffix, nil)
@@ -62,13 +64,18 @@ func TestMonitorTraceChecksProjectAndDiagnosticAccess(t *testing.T) {
 		if w.Code != status || !strings.Contains(w.Body.String(), field) {
 			t.Fatalf("got %d with %s, want %d and %q", w.Code, w.Body.String(), status, field)
 		}
+		return w.Body.String()
 	}
 	check(ownerToken, "", http.StatusOK, `"gatewaySpans":[]`)
+	check(ownerToken, "", http.StatusOK, `"totalTokens":123`)
 	check(observerToken, "", http.StatusNotFound, "")
 	lookupTestSQL(t, ctx, db, `insert into project_members(project_id,member_id) values($1,$2)`, project, other)
 	check(observerToken, "", http.StatusForbidden, "")
 	lookupTestSQL(t, ctx, db, `insert into trace_grants(run_id,member_id,scope,expires_at) values($1,$2,'structure',now()+interval '5 minutes')`, seed.Run, other)
-	check(observerToken, "", http.StatusOK, `"structure":true`)
+	visible := check(observerToken, "", http.StatusOK, `"structure":true`)
+	if strings.Contains(visible, "totalTokens") || strings.Contains(visible, "diagnostics.example.test") {
+		t.Fatalf("structure grant exposed external usage or trace content: %s", visible)
+	}
 	check(observerToken, "?mode=content&step=1", http.StatusForbidden, "")
 	lookupTestSQL(t, ctx, db, `update runs set trace_expires_at=clock_timestamp()-interval '1 second' where id=$1`, seed.Run)
 	check(ownerToken, "", http.StatusGone, "")

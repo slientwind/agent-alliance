@@ -102,6 +102,7 @@ func (c Catalog) saveAdapter(w http.ResponseWriter, r *http.Request, u identity.
 }
 
 var errExternalReply = errors.New("外部 Agent 未返回完整答复")
+var errRemoteTaskMismatch = errors.New("远端回执与原任务不符")
 
 func (m Model) generateExternal(ctx context.Context, messages []Message, emit func(string)) (Reply, error) {
 	sub, cancel := context.WithTimeout(ctx, time.Duration(m.Policy.ExecutionSeconds)*time.Second)
@@ -171,9 +172,16 @@ func (m Model) chatAdapter(ctx context.Context, messages []Message, emit func(st
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return Reply{}, fmt.Errorf("外部服务 HTTP %d", response.StatusCode)
+		return Reply{ExternalMetadata: externalMetadata(response.Header, nil)}, fmt.Errorf("外部服务 HTTP %d", response.StatusCode)
 	}
-	return spec.decode(response.Header.Get("Content-Type"), response.Body, emit)
+	reply, err := spec.decode(response.Header.Get("Content-Type"), response.Body, emit)
+	usage := reply.wireUsage
+	if spec.Template == "fastgpt" {
+		// The compatibility response's top-level usage contains placeholder counts.
+		usage = nil
+	}
+	reply.ExternalMetadata = externalMetadata(response.Header, usage)
+	return reply, err
 }
 
 func externalBrief(messages []Message) (string, error) {
@@ -244,11 +252,14 @@ func (spec AdapterSpec) decode(contentType string, body io.Reader, emit func(str
 		if kind == "text/event-stream" {
 			return decodeDify(body, emit)
 		}
-		var result struct{ Answer string }
+		var result struct {
+			Answer   string
+			Metadata json.RawMessage
+		}
 		if err := decodeAdapterJSON(body, &result); err != nil || !validExternalText(result.Answer) {
 			return Reply{}, errExternalReply
 		}
-		return Reply{Text: result.Answer, FinishReason: "stop"}, nil
+		return Reply{Text: result.Answer, FinishReason: "stop", wireUsage: parseExternalUsage(readJSONPath(result.Metadata, "$.usage"))}, nil
 	case "coze":
 		if kind != "text/event-stream" {
 			return Reply{}, errExternalReply

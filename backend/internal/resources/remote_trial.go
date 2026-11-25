@@ -115,6 +115,17 @@ func (c Catalog) saveTrial(ctx context.Context, id string, m Model, expected str
 			outcome := remoteTrialOutcome(reply, callErr)
 			_, err = tx.Exec(ctx, `insert into remote_trial_observations(trial_id,operation,outcome,remote_state)
                 values($1,$2,$3,$4)`, id, operation, outcome, state)
+			if err == nil {
+				kind := operation
+				switch operation {
+				case "send":
+					kind = "submit"
+				case "query":
+					kind = "poll"
+				}
+				err = RecordExternalReceipt(ctx, tx, ExternalReceiptRef{Request: "trial/external/" + id + "/" + lease,
+					Trial: id, Operation: kind}, reply.ExternalMetadata)
+			}
 		}
 		if err != nil || callErr != nil || reply.File == nil || discardFile {
 			return err

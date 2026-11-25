@@ -72,11 +72,13 @@ func streamResult(text string, err error) (Reply, error) {
 
 func decodeDify(body io.Reader, emit func(string)) (Reply, error) {
 	var text strings.Builder
+	var usage *ExternalUsage
 	var agent, workflow, messageEnd, workflowDone bool
 	err := readExternalFrames(body, nil, func(frame externalFrame) (bool, error) {
 		var event struct {
 			Event, Answer string
 			Data          struct{ Status string }
+			Metadata      json.RawMessage
 		}
 		if frame.data == "" || frame.data == "[PING]" {
 			return false, nil
@@ -109,20 +111,25 @@ func decodeDify(body io.Reader, emit func(string)) (Reply, error) {
 			text.Reset()
 			return false, appendExternalText(&text, event.Answer, nil)
 		case "message_end":
+			usage = parseExternalUsage(readJSONPath(event.Metadata, "$.usage"))
 			messageEnd = true
 			return !workflow || workflowDone, nil
 		}
 		return false, nil
 	})
-	return streamResult(text.String(), err)
+	reply, err := streamResult(text.String(), err)
+	reply.wireUsage = usage
+	return reply, err
 }
 
 func decodeCoze(body io.Reader, emit func(string)) (Reply, error) {
 	var text strings.Builder
+	var usage *ExternalUsage
 	seen := map[string]bool{}
 	err := readExternalFrames(body, nil, func(frame externalFrame) (bool, error) {
 		switch frame.name {
 		case "conversation.chat.completed":
+			usage = parseExternalUsage(readJSONPath(json.RawMessage(frame.data), "$.usage"))
 			return true, nil
 		case "error", "conversation.chat.failed", "conversation.chat.requires_action", "conversation.chat.canceled", "done":
 			return false, errExternalReply
@@ -145,7 +152,9 @@ func decodeCoze(body io.Reader, emit func(string)) (Reply, error) {
 		}
 		return false, nil
 	})
-	return streamResult(text.String(), err)
+	reply, err := streamResult(text.String(), err)
+	reply.wireUsage = usage
+	return reply, err
 }
 
 func decodeLangGraph(body io.Reader, emit func(string)) (Reply, error) {

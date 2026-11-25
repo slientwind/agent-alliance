@@ -169,6 +169,8 @@ type a2aResult struct {
 	ID        string
 	ContextID string
 	Parts     []part
+	Usage     json.RawMessage
+	Metadata  json.RawMessage
 	Status    struct {
 		State   string
 		Message struct {
@@ -223,7 +225,7 @@ func (m Model) CheckRemote(ctx context.Context, receipt RemoteWait, cancel bool)
 	}
 	return m.remote(sub, method, &receipt, params)
 }
-func (m Model) remote(ctx context.Context, method string, expected *RemoteWait, params any) (Reply, error) {
+func (m Model) remote(ctx context.Context, method string, expected *RemoteWait, params any) (reply Reply, err error) {
 	if !Endpoint(m.Endpoint) {
 		return Reply{}, errors.New("外部主机未获准")
 	}
@@ -246,12 +248,19 @@ func (m Model) remote(ctx context.Context, method string, expected *RemoteWait, 
 		return Reply{}, err
 	}
 	defer rsp.Body.Close()
+	var usage *ExternalUsage
+	defer func() {
+		if !errors.Is(err, errRemoteTaskMismatch) {
+			reply.ExternalMetadata = externalMetadata(rsp.Header, usage)
+		}
+	}()
 	if rsp.StatusCode != 200 {
 		return Reply{}, fmt.Errorf("外部服务 HTTP %d", rsp.StatusCode)
 	}
 	var envelope struct {
 		JSONRPC, ID string
 		Result      a2aResult
+		Usage       json.RawMessage
 		Error       json.RawMessage
 	}
 	if json.NewDecoder(io.LimitReader(rsp.Body, 4<<20)).Decode(&envelope) != nil || envelope.JSONRPC != "2.0" || envelope.ID != rpcID || len(envelope.Error) != 0 {
@@ -259,7 +268,12 @@ func (m Model) remote(ctx context.Context, method string, expected *RemoteWait, 
 	}
 	result := envelope.Result
 	if expected != nil && (result.Kind != "task" || result.ID != expected.Task || (expected.Context != "" && result.ContextID != expected.Context)) {
-		return Reply{}, errors.New("远端回执与原任务不符")
+		return Reply{}, errRemoteTaskMismatch
+	}
+	for _, candidate := range []json.RawMessage{result.Usage, envelope.Usage, readJSONPath(result.Metadata, "$.usage")} {
+		if usage = parseExternalUsage(candidate); usage != nil {
+			break
+		}
 	}
 	var receipt *RemoteWait
 	parts := result.Parts
