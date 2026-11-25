@@ -71,7 +71,7 @@
   - [x] 接入邮件通知投递回执并支持单独补发。
 
 ### 模块 B：全局模型网关（Model Gateway）与服务资源中心（Service Hub）
-- [ ] **全局模型资源池与 6 档位路由（仅服务平台内部，不对外发 Key）**
+- [x] **全局模型资源池与 6 档位路由（仅服务平台内部，不对外发 Key）**
   - [x] 新增数据表：`model_providers`、`model_catalog`（含生效版本化 `input / output / cached / per_image` 微元单价）、`model_tier_routes`（`default / fast / reasoning / vision / image / embedding` 主备映射与权重）。
   - [x] 实现 `internal/llmgateway` 模型协议适配，统一接入阿里百炼、火山方舟、DeepSeek、OpenAI、Anthropic、Gemini 和本地 vLLM/Ollama 的对话接口。
   - [x] 实现全局模型网关熔断、自动主备 Fallback（3s 内无感切换）和 RPM/TPM 限流。
@@ -144,9 +144,9 @@
 - [ ] **[`backend/cmd/worker/main.go`](../backend/cmd/worker/main.go)**
   - [ ] 冻结现有 23 个历史特化 Activity（仅做旧运行兼容恢复，不再新增单场景 Activity），新流量统一走通用 `GeneralAgentWorkflow` + `AdvanceTurn` + `ExecuteTool`。
   - [x] 挂载定时任务调度：`EcosystemScanWorkflow`、监控 5 分钟预聚合 Rollup、主动告警巡检、Temporal Schedule 后台委托。
-- [ ] **[`backend/internal/resources/model.go`](../backend/internal/resources/model.go)** & **[`catalog.go`](../backend/internal/resources/catalog.go)**
+- [x] **[`backend/internal/resources/model.go`](../backend/internal/resources/model.go)** & **[`catalog.go`](../backend/internal/resources/catalog.go)**
   - [x] 重构 `Message` / `Reply` 支持原生 `tools`、`tool_calls`、`tool_call_id`、`reasoning_content` 及 `PromptTokens / CompletionTokens / CachedTokens` 细项；移除硬编码 `max_tokens: 1800`。
-  - [ ] 解耦模型资源与单一 `team_id` 的强绑定，升级为全局资源池 + 6 档位路由映射；保留兼容旧已发布修订的平滑读取。
+  - [x] 解耦模型资源与单一 `team_id` 的强绑定，升级为全局资源池 + 6 档位路由映射；保留兼容旧已发布修订的平滑读取。
 - [x] **[`backend/internal/resources/external.go`](../backend/internal/resources/external.go)**
   - [x] 改造 `PermittedAgentEndpoint`：从 `os.Getenv("AGENT_ALLOWED_HOSTS")` 迁移至 DB 白名单表 + DNS/IP SSRF 校验。
   - [x] 抽象多协议适配接口，拆分 A2A 实现并接入 OpenAI-Compatible / Dify / Coze / LangGraph / Webhook 适配及可选用量回传头解析。

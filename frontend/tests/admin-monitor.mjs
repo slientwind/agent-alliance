@@ -30,6 +30,10 @@ try {
   let outbound = [];
   let role = "admin";
   const mutations = [];
+  const providers = [{ id: "vendor", name: "测试", kind: "openai", endpoint: "https://models.example.test/v1", revision: 1, enabled: true, models: [
+    { id: "primary", name: "标准", enabled: true, capabilities: modelCaps }, { id: "fast", name: "速答", enabled: true, capabilities: ["text"] },
+  ] }];
+  let submittedProvider;
   await page.route("**/api/**", route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -46,6 +50,12 @@ try {
         outbound = [{ ...input, revision: 1 }];
         return route.fulfill({ json: { revision: 1 } });
       }
+    }
+    if (request.method() === "POST" && path === "/api/admin/models/providers") {
+      submittedProvider = request.postDataJSON();
+      providers.push({ id: "second", name: submittedProvider.name, kind: "openai", endpoint: submittedProvider.endpoint, revision: 1,
+        hasKey: true, enabled: true, models: [] });
+      return route.fulfill({ status: 201, json: { id: "second", revision: 1 } });
     }
     if (request.method() === "POST" && path === "/api/admin/models/pricing") {
       const input = request.postDataJSON();
@@ -68,9 +78,7 @@ try {
         actionSpans: [{ turn: 1, spanId: "tool", name: "create_xlsx", type: "tool", status: "completed", start: "2026-11-25T08:00:01Z", end: "2026-11-25T08:00:02Z" }],
         sandboxSpans: [{ spanId: "sandbox", type: "sandbox", status: "completed", start: "2026-11-25T08:00:02Z", end: "2026-11-25T08:00:02Z" }] } },
       "/api/admin/models/tiers": tiers,
-      "/api/admin/models/providers": [{ id: "vendor", name: "测试", enabled: true, models: [
-        { id: "primary", name: "标准", enabled: true, capabilities: modelCaps }, { id: "fast", name: "速答", enabled: true, capabilities: ["text"] },
-      ] }],
+      "/api/admin/models/providers": providers,
       "/api/admin/models/pricing": prices,
       "/api/admin/integrations/search": { provider: "tavily", endpoint: "", enabled: false, hasCredential: false, revision: 1, health: "unchecked" },
       "/api/admin/integrations/email": { host: "", port: 465, security: "tls", sender: "", username: "", enabled: false, hasPassword: false,
@@ -107,6 +115,16 @@ try {
 
   await page.getByRole("button", { name: "模型网关", exact: true }).click();
   await page.waitForURL("**/admin/gateway");
+  const providerPanel = page.getByRole("region", { name: "全局模型供应商" });
+  await providerPanel.getByText("添加模型供应商", { exact: true }).click();
+  const newProvider = providerPanel.locator("details").filter({ has: page.getByText("添加模型供应商", { exact: true }) });
+  await newProvider.getByLabel("供应商名称").fill("企业统一供应商");
+  await newProvider.getByLabel("服务地址").fill("https://new.example.test/v1");
+  await newProvider.getByLabel("访问凭据", { exact: true }).fill("fixture-provider-key");
+  await newProvider.getByRole("button", { name: "保存供应商" }).click();
+  await providerPanel.getByText("企业统一供应商 · 已启用", { exact: true }).waitFor();
+  assert.equal(submittedProvider.key, "fixture-provider-key");
+  assert.equal(await newProvider.getByLabel("访问凭据", { exact: true }).inputValue(), "");
   const defaultTier = page.getByRole("form", { name: "通用档位" });
   await defaultTier.getByRole("button", { name: "设为主模型" }).click();
   await defaultTier.getByRole("button", { name: "保存档位" }).click();

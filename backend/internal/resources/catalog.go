@@ -58,8 +58,10 @@ func (c Catalog) Routes(m *http.ServeMux, s identity.Server) {
 	m.Handle("POST /api/admin/model-resources/{id}/revisions/{revision}/credentials", s.Protect(true, c.credential))
 	m.Handle("POST /api/admin/model-resources/{id}/revisions/{revision}/replacements", s.Protect(true, c.replaceModel))
 	m.Handle("POST /api/admin/model-replacements/{batch}/agents/{agent}/rollback", s.Protect(true, c.rollbackReplacement))
-	m.Handle("GET /api/resources", s.Protect(false, c.listModels))
-	m.Handle("POST /api/resources", s.Protect(true, c.saveModel))
+	// These endpoints belong to the legacy Agent publisher. Fresh conversations
+	// read model tier readiness from llmgateway and never receive these bindings.
+	m.Handle("GET /api/resources", s.Protect(false, c.listLegacyModels))
+	m.Handle("POST /api/resources", s.Protect(true, c.saveLegacyModel))
 	m.Handle("GET /api/agents", s.Protect(false, c.listAgents))
 	m.Handle("POST /api/agents", s.Protect(false, c.saveAgent))
 	m.Handle("POST /api/agents/{id}/validate", s.Protect(false, c.validate))
@@ -79,7 +81,7 @@ type ModelInfo struct {
 	StreamText bool   `json:"streamText"`
 }
 
-func (c Catalog) listModels(w http.ResponseWriter, r *http.Request, u identity.Member) error {
+func (c Catalog) listLegacyModels(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	type listedModel struct {
 		ModelInfo
 		Team              string  `json:"team"`
@@ -103,7 +105,7 @@ func (c Catalog) listModels(w http.ResponseWriter, r *http.Request, u identity.M
 	}
 	return web.JSON(w, 200, items)
 }
-func (c Catalog) saveModel(w http.ResponseWriter, r *http.Request, u identity.Member) error {
+func (c Catalog) saveLegacyModel(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	var in struct {
 		ID, Name, Endpoint, Model, Key, Team, Operation string
 		Estimate                                        *string

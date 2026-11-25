@@ -34,25 +34,12 @@ func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("POST /api/projects/{id}/tool-approvals/{approval}", auth.Protect(false, s.decideToolApproval))
 }
 
-const configuredTiers = `select distinct r.tier from model_tier_routes r join model_catalog m on m.id=r.model_id and m.enabled
-	join model_providers p on p.id=m.provider_id and p.enabled
-	where r.tier in ('default','fast','reasoning') and 'tool_call'=any(m.capabilities)
-	and (case when r.tier='reasoning' then 'reasoning' else 'text' end)=any(m.capabilities)
-	and exists(select from model_pricing q where q.model_id=m.id and q.effective_at<=now())`
-
 func (s Server) tiers(w http.ResponseWriter, r *http.Request, _ identity.Member) error {
-	rows, err := s.DB.Query(r.Context(), configuredTiers+" order by r.tier")
+	tiers, err := llmgateway.ConversationTiers(r.Context(), s.DB)
 	if err != nil {
 		return err
 	}
-	values, err := pgx.CollectRows(rows, pgx.RowTo[string])
-	if err != nil {
-		return err
-	}
-	if values == nil {
-		values = []string{}
-	}
-	return web.JSON(w, http.StatusOK, values)
+	return web.JSON(w, http.StatusOK, tiers)
 }
 
 type StartInput struct {
@@ -168,8 +155,8 @@ func (s Server) StartTx(ctx context.Context, tx pgx.Tx, project, actor, key stri
 		return "", web.Fail(409, "当前任务还有未结束的处理，请先完成或取消")
 	}
 	if !in.Direct {
-		var configured bool
-		if err := tx.QueryRow(ctx, "select exists(select from ("+configuredTiers+") ready where ready.tier=$1)", in.Tier).Scan(&configured); err != nil {
+		configured, err := llmgateway.ConversationTierReady(ctx, tx, in.Tier)
+		if err != nil {
 			return "", err
 		}
 		if !configured {

@@ -22,10 +22,9 @@ const anchorUnavailable = "成果版本或访问权限已变化，请重新选�
 func (s Server) QueueAnchorEdit(ctx context.Context, tx pgx.Tx, project, comment, actor string) (string, error) {
 	var target, team, media string
 	var plan int
-	var allowed, configured, working bool
+	var allowed, working bool
 	err := tx.QueryRow(ctx, `select p.team_id,p.plan_version,c.artifact_id,coalesce(f.media_type,''),
 		(p.owner=$3 or pm.can_review) and p.stage in ('brief','review') and p.plan_version>0,
-		exists(select from (`+configuredTiers+`) ready where tier='default'),
 		exists(select from general_anchor_edits e join runs r on r.id=e.run_id
 		 join artifact_comments pending on pending.id=e.comment_id
 		 where pending.artifact_id=c.artifact_id and r.status in ('queued','running'))
@@ -33,7 +32,7 @@ func (s Server) QueueAnchorEdit(ctx context.Context, tx pgx.Tx, project, comment
 		join projects p on p.id=a.project_id join project_members pm on pm.project_id=p.id and pm.member_id=$3
 		left join artifact_files f on (f.artifact_id,f.version)=(a.id,c.version)
 		where c.id=$2 and p.id=$1 and c.author_id=$3`, project, comment, actor).
-		Scan(&team, &plan, &target, &media, &allowed, &configured, &working)
+		Scan(&team, &plan, &target, &media, &allowed, &working)
 	if err != nil {
 		return "", err
 	}
@@ -42,6 +41,10 @@ func (s Server) QueueAnchorEdit(ctx context.Context, tx pgx.Tx, project, comment
 	}
 	if !editableAnchorMedia(media) {
 		return "", web.Fail(422, "此文件格式暂不能局部改稿，请在可编辑的源文件上派单")
+	}
+	configured, err := llmgateway.ConversationTierReady(ctx, tx, llmgateway.Default)
+	if err != nil {
+		return "", err
 	}
 	if !configured || working {
 		return "", web.Fail(409, "此成果正在修改，或通用模型尚未启用")

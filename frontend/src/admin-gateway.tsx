@@ -2,10 +2,10 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./client";
 import { exactCny, microCny } from "./format-money";
 import "./admin-monitor.css";
+import { ModelProviders, type ModelProvider } from "./model-providers";
 
 type Route = { modelId: string; model: string; provider: string; priority: number; weight: number; enabled: boolean; health: string };
 type Tier = { tier: keyof typeof tiers; revision: number; routes: Route[] };
-type Provider = { id: string; name: string; enabled: boolean; health: string; models: { id: string; name: string; enabled: boolean; capabilities: string[] }[] };
 type Option = { id: string; label: string; enabled: boolean; capabilities: string[] };
 type Price = { id: string; modelId: string; providerId: string; model: string; effectiveAt: string } & Record<keyof typeof priceFields, string>;
 
@@ -88,7 +88,7 @@ function TierCard({ row, models, saved }: { row: Tier; models: Option[]; saved: 
 }
 
 export function AdminGateway() {
-  const [providers, setProviders] = useState<Provider[]>([]);
+  const [providers, setProviders] = useState<ModelProvider[]>([]);
   const [routing, setRouting] = useState<Tier[]>([]);
   const [prices, setPrices] = useState<Price[]>([]);
   const [error, setError] = useState("");
@@ -103,7 +103,7 @@ export function AdminGateway() {
 
   useEffect(() => {
     let live = true;
-    Promise.all([api<Provider[]>(root + "providers"), api<Tier[]>(root + "tiers")])
+    Promise.all([api<ModelProvider[]>(root + "providers"), api<Tier[]>(root + "tiers")])
       .then(([items, rows]) => { if (live) { setProviders(items || []); setRouting(rows || []); } })
       .catch(error => { if (live) setError((error as Error).message); });
     return () => { live = false; };
@@ -144,6 +144,11 @@ export function AdminGateway() {
   return <div className="admin-gateway">
     {error && <p role="alert">{error}</p>}
     {tierNotice && <p role="status">{tierNotice}</p>}
+    <ModelProviders items={providers} refresh={async () => {
+      const items = await api<ModelProvider[]>(root + "providers");
+      setProviders(items || []);
+      setRouting((await api<Tier[]>(root + "tiers")) || []);
+    }} />
     <div className="admin-tier-grid">{routing.map(row => <TierCard key={row.tier + "/" + row.revision} row={row} models={models}
       saved={async name => { setRouting((await api<Tier[]>(root + "tiers")) || []); setTierNotice(`${name}档位已保存`); }} />)}</div>
     <section className="card" aria-label="模型单价">

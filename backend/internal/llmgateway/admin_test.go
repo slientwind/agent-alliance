@@ -129,6 +129,35 @@ func TestAdminConfiguresProviderTierAndImmutablePrices(t *testing.T) {
 	if _, err := tx.Exec(ctx, `insert into teams(id,name) values($1,$1::uuid::text)`, team); err != nil {
 		t.Fatal(err)
 	}
+	secondTeam := uuid.NewString()
+	if _, err := tx.Exec(ctx, "insert into teams(id,name) values($1,$1::uuid::text)", secondTeam); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, "insert into team_members(team_id,member_id) values($1,$3),($2,$3)", team, secondTeam, actor.ID); err != nil {
+		t.Fatal(err)
+	}
+	tiers, err := ConversationTiers(ctx, tx)
+	if err != nil || len(tiers) != 1 || tiers[0] != Fast {
+		t.Fatalf("expected the platform-wide fast tier: %v, %v", tiers, err)
+	}
+	selected, err := (Catalog{DB: tx}).ModelsForTier(ctx, Fast, time.Now())
+	if err != nil || len(selected) != 1 || selected[0].ModelID != model {
+		t.Fatalf("expected a single global model: %v", err)
+	}
+	for _, payer := range []string{team, secondTeam} {
+		ok, err := (Budget{DB: tx}).Reserve(ctx, Reservation{
+			OperationKey: uuid.NewString(), TeamID: payer, MemberID: actor.ID, PriceID: selected[0].PriceVersion,
+			Tier: Fast, Estimate: Usage{},
+		})
+		if !ok || err != nil {
+			t.Fatalf("team could not use the shared model: %v", err)
+		}
+	}
+	var payers int
+	if err := tx.QueryRow(ctx, "select count(distinct team_id) from model_gateway_charges where price_id=$1",
+		selected[0].PriceVersion).Scan(&payers); err != nil || payers != 2 {
+		t.Fatalf("charges lost their original team: %d, %v", payers, err)
+	}
 	budgetPath := map[string]string{"scope": "team"}
 	budget := `{"scopeId":"` + team + `","limitMicroCny":"1000000","expectedRevision":0}`
 	check(a.configureBudget, budget, budgetPath, 200)

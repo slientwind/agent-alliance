@@ -90,11 +90,23 @@ func (s Server) initialSetup(w http.ResponseWriter, r *http.Request, actor ident
 			if err != nil {
 				return err
 			}
-		} else if err := tx.QueryRow(ctx, `select array(select distinct r.tier from model_tier_routes r
-			 join model_catalog m on m.id=r.model_id and m.enabled join model_providers p on p.id=m.provider_id and p.enabled
-			 where exists(select from model_pricing q where q.model_id=m.id and q.effective_at<=statement_timestamp())
-			 order by r.tier)`).Scan(&receipt.Tiers); err != nil {
-			return err
+		} else {
+			receipt.Tiers = make([]llmgateway.Tier, 0, 6)
+			for _, tier := range []llmgateway.Tier{llmgateway.Default, llmgateway.Fast, llmgateway.Reasoning, llmgateway.Vision, llmgateway.Image, llmgateway.Embedding} {
+				var eligible bool
+				switch tier {
+				case llmgateway.Default, llmgateway.Fast, llmgateway.Reasoning:
+					eligible, err = llmgateway.ConversationTierReady(ctx, tx, tier)
+				default:
+					eligible, err = llmgateway.EnabledTier(ctx, tx, tier)
+				}
+				if err != nil {
+					return err
+				}
+				if eligible {
+					receipt.Tiers = append(receipt.Tiers, tier)
+				}
+			}
 		}
 		if !hasDefault(receipt.Tiers) {
 			return web.Fail(422, "请先接入一个已启用并填写价格的通用模型")
