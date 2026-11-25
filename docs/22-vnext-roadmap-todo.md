@@ -156,7 +156,7 @@
   - [ ] 在保留 ZIP/SHA-256/防路径穿越校验的基础上，扩展企业级共享作用域（不限于单团队）、上游来源元数据、许可证/安全扫描报告字段及按用户加载绑定查询。
 - [ ] **[`backend/internal/billing/billing.go`](../backend/internal/billing/billing.go)**
   - [x] 增加增量余额与已用汇总，替代 `Reserve` 在行锁内对 `spend` 做整表聚合。
-  - [ ] L0 个人任务在有效额度内自动静默放行，去除繁琐的前置费用确认。
+  - [x] L0 个人任务在有效额度内自动静默放行，去除繁琐的前置费用确认。
 - [ ] **[`backend/internal/monitor/usage.sql`](../backend/internal/monitor/usage.sql)** & **[`monitor.go`](../backend/internal/monitor/monitor.go)**
   - [x] 将实时全表查询切换至小时预聚合表，并补全按 Agent、模型、来源、时间趋势、双轨有效率与 P50/P95 延迟的接口返回。
 - [ ] **[`connectors/server.py`](../connectors/server.py)**
@@ -173,7 +173,8 @@
   - [x] 移除 `Overlay` `<dialog>` 承载重型页面的架构，采用常驻可折叠左侧栏（`248px / 56px`）与独立工作区路由：`/chat`、`/chat/:id`、`/agents`、`/automations`、`/inbox`、`/admin/*`。
   - [ ] 将生态发现市场接入 `/agents`，将构建器与连接向导分别挂载到 `/agents/studio/:id` 与 `/agents/connect`。
   - [x] 移除普通员工输入区的技术复选框与团队强制弹窗，使用圆角 Composer、`+` 附件、`@` Agent 入口及行内团队选择。已发布的协作方案仍可设置检索与计算步骤。
-  - [ ] 在 Composer 接入真实的深度思考、联网开关及极简模型档位选择。
+  - [x] 在 Composer 接入通用、快速与深度思考档位。可用时从普通对话直接启动通用执行，附件按版本传入。
+  - [ ] 在 Composer 接入联网开关及企业搜索服务。
   - [x] 实现全局 `⌘K` 命令面板、`⌘\` 侧栏折叠、`⌘N` 新对话快捷键。
 - [ ] **落地 6 大核心页面组件**
   - [x] **主对话与动态分栏 Canvas**：按需打开右侧成果面板，支持版本切换、修订、定位评论及解决状态，并提供顶部协作分工入口。

@@ -67,6 +67,7 @@ import { applyDraftDelta, type DraftFragment, type SessionDrafts } from "./live-
 import { applyTheme, readTheme, type Theme } from "./theme";
 import { WorkspaceCommands } from "./workspace-commands";
 import { Composer } from "./composer";
+import { ConversationModels, conversationTier, isConversationTier, usesGeneralConversation, type ConversationTier } from "./conversation-models";
 import { TaskCollaboration } from "./task-collaboration";
 import { WorkspaceSidebar } from "./workspace-sidebar";
 import { chatPath, pageFromPath, projectFromPath, workspacePage } from "./workspace-routes";
@@ -178,6 +179,8 @@ function App() {
     [members, setMembers] = useState<Member[]>([]),
     [busy, setBusy] = useState(false);
   const [initialWorkflowTemplate, setInitialWorkflowTemplate] = useState<WorkflowTemplateReference>();
+  const [availableTiers, setAvailableTiers] = useState<ConversationTier[]>([]);
+  const [requestedTier, setRequestedTier] = useState<ConversationTier>();
   function openWorkflowTemplates(template?: WorkflowTemplateReference) {
     setInitialWorkflowTemplate(template);
     setPanel("workflowTemplates");
@@ -348,15 +351,19 @@ function App() {
       setGrantQuery("");
       pickAgents([]);
       setChosenTeam("");
+      setAvailableTiers([]);
+      setRequestedTier(undefined);
     }
   }, [user]);
   const catalog = useCallback(async () => {
-    const [m, a] = await Promise.all([
+    const [m, a, tiers] = await Promise.all([
       api<Model[]>("resources"),
       api<Agent[]>("agents"),
+      api<string[]>("general-tiers").catch((): string[] => []),
     ]);
     setModels(m);
     setAgents(a);
+    setAvailableTiers(tiers.filter(isConversationTier));
   }, []);
   function chooseAgents(next: Agent[], projectTeam: string, goalIfEmpty?: string) {
     if (!draft.trim() && goalIfEmpty) setDraft(goalIfEmpty);
@@ -689,7 +696,7 @@ function App() {
     keepFiles(project, []);
     const plan = pendingAttachmentPlans.current.get(project);
     pendingAttachmentPlans.current.delete(project);
-    if (!plan) return;
+    if (!plan) return receipts;
     const unreadable = receipts.find(receipt => !receipt.readable && !receipt.picture);
     if (unreadable)
       throw new Error(
@@ -715,6 +722,37 @@ function App() {
     });
     updatePlanDraft(project, undefined, pinned);
     if (current.current === project) await load(project);
+    return receipts;
+  }
+  const generalTier = user && usesGeneralConversation(p, user.id, hasPicks, hasPicture)
+    ? conversationTier(availableTiers, requestedTier) : undefined;
+  async function startGeneral(project: string, tier: ConversationTier, receipts: Awaited<ReturnType<typeof sendAttachments>>) {
+    if (receipts.some(receipt => !receipt.readable || receipt.picture)) {
+      throw new Error("附件已保存。请核对可读取的资料后再发起任务。");
+    }
+    const latest = await api<Project>("projects/" + project);
+    const pins = new Map<string, number>();
+    if (latest.run?.general) {
+      for (const pin of latest.plan?.sources || []) {
+        if (!pin.picture) pins.set(pin.id, pin.version);
+      }
+    }
+    if (planningUpload?.project === project) {
+      for (const pin of planningUpload.pins) pins.set(pin.id, pin.version);
+    }
+    for (const receipt of receipts) pins.set(receipt.id, receipt.version);
+    const path = "projects/" + project + "/general-runs";
+    const request = {
+      goal: draft, tier, expected: latest.revision,
+      sources: Array.from(pins, ([id, revision]) => ({ id, revision })),
+    };
+    const headers = { "Idempotency-Key": crypto.randomUUID() };
+    try {
+      await api(path, "POST", request, headers);
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error;
+      await api(path, "POST", request, headers);
+    }
   }
   async function send() {
     if (
@@ -728,9 +766,11 @@ function App() {
     setErr("");
     try {
       if (p) {
-        if (hasFiles) await sendAttachments(p.id);
-        if (draft.trim())
-          await api("projects/" + p.id + "/messages", "POST", { body: draft });
+        const receipts = hasFiles ? await sendAttachments(p.id) : [];
+        if (draft.trim()) {
+          if (generalTier) await startGeneral(p.id, generalTier, receipts);
+          else await api("projects/" + p.id + "/messages", "POST", { body: draft });
+        }
         drafts.current.delete(p.id);
         if (current.current === p.id) setDraft("");
         await refresh();
@@ -754,6 +794,7 @@ function App() {
         if (!current.current) await select(res.id);
         drafts.current.delete("");
         attachments.current.delete("");
+        let receipts: Awaited<ReturnType<typeof sendAttachments>> = [];
         if (hasFiles) {
           const plan: PlanDraft | undefined = hasPicks
             ? {
@@ -779,9 +820,18 @@ function App() {
             pendingAttachmentPlans.current.set(res.id, plan);
             updatePlanDraft(res.id, plan);
           }
-          await sendAttachments(res.id);
+          receipts = await sendAttachments(res.id);
         }
-        await history();
+        if (generalTier) {
+          try {
+            await startGeneral(res.id, generalTier, receipts);
+          } catch (error) {
+            drafts.current.set(res.id, draft);
+            if (current.current === res.id) setDraft(draft);
+            throw error;
+          }
+        }
+        await refresh();
       }
     } catch (e) {
       setErr((e as Error).message);
@@ -1163,6 +1213,8 @@ function App() {
               hidden={!!current.current && !p} busy={busy} start={!p}
               draft={draft} setDraft={setDraft} files={files}
               chooseAgent={!p && !current.current ? openAgents : undefined}
+              tools={generalTier && <ConversationModels available={availableTiers} tier={generalTier}
+                onChange={setRequestedTier} disabled={busy} />}
               sendDisabled={busy || (!p && (!canCreate || !selectedTeamsAvailable)) ||
                 !(draft.trim() || (p && hasFiles)) || (!!current.current && !p)}
               send={() => void send()}

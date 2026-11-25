@@ -2,9 +2,10 @@ import { ArrowUp, AtSign, Paperclip, Plus, X } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 
 export function Composer({
-  children, draft, setDraft, files, addFiles, removeFile, start, hidden, busy, sendDisabled, send, chooseAgent,
+  children, tools, draft, setDraft, files, addFiles, removeFile, start, hidden, busy, sendDisabled, send, chooseAgent,
 }: {
   children?: ReactNode;
+  tools?: ReactNode;
   draft: string;
   setDraft: (value: string) => void;
   files: { key: string; file: File }[];
@@ -56,6 +57,7 @@ export function Composer({
           <button type="button" className="agent-launch" aria-label="选择或创建 Agent" title="选择或创建 Agent"
             disabled={busy} onClick={chooseAgent}><AtSign aria-hidden="true" /> Agent</button>
         )}
+        {tools}
         <button type="submit" className="primary send" aria-label="发送消息" disabled={sendDisabled}><ArrowUp /></button>
       </div>
     </form>

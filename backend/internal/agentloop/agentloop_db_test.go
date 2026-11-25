@@ -66,6 +66,8 @@ func TestGeneralRunDispatchesTrustedToolsAndStoresArtifacts(t *testing.T) {
 	exec(`insert into team_members(team_id,member_id) values($1,$2)`, team, owner)
 	exec(`insert into projects(id,owner,team_id,final_reviewer,title) values($1,$2,$3,$2,'loop test')`, project, owner, team)
 	exec(`insert into project_memberships(project_id,member_id,can_review) values($1,$2,true)`, project, owner)
+	const initialGoal = "Find amount and write an XLSX"
+	exec("insert into messages(project_id,author,kind,body) values($1,$2,'user',$3)", project, owner, initialGoal)
 	exec(`insert into model_providers(id,name,kind,endpoint) values($1,$1::uuid::text,'openai','https://fixture.example.test/v1')`, provider)
 	exec(`insert into model_catalog(id,provider_id,upstream_model,capabilities,context_tokens,max_output_tokens)
 	 values($1,$2,'loop-test-model',array['text','tool_call'],8192,512)`, model, provider)
@@ -73,6 +75,11 @@ func TestGeneralRunDispatchesTrustedToolsAndStoresArtifacts(t *testing.T) {
 	 values($1,now(),0,0,0,0)`, model)
 	exec(`insert into model_tier_routes(tier,model_id,priority) values('default',$1,32767)`, model)
 	defer db.Exec(context.Background(), `delete from model_tier_routes where model_id=$1`, model)
+	tiers := httptest.NewRecorder()
+	if err := (Server{DB: db}).tiers(tiers, httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/general-tiers", nil), identity.Member{ID: owner}); err != nil ||
+		tiers.Code != 200 || !strings.Contains(tiers.Body.String(), `"default"`) || strings.Contains(tiers.Body.String(), "fixture.example") {
+		t.Fatalf("unexpected available tiers: %s %v", tiers.Body, err)
+	}
 	var source string
 	if err := database.WithTx(ctx, db, func(tx pgx.Tx) error {
 		var err error
@@ -104,6 +111,10 @@ func TestGeneralRunDispatchesTrustedToolsAndStoresArtifacts(t *testing.T) {
 	run := start()
 	if run != start() {
 		t.Fatal("idempotent retry created another run")
+	}
+	var prompts int
+	if err := db.QueryRow(ctx, "select count(*) from messages where project_id=$1 and kind='user'", project).Scan(&prompts); err != nil || prompts != 1 {
+		t.Fatalf("initial prompt was inserted again: %d %v", prompts, err)
 	}
 	var connectorCalls, modelCalls atomic.Int32
 	workbook := sampleWorkbook(t)
@@ -160,6 +171,48 @@ func TestGeneralRunDispatchesTrustedToolsAndStoresArtifacts(t *testing.T) {
 	if replay, err := a.ExecuteTool(ctx, ToolRef{RunID: run, Turn: 1, Position: 2}); err != nil || !replay.Done || connectorCalls.Load() != 1 {
 		t.Fatalf("replayed a completed tool: %+v, %v", replay, err)
 	}
+	if err := db.QueryRow(ctx, "select revision from projects where id=$1", project).Scan(&revision); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/projects/"+project+"/general-runs",
+		strings.NewReader(fmt.Sprintf(`{"expected":%d,"goal":"Check the previous amount again","sources":[{"id":"%s","revision":1}]}`, revision, source)))
+	r.SetPathValue("id", project)
+	r.Header.Set("Idempotency-Key", "loop-followup")
+	if err := (Server{DB: db}).start(w, r, identity.Member{ID: owner}); err != nil {
+		t.Fatal(err)
+	}
+	var created struct{ ID string }
+	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	followup := created.ID
+	checkPastAnswer := func(want bool) {
+		t.Helper()
+		if err := database.WithTx(ctx, db, func(tx pgx.Tx) error {
+			d, err := loadRun(ctx, tx, followup)
+			if err != nil {
+				return err
+			}
+			messages, _, _, err := a.contextForTurn(ctx, tx, TurnRef{RunID: followup, Turn: 1}, d)
+			if err != nil {
+				return err
+			}
+			has := false
+			for _, message := range messages {
+				has = has || message.Content == "The approved amount is 27."
+			}
+			if has != want || messages[len(messages)-1].Content != "Check the previous amount again" {
+				return fmt.Errorf("unexpected authorized followup history: previous answer present=%t", has)
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checkPastAnswer(true)
+	exec("update sources set revoked_at=now() where id=$1", source)
+	checkPastAnswer(false)
 }
 
 func sampleWorkbook(t *testing.T) []byte {

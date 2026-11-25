@@ -5,7 +5,6 @@ import (
 	"alliance/internal/harness"
 	"alliance/internal/identity"
 	"alliance/internal/llmgateway"
-	"alliance/internal/projects"
 	"alliance/internal/web"
 	"encoding/json"
 	"net/http"
@@ -19,7 +18,29 @@ import (
 type Server struct{ DB *pgxpool.Pool }
 
 func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
+	mux.Handle("GET /api/general-tiers", auth.Protect(false, s.tiers))
 	mux.Handle("POST /api/projects/{id}/general-runs", auth.Protect(false, s.start))
+}
+
+const configuredTiers = `select distinct r.tier from model_tier_routes r join model_catalog m on m.id=r.model_id and m.enabled
+	join model_providers p on p.id=m.provider_id and p.enabled
+	where r.tier in ('default','fast','reasoning') and 'tool_call'=any(m.capabilities)
+	and (case when r.tier='reasoning' then 'reasoning' else 'text' end)=any(m.capabilities)
+	and exists(select from model_pricing q where q.model_id=m.id and q.effective_at<=now())`
+
+func (s Server) tiers(w http.ResponseWriter, r *http.Request, _ identity.Member) error {
+	rows, err := s.DB.Query(r.Context(), configuredTiers+" order by r.tier")
+	if err != nil {
+		return err
+	}
+	values, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return err
+	}
+	if values == nil {
+		values = []string{}
+	}
+	return web.JSON(w, http.StatusOK, values)
 }
 
 type startInput struct {
@@ -95,14 +116,26 @@ func (s Server) start(w http.ResponseWriter, r *http.Request, actor identity.Mem
 			return web.Fail(409, "当前任务还有未结束的处理，请先完成或取消")
 		}
 		var configured bool
-		if err := tx.QueryRow(ctx, `select exists(select from model_tier_routes r join model_catalog m on m.id=r.model_id and m.enabled
-		 join model_providers p on p.id=m.provider_id and p.enabled where r.tier=$1
-		 and 'tool_call'=any(m.capabilities) and (case when r.tier='reasoning' then 'reasoning' else 'text' end)=any(m.capabilities)
-		 and exists(select from model_pricing q where q.model_id=m.id and q.effective_at<=now()))`, in.Tier).Scan(&configured); err != nil {
+		if err := tx.QueryRow(ctx, "select exists(select from ("+configuredTiers+") ready where ready.tier=$1)", in.Tier).Scan(&configured); err != nil {
 			return err
 		}
 		if !configured {
 			return web.Fail(409, "此模型档位尚未启用，请联系管理员")
+		}
+		var initialMessage int64
+		if plan == 0 {
+			err = tx.QueryRow(ctx, `select seq from messages where project_id=$1 and author=$2 and kind='user' and body=$3
+				and (select count(*) from messages where project_id=$1)=1`, project, actor.ID, in.Goal).Scan(&initialMessage)
+			if err != nil && err != pgx.ErrNoRows {
+				return err
+			}
+		}
+		if initialMessage == 0 {
+			err = tx.QueryRow(ctx, `insert into messages(project_id,author,kind,body) values($1,$2,'user',$3) returning seq`,
+				project, actor.ID, in.Goal).Scan(&initialMessage)
+			if err != nil {
+				return err
+			}
 		}
 		plan++
 		if _, err := tx.Exec(ctx, `insert into plans(project_id,version,brief,confirmed_by) values($1,$2,$3,$4)`, project, plan, in.Goal, actor.ID); err != nil {
@@ -130,16 +163,13 @@ func (s Server) start(w http.ResponseWriter, r *http.Request, actor identity.Mem
 			project, plan, actor.ID, team, key, hash, maxModelTurns, reviewer).Scan(&run); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `insert into general_agent_runs(run_id,tier) values($1,$2)`, run, in.Tier); err != nil {
+		if _, err := tx.Exec(ctx, `insert into general_agent_runs(run_id,tier,goal_message_seq) values($1,$2,$3)`, run, in.Tier, initialMessage); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `insert into general_agent_dispatch(run_id) values($1)`, run); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `update projects set plan_version=$2,stage='running',revision=revision+1,updated_at=now() where id=$1`, project, plan); err != nil {
-			return err
-		}
-		if err := projects.Note(ctx, tx, project, "user", in.Goal, actor.ID); err != nil {
 			return err
 		}
 		return database.Audit(ctx, tx, actor.ID, "general_run.start", run, map[string]any{"tier": in.Tier, "sourceCount": len(in.Sources)})

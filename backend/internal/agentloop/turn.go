@@ -186,8 +186,44 @@ func (a Activities) contextForTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, 
 	}
 	items := []savedMessage{
 		{Message: resources.Message{Role: "system", Content: instruction + rules + "\n授权资料编号和版本：" + string(scope)}},
-		{Message: resources.Message{Role: "user", Content: d.goal}},
 	}
+	rows, err = tx.Query(ctx, `with recent as (
+		select m.seq,left(m.body,4000) body from messages m join general_agent_runs g on g.run_id=$1
+		where m.project_id=$2 and m.kind='user' and m.seq<g.goal_message_seq
+		order by m.seq desc limit 8
+	)
+	select recent.body,coalesce(answer.body,'') from recent
+	left join lateral (
+		select left(v.body,6000) body from general_agent_runs g join runs previous on previous.id=g.run_id
+		join artifacts a on a.run_id=previous.id and a.ordinal=$4
+		join artifact_versions v on (v.artifact_id,v.version)=(a.id,a.current_version)
+		where g.goal_message_seq=recent.seq and previous.project_id=$2 and previous.status='completed'
+		  and distribution_readable(a.id,v.version,$3)
+		  and not exists(select from plan_sources p join sources s on s.id=p.source_id
+		    where (p.project_id,p.plan_version)=(previous.project_id,previous.plan_version)
+		      and (s.revoked_at is not null or s.current_version<>p.source_version
+		        or not exists(select from plan_sources current
+		          where (current.project_id,current.plan_version,current.source_id,current.source_version)=($2,$5,p.source_id,p.source_version))))
+		order by previous.created_at desc limit 1
+	) answer on true order by recent.seq`, ref.RunID, d.project, d.actor, maxModelTurns*maxToolsPerTurn+1, d.plan)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	for rows.Next() {
+		var prompt, answer string
+		if err = rows.Scan(&prompt, &answer); err != nil {
+			rows.Close()
+			return nil, nil, nil, err
+		}
+		items = append(items, savedMessage{Message: resources.Message{Role: "user", Content: prompt}})
+		if answer != "" {
+			items = append(items, savedMessage{Message: resources.Message{Role: "assistant", Content: answer}})
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, nil, nil, err
+	}
+	items = append(items, savedMessage{Message: resources.Message{Role: "user", Content: d.goal}})
 	rows, err = tx.Query(ctx, `select t.turn,0 as position,'' as call_id,t.response from general_agent_turns t where t.run_id=$1 and t.turn<$2 and t.state='tools'
 	 union all select a.turn,a.position,a.call_id,a.observation_cipher from general_agent_actions a where a.run_id=$1 and a.turn<$2
 	 order by 1,2`, ref.RunID, ref.Turn)

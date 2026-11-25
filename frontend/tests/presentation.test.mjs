@@ -108,3 +108,16 @@ test("the conversation composer exposes attachments, Agent selection and send", 
   assert.doesNotMatch(markup, /type="checkbox"|最多两次模型调用/);
   assert.match(markup, /aria-label="发送消息" disabled=""/);
 });
+
+test("reasoning and fast routes use available tiers and preserve explicit Agent plans", async () => {
+  const { conversationTier, usesGeneralConversation } = await server.ssrLoadModule("/src/conversation-models.tsx");
+  assert.equal(conversationTier(["fast", "default"], "reasoning"), "default");
+  assert.equal(conversationTier(["fast", "default"], "fast"), "fast");
+  assert.equal(conversationTier([]), undefined);
+  const project = { owner: "me", stage: "brief", planVersion: 0 };
+  assert.ok(usesGeneralConversation(project, "me", false, false));
+  assert.equal(usesGeneralConversation(project, "me", true, false), false);
+  assert.equal(usesGeneralConversation(project, "me", false, true), false);
+  assert.equal(usesGeneralConversation(project, "other", false, false), false);
+  assert.equal(usesGeneralConversation({ ...project, run: { status: "paused", general: true } }, "me", false, false), false);
+});

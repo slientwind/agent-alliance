@@ -371,7 +371,8 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
     'events',(select jsonb_agg(jsonb_build_object('action',action,'reason',case when f.notes_readable then ev.reason end,'version',artifact_version,'actor',m.display_name) order by ev.revision) from feedback_events ev join members m on m.id=ev.actor where ev.feedback_id=f.id)) order by f.created_at) from feedback_access f where f.artifact_id=a.id),'[]'),'file',(select filename from artifact_files where artifact_id=a.id and version=v.version and distribution_readable(a.id,v.version,$1))) order by a.ordinal) from artifacts a join artifact_access rights on rights.id=a.id join artifact_versions v on(v.artifact_id,v.version)=(a.id,a.current_version)
     left join rule_branch_steps rebuilt on (rebuilt.artifact_id,rebuilt.result_version)=(a.id,v.version) and rebuilt.mode<>'reuse'
     left join reviews e on (e.artifact_id,e.version)=(a.id,a.current_version) where a.project_id=p.id),'[]'),
- 'run',(select jsonb_build_object('id',r.id,'status',r.status,'controlRevision',r.control_revision,'canResolveToolChoice',p.owner=$1 or (r.app_id is not null and r.delegated_by is null and p.final_reviewer=$1 and m.can_review),
+ 'run',(select jsonb_build_object('id',r.id,'status',r.status,'controlRevision',r.control_revision,
+ 'general',exists(select from general_agent_runs g where g.run_id=r.id),'canResolveToolChoice',p.owner=$1 or (r.app_id is not null and r.delegated_by is null and p.final_reviewer=$1 and m.can_review),
  'receiptRequests',`+SourceReceiptRequestsSQL("$1")+`,
  'indexWaits',`+StepIndexWaitsSQL+`,
  'dispatchWaits',`+StepDispatchWaitsSQL+`,

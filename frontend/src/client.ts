@@ -563,6 +563,7 @@ export type Project = Summary & {
   run: null | {
     id: string;
     status: string;
+    general?: boolean;
     controlRevision: number;
     receiptRequest?: SourceReceiptRequest | null;
     receiptRequests?: SourceReceiptRequest[];

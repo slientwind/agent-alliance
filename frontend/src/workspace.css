@@ -263,8 +263,37 @@
   border-color: var(--border);
   background: var(--bg-rail);
 }
+.workspace-area .composer-tools {
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
 .workspace-area .composer-tools .send {
   margin-inline-start: auto;
+}
+.conversation-models {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.conversation-models select {
+  width: auto;
+  padding: 0.35rem;
+}
+.composer-tools .reasoning-toggle {
+  align-items: center;
+  display: flex;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  width: auto;
+  padding-inline: 0.45rem;
+  border-radius: 1.3rem;
+  white-space: nowrap;
+}
+.composer-tools .reasoning-toggle[aria-pressed="true"] {
+  color: var(--brand);
+  background: var(--brand-soft);
 }
 .workspace-page {
   min-width: 0;
