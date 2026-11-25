@@ -16,6 +16,7 @@ import (
 	"alliance/internal/projects"
 	"alliance/internal/services"
 	"alliance/internal/web"
+	"alliance/internal/websearch"
 	"context"
 	"errors"
 	"log"
@@ -61,6 +62,7 @@ func main() {
 	egress.Admin{DB: c.DB}.Routes(mux, s)
 	llmgateway.Admin{DB: c.DB, Vault: c.Vault, Provider: llmgateway.HTTPProvider{Vault: c.Vault, Egress: &egress.Policy{DB: c.DB}}}.Routes(mux, s)
 	mcphub.Admin{DB: c.DB, Client: mcphub.Client{Vault: c.Vault, Egress: egress.Policy{DB: c.DB}}}.Routes(mux, s)
+	websearch.Server{DB: c.DB, Client: websearch.Client{Vault: c.Vault, Egress: egress.Policy{DB: c.DB}}}.Routes(mux, s)
 	services.Server{DB: c.DB, Planner: planner.Server{Catalog: c}}.Routes(mux, s)
 	knowledge.Server{DB: c.DB, Objects: knowledge.ConfiguredObjects()}.Routes(mux, s)
 	c.Routes(mux, s)

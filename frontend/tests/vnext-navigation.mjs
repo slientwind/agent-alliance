@@ -32,10 +32,31 @@ try {
     const collaborationRequests = [];
     const commentRequests = [];
     const comments = [];
+    const searchSettings = {
+      provider: "tavily", endpoint: "https://api.tavily.com/search",
+      revision: 1, enabled: false, hasCredential: false, health: "unchecked",
+    };
     await page.route("**/api/**", (route) => {
       const request = route.request();
       const url = new URL(request.url());
       const path = url.pathname;
+      if (path === "/api/admin/integrations/search") {
+        if (request.method() === "PUT") {
+          const next = request.postDataJSON();
+          assert.equal(next.provider, "bocha");
+          assert.equal(next.expected, 1);
+          assert.equal(next.key, "fixture-secret");
+          assert.equal(next.enabled, true);
+          Object.assign(searchSettings, { provider: "bocha", endpoint: "https://api.bochaai.com/v1/web-search",
+            revision: 2, enabled: true, hasCredential: true });
+          return route.fulfill({ json: { revision: 2 } });
+        }
+        return route.fulfill({ json: searchSettings });
+      }
+      if (path === "/api/admin/integrations/search/probe") {
+        searchSettings.health = "ready";
+        return route.fulfill({ json: { health: "ready" } });
+      }
       const artifactPath = "/api/projects/" + id + "/artifacts/" + artifact.id;
       if (path.endsWith("/session-events") || path.endsWith("/events")) {
         return route.fulfill({ contentType: "text/event-stream", body: ": ready\n\n" });
@@ -169,6 +190,16 @@ try {
     await page.getByRole("button", { name: "企业管理", exact: true }).click();
     await page.waitForURL("**/admin");
     assert.equal(await page.locator("dialog[open]").count(), 0);
+    await checkWidth();
+    await page.getByRole("button", { name: "企业服务", exact: true }).click();
+    await page.waitForURL("**/admin/integrations");
+    await page.getByRole("combobox", { name: /^搜索服务/ }).selectOption("bocha");
+    await page.getByLabel("搜索服务密钥").fill("fixture-secret");
+    await page.getByLabel("允许员工在对话中联网搜索").check();
+    await page.getByRole("button", { name: "保存", exact: true }).click();
+    await page.getByRole("button", { name: "检测连接" }).click();
+    await page.getByText("连接正常", { exact: true }).waitFor();
+    assert.equal(await page.getByLabel("搜索服务密钥").inputValue(), "");
     await checkWidth();
     await page.goto("/#" + id);
     await page.waitForURL("**/chat/" + id);

@@ -75,6 +75,7 @@ import "./style.css";
 import "./workspace.css";
 const Work = lazy(() => import("./work").then(({ Work }) => ({ default: Work })));
 const ArtifactCanvas = lazy(() => import("./artifact-canvas").then(({ ArtifactCanvas }) => ({ default: ArtifactCanvas })));
+const SearchIntegration = lazy(() => import("./search-integration").then(({ SearchIntegration }) => ({ default: SearchIntegration })));
 
 function Overlay({
   title,
@@ -1095,14 +1096,22 @@ function App() {
         />
       )}
       {panel === "admin" && user.role === "admin" && (
-        <EnterpriseWorkspace
-          user={user}
-          models={models}
-          members={members}
-          configure={() => setPanel("setup")}
-          refreshCatalog={catalog}
-          refreshMembers={refreshMembers}
-        />
+        <>
+          <button type="button" onClick={() => setPanel("integrations")}>企业服务</button>
+          <EnterpriseWorkspace
+            user={user}
+            models={models}
+            members={members}
+            configure={() => setPanel("setup")}
+            refreshCatalog={catalog}
+            refreshMembers={refreshMembers}
+          />
+        </>
+      )}
+      {panel === "integrations" && user.role === "admin" && (
+        <Suspense fallback={<p role="status">正在加载企业服务…</p>}>
+          <SearchIntegration />
+        </Suspense>
       )}
     </>
   );
@@ -1136,7 +1145,7 @@ function App() {
             </header>
             <div className="workspace-page-content">
               {err && <p role="alert">{err}</p>}
-              {routePanel === "admin" && user.role !== "admin" ? <p role="alert">需要企业管理员权限</p> : pageContent}
+              {(routePanel === "admin" || routePanel === "integrations") && user.role !== "admin" ? <p role="alert">需要企业管理员权限</p> : pageContent}
             </div>
           </main>
         ) : (
