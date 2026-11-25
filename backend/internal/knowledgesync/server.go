@@ -34,6 +34,7 @@ func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("PUT /api/admin/integrations/knowledge/{id}", auth.Protect(true, s.configure))
 	mux.Handle("POST /api/admin/integrations/knowledge/{id}/sync", auth.Protect(true, s.queue))
 	s.collectionRoutes(mux, auth)
+	s.lifecycleRoutes(mux, auth)
 }
 
 type sourceView struct {

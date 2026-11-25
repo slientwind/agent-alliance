@@ -257,6 +257,11 @@ func (s Server) saveCollection(w http.ResponseWriter, r *http.Request, actor ide
 			if _, err := tx.Exec(ctx, "delete from kb_sync_pages where collection_id=$1", id); err != nil {
 				return err
 			}
+			if cipher != nil {
+				if _, err := tx.Exec(ctx, "update kb_documents set acl_verified_at=null,source_state='withdrawn' where collection_id=$1", id); err != nil {
+					return err
+				}
+			}
 		}
 		return database.Audit(ctx, tx, actor.ID, "knowledge.collection.configure", id, map[string]any{"space": space, "provider": in.Provider, "revision": revision})
 	})

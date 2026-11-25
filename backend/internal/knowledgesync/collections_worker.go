@@ -28,6 +28,10 @@ type remoteDirectory interface {
 	Open(context.Context, directoryEntry) (io.ReadCloser, error)
 }
 
+type remoteDirectoryACL interface {
+	SourceACL(context.Context, directoryEntry) ([][]string, error)
+}
+
 type collectionJob struct {
 	collectionView
 	space, maintainer, scan, lease string
@@ -243,15 +247,28 @@ func lockCollectionJob(ctx context.Context, tx pgx.Tx, job collectionJob) error 
 }
 
 func (s Server) ingestDirectoryEntry(ctx context.Context, job collectionJob, dir remoteDirectory, item directoryEntry) error {
+	acl, verified := [][]string{}, false
+	if source, ok := dir.(remoteDirectoryACL); job.ACLMode == "source" && ok {
+		groups, err := source.SourceACL(ctx, item)
+		if err == nil {
+			acl, verified = verifiedACL(groups)
+		}
+	}
 	var current bool
 	if err := database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {
 		if err := lockCollectionJob(ctx, tx, job); err != nil {
 			return err
 		}
-		tag, err := tx.Exec(ctx, `update kb_documents set seen_scan_id=$3,title=$4,directory_path=$5,source_state='present',remote_parent_id=$8
+		tag, err := tx.Exec(ctx, `update kb_documents set seen_scan_id=$3,title=$4,directory_path=$5,source_state='present',remote_parent_id=$8,
+		 source_acl_principals=$9,acl_verified_at=case when $10 then clock_timestamp() end
 		 where (collection_id,remote_id)=($1,$2) and media_type=$6 and $7<>'' and source_revision=$7`,
-			job.ID, item.ID, job.scan, item.Title, item.Path, item.Media, item.Revision, item.ParentID)
+			job.ID, item.ID, job.scan, item.Title, item.Path, item.Media, item.Revision, item.ParentID, acl, verified)
 		current = tag.RowsAffected() > 0
+		if err == nil && !current {
+			// A superseded upstream version cannot continue serving evidence while its replacement is downloaded.
+			_, err = tx.Exec(ctx, `update kb_documents set source_state='withdrawn',acl_verified_at=null
+			 where (collection_id,remote_id)=($1,$2) and source_state='present'`, job.ID, item.ID)
+		}
 		return err
 	}); err != nil || current {
 		return err
@@ -274,7 +291,7 @@ func (s Server) ingestDirectoryEntry(ctx context.Context, job collectionJob, dir
 		if err := lockCollectionJob(ctx, tx, job); err != nil {
 			return err
 		}
-		err := s.storeDirectoryEntry(ctx, tx, job, item, file)
+		err := s.storeDirectoryEntry(ctx, tx, job, item, file, acl, verified)
 		if errors.Is(err, knowledge.ErrLarge) {
 			return errInvalid
 		}
@@ -282,7 +299,7 @@ func (s Server) ingestDirectoryEntry(ctx context.Context, job collectionJob, dir
 	})
 }
 
-func (s Server) storeDirectoryEntry(ctx context.Context, tx pgx.Tx, job collectionJob, item directoryEntry, file io.Reader) error {
+func (s Server) storeDirectoryEntry(ctx context.Context, tx pgx.Tx, job collectionJob, item directoryEntry, file io.Reader, acl [][]string, verified bool) error {
 	hash, _, err := s.Objects.Put(ctx, tx, file, maxKnowledgeFile)
 	if err != nil {
 		return err
@@ -293,14 +310,16 @@ func (s Server) storeDirectoryEntry(ctx context.Context, tx pgx.Tx, job collecti
 	var id string
 	var version int
 	err = tx.QueryRow(ctx, `insert into kb_documents(collection_id,space_id,remote_id,directory_path,title,media_type,source_revision,
-	 seen_scan_id,current_object_hash,maintainer,remote_parent_id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+	 seen_scan_id,current_object_hash,maintainer,remote_parent_id,source_acl_principals,acl_verified_at)
+	 values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,case when $13 then clock_timestamp() end)
 	 on conflict(collection_id,remote_id) do update set directory_path=excluded.directory_path,title=excluded.title,
 	 media_type=excluded.media_type,source_revision=excluded.source_revision,source_state='present',seen_scan_id=excluded.seen_scan_id,
 	 content_version=kb_documents.content_version+case when (kb_documents.current_object_hash,kb_documents.media_type)
 	  is distinct from (excluded.current_object_hash,excluded.media_type) then 1 else 0 end,
-	 current_object_hash=excluded.current_object_hash,updated_at=clock_timestamp(),remote_parent_id=excluded.remote_parent_id
+	 current_object_hash=excluded.current_object_hash,updated_at=clock_timestamp(),remote_parent_id=excluded.remote_parent_id,
+	 source_acl_principals=excluded.source_acl_principals,acl_verified_at=excluded.acl_verified_at
 	 returning id,content_version`, job.ID, job.space, item.ID, item.Path, item.Title, item.Media,
-		item.Revision, job.scan, hash, job.maintainer, item.ParentID).Scan(&id, &version)
+		item.Revision, job.scan, hash, job.maintainer, item.ParentID, acl, verified).Scan(&id, &version)
 	if err != nil {
 		return err
 	}

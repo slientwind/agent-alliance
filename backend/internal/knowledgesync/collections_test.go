@@ -23,6 +23,11 @@ type fixtureDirectory struct {
 	rootDenied       bool
 	missing          bool
 	opens            map[string]int
+	acl              [][]string
+}
+
+func (f *fixtureDirectory) SourceACL(context.Context, directoryEntry) ([][]string, error) {
+	return f.acl, nil
 }
 
 func (f *fixtureDirectory) List(_ context.Context, folder, cursor string) ([]directoryEntry, string, error) {
@@ -77,16 +82,19 @@ func TestDirectorySyncResumesAndOnlyReadsChangedDocuments(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	manager, outsider, team, id := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
+	manager, outsider, colleague, team, id := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
+	defer db.Exec(context.Background(), "delete from kb_collections where id=$1", id)
 	exec(`insert into members(id,email,display_name,password_hash,role) values
-	 ($1,$1::uuid::text||'@example.test','Manager','','member'),($2,$2::uuid::text||'@example.test','Outsider','','admin')`, manager, outsider)
+	 ($1,$1::uuid::text||'@example.test','Manager','','member'),($2,$2::uuid::text||'@example.test','Outsider','','admin'),
+	 ($3,$3::uuid::text||'@example.test','Teammate','','member')`, manager, outsider, colleague)
 	exec(`insert into teams(id,name) values($1,$1::uuid::text)`, team)
 	exec(`insert into team_members(team_id,member_id) values($1,$2)`, team, manager)
+	exec(`insert into team_members(team_id,member_id) values($1,$2)`, team, colleague)
 	var space string
 	if err := db.QueryRow(ctx, `select id from spaces where team_id=$1`, team).Scan(&space); err != nil {
 		t.Fatal(err)
 	}
-	fixture := &fixtureDirectory{version: "1", opens: map[string]int{}}
+	fixture := &fixtureDirectory{version: "1", opens: map[string]int{}, acl: [][]string{{"space:source-space"}, {"user:remote-manager", "group:other"}}}
 	s := Server{DB: db, Vault: vault, Objects: knowledge.Objects{Root: t.TempDir()},
 		directory: func(_ context.Context, in collectionView, secret collectionSecret) (remoteDirectory, error) {
 			if in.Root != "DriveRoot" || secret.Token != "fixture-collection-secret" {
@@ -166,9 +174,66 @@ func TestDirectorySyncResumesAndOnlyReadsChangedDocuments(t *testing.T) {
 	if version != 1 || path != "政策" || status != "present" || chunkCount < 45 || fixture.opens["long"] != 1 || fixture.opens["other"] != 1 {
 		t.Fatalf("invalid long document or traversal: %d %s %s %d %v", version, path, status, chunkCount, fixture.opens)
 	}
+	listDocuments := func(member string) string {
+		t.Helper()
+		w := httptest.NewRecorder()
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/documents?collection="+id, nil)
+		r.SetPathValue("space", space)
+		if err := s.listDocuments(w, r, identity.Member{ID: member}); err != nil {
+			t.Fatal(err)
+		}
+		return w.Body.String()
+	}
+	if got := listDocuments(manager); strings.Contains(got, "制度合集") {
+		t.Fatalf("unmapped document leaked to manager: %s", got)
+	}
+	mapping := fmt.Sprintf(`{"expectedVersion":1,"mappings":[{"sourcePrincipal":"space:source-space","kind":"team","targetId":"%s"},
+	 {"sourcePrincipal":"user:remote-manager","kind":"member","targetId":"%s"}]}`, team, manager)
+	w := httptest.NewRecorder()
+	r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/mappings", strings.NewReader(mapping))
+	r.SetPathValue("space", space)
+	r.SetPathValue("collection", id)
+	if err := s.putPrincipalMappings(w, r, identity.Member{ID: manager}); err != nil || w.Code != 200 {
+		t.Fatalf("principal mapping returned %d %v", w.Code, err)
+	}
+	if own, peer := listDocuments(manager), listDocuments(colleague); !strings.Contains(own, "制度合集") || strings.Contains(peer, "制度合集") {
+		t.Fatalf("inherited ACL groups were not intersected: %s and %s", own, peer)
+	}
+	var doc string
+	if err := db.QueryRow(ctx, `select id from kb_documents where collection_id=$1 and remote_id='long'`, id).Scan(&doc); err != nil {
+		t.Fatal(err)
+	}
+	change := func(body string) error {
+		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/document", strings.NewReader(body))
+		r.SetPathValue("space", space)
+		r.SetPathValue("document", doc)
+		return s.changeDocumentLifecycle(httptest.NewRecorder(), r, identity.Member{ID: manager})
+	}
+	lifecycle := `{"expectedVersion":1,"docStatus":"deprecated","effectiveFrom":"2025-01-01","effectiveUntil":"2026-01-31","authorityLevel":5,"sensitivity":"confidential"}`
+	if err := change(strings.Replace(lifecycle, "2026-01-31", "2024-01-01", 1)); err == nil {
+		t.Fatal("reversed effective dates accepted")
+	}
+	if err := change(lifecycle); err != nil {
+		t.Fatal(err)
+	}
+	if err := change(lifecycle); err == nil {
+		t.Fatal("stale lifecycle revision accepted")
+	}
+	if got := listDocuments(manager); !strings.Contains(got, `"docStatus":"deprecated"`) || !strings.Contains(got, `"authorityLevel":5`) ||
+		!strings.Contains(got, `"sensitivity":"confidential"`) || !strings.Contains(got, `"effectiveUntil":"2026-01-31"`) {
+		t.Fatalf("incorrect lifecycle metadata: %s", got)
+	}
+	exec("update kb_documents set acl_verified_at=clock_timestamp()-interval '2 hours' where id=$1", doc)
+	if got := listDocuments(manager); strings.Contains(got, "制度合集") {
+		t.Fatalf("expired source ACL still granted access: %s", got)
+	}
+	fixture.acl = [][]string{{"space:source-space"}, {"user:replacement"}}
 	scan()
 	if fixture.opens["long"] != 1 || fixture.opens["other"] != 1 {
 		t.Fatalf("unchanged revisions were downloaded: %v", fixture.opens)
+	}
+	if got := listDocuments(manager); strings.Contains(got, "制度合集") {
+		t.Fatalf("new source ACL did not revoke unchanged contents: %s", got)
 	}
 	fixture.version, fixture.changed = "2", "2027 年更新"
 	scan()
@@ -233,10 +298,18 @@ func TestDirectoryProviderPaginationAndStreaming(t *testing.T) {
 								t.Error("missing app token")
 							}
 							body = `{"code":0,"data":{"content":"飞书正文"}}`
+						case "open.feishu.cn/open-apis/drive/v1/permissions/doc1/members":
+							body = `{"code":0,"data":{"items":[{"member_id":"fixture-reader","member_type":"openid","perm":"view"}]}}`
 						case "fixture.atlassian.net/wiki/api/v2/spaces/123/pages":
 							body = `{"results":[{"id":"432","spaceId":"123","status":"current","title":"File","version":{"number":4},"parentId":"200"}],"_links":{"next":"/wiki/api/v2/spaces/123/pages?cursor=conf-page"}}`
 						case "fixture.atlassian.net/wiki/api/v2/pages/432":
 							body = `{"id":"432","spaceId":"123","status":"current","title":"File","version":{"number":4},"body":{"storage":{"value":"<p>Confluence</p>"}}}`
+						case "fixture.atlassian.net/wiki/api/v2/pages/432/ancestors":
+							body = `{"results":[{"id":"200"}]}`
+						case "fixture.atlassian.net/wiki/rest/api/content/200/restriction/byOperation/read":
+							body = `{"operation":"read","restrictions":{"user":{"size":0},"group":{"size":1,"results":[{"id":"parent-group"}]}}}`
+						case "fixture.atlassian.net/wiki/rest/api/content/432/restriction/byOperation/read":
+							body = `{"operation":"read","restrictions":{"user":{"size":1,"results":[{"accountId":"fixture-reader"}]},"group":{"size":0}}}`
 						case "api.dingtalk.com/v1.0/oauth2/accessToken":
 							body = `{"accessToken":"ding"}`
 						case "api.dingtalk.com/v1.0/storage/spaces/team/dentries":
@@ -246,6 +319,9 @@ func TestDirectoryProviderPaginationAndStreaming(t *testing.T) {
 							body = `{"dentries":[{"id":"dingFile","name":"file.txt","type":"FILE","status":"NORMAL","version":2}],"nextToken":"ding-page"}`
 						case "api.dingtalk.com/v1.0/storage/spaces/team/dentries/dingFile/downloadInfos/query":
 							body = `{"headerSignatureInfo":{"headers":{"Authorization":"OSS signed"},"resourceUrls":["https://fixture.oss.aliyuncs.com/read"]}}`
+						case "api.dingtalk.com/v1.0/storage/spaces/team/dentries/dingFile/permissions/query":
+							body = `{"permissions":[{"member":{"id":"fixture-reader","type":"USER"},"role":{"id":"VIEWER"}},
+							{"member":{"id":"temporary","type":"USER"},"role":{"id":"VIEWER"},"duration":10}]}`
 						case "fixture.oss.aliyuncs.com/read":
 							if r.Header.Get("Authorization") != "OSS signed" || r.Header.Get("x-acs-dingtalk-access-token") != "" {
 								t.Error("incorrect download credential")
@@ -257,6 +333,8 @@ func TestDirectoryProviderPaginationAndStreaming(t *testing.T) {
 							body = `{"errcode":0,"file_list":{"item":[{"fileid":"wxFile","file_name":"file.txt","file_type":2,"file_status":1,"mtime":2}]},"has_more":true,"next_start":50}`
 						case "qyapi.weixin.qq.com/cgi-bin/wedrive/file_download":
 							body = `{"errcode":0,"download_url":"https://file.work.weixin.qq.com/read","cookie_name":"wedrive_ticket","cookie_value":"fixture"}`
+						case "qyapi.weixin.qq.com/cgi-bin/wedrive/get_file_permission":
+							body = `{"errcode":0,"inherit_father_auth":{"inherit":true,"auth_list":[{"type":1,"userid":"fixture-reader","auth":1}]}}`
 						case "file.work.weixin.qq.com/read":
 							if r.Header.Get("Cookie") != "wedrive_ticket=fixture" {
 								t.Error("missing signed-ticket cookie")
@@ -267,6 +345,9 @@ func TestDirectoryProviderPaginationAndStreaming(t *testing.T) {
 						case "graph.microsoft.com/v1.0/drives/driveID/items/graphFile/content":
 							status = http.StatusFound
 							headers.Set("Location", graphLocation)
+						case "graph.microsoft.com/v1.0/drives/driveID/items/graphFile/permissions":
+							body = `{"value":[{"roles":["read"],"grantedToV2":{"user":{"id":"fixture-reader"}}},
+							{"roles":["read"],"link":{},"grantedToV2":{"user":{"id":"link-only"}}}]}`
 						case "fixture.sharepoint.com/download":
 							if r.Header.Get("Authorization") != "" {
 								t.Error("graph token followed a download redirect")
@@ -278,6 +359,10 @@ func TestDirectoryProviderPaginationAndStreaming(t *testing.T) {
 							}
 							body = `<ListBucketResult><IsTruncated>true</IsTruncated><NextContinuationToken>s3-page</NextContinuationToken><Contents><Key>prefix%2F%E6%95%B0%20%E6%8D%AE.txt</Key><ETag>"tag"</ETag></Contents></ListBucketResult>`
 						case "s3.us-east-1.amazonaws.com/bucket-test/prefix/数 据.txt":
+							if r.URL.Query().Has("acl") {
+								body = `<AccessControlPolicy><AccessControlList><Grant><Grantee><ID>fixture-reader</ID></Grantee><Permission>READ</Permission></Grant><Grant><Grantee><ID>acl-admin</ID></Grantee><Permission>READ_ACP</Permission></Grant></AccessControlList></AccessControlPolicy>`
+								break
+							}
 							if r.Header.Get("If-Match") != `"tag"` {
 								t.Error("S3 download was not pinned to listed ETag")
 							}
@@ -299,6 +384,18 @@ func TestDirectoryProviderPaginationAndStreaming(t *testing.T) {
 			items, next, err := dir.List(t.Context(), tc.folder, "")
 			if err != nil || next != tc.next || len(items) != 1 || items[0].ID != tc.item || items[0].Revision == "" {
 				t.Fatalf("bad directory result: %+v, %q, %v", items, next, err)
+			}
+			acl, err := dir.(remoteDirectoryACL).SourceACL(t.Context(), items[0])
+			groups, verified := verifiedACL(acl)
+			wantReader := "user:fixture-reader"
+			if tc.provider == "s3" {
+				wantReader = "canonical:fixture-reader"
+			}
+			if err != nil || !verified || len(groups[len(groups)-1]) != 1 || groups[len(groups)-1][0] != wantReader {
+				t.Fatalf("incorrect effective provider grants: %v (%v)", groups, err)
+			}
+			if tc.provider == "confluence" && (len(groups) != 3 || groups[0][0] != "space:123" || groups[1][0] != "group:parent-group") {
+				t.Fatalf("Confluence inherited grants were not intersected: %v", groups)
 			}
 			file, err := dir.Open(t.Context(), items[0])
 			if err != nil {

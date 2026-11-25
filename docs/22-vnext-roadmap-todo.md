@@ -77,9 +77,9 @@
   - [ ] 在同一串行化事务内执行**公私分流**：个人空间会话与私夹自动置为 `sealed_private` 并吊销 OBO 个人令牌；各团队空间名下的共享知识库维护权、业务连接器绑定、事件触发器、定时委托、团队 Agent 与未结审签单原子平移给空间内继任者。
 
 ### 模块 I：企业知识库、权限感知混合检索与知识缺口雷达（Enterprise KB & Hybrid RAG）
-- [ ] **多源目录级增量同步（升级 [`backend/internal/knowledgesync/`](../backend/internal/knowledgesync/providers.go)）**
+- [x] **多源目录级增量同步（升级 [`backend/internal/knowledgesync/`](../backend/internal/knowledgesync/providers.go)）**
   - [x] 新增 `kb_collections` 与 `kb_documents`，将同步粒度从单文档 ID 扩展至**飞书知识库空间/云盘文件夹、钉钉文档库、企微文档、Confluence Space、SharePoint/S3 目录树**的递归增量同步（按 `revision/etag` 仅重算变更文档，放宽 256 KiB 限制至长文档分块流式摄入）。
-  - [ ] 增加文档生命周期与权威度字段：`doc_status`（`active 现行有效 / archived 历史归档 / deprecated 已作废`）、生效起止日期与源系统 ACL 主体映射。
+  - [x] 增加文档生命周期与权威度字段：`doc_status`（`active 现行有效 / archived 历史归档 / deprecated 已作废`）、生效起止日期与源系统 ACL 主体映射。
 - [ ] **版面/表格保真切分与三路混合重排（升级 [`retrieval/server.py`](../retrieval/server.py) & [`knowledge/`](../backend/internal/knowledge/retrieval.go)）**
   - [ ] 升级文档解析与切块器：保留多级章节标题面包屑（Breadcrumb），对 PDF 跨页表格与多 Sheet Excel 保持完整表头与行关联结构不切碎，扫描件 PDF 自动启用 OCR 识别。
   - [ ] 实现 **`BM25 精确全文检索 + pgvector BGE-M3 向量检索 + Cross-Encoder Rerank`** 混合管线，自动叠加工效期权重并压制 `deprecated` 旧制度。
