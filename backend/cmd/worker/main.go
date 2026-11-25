@@ -3,6 +3,7 @@ package main
 import (
 	"alliance/internal/app"
 	"alliance/internal/knowledge"
+	"alliance/internal/monitor"
 	"alliance/internal/runtime"
 	"alliance/internal/telemetry"
 	"context"
@@ -60,6 +61,7 @@ func main() {
 	go a.FollowRemote(ctx, c)
 	go a.CleanRetention(ctx)
 	go knowledge.MaintainPassages(ctx, catalog.DB)
+	go monitor.ServeRollups(ctx, catalog.DB)
 	go telemetry.Serve(ctx, catalog.DB)
 	a.Dispatch(ctx, c)
 }

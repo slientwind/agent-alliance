@@ -46,6 +46,8 @@ type CallIdentity struct {
 	OperationKey string
 	TeamID       string
 	MemberID     string
+	RunID        string
+	AgentID      string
 }
 
 type RoutedResult struct {
@@ -113,7 +115,8 @@ func (g Gateway) Call(ctx context.Context, actor CallIdentity, in Request) (Rout
 		if index+1 < len(order) && time.Now().Before(cutoff) {
 			deadline = cutoff
 		}
-		out, retry, err := g.callModel(ctx, model, in, permit, key, number, model.ModelID != preferred, deadline)
+		attempt := Attempt{OperationKey: key, RunID: actor.RunID, AgentID: actor.AgentID, Number: number, Fallback: model.ModelID != preferred}
+		out, retry, err := g.callModel(ctx, model, in, permit, attempt, deadline)
 		if err == nil {
 			return out, nil
 		}
@@ -125,8 +128,8 @@ func (g Gateway) Call(ctx context.Context, actor CallIdentity, in Request) (Rout
 	return RoutedResult{}, last
 }
 
-func (g Gateway) callModel(ctx context.Context, model Candidate, in Request, permit Permit, key string, number int, fallback bool, deadline time.Time) (RoutedResult, bool, error) {
-	started := time.Now()
+func (g Gateway) callModel(ctx context.Context, model Candidate, in Request, permit Permit, attempt Attempt, deadline time.Time) (RoutedResult, bool, error) {
+	attempt.Started = time.Now()
 	call, cancel := context.WithCancel(ctx)
 	var mu sync.Mutex
 	var visible, timedOut, returned bool
@@ -168,15 +171,15 @@ func (g Gateway) callModel(ctx context.Context, model Candidate, in Request, per
 	cancel()
 	done, finish := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
 	defer finish()
-	attempt := Attempt{Number: number, OperationKey: key, Fallback: fallback, Started: started, Finished: time.Now()}
-	out := RoutedResult{Result: result, ModelID: model.ModelID, ModelName: model.Name, PriceID: model.PriceVersion, Fallback: fallback}
+	attempt.Finished = time.Now()
+	out := RoutedResult{Result: result, ModelID: model.ModelID, ModelName: model.Name, PriceID: model.PriceVersion, Fallback: attempt.Fallback}
 	var providerErr ProviderError
 	var settleErr error
 	if callErr == nil {
 		attempt.Status = "succeeded"
 		attempt.Usage = result.Usage
 		if result.Usage != nil {
-			cost, err := g.Budget.Settle(done, key, *result.Usage)
+			cost, err := g.Budget.Settle(done, attempt.OperationKey, *result.Usage)
 			settleErr = err
 			if err == nil {
 				out.Cost = &cost
@@ -197,7 +200,7 @@ func (g Gateway) callModel(ctx context.Context, model Candidate, in Request, per
 		}
 		if attempt.Unsent || providerRejected(attempt.ProviderCode) {
 			attempt.Status = "rejected"
-			settleErr = g.Budget.Release(done, key)
+			settleErr = g.Budget.Release(done, attempt.OperationKey)
 		}
 	}
 	if err := g.Resilience.Complete(done, permit, attempt); err != nil || settleErr != nil {

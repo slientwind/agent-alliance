@@ -106,7 +106,7 @@ func TestGatewayKeepsOneProviderAfterStreamingStarts(t *testing.T) {
 		}),
 	}
 	var text strings.Builder
-	_, err := g.Call(t.Context(), CallIdentity{"operation", "team", "member"},
+	_, err := g.Call(t.Context(), CallIdentity{OperationKey: "operation", TeamID: "team", MemberID: "member"},
 		Request{Tier: Default, Messages: []resources.Message{{Role: "user", Content: "hello"}}, EmitText: func(value string) { text.WriteString(value) }})
 	if err == nil || used != 1 || text.String() != "partial" {
 		t.Fatalf("used %d providers, visible %q, error %v", used, text.String(), err)
