@@ -98,9 +98,9 @@
     4. **内网受控只读浏览器表格采集兜底**。
 - [x] **受控业务语义视图层（Semantic Layer）**
   - [x] 新增 `semantic_data_views`：封装核定好的业务维度、统计指标公式与关联关系，向通用 Agent 暴露业务语义视图而非底层裸表；每次取数自动生成结构化 **`QueryProvenance`（数据源、语义视图、时间范围、权限过滤说明、指标公式）**。
-- [ ] **OBO 用户级行权限（RLS）与 L2 两阶段幂等写回对账**
+- [x] **OBO 用户级行权限（RLS）与 L2 两阶段幂等写回对账**
   - [x] 实现员工级 OAuth2 On-Behalf-Of 令牌加密托管与 `employee_no / dept_id` 行级过滤谓词硬注入（模型参数不可覆盖），确保跨人查询零越权。
-  - [ ] 新增 `pending_system_mutations` 表与 L2 写回执行器：任何写回 ERP/CRM/电商的操作必须先生成「原状态 → 拟变更值」预览确认卡挂起 Workflow，经人工在网页或飞书确认后携带唯一 `idempotency_key` 执行写回，持久化下游正式业务单号 `external_receipt_no` 并支持超时自动对账防重单。
+  - [x] 新增 `pending_system_mutations` 表与 L2 写回执行器：任何写回 ERP/CRM/电商的操作必须先生成「原状态 → 拟变更值」预览确认卡挂起 Workflow，经人工在网页或飞书确认后携带唯一 `idempotency_key` 执行写回，持久化下游正式业务单号 `external_receipt_no` 并支持超时自动对账防重单。
 
 ### 模块 K：企业黑话口径词典与官方品牌交付母版库（Glossary & Brand Kit）
 - [ ] **企业术语黑话与统一指标口径中心**

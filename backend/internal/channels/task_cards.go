@@ -248,7 +248,12 @@ type cardActionEvent struct {
 	Host   string
 	Action struct {
 		Tag   string
-		Value struct{ Adopt string }
+		Value struct {
+			Adopt    string
+			Mutation string
+			Expected int
+			Accept   *bool
+		}
 	}
 	Context struct {
 		Chat    string `json:"open_chat_id"`
@@ -257,6 +262,9 @@ type cardActionEvent struct {
 }
 
 func (f Feishu) cardAction(w http.ResponseWriter, r *http.Request, action cardActionEvent) error {
+	if action.Action.Value.Mutation != "" {
+		return f.mutationCardAction(w, r, action)
+	}
 	toast := func(kind, content string) error {
 		return web.JSON(w, 200, cardElement{"toast": cardElement{"type": kind, "content": content}})
 	}

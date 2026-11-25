@@ -40,6 +40,10 @@ func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("GET "+root+"/{connector}/obo", auth.Protect(false, s.oboStatus))
 	mux.Handle("DELETE "+root+"/{connector}/obo", auth.Protect(false, s.revokeOBO))
 	mux.Handle("POST /api/spaces/{space}/business/views/{view}/test", auth.Protect(false, s.testView))
+	mux.Handle("GET /api/spaces/{space}/business/write-policies", auth.Protect(false, s.listMutationPolicies))
+	mux.Handle("PUT /api/spaces/{space}/business/write-policies/{policy}", auth.Protect(false, s.configureMutationPolicy))
+	mux.Handle("GET /api/projects/{id}/system-mutations", auth.Protect(false, s.listMutations))
+	mux.Handle("PUT /api/projects/{id}/system-mutations/{mutation}/decision", auth.Protect(false, s.decideMutation))
 }
 
 const safeColumns = `c.id,c.space_id,c.category,c.driver,c.provider,c.name,

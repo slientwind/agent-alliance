@@ -92,6 +92,7 @@ func main() {
 	general.KBInference = knowledge.ConfiguredKBInference()
 	general.Business = &bizconnectors.Server{DB: catalog.DB, Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB},
 		BrowserURL: os.Getenv("BUSINESS_BROWSER_URL"), BrowserKey: os.Getenv("CONNECTOR_TOKEN")}
+	go general.Business.ServeMutationReconciliation(ctx)
 	general.MCP = &mcphub.Runtime{DB: catalog.DB, Client: mcphub.Client{Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB}}}
 	if socket, root := os.Getenv("BRAND_RENDERER_SOCKET"), os.Getenv("BRAND_TEMPLATE_ROOT"); socket != "" && root != "" {
 		general.BrandRenderer = &sandbox.BrandRenderer{Pool: sandbox.Pool{DB: catalog.DB}, Objects: knowledge.ConfiguredObjects(), Root: root, Socket: socket}

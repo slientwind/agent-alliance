@@ -68,6 +68,11 @@ func lookupTool(name string) registeredTool {
 			return tool
 		}
 	}
+	for _, tool := range businessWriteTools {
+		if tool.name == name {
+			return tool
+		}
+	}
 	for _, tool := range registeredTools {
 		if tool.name == name {
 			return tool
@@ -203,6 +208,14 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		if !check.Allowed {
 			return a.recordObservation(ctx, tx, ref, "rejected", "该工具不可调用，或参数格式错误。", "", "", failureObservation(task.name, "tool_unavailable", "请使用本任务中仍可用的工具。"))
 		}
+		if task.name == businessWriteProposal && task.external == "" && task.server == "" {
+			if a.Business == nil || decision.Level != harness.L2 {
+				return a.recordObservation(ctx, tx, ref, "rejected", "本次任务无可用的业务写回。", "", "")
+			}
+			task.args, err = a.Vault.Open(args, actionScope(ref)+"/arguments")
+			started = err == nil
+			return err
+		}
 		if decision.Level != harness.L0 {
 			state, err := approvalState(ctx, tx, ref, d, task)
 			if err != nil {
@@ -267,6 +280,9 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 	if err != nil || !started {
 		return result, err
 	}
+	if task.name == businessWriteProposal && task.external == "" && task.server == "" {
+		return a.executeBusinessMutation(ctx, ref, task.args)
+	}
 	if task.external != "" {
 		return a.executeExternal(ctx, ref, task)
 	}
@@ -294,6 +310,8 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		reply, toolErr = a.searchWeb(ctx, ref.RunID, task.args)
 	} else if task.name == businessViewList || task.name == businessViewQuery {
 		reply, task.business, toolErr = a.executeBusinessTool(ctx, ref, task)
+	} else if task.name == businessWriteList {
+		reply, toolErr = a.listBusinessMutations(ctx, ref, task)
 	} else if lookupTool(task.name).cap == capability.Images {
 		reply, toolErr = a.imageAction(ctx, ref, task)
 	} else if task.brand != nil {

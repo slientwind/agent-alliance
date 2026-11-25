@@ -33,11 +33,20 @@ func (a Activities) addBusinessTools(ctx context.Context, ref TurnRef, data runD
 	err := a.DB.QueryRow(ctx, `select exists(select from runs r join projects p on p.id=r.project_id
 	 join semantic_data_views v on true join business_connectors c on c.id=v.connector_id
 	 where r.id=$1 and business_view_readable(v.id,p.space_id,r.actor,v.revision,c.revision))`, ref.RunID).Scan(&available)
-	if err != nil || !available {
+	if err != nil {
 		return err
 	}
 	for _, tool := range businessTools {
-		request.Tools = append(request.Tools, tool.definition())
+		if available {
+			request.Tools = append(request.Tools, tool.definition())
+		}
+	}
+	policies, err := a.Business.VisibleMutations(ctx, ref.RunID, data.actor)
+	if err != nil {
+		return err
+	}
+	if len(policies) != 0 {
+		request.Tools = append(request.Tools, lookupTool(businessWriteList).definition(), lookupTool(businessWriteProposal).definition())
 	}
 	return nil
 }
@@ -125,7 +134,10 @@ func (a Activities) attachBusinessProtection(ctx context.Context, ref TurnRef, d
 	}
 	rows, err := a.DB.Query(ctx, `select x.call_id,b.provenance->>'sensitivity'
 	 from business_query_provenance b join general_agent_actions x using(run_id,turn,position)
-	 where b.run_id=$1 and b.turn<$2 order by b.turn,b.position`, ref.RunID, ref.Turn)
+	 where b.run_id=$1 and b.turn<$2
+	 union all
+	 select a.call_id,'internal' from general_agent_actions a
+	 where a.run_id=$1 and a.turn<$2 and a.tool_name='propose_business_write' and a.state='completed'`, ref.RunID, ref.Turn)
 	if err != nil {
 		return err
 	}
