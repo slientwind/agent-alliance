@@ -74,6 +74,7 @@ import { chatPath, pageFromPath, projectFromPath, studioDraftFromPath, workspace
 import "./style.css";
 import "./workspace.css";
 const Work = lazy(() => import("./work").then(({ Work }) => ({ default: Work })));
+const ConversationActivity = lazy(() => import("./conversation-activity").then(({ ConversationActivity }) => ({ default: ConversationActivity })));
 const ArtifactCanvas = lazy(() => import("./artifact-canvas").then(({ ArtifactCanvas }) => ({ default: ArtifactCanvas })));
 const SearchIntegration = lazy(() => import("./search-integration").then(({ SearchIntegration }) => ({ default: SearchIntegration })));
 const MailIntegration = lazy(() => import("./mail-integration").then(({ MailIntegration }) => ({ default: MailIntegration })));
@@ -571,6 +572,7 @@ function App() {
   const [streamInterrupted, setStreamInterrupted] = useState(false);
   const [sourcesRevision, setSourcesRevision] = useState(0);
   const [commentRevision, setCommentRevision] = useState(0);
+  const [activityRevision, setActivityRevision] = useState(0);
   const [sessionDrafts, setSessionDrafts] = useState<(SessionDrafts & { project: string })>();
   const [thinking, setThinking] = useState<{ project: string; run: string; text: string }>();
   const [online, setOnline] = useState<{ project: string; members: OnlineMember[] }>();
@@ -714,6 +716,7 @@ function App() {
         setStreamInterrupted(false);
         setSourcesRevision(value => value + 1);
         setCommentRevision(value => value + 1);
+        setActivityRevision(value => value + 1);
       };
       connection.onerror = () => {
         if (!currentConnection()) return;
@@ -746,7 +749,10 @@ function App() {
         subscribe();
       });
       connection.addEventListener("project.changed", () => {
-        if (currentConnection()) check();
+        if (currentConnection()) {
+          setActivityRevision(value => value + 1);
+          check();
+        }
       });
       connection.addEventListener("sources.changed", () => {
         if (currentConnection()) setSourcesRevision(value => value + 1);
@@ -1349,8 +1355,10 @@ function App() {
             {p && streamInterrupted && (
               <p role="status">实时连接中断，正在重新连接。工作仍会在后台运行。</p>
             )}
-            {p && thinking?.project === p.id && thinking.run === p.run?.id && (!sessionDrafts?.drafts.length || sessionDrafts.run !== thinking.run) &&
-              <p role="status">{thinking.text}</p>}
+            {p?.run && <Suspense fallback={null}>
+              <ConversationActivity key={p.run.id} project={p.id} run={p.run.id} status={p.run.status} revision={activityRevision}
+                progress={thinking?.project === p.id && thinking.run === p.run.id && p.run.status === "running" ? thinking.text : undefined} />
+            </Suspense>}
             {deliveryReceipt && (
               <p role="status">
                 <strong>已确认交付</strong> · 回执 {deliveryReceipt}

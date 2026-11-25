@@ -25,7 +25,13 @@ try {
     budget: { warning: false, pending: 0 }, costSummary: {}, suggestion: null, plan: null,
     run: { id: run, status: "running", general: true, controlRevision: 1, attempts: [], draftAvailable: false },
   };
+  let activityReads = 0;
+  const entries = [{ step: 1, position: 0, category: "thinking", state: "running" }];
   await page.route("**/api/**", route => {
+    if (new URL(route.request().url()).pathname.endsWith("/activity")) {
+      activityReads++;
+      return route.fulfill({ json: { items: entries } });
+    }
     const data = {
       "/api/instance": { initialized: true, name: "测试企业" },
       "/api/me": { id: "member", name: "测试用户", role: "member", enabled: true },
@@ -50,6 +56,17 @@ try {
   assert.equal(await page.getByRole("listitem", { name: "陈子" }).count(), 1);
   await send("live-events", "thinking.progress", { run, step: 1, attempt: 1, text: "正在处理这轮任务" });
   await page.getByText("正在处理这轮任务", { exact: true }).waitFor();
+  const summary = page.locator(".conversation-activity > summary");
+  assert.equal(activityReads, 0);
+  await summary.click();
+  const timeline = page.getByRole("list", { name: "任务处理时间线" });
+  await timeline.getByText("整理与判断", { exact: true }).waitFor();
+  entries.push({ step: 1, position: 1, category: "sources", state: "completed" });
+  await send("session-events", "project.changed", {});
+  await timeline.getByText("查阅资料", { exact: true }).waitFor();
+  assert.equal(activityReads, 2);
+  await summary.click();
+  await timeline.waitFor({ state: "hidden" });
   const draft = { run, step: 1, attempt: 1, status: "submitted" };
   await send("live-events", "draft.delta", { ...draft, offset: 0, text: "第一段" });
   await send("session-events", "session.snapshot", { run: "", drafts: [], hot: true });

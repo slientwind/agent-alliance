@@ -987,3 +987,11 @@ dialog .service-version-contract {
 .planning-recalled-messages button {
   font-size: 0.875rem;
 }
+
+.conversation-activity { margin-block: .65rem; }
+.conversation-activity summary { cursor: pointer; }
+.conversation-activity svg { vertical-align: text-bottom; }
+.conversation-activity small { margin-inline-start: .35rem; color: var(--ink-secondary); }
+.conversation-activity ol { padding-inline-start: 1.2rem; }
+.conversation-activity li { padding-block: .2rem; overflow-wrap: anywhere; }
+.conversation-activity li > span { margin-inline-start: .35rem; }

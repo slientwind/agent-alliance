@@ -115,6 +115,7 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 		"POST /api/runs/{id}/remote/{step}/inputs":                                     s.queueRemoteInput,
 		"GET /api/projects/{id}/diagnostics":                                           s.traceDirectory,
 		"GET /api/projects/{id}/runs/{run}/trace":                                      s.trace,
+		"GET /api/projects/{id}/runs/{run}/activity":                                   s.activity,
 		"PATCH /api/projects/{id}/runs/{run}/trace-access":                             s.traceGrant,
 		"POST /api/projects/{id}/artifacts/{artifact}/feedback/{feedback}/change-runs": s.startChange,
 		"POST /api/projects/{id}/change-runs/{change}/decision":                        s.decideChange,
