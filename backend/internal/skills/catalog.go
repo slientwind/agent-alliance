@@ -24,12 +24,13 @@ type Catalog struct {
 
 func (c Catalog) Routes(m *http.ServeMux, identity identity.Server) {
 	m.Handle("GET /api/skills", identity.Protect(false, c.list))
+	m.Handle("GET /api/skills/enterprise", identity.Protect(false, c.enterprise))
 	m.Handle("POST /api/skills", identity.Protect(true, c.publish))
 	m.Handle("POST /api/skills/{id}/revisions/{revision}/revoke", identity.Protect(true, c.revoke))
 }
 
 func (c Catalog) list(w http.ResponseWriter, r *http.Request, member identity.Member) error {
-	rows, err := c.DB.Query(r.Context(), `select jsonb_build_object('id',p.id,'name',p.name,'team',p.team_id,'teamName',t.name,
+	rows, err := c.DB.Query(r.Context(), `select jsonb_build_object('id',p.id,'scope','team','name',p.name,'team',p.team_id,'teamName',t.name,
         'revisions',(select jsonb_agg(jsonb_build_object('revision',r.revision,'description',r.description,
             'digest',r.digest,'revoked',r.revoked_at is not null,'activationTerms',r.activation_terms,
             'dependencies',array(select jsonb_build_object('id',d.needs_skill,'revision',d.needs_revision)

@@ -65,6 +65,8 @@ func PackageMetadata(raw []byte) (string, string, error) {
 	return pack.Name, pack.Description, err
 }
 
+// PackageContext reads the bounded text of an admitted, static Skill. Team
+// packages with cross-package dependencies resolve them through the catalog.
 func PackageContext(raw []byte) (string, error) {
 	pack, err := readPackage(raw)
 	if err != nil {

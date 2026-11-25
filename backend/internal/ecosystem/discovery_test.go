@@ -20,6 +20,7 @@ import (
 	"alliance/internal/ecosysteminspect"
 	"alliance/internal/identity"
 	"alliance/internal/resources"
+	"alliance/internal/skills"
 	"alliance/internal/web"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -144,7 +145,9 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 	exec("insert into sessions(token_hash,member_id,expires_at) values($1,$2,now()+interval '3 minutes')", web.Hash(token), admin)
 	exec("insert into sessions(token_hash,member_id,expires_at) values($1,$2,now()+interval '3 minutes')", web.Hash(employeeToken), employee)
 	routes := http.NewServeMux()
-	Server{DB: db, Vault: vault}.Routes(routes, identity.Server{DB: db})
+	auth := identity.Server{DB: db}
+	Server{DB: db, Vault: vault}.Routes(routes, auth)
+	skills.Catalog{DB: db}.Routes(routes, auth)
 	call := func(method, path, body, key string, status int, session ...string) []byte {
 		t.Helper()
 		request := httptest.NewRequestWithContext(ctx, method, path, strings.NewReader(body))
@@ -343,15 +346,33 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 	if !strings.Contains(list, `"request":"approved"`) {
 		t.Fatalf("approval did not resolve the application: %s", list)
 	}
+	const enterprise = "/api/skills/enterprise"
+	catalog := string(call("GET", enterprise, "", "", 200, employeeToken))
+	if !strings.Contains(catalog, approved.ID) || !strings.Contains(catalog, `"scope":"enterprise"`) ||
+		!strings.Contains(catalog, `"license":"MIT"`) || strings.Contains(catalog, fixture.URL) || strings.Contains(catalog, "fixture-repo-key") {
+		t.Fatalf("unexpected enterprise Skill metadata for an employee without team membership: %s", catalog)
+	}
+	if unbound := string(call("GET", enterprise+"?loaded=1", "", "", 200, employeeToken)); unbound != "[]\n" {
+		t.Fatalf("enterprise list showed a personal binding before loading: %s", unbound)
+	}
 	bindingPath := "/api/ecosystem/bindings/" + approved.ID
 	const enable = `{"enabled":true,"expected":0}`
 	first = call("PUT", bindingPath, enable, "", 200, employeeToken)
 	if replay := call("PUT", bindingPath, enable, "", 200, employeeToken); string(replay) != string(first) {
 		t.Fatalf("duplicate binding changed the receipt: %s", replay)
 	}
-	items, err := SkillsForMember(ctx, db, employee)
+	items, err := skills.EnterpriseBindings(ctx, db, employee)
 	if err != nil || len(items) != 1 || items[0].ID != approved.ID {
 		t.Fatalf("incorrect personal Skill selection: %+v %v", items, err)
+	}
+	catalog = string(call("GET", enterprise+"?loaded=1", "", "", 200, employeeToken))
+	if !strings.Contains(catalog, approved.ID) || !strings.Contains(catalog, `"bindingRevision":1`) {
+		t.Fatalf("employee did not see their frozen package binding: %s", catalog)
+	}
+	exec(`update ecosystem_candidate_reviews set report=jsonb_set(report,'{license}','"unknown"') where catalog_id=$1`, skillID)
+	catalog = string(call("GET", enterprise+"?loaded=1", "", "", 200, employeeToken))
+	if !strings.Contains(catalog, `"license":"MIT"`) {
+		t.Fatalf("refreshed scan overwrote the approved license: %s", catalog)
 	}
 	if context, err := ContextForMember(ctx, db, admin); err != nil || context != "" {
 		t.Fatalf("selection leaked to another member: %q %v", context, err)
@@ -365,7 +386,7 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 	exec("insert into plans(project_id,version,brief) values($1,1,'Skill fixture')", project)
 	exec("insert into runs(id,project_id,plan_version,actor,charge_team,request_key,request_hash,max_calls) values($1,$2,1,$3,$4,'skill-fixture','',1)", run, project, employee, team)
 	exec("insert into general_agent_runs(run_id,tier) values($1,'default')", run)
-	if err := database.WithTx(ctx, db, func(tx pgx.Tx) error { return PinSkills(ctx, tx, run, employee) }); err != nil {
+	if err := database.WithTx(ctx, db, func(tx pgx.Tx) error { return skills.PinEnterpriseBindings(ctx, tx, run, employee) }); err != nil {
 		t.Fatal(err)
 	}
 	if context, err := ContextForRun(ctx, db, run); err != nil || !strings.Contains(context, "Organize the approved columns.") {

@@ -6,10 +6,10 @@ import (
 	"net/http"
 
 	"alliance/internal/database"
-	"alliance/internal/ecosystem"
 	"alliance/internal/identity"
 	"alliance/internal/llmgateway"
 	"alliance/internal/resources"
+	"alliance/internal/skills"
 	"alliance/internal/web"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -96,11 +96,11 @@ func (s Server) loadedSkills(w http.ResponseWriter, r *http.Request, actor ident
 	if _, err := getDraft(ctx, s.DB, id, actor.ID, false); err != nil {
 		return err
 	}
-	skills, err := ecosystem.SkillsForMember(ctx, s.DB, actor.ID)
+	bindings, err := skills.EnterpriseBindings(ctx, s.DB, actor.ID)
 	if err != nil {
 		return err
 	}
-	return web.JSON(w, http.StatusOK, skills)
+	return web.JSON(w, http.StatusOK, bindings)
 }
 
 const draftAccess = `from studio_drafts d join members m on m.id=d.owner and m.enabled and m.kind='person'

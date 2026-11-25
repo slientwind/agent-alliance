@@ -30,7 +30,7 @@ type approvalReceipt struct {
 
 type approvalCandidate struct {
 	snapshot                                                     []byte
-	metadata                                                     json.RawMessage
+	metadata, report                                             json.RawMessage
 	kind, name, description, key, version, hash, verdict, review string
 }
 
@@ -41,6 +41,7 @@ type frozenManifest struct {
 	Key         string          `json:"key"`
 	Version     string          `json:"version"`
 	Metadata    json.RawMessage `json:"metadata"`
+	Review      json.RawMessage `json:"review"`
 }
 
 func (s Server) catalogQueue(w http.ResponseWriter, r *http.Request, _ identity.Member) error {
@@ -92,11 +93,12 @@ func (s Server) approve(w http.ResponseWriter, r *http.Request, user identity.Me
 func approveCandidate(ctx context.Context, tx pgx.Tx, id, actor string, in approvalInput) (approvalReceipt, int, error) {
 	out := approvalReceipt{Catalog: id}
 	var item approvalCandidate
-	err := tx.QueryRow(ctx, `select c.kind,c.name,c.description,c.upstream_key,c.upstream_version,c.metadata,
-	 r.snapshot,coalesce(r.content_hash,''),r.status,ecosystem_review_digest(c.id)
+	err := tx.QueryRow(ctx, `select c.kind,coalesce(nullif(r.report->>'name',''),c.name),
+	 coalesce(nullif(r.report->>'about',''),c.description),c.upstream_key,c.upstream_version,c.metadata,
+	 r.snapshot,coalesce(r.content_hash,''),r.status,ecosystem_review_digest(c.id),r.report
 	 from ecosystem_catalog c join ecosystem_candidate_reviews r on r.catalog_id=c.id where c.id=$1 for update of c for share of r`,
 		id).Scan(&item.kind, &item.name, &item.description, &item.key, &item.version, &item.metadata,
-		&item.snapshot, &item.hash, &item.verdict, &item.review)
+		&item.snapshot, &item.hash, &item.verdict, &item.review, &item.report)
 	if err != nil {
 		return out, 0, err
 	}
@@ -124,7 +126,7 @@ func approveCandidate(ctx context.Context, tx pgx.Tx, id, actor string, in appro
 	if item.verdict == "review_required" && in.Reason == "" {
 		return out, 0, web.Fail(422, "请填写人工复核意见")
 	}
-	manifest := frozenManifest{item.kind, item.name, item.description, item.key, item.version, item.metadata}
+	manifest := frozenManifest{item.kind, item.name, item.description, item.key, item.version, item.metadata, item.report}
 	serialized, err := json.Marshal(manifest)
 	if err != nil {
 		return out, 0, err

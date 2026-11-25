@@ -156,8 +156,8 @@
   - [x] 修改 `current_run.actor=$2` 限制：允许同任务所有获授权协作成员实时观看流式进展与产物更新。
 - [ ] **[`backend/internal/projects/feedback.go`](../backend/internal/projects/feedback.go)**
   - [x] 解绑“仅 `stage == review` 才允许评论”的硬限制，区分轻量行内协同评论（全阶段可用）与正式版本审签意见（审签阶段绑定不可变版本）。
-- [ ] **[`backend/internal/skills/catalog.go`](../backend/internal/skills/catalog.go)** & **[`package.go`](../backend/internal/skills/package.go)**
-  - [ ] 在保留 ZIP/SHA-256/防路径穿越校验的基础上，扩展企业级共享作用域（不限于单团队）、上游来源元数据、许可证/安全扫描报告字段及按用户加载绑定查询。
+- [x] **[`backend/internal/skills/catalog.go`](../backend/internal/skills/catalog.go)** & **[`package.go`](../backend/internal/skills/package.go)**
+  - [x] 在保留 ZIP/SHA-256/防路径穿越校验的基础上，扩展企业级共享作用域（不限于单团队）、上游来源元数据、许可证/安全扫描报告字段及按用户加载绑定查询。
 - [ ] **[`backend/internal/billing/billing.go`](../backend/internal/billing/billing.go)**
   - [x] 增加增量余额与已用汇总，替代 `Reserve` 在行锁内对 `spend` 做整表聚合。
   - [x] L0 个人任务在有效额度内自动静默放行，去除繁琐的前置费用确认。

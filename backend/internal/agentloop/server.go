@@ -3,12 +3,12 @@ package agentloop
 import (
 	"alliance/internal/capability"
 	"alliance/internal/database"
-	"alliance/internal/ecosystem"
 	"alliance/internal/harness"
 	"alliance/internal/identity"
 	"alliance/internal/llmgateway"
 	"alliance/internal/mcphub"
 	"alliance/internal/resources"
+	"alliance/internal/skills"
 	"alliance/internal/web"
 	"alliance/internal/websearch"
 	"context"
@@ -227,7 +227,7 @@ func (s Server) StartTx(ctx context.Context, tx pgx.Tx, project, actor, key stri
 		return "", err
 	}
 	if !in.Direct {
-		if err := ecosystem.PinSkills(ctx, tx, run, actor); err != nil {
+		if err := skills.PinEnterpriseBindings(ctx, tx, run, actor); err != nil {
 			return "", err
 		}
 		if enabled == nil {
