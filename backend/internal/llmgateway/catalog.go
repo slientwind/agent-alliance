@@ -67,15 +67,23 @@ func (c Catalog) ModelsForTier(ctx context.Context, tier Tier, at time.Time) ([]
 	if !tier.Valid() {
 		return nil, errors.New("unknown model tier")
 	}
+	return c.models(ctx, "from model_tier_routes r join model_catalog m on m.id=r.model_id and m.enabled", "r.priority,r.weight",
+		"where r.tier=$1 order by r.priority,m.id", tier, at)
+}
+
+func (c Catalog) ModelForEvaluation(ctx context.Context, id string, at time.Time) ([]Candidate, error) {
+	return c.models(ctx, "from model_catalog m", "0,1", "where m.id=$1 and m.enabled", id, at)
+}
+
+func (c Catalog) models(ctx context.Context, from, weights, condition string, key any, at time.Time) ([]Candidate, error) {
 	rows, err := c.DB.Query(ctx, `
 	 select m.id,p.id,p.kind,p.endpoint,p.encrypted_key,m.upstream_model,m.capabilities,
-	  m.context_tokens,m.max_output_tokens,m.rpm,m.tpm,r.priority,r.weight,
+	  m.context_tokens,m.max_output_tokens,m.rpm,m.tpm,`+weights+`,
 	  q.id,q.effective_at,q.input_per_1m_micro_cny,q.output_per_1m_micro_cny,q.cached_per_1m_micro_cny,q.per_image_micro_cny
-	 from model_tier_routes r
-	 join model_catalog m on m.id=r.model_id and m.enabled
+	 `+from+`
 	 join model_providers p on p.id=m.provider_id and p.enabled
 	 join lateral (select * from model_pricing where model_id=m.id and effective_at<=$2 order by effective_at desc limit 1) q on true
-	 where r.tier=$1 order by r.priority,m.id`, tier, at)
+	 `+condition, key, at)
 	if err != nil {
 		return nil, err
 	}

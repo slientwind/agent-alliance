@@ -7,6 +7,7 @@ import (
 	"alliance/internal/bizconnectors"
 	"alliance/internal/ecosystem"
 	"alliance/internal/egress"
+	"alliance/internal/evalsuite"
 	"alliance/internal/eventtriggers"
 	"alliance/internal/hotstream"
 	"alliance/internal/intake"
@@ -108,6 +109,11 @@ func main() {
 	discovery := ecosystem.Activities{DB: catalog.DB, Vault: catalog.Vault, InspectorURL: os.Getenv("ECOSYSTEM_INSPECTOR_URL"),
 		InspectorToken: os.Getenv("CONNECTOR_TOKEN")}
 	registerScheduledWorkflows(generalWorker, scheduled, discovery)
+	golden := evalsuite.Activities{Server: evalsuite.Server{DB: catalog.DB, Vault: catalog.Vault}, Gateway: gateway, Inference: general.KBInference}
+	generalWorker.RegisterWorkflowWithOptions(evalsuite.EvalWorkflow, workflow.RegisterOptions{Name: evalsuite.WorkflowName})
+	generalWorker.RegisterActivityWithOptions(golden.Begin, activity.RegisterOptions{Name: evalsuite.BeginName})
+	generalWorker.RegisterActivityWithOptions(golden.Evaluate, activity.RegisterOptions{Name: evalsuite.EvaluateName})
+	generalWorker.RegisterActivityWithOptions(golden.Finish, activity.RegisterOptions{Name: evalsuite.FinishName})
 	if err := generalWorker.Start(); err != nil {
 		log.Fatal(err)
 	}
@@ -115,6 +121,7 @@ func main() {
 	stopScheduled := runScheduledJobs(ctx, catalog, c, generalQueue)
 	defer stopScheduled()
 	go general.Dispatch(ctx, c, generalQueue)
+	go golden.Dispatch(ctx, c, generalQueue)
 	go (eventtriggers.Server{DB: catalog.DB, Vault: catalog.Vault}).Serve(ctx)
 	stopMemory := startBackgroundJobs(ctx, general.RefreshConversationMemory)
 	defer stopMemory()

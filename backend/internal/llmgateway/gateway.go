@@ -45,14 +45,15 @@ type Gateway struct {
 }
 
 type CallIdentity struct {
-	OperationKey string
-	TeamID       string
-	MemberID     string
-	RunID        string
-	AgentID      string
-	Turn         int
-	Authorize    func(context.Context) error
-	Prepare      func(context.Context, Candidate, Request) (PreparedRequest, error)
+	OperationKey    string
+	TeamID          string
+	MemberID        string
+	RunID           string
+	AgentID         string
+	Turn            int
+	EvaluationModel string
+	Authorize       func(context.Context) error
+	Prepare         func(context.Context, Candidate, Request) (PreparedRequest, error)
 }
 
 type PreparedRequest struct {
@@ -74,7 +75,19 @@ func (g Gateway) Call(ctx context.Context, actor CallIdentity, in Request) (Rout
 	if actor.OperationKey == "" || actor.TeamID == "" || actor.MemberID == "" || !in.valid() {
 		return RoutedResult{}, errors.New("invalid model gateway request")
 	}
-	models, err := g.Catalog.ModelsForTier(ctx, in.Tier, time.Now())
+	var models []Candidate
+	var err error
+	if actor.EvaluationModel != "" {
+		catalog, ok := g.Catalog.(interface {
+			ModelForEvaluation(context.Context, string, time.Time) ([]Candidate, error)
+		})
+		if !ok || len(in.Tools) != 0 || actor.RunID != "" || !strings.HasPrefix(actor.OperationKey, "eval/") {
+			return RoutedResult{}, errors.New("invalid evaluation model request")
+		}
+		models, err = catalog.ModelForEvaluation(ctx, actor.EvaluationModel, time.Now())
+	} else {
+		models, err = g.Catalog.ModelsForTier(ctx, in.Tier, time.Now())
+	}
 	if err != nil {
 		return RoutedResult{}, err
 	}

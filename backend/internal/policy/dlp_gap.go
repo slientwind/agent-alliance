@@ -11,7 +11,6 @@ import (
 	"alliance/internal/resources"
 	"alliance/internal/web"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -37,7 +36,9 @@ var (
 )
 
 // AnonymizeKnowledgeQuestion saves neither the raw question nor substitution values.
-func AnonymizeKnowledgeQuestion(ctx context.Context, db *pgxpool.Pool, vault resources.Vault, raw string) (string, error) {
+func AnonymizeKnowledgeQuestion(ctx context.Context, db interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}, vault resources.Vault, raw string) (string, error) {
 	if strings.TrimSpace(raw) == "" || web.TraceText(raw) != raw {
 		return "", nil
 	}

@@ -10,6 +10,7 @@ import (
 	"alliance/internal/channels"
 	"alliance/internal/ecosystem"
 	"alliance/internal/egress"
+	"alliance/internal/evalsuite"
 	"alliance/internal/eventtriggers"
 	"alliance/internal/glossary"
 	"alliance/internal/hotstream"
@@ -75,6 +76,7 @@ func main() {
 	bizconnectors.Server{DB: c.DB, Vault: c.Vault, Egress: egress.Policy{DB: c.DB},
 		BrowserURL: os.Getenv("BUSINESS_BROWSER_URL"), BrowserKey: os.Getenv("CONNECTOR_TOKEN")}.Routes(mux, s)
 	eventtriggers.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
+	evalsuite.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
 	billing.Server{DB: c.DB}.Routes(mux, s)
 	monitor.Server{DB: c.DB}.Routes(mux, s)
 	monitor.Alerts{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
