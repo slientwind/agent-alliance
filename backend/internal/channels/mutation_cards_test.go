@@ -2,6 +2,7 @@ package channels
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -115,5 +116,25 @@ func TestFeishuBusinessApprovalCardRequiresCurrentPrivateBinding(t *testing.T) {
 	if err := db.QueryRow(ctx, "select status,decision_channel,revision from pending_system_mutations where id=$1", mutationID).
 		Scan(&status, &via, &version); err != nil || status != "approved" || via != "feishu" || version != 2 {
 		t.Fatalf("callback updated approval multiple times: %s %s %d %v", status, via, version, err)
+	}
+	d := DingTalk{imChannel: imChannel{db: db, key: "dingtalk/" + tenant}, corp: tenant, mutationTemplate: "test-template"}
+	exec("insert into im_bindings(connection,external_user,member_id) values($1,'staff-test',$2)", d.key, member)
+	track := uuid.NewString()
+	exec(`insert into business_mutation_notices(mutation_id,channel,binding_id,message_id,sent_at)
+	 select $1,'dingtalk',id,$3,clock_timestamp() from im_bindings where connection=$2`, mutationID, d.key, track)
+	frame := dingStreamFrame{Type: "CALLBACK", Version: "1.0"}
+	frame.Headers.Topic, frame.Headers.MessageID = dingMutationTopic, "ding-fixture"
+	makePayload := func(user, action string) string {
+		content, _ := json.Marshal(map[string]any{"cardPrivateData": map[string]any{"actionIds": []string{action}}})
+		input, _ := json.Marshal(map[string]any{"corpId": tenant, "userId": user, "userIdType": 1, "outTrackId": track, "content": string(content)})
+		return string(input)
+	}
+	for _, tc := range []struct{ user, action, result string }{
+		{"unknown", "approve", "权限已变化"}, {"staff-test", "approve", "已登记审批决定"}, {"staff-test", "reject", "权限已变化"},
+	} {
+		frame.Data = makePayload(tc.user, tc.action)
+		if ack := d.handleStreamFrame(ctx, frame); ack == nil || ack.Code != 200 || !strings.Contains(ack.Data, tc.result) {
+			t.Fatalf("unexpected DingTalk card result: %+v", ack)
+		}
 	}
 }

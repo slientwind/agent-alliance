@@ -15,7 +15,7 @@ const mutationExecutionPermission = `exists(
  select from runs r join projects p on p.id=r.project_id join business_mutation_policies f on f.id=a.policy_id
  join business_connectors c on c.id=a.connector_id
  join project_members pm on pm.project_id=p.id and pm.member_id=a.approver_id
- where r.id=a.run_id and r.status='running' and general_run_inputs_usable(r.id)
+ where r.id=a.run_id and r.status='running' and general_run_inputs_usable(r.id) and event_run_write_allowed(r.id,c.id)
   and p.space_id=a.space_id and p.final_reviewer=a.approved_by and a.approver_id=a.approved_by
   and f.enabled and f.revision=a.policy_revision and c.enabled and c.revision=a.connector_revision
   and space_role(a.space_id,r.actor) in ('space_admin','member')

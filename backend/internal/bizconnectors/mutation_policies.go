@@ -116,7 +116,7 @@ func (s Server) VisibleMutations(ctx context.Context, run, actor string) ([]Muta
 	rows, err := s.DB.Query(ctx, `select w.id,w.label,w.spec->'fields' from business_mutation_policies w
 	 join business_connectors c on c.id=w.connector_id join projects p on p.space_id=w.space_id
 	 join runs r on r.project_id=p.id and r.actor=$2
-	 where r.id=$1 and w.enabled and c.enabled and space_role(w.space_id,$2) in ('member','space_admin')
+	 where r.id=$1 and w.enabled and c.enabled and space_role(w.space_id,$2) in ('member','space_admin') and event_run_write_allowed(r.id,c.id)
 	  and (c.auth_mode='service' or exists(select from business_obo_grants g where g.connector_id=c.id and
 	   g.member_id=$2 and business_obo_grant_usable(c.id,$2,g.grant_id)))
 	 order by w.label,w.id limit 12`, run, actor)

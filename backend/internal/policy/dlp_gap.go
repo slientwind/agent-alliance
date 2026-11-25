@@ -2,6 +2,7 @@ package policy
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -13,6 +14,20 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/text/unicode/norm"
 )
+
+func MaskSensitiveFields(ctx context.Context, tx pgx.Tx, vault resources.Vault, fields map[string]any) error {
+	scanner, err := loadDLPScanner(ctx, tx, vault)
+	if err != nil {
+		return err
+	}
+	for name, value := range fields {
+		text := fmt.Sprint(value)
+		if web.TraceText(text) != text || len(scanner.Scan(name, text, SensitivityInternal)) > 0 {
+			fields[name] = "[已脱敏]"
+		}
+	}
+	return nil
+}
 
 var (
 	gapNumberOrCode = regexp.MustCompile(`(?i)[a-z][a-z0-9/-]{1,18}[0-9][a-z0-9/-]*|[0-9][0-9,./:+%-]*|[￥¥$€£]|[零〇一二两三四五六七八九十百千万亿]+\s*(?:元|块|美元|人民币|美金|港币|万元|欧元|百分之)`)

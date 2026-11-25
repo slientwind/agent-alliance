@@ -177,12 +177,16 @@ func (f Feishu) commentNotice(ctx context.Context, recipient, link, id string) c
 const dingAPIOrigin = "https://api.dingtalk.com"
 
 func (d DingTalk) commentNotice(ctx context.Context, recipient, link, _ string) commentResult {
+	return d.privateActionCard(ctx, recipient, commentNoticeTitle, commentNoticeBody, "查看评论", link)
+}
+
+func (d DingTalk) privateActionCard(ctx context.Context, recipient, title, text, label, link string) commentResult {
 	var credentials struct{ AccessToken string }
 	status, err := d.commentRequest(ctx, "/v1.0/oauth2/accessToken", "", map[string]string{"appKey": d.app, "appSecret": d.secret}, &credentials)
 	if err != nil || status != 200 || credentials.AccessToken == "" {
 		return commentResult{state: "pending"}
 	}
-	card, _ := json.Marshal(map[string]string{"title": commentNoticeTitle, "text": commentNoticeBody, "singleTitle": "查看评论", "singleURL": link})
+	card, _ := json.Marshal(map[string]string{"title": title, "text": text, "singleTitle": label, "singleURL": link})
 	var receipt struct {
 		ProcessQueryKey           string
 		InvalidStaffIDList        []string `json:"invalidStaffIdList"`

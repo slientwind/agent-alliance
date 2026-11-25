@@ -113,8 +113,8 @@
 ### 模块 L：业务事件驱动唤醒网关（Business Event Webhook Triggers）
 - [x] **Webhook 接入、验签与防风暴网关**
   - [x] 新增 `event_triggers` 表与公开回调端点 `POST /api/webhooks/events/{token}`：支持各业务系统 HMAC 签名校验、CEL 表达式过滤、幂等事件键去重与冷却时间窗聚合（防止异常高峰连环刷屏）。
-- [ ] **空间 Agent 主动唤醒与飞书拍板闭环**
-  - [ ] 事件命中后通过 Temporal 自动在目标团队空间拉起 `GeneralAgentWorkflow`，联查知识库 SOP 与关联系统详情，产出预警复盘草稿及可选 L2 系统写回预览卡，主动推送飞书/钉钉交互卡片供负责人一键拍板。
+- [x] **空间 Agent 主动唤醒与飞书拍板闭环**
+  - [x] 事件命中后通过 Temporal 自动在目标团队空间拉起 `GeneralAgentWorkflow`，联查知识库 SOP 与关联系统详情，产出预警复盘草稿及可选 L2 系统写回预览卡，主动推送飞书/钉钉交互卡片供负责人一键拍板。
 
 ### 模块 M：DLP 敏感数据防泄漏脱敏护栏与黄金回归体检（DLP & Eval Suite）
 - [x] **内外分级的 DLP 敏感识别与可逆掩码网关（扩展 [`backend/internal/policy/`](../backend/internal/policy/policy.go)）**

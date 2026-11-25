@@ -18,6 +18,7 @@ import (
 
 const dingGateway = "https://api.dingtalk.com/v1.0/gateway/connections/open"
 const dingBotTopic = "/v1.0/im/bot/messages/get"
+const dingMutationTopic = "/v1.0/card/instances/callback"
 
 type dingStreamFrame struct {
 	Version string `json:"specVersion"`
@@ -47,6 +48,9 @@ func (d DingTalk) streamEndpoint(ctx context.Context) (string, error) {
 		ClientSecret  string         `json:"clientSecret"`
 		Subscriptions []subscription `json:"subscriptions"`
 	}{d.app, d.secret, []subscription{{Type: "CALLBACK", Topic: dingBotTopic}}}
+	if d.mutationTemplate != "" {
+		open.Subscriptions = append(open.Subscriptions, subscription{Type: "CALLBACK", Topic: dingMutationTopic})
+	}
 	body, err := json.Marshal(open)
 	if err != nil {
 		return "", err
@@ -193,6 +197,8 @@ func (d DingTalk) handleStreamFrame(ctx context.Context, frame dingStreamFrame) 
 		if err := d.acceptCallback(ctx, frame.Headers.MessageID, frame.Data); err != nil {
 			ack.Code, ack.Message = 500, "Channel queue unavailable"
 		}
+	case frame.Type == "CALLBACK" && frame.Version == "1.0" && frame.Headers.Topic == dingMutationTopic && d.mutationTemplate != "":
+		ack.Data = d.mutationCallback(ctx, frame.Data)
 	default:
 		ack.Code, ack.Message = 404, "Unsupported frame"
 	}

@@ -327,6 +327,8 @@ func (b *Bots) refresh(ctx context.Context) {
 	go next.slack.Serve(run)
 	go next.ding.Serve(run)
 	go ServeCommentNotices(run, b.DB, next.feishu, next.ding)
+	go serveEventNotices(run, b.DB, next.feishu, next.ding)
+	go next.ding.mutationMonitor(run)
 }
 
 func (b *Bots) CommentConnections() (string, string) {

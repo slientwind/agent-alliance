@@ -7,6 +7,7 @@ import (
 	"alliance/internal/bizconnectors"
 	"alliance/internal/ecosystem"
 	"alliance/internal/egress"
+	"alliance/internal/eventtriggers"
 	"alliance/internal/hotstream"
 	"alliance/internal/intake"
 	"alliance/internal/knowledge"
@@ -114,6 +115,7 @@ func main() {
 	stopScheduled := runScheduledJobs(ctx, catalog, c, generalQueue)
 	defer stopScheduled()
 	go general.Dispatch(ctx, c, generalQueue)
+	go (eventtriggers.Server{DB: catalog.DB, Vault: catalog.Vault}).Serve(ctx)
 	stopMemory := startBackgroundJobs(ctx, general.RefreshConversationMemory)
 	defer stopMemory()
 	go a.FollowRemote(ctx, c)

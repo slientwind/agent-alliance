@@ -1,6 +1,7 @@
 package eventtriggers
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -66,6 +67,11 @@ func TestEventHMACFiltersDeduplicatesAndCoalescesConcurrentHits(t *testing.T) {
 	if err := s.configure(w, r, identity.Member{ID: admin}); err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if _, err := db.Exec(context.Background(), "delete from event_triggers where id=$1", trigger); err != nil {
+			t.Errorf("remove gateway fixture: %v", err)
+		}
+	}()
 	var configuration struct {
 		WebhookPath string
 		Secret      string

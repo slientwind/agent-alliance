@@ -21,6 +21,7 @@ import (
 type DingTalk struct {
 	imChannel
 	corp, app, secret, robot string
+	mutationTemplate         string
 	client                   *http.Client
 	dialer                   websocket.Dialer
 }
@@ -33,7 +34,8 @@ func NewDingTalk(db *pgxpool.Pool, vault resources.Vault) DingTalk {
 	}
 	return DingTalk{imChannel: imChannel{db: db, vault: vault, key: "dingtalk/" + corp + "/" + app,
 		provider: "dingtalk", name: "钉钉", conversation: "钉钉单聊", public: strings.TrimRight(os.Getenv("PUBLIC_BASE_URL"), "/")},
-		corp: corp, app: app, secret: os.Getenv("DINGTALK_CLIENT_SECRET"), robot: robot, client: newIMHTTPClient(), dialer: *websocket.DefaultDialer}
+		corp: corp, app: app, secret: os.Getenv("DINGTALK_CLIENT_SECRET"), robot: robot, client: newIMHTTPClient(), dialer: *websocket.DefaultDialer,
+		mutationTemplate: strings.TrimSpace(os.Getenv("DINGTALK_MUTATION_TEMPLATE_ID"))}
 }
 
 var dingConfigID = regexp.MustCompile(`^[A-Za-z0-9_-]{2,128}$`)

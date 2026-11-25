@@ -185,7 +185,7 @@ func (s Server) PrepareMutation(ctx context.Context, ref MutationRef, input Muta
 	var p MutationPolicy
 	err = s.DB.QueryRow(ctx, `select r.actor,p.final_reviewer,p.id,`+mutationPolicyCols+` from runs r
 	 join projects p on p.id=r.project_id join business_mutation_policies f on f.space_id=p.space_id
-	 where (r.id,f.id)=($1,$2) and r.status='running' and general_run_inputs_usable(r.id)
+	 where (r.id,f.id)=($1,$2) and r.status='running' and general_run_inputs_usable(r.id) and event_run_write_allowed(r.id,f.connector_id)
 	  and space_role(f.space_id,r.actor) in ('member','space_admin') and f.enabled
 	  and space_role(f.space_id,p.final_reviewer) in ('member','space_admin')
 	  and exists(select from project_members m where (m.project_id,m.member_id)=(p.id,p.final_reviewer))`, ref.Run, input.Policy).
@@ -237,7 +237,7 @@ func (s Server) PrepareMutation(ctx context.Context, ref MutationRef, input Muta
 		 from runs r join projects p on p.id=r.project_id join business_mutation_policies f on f.space_id=p.space_id
 		 join business_connectors c on c.id=f.connector_id
 		 where (r.id,f.id,c.id,f.revision,c.revision,r.actor,p.final_reviewer)=($2,$5,$6,$7,$8,$9,$10)
-		  and r.status='running' and general_run_inputs_usable(r.id) and f.enabled and c.enabled
+		  and r.status='running' and general_run_inputs_usable(r.id) and f.enabled and c.enabled and event_run_write_allowed(r.id,c.id)
 		  and space_role(p.space_id,r.actor) in ('member','space_admin')
 		  and space_role(p.space_id,p.final_reviewer) in ('member','space_admin')
 		  and ($12='' or business_obo_grant_usable(c.id,r.actor,nullif($12,'')::uuid))

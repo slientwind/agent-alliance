@@ -66,7 +66,7 @@ type savedMessage struct {
 func loadRun(ctx context.Context, tx pgx.Tx, id string) (runData, error) {
 	var d runData
 	err := tx.QueryRow(ctx, `select r.project_id,r.actor,r.charge_team,r.status,p.brief,r.quality_track,g.tier,r.plan_version,r.control_revision,g.progress,
-	 general_run_inputs_usable(r.id) and general_delegate_observations_usable(r.id),
+	 general_run_inputs_usable(r.id) and general_delegate_observations_usable(r.id) and event_run_current(r.id),
 	 g.direct_external,g.enabled_capabilities,studio.spec
 	 from general_agent_runs g join runs r on r.id=g.run_id join projects current on current.id=r.project_id
 	 left join studio_releases studio on studio.id=g.studio_release

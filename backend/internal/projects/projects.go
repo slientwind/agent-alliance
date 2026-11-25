@@ -237,6 +237,10 @@ func CreateProjectDraft(ctx context.Context, tx pgx.Tx, actor, team, goal string
 	return createProjectDraft(ctx, tx, actor, team, "", goal)
 }
 
+func CreateProjectForSpace(ctx context.Context, tx pgx.Tx, actor, team, space, goal string) (string, error) {
+	return createProjectDraft(ctx, tx, actor, team, space, goal)
+}
+
 func createProjectDraft(ctx context.Context, tx pgx.Tx, actor, team, space, goal string) (string, error) {
 	if space != "" {
 		var kind string
