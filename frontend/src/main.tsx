@@ -76,6 +76,7 @@ import "./workspace.css";
 const Work = lazy(() => import("./work").then(({ Work }) => ({ default: Work })));
 const ArtifactCanvas = lazy(() => import("./artifact-canvas").then(({ ArtifactCanvas }) => ({ default: ArtifactCanvas })));
 const SearchIntegration = lazy(() => import("./search-integration").then(({ SearchIntegration }) => ({ default: SearchIntegration })));
+const MailIntegration = lazy(() => import("./mail-integration").then(({ MailIntegration }) => ({ default: MailIntegration })));
 const AutomationSchedules = lazy(() => import("./automation-schedules").then(({ AutomationSchedules }) => ({ default: AutomationSchedules })));
 
 function Overlay({
@@ -1129,6 +1130,7 @@ function App() {
       {panel === "integrations" && user.role === "admin" && (
         <Suspense fallback={<p role="status">正在加载企业服务…</p>}>
           <SearchIntegration />
+          <MailIntegration />
         </Suspense>
       )}
     </>

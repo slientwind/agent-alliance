@@ -146,9 +146,9 @@ func (a Activities) Prepare(ctx context.Context, occurrence Occurrence) (string,
 
 func recordRun(ctx context.Context, tx pgx.Tx, occurrence Occurrence, at time.Time, cursor *time.Time, project, run, state string) error {
 	_, err := tx.Exec(ctx, `insert into automation_runs(schedule_id,occurrence,schedule_revision,scheduled_at,cursor_at,project_id,run_id,
-		state,finished_at,notify_feishu)
+		state,finished_at,notify_feishu,notify_email)
 		select $1,$2,$3,$4,$5,nullif($6,'')::uuid,nullif($7,'')::uuid,$8,case when $8='running' then null else now() end,
-		a.notify_feishu from automation_schedules a where a.id=$1`,
+		a.notify_feishu,a.notify_email from automation_schedules a where a.id=$1`,
 		occurrence.Schedule.ID, occurrence.Key, occurrence.Schedule.Revision, at, cursor, project, run, state)
 	return err
 }

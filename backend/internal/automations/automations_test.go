@@ -85,6 +85,7 @@ func TestAutomationLifecycleWithDurableRunsAndCursor(t *testing.T) {
 	exec(`insert into members(id,email,display_name,password_hash,role) values($1,$2,'scheduler','','member')`, owner, owner+"@example.test")
 	exec(`insert into team_members(team_id,member_id) values($1,$2)`, team, owner)
 	exec(`insert into channel_links(tenant,open_id,member_id) values('automation-fixture',$1,$2)`, owner, owner)
+	exec(`update mail_relay set enabled=true`)
 	exec(`insert into model_providers(id,name,kind,endpoint) values($1,$1::uuid::text,'openai','https://fixture.example.test/v1')`, provider)
 	exec(`insert into model_catalog(id,provider_id,upstream_model,capabilities,context_tokens,max_output_tokens)
 		values($1,$2,'schedule-test-model',array['text','tool_call'],8192,512)`, model, provider)
@@ -98,7 +99,7 @@ func TestAutomationLifecycleWithDurableRunsAndCursor(t *testing.T) {
 		Verify: "fixture", Tenant: "automation-fixture", Public: "https://fixture.example.test"}}
 	member := identity.Member{ID: owner}
 	ref := ScheduleRef{ID: uuid.NewString(), Revision: 1}
-	body := fmt.Sprintf(`{"title":"每周报告","goal":"整理待处理工作","team":%q,"zone":"Asia/Shanghai","cron":"30 9 * * MON","notifyFeishu":true}`, team)
+	body := fmt.Sprintf(`{"title":"每周报告","goal":"整理待处理工作","team":%q,"zone":"Asia/Shanghai","cron":"30 9 * * MON","notifyFeishu":true,"notifyEmail":true}`, team)
 	for range 2 {
 		r := httptest.NewRequestWithContext(ctx, "POST", "/", strings.NewReader(body))
 		r.Header.Set("Idempotency-Key", ref.ID)
@@ -146,11 +147,11 @@ func TestAutomationLifecycleWithDurableRunsAndCursor(t *testing.T) {
 	requireCursor(at)
 	var notice, project string
 	err = db.QueryRow(ctx, `select n.id,r.project_id from automation_notifications n join automation_runs r using(schedule_id,occurrence)
-		where n.schedule_id=$1 and n.occurrence=$2 and n.state='pending'`, ref.ID, first.Key).Scan(&notice, &project)
+		where n.schedule_id=$1 and n.occurrence=$2 and n.state='pending' and n.channel='feishu'`, ref.ID, first.Key).Scan(&notice, &project)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var sends int
+	var sends, emails int
 	dispatcher := Notifications{DB: db, Feishu: func(_ context.Context, id, member, binding, target string) (string, error) {
 		sends++
 		if id != notice || member != owner || binding == "" || target != project {
@@ -160,9 +161,20 @@ func TestAutomationLifecycleWithDurableRunsAndCursor(t *testing.T) {
 			return "", errors.New("fixture confirmation rejected")
 		}
 		return "ou_msg_receipt_fixture", nil
+	}, Email: func(ctx context.Context, _, recipient, target string, allowed func(context.Context) bool) (string, error) {
+		emails++
+		if recipient != owner+"@example.test" || target != project || !allowed(ctx) {
+			t.Errorf("unexpected or revoked email destination: %s %s", recipient, target)
+		}
+		if emails == 1 {
+			return "", errors.New("fixture SMTP rejection")
+		}
+		return "<fixture-email@example.test>", nil
 	}}
-	if err := dispatcher.deliverNext(ctx); err != nil {
-		t.Fatal(err)
+	for range 2 {
+		if err := dispatcher.deliverNext(ctx); err != nil {
+			t.Fatal(err)
+		}
 	}
 	readRun := func() runView {
 		t.Helper()
@@ -185,31 +197,39 @@ func TestAutomationLifecycleWithDurableRunsAndCursor(t *testing.T) {
 		return runView{}
 	}
 	failedNotice := readRun()
-	if failedNotice.State != "completed" || len(failedNotice.Notifications) != 1 || failedNotice.Notifications[0].State != "failed" {
+	if failedNotice.State != "completed" || len(failedNotice.Notifications) != 2 ||
+		failedNotice.Notifications[0].State != "failed" || failedNotice.Notifications[1].State != "failed" {
 		t.Fatalf("runner and delivery status were coupled: %+v", failedNotice)
 	}
-	retry := func(actor identity.Member) error {
+	retry := func(actor identity.Member, notice notificationView) error {
 		r := httptest.NewRequestWithContext(ctx, "POST", "/",
-			strings.NewReader(fmt.Sprintf(`{"expected":%d}`, failedNotice.Notifications[0].Revision)))
+			strings.NewReader(fmt.Sprintf(`{"expected":%d}`, notice.Revision)))
 		r.SetPathValue("id", ref.ID)
-		r.SetPathValue("notice", notice)
+		r.SetPathValue("notice", notice.ID)
 		return s.retryNotification(httptest.NewRecorder(), r, actor)
 	}
-	if err := retry(identity.Member{ID: uuid.NewString()}); err == nil {
-		t.Fatal("unrelated user could resend the notification")
+	for _, notice := range failedNotice.Notifications {
+		if err := retry(identity.Member{ID: uuid.NewString()}, notice); err == nil {
+			t.Fatal("unrelated user could resend the notification")
+		}
+		if err := retry(member, notice); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err := retry(member); err != nil {
-		t.Fatal(err)
-	}
-	for range 2 {
+	for range 3 {
 		if err := dispatcher.deliverNext(ctx); err != nil {
 			t.Fatal(err)
 		}
 	}
 	delivered := readRun()
-	if len(delivered.Notifications) != 1 || delivered.Notifications[0].State != "accepted" ||
-		delivered.Notifications[0].Receipt != "ou_msg_receipt_fixture" || delivered.Notifications[0].AcceptedAt == nil || sends != 2 {
-		t.Fatalf("notification receipt or resend: %+v sends=%d", delivered, sends)
+	if len(delivered.Notifications) != 2 || sends != 2 || emails != 2 {
+		t.Fatalf("notification receipt or resend: %+v feishu=%d email=%d", delivered, sends, emails)
+	}
+	for _, notice := range delivered.Notifications {
+		expected := map[string]string{"email": "<fixture-email@example.test>", "feishu": "ou_msg_receipt_fixture"}
+		if notice.State != "accepted" || notice.Receipt != expected[notice.Channel] || notice.AcceptedAt == nil {
+			t.Fatalf("unexpected receipt: %+v", notice)
+		}
 	}
 	requireCursor(at)
 
@@ -239,13 +259,16 @@ func TestAutomationLifecycleWithDurableRunsAndCursor(t *testing.T) {
 		t.Fatalf("successful third run returned done=%t err=%v", done, err)
 	}
 	exec("delete from channel_links where (tenant,member_id)=('automation-fixture',$1)", owner)
-	if err := dispatcher.deliverNext(ctx); err != nil || sends != 2 {
-		t.Fatalf("notification escaped a deleted binding: %d %v", sends, err)
+	exec("update members set email=$2 where id=$1", owner, owner+"-changed@example.test")
+	for range 2 {
+		if err := dispatcher.deliverNext(ctx); err != nil || sends != 2 || emails != 2 {
+			t.Fatalf("notification escaped a revoked destination: %d %d %v", sends, emails, err)
+		}
 	}
-	var cancelled string
-	if err := db.QueryRow(ctx, `select state from automation_notifications where schedule_id=$1 and occurrence=$2`, ref.ID, third.Key).
-		Scan(&cancelled); err != nil || cancelled != "cancelled" {
-		t.Fatalf("cancelled notification not recorded: %q %v", cancelled, err)
+	var cancelled int
+	if err := db.QueryRow(ctx, `select count(*) from automation_notifications where schedule_id=$1 and occurrence=$2 and state='cancelled'`, ref.ID, third.Key).
+		Scan(&cancelled); err != nil || cancelled != 2 {
+		t.Fatalf("cancelled notifications not recorded: %d %v", cancelled, err)
 	}
 
 	var tc client.Client

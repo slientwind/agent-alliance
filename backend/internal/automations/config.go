@@ -23,6 +23,7 @@ type config struct {
 	OnceAt       *time.Time      `json:"onceAt"`
 	Expected     int             `json:"expected"`
 	NotifyFeishu *bool           `json:"notifyFeishu"`
+	NotifyEmail  *bool           `json:"notifyEmail"`
 }
 
 func (c *config) validate(now time.Time) error {

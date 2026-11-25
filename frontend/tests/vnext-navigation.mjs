@@ -36,8 +36,13 @@ try {
       provider: "tavily", endpoint: "https://api.tavily.com/search",
       revision: 1, enabled: false, hasCredential: false, health: "unchecked",
     };
+    const mailSettings = {
+      host: "", port: 465, security: "tls", sender: "", username: "",
+      revision: 1, enabled: false, hasPassword: false, health: "unchecked",
+    };
     let schedule = null;
     const notification = { id: "notice", channel: "feishu", state: "failed", revision: 3 };
+    const emailNotice = { id: "email-notice", channel: "email", state: "accepted", revision: 3, receipt: "mail-receipt" };
     await page.route("**/api/**", (route) => {
       const request = route.request();
       const url = new URL(request.url());
@@ -49,6 +54,7 @@ try {
           assert.equal(next.onceAt, "2030-12-03T01:30:00.000Z");
           assert.equal(next.cron, null);
           assert.equal(next.notifyFeishu, true);
+          assert.equal(next.notifyEmail, true);
           schedule = { ...next, id: "schedule", revision: 1, state: "active", sync: "ready", cursor: null };
           return route.fulfill({ status: 201, json: { id: schedule.id } });
         }
@@ -66,9 +72,9 @@ try {
         }
         return route.fulfill({ status: 204 });
       }
-      if (path === "/api/automations/notification-channels") return route.fulfill({ json: { feishu: true } });
+      if (path === "/api/automations/notification-channels") return route.fulfill({ json: { feishu: true, email: true } });
       if (path === "/api/automations/schedule/runs") {
-        return route.fulfill({ json: [{ occurrence: "one", state: "completed", scheduled: schedule.onceAt, notifications: [notification] }] });
+        return route.fulfill({ json: [{ occurrence: "one", state: "completed", scheduled: schedule.onceAt, notifications: [notification, emailNotice] }] });
       }
       if (path === "/api/automations/schedule/notifications/notice/retry") {
         assert.deepEqual(request.postDataJSON(), { expected: 3 });
@@ -90,6 +96,22 @@ try {
       }
       if (path === "/api/admin/integrations/search/probe") {
         searchSettings.health = "ready";
+        return route.fulfill({ json: { health: "ready" } });
+      }
+      if (path === "/api/admin/integrations/email") {
+        if (request.method() === "PUT") {
+          const { password, expected, ...next } = request.postDataJSON();
+          assert.equal(expected, 1);
+          assert.equal(password, "smtp-fixture");
+          assert.equal(next.host, "smtp.example.test");
+          assert.equal(next.enabled, true);
+          Object.assign(mailSettings, next, { revision: 2, hasPassword: true });
+          return route.fulfill({ json: { revision: 2 } });
+        }
+        return route.fulfill({ json: mailSettings });
+      }
+      if (path === "/api/admin/integrations/email/probe") {
+        mailSettings.health = "ready";
         return route.fulfill({ json: { health: "ready" } });
       }
       const artifactPath = "/api/projects/" + id + "/artifacts/" + artifact.id;
@@ -232,6 +254,7 @@ try {
     await page.getByLabel("执行时间").fill("2030-12-03T09:30");
     await page.getByLabel("时区").fill("Asia/Shanghai");
     await page.getByLabel("完成时用飞书通知我").check();
+    await page.getByLabel("完成时用邮件通知我").check();
     await page.getByRole("button", { name: "保存定时委托" }).click();
     await page.getByRole("heading", { name: "月度事项" }).waitFor();
     await page.getByText(/2030-12-03 09:30/).waitFor();
@@ -239,6 +262,7 @@ try {
     await page.getByText(/已暂停/).waitFor();
     await page.getByRole("button", { name: "运行记录" }).click();
     await page.getByText(/飞书 · 发送失败/).waitFor();
+    await page.getByText("mail-receipt").waitFor();
     await page.getByRole("button", { name: "补发通知" }).click();
     await page.getByText("receipt-1").waitFor();
     await page.getByRole("button", { name: "删除计划" }).click();
@@ -257,6 +281,15 @@ try {
     await page.getByRole("button", { name: "检测连接" }).click();
     await page.getByText("连接正常", { exact: true }).waitFor();
     assert.equal(await page.getByLabel("搜索服务密钥").inputValue(), "");
+    await page.getByLabel("SMTP 服务器").fill("smtp.example.test");
+    await page.getByLabel("发件邮箱").fill("sender@example.test");
+    await page.getByLabel("SMTP 用户名").fill("smtp-user");
+    await page.getByLabel("SMTP 密码").fill("smtp-fixture");
+    await page.getByLabel("允许发送定时任务邮件").check();
+    await page.getByRole("button", { name: "保存邮件服务" }).click();
+    await page.getByRole("button", { name: "检测邮件连接" }).click();
+    await page.getByText("邮件连接正常", { exact: true }).waitFor();
+    assert.equal(await page.getByLabel("SMTP 密码").inputValue(), "");
     await checkWidth();
     await page.goto("/#" + id);
     await page.waitForURL("**/chat/" + id);

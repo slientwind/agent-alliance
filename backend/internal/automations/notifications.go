@@ -10,6 +10,7 @@ import (
 	"alliance/internal/channels"
 	"alliance/internal/database"
 	"alliance/internal/identity"
+	"alliance/internal/mailrelay"
 	"alliance/internal/web"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -19,6 +20,7 @@ import (
 type Notifications struct {
 	DB     *pgxpool.Pool
 	Feishu func(context.Context, string, string, string, string) (string, error)
+	Email  func(context.Context, string, string, string, func(context.Context) bool) (string, error)
 }
 
 type notificationView struct {
@@ -32,8 +34,9 @@ type notificationView struct {
 
 func enqueueNotifications(ctx context.Context, tx pgx.Tx, id, occurrence string) error {
 	_, err := tx.Exec(ctx, `insert into automation_notifications(schedule_id,occurrence,channel)
-		select r.schedule_id,r.occurrence,'feishu' from automation_runs r join automation_schedules a on a.id=r.schedule_id
-		where (r.schedule_id,r.occurrence)=($1,$2) and r.state='completed' and r.notify_feishu=a.notify_feishu and a.state<>'deleted'
+		select r.schedule_id,r.occurrence,c.channel from automation_runs r join automation_schedules a on a.id=r.schedule_id
+		cross join lateral (values ('feishu',r.notify_feishu=a.notify_feishu),('email',r.notify_email=a.notify_email)) c(channel,selected)
+		where (r.schedule_id,r.occurrence)=($1,$2) and r.state='completed' and c.selected and a.state<>'deleted'
 		on conflict do nothing`, id, occurrence)
 	return err
 }
@@ -76,34 +79,50 @@ func (n Notifications) deliverNext(ctx context.Context) error {
 	}
 	short, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	outcome, receipt := "failed", ""
-	if channel == "feishu" && n.Feishu != nil {
-		var actor, binding, project string
-		err = n.DB.QueryRow(short, "select member,binding,project from automation_feishu_destination($1)", id).
-			Scan(&actor, &binding, &project)
-		if errors.Is(err, pgx.ErrNoRows) {
-			outcome = "cancelled"
-		} else if err != nil {
-			return err
-		} else {
-			var sendErr error
-			receipt, sendErr = n.Feishu(short, id, actor, binding, project)
-			outcome = deliveryState(receipt, sendErr)
-		}
-	}
+	receipt, sendErr := n.send(short, channel, id)
+	outcome := deliveryState(receipt, sendErr)
 	_, err = n.DB.Exec(ctx, `update automation_notifications set state=$3,revision=revision+1,lease_until=null,
 		receipt=case when $3='accepted' then $4 else '' end,accepted_at=case when $3='accepted' then now() end
 		where id=$1 and revision=$2 and state='sending'`, id, revision, outcome, receipt)
 	return err
 }
 
+func (n Notifications) send(ctx context.Context, channel, id string) (string, error) {
+	switch channel {
+	case "feishu":
+		if n.Feishu != nil {
+			var actor, binding, project string
+			err := n.DB.QueryRow(ctx, "select member,binding,project from automation_feishu_destination($1)", id).
+				Scan(&actor, &binding, &project)
+			if err != nil {
+				return "", err
+			}
+			return n.Feishu(ctx, id, actor, binding, project)
+		}
+	case "email":
+		if n.Email != nil {
+			var recipient, project string
+			err := n.DB.QueryRow(ctx, "select recipient,project from automation_email_destination($1)", id).
+				Scan(&recipient, &project)
+			if err != nil {
+				return "", err
+			}
+			return n.Email(ctx, id, recipient, project, func(ctx context.Context) bool {
+				return n.DB.QueryRow(ctx, `select 1 from automation_email_destination($1) where recipient=$2 and project=$3`,
+					id, recipient, project).Scan(new(int)) == nil
+			})
+		}
+	}
+	return "", mailrelay.ErrUnavailable
+}
+
 func deliveryState(receipt string, err error) string {
 	switch {
 	case receipt != "":
 		return "accepted"
-	case errors.Is(err, channels.ErrNoticeRevoked):
+	case errors.Is(err, channels.ErrNoticeRevoked), errors.Is(err, mailrelay.ErrRevoked), errors.Is(err, pgx.ErrNoRows):
 		return "cancelled"
-	case errors.Is(err, channels.ErrNoticeUnknown), err == nil:
+	case errors.Is(err, channels.ErrNoticeUnknown), errors.Is(err, mailrelay.ErrUnconfirmed), err == nil:
 		return "unknown"
 	default:
 		return "failed"
@@ -115,7 +134,30 @@ func (s Server) notificationChannels(w http.ResponseWriter, r *http.Request, act
 	if err != nil {
 		return err
 	}
-	return web.JSON(w, http.StatusOK, map[string]bool{"feishu": binding != ""})
+	var email string
+	err = s.DB.QueryRow(r.Context(), `select m.email from members m cross join mail_relay r where m.id=$1 and r.enabled`, actor.ID).Scan(&email)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	return web.JSON(w, http.StatusOK, map[string]bool{"feishu": binding != "", "email": mailrelay.ValidAddress(email)})
+}
+
+func selectedEmail(ctx context.Context, tx pgx.Tx, actor string, choice *bool, prior []byte) ([]byte, error) {
+	if choice == nil {
+		return prior, nil
+	}
+	if !*choice {
+		return nil, nil
+	}
+	var email string
+	err := tx.QueryRow(ctx, `select m.email from members m cross join mail_relay r where m.id=$1 and r.enabled`, actor).Scan(&email)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+	if !mailrelay.ValidAddress(email) {
+		return nil, web.Fail(409, "账号邮箱或企业邮件服务暂不可用")
+	}
+	return web.Hash(email), nil
 }
 
 func (s Server) selectedFeishu(ctx context.Context, tx pgx.Tx, actor string, choice *bool, prior *string) (*string, error) {
@@ -150,7 +192,8 @@ func (s Server) retryNotification(w http.ResponseWriter, r *http.Request, actor 
 	err := database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `update automation_notifications set state='pending',queued_at=now(),revision=revision+1
 			where schedule_id=$1 and id=$2 and revision=$3 and state='failed'
-			 and exists(select from automation_feishu_destination($2) where member=$4)`, id, notice, in.Expected, actor.ID)
+			 and (exists(select from automation_feishu_destination($2) where member=$4)
+			  or exists(select from automation_email_destination($2) where member=$4))`, id, notice, in.Expected, actor.ID)
 		if err != nil {
 			return err
 		}

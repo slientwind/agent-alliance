@@ -10,6 +10,7 @@ import (
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
 	"alliance/internal/llmgateway"
+	"alliance/internal/mailrelay"
 	"alliance/internal/mcphub"
 	"alliance/internal/monitor"
 	"alliance/internal/onboarding"
@@ -51,7 +52,9 @@ func main() {
 	go feishu.Notify(ctx)
 	go feishu.ImportAttachments(ctx)
 	go feishu.ReviewMonitor(ctx)
-	go (automations.Notifications{DB: c.DB, Feishu: feishu.SendAutomationNotice}).Serve(ctx)
+	mail := mailrelay.Relay{DB: c.DB, Vault: c.Vault, Egress: egress.Policy{DB: c.DB}, Public: os.Getenv("PUBLIC_BASE_URL")}
+	mail.Routes(mux, s)
+	go (automations.Notifications{DB: c.DB, Feishu: feishu.SendAutomationNotice, Email: mail.Send}).Serve(ctx)
 	slack := channels.NewSlack(c.DB, c.Vault)
 	slack.Routes(mux, s)
 	go slack.Serve(ctx)

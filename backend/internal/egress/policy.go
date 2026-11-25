@@ -164,10 +164,6 @@ func (p Policy) Client(ctx context.Context, raw string, plainHTTP bool, base *ht
 	tr := standard.Clone()
 	tr.Proxy, tr.DialTLS, tr.DialTLSContext = nil, nil, nil
 	tr.DisableKeepAlives = true
-	dial := p.Dial
-	if dial == nil {
-		dial = (&net.Dialer{Timeout: 5 * time.Second}).DialContext
-	}
 	tr.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(address)
 		if err != nil || port != strconv.Itoa(authority.Port) {
@@ -177,20 +173,47 @@ func (p Policy) Client(ctx context.Context, raw string, plainHTTP bool, base *ht
 		if err != nil || identity != authority.Host {
 			return nil, ErrBlocked
 		}
-		for _, ip := range addresses {
-			if conn, err := dial(ctx, network, net.JoinHostPort(ip.String(), port)); err == nil {
-				return conn, nil
-			}
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
-		}
-		return nil, errors.New("approved outbound host is unreachable")
+		return p.dialResolved(ctx, network, port, addresses)
 	}
 	client := *base
 	client.Transport = tr
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return &client, nil
+}
+
+// Connect opens a TCP connection to a resolved address approved by the same
+// directory as the HTTP clients. The caller negotiates and verifies TLS.
+func (p Policy) Connect(ctx context.Context, host string, port int) (net.Conn, error) {
+	name, err := hostIdentity(host)
+	if err != nil || port < 1 || port > 65535 {
+		return nil, ErrBlocked
+	}
+	authority := Authority{Host: name, Port: port}
+	trusted, err := p.entry(ctx, authority)
+	if err != nil {
+		return nil, err
+	}
+	addresses, err := p.resolve(ctx, authority, trusted)
+	if err != nil {
+		return nil, err
+	}
+	return p.dialResolved(ctx, "tcp", strconv.Itoa(port), addresses)
+}
+
+func (p Policy) dialResolved(ctx context.Context, network, port string, addresses []netip.Addr) (net.Conn, error) {
+	dial := p.Dial
+	if dial == nil {
+		dial = (&net.Dialer{Timeout: 5 * time.Second}).DialContext
+	}
+	for _, ip := range addresses {
+		if conn, err := dial(ctx, network, net.JoinHostPort(ip.String(), port)); err == nil {
+			return conn, nil
+		}
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+	}
+	return nil, errors.New("approved outbound host is unreachable")
 }
 
 var explicitNetworks = []netip.Prefix{

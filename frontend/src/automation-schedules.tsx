@@ -16,6 +16,7 @@ type Schedule = {
   sync: "ready" | "pending" | "retrying";
   cursor: string | null;
   notifyFeishu: boolean;
+  notifyEmail: boolean;
 };
 type Notification = {
   id: string;
@@ -38,12 +39,13 @@ type Draft = Pick<Schedule, "title" | "goal" | "team" | "tier" | "zone"> & {
   localTime: string;
   cron: string;
   notifyFeishu: boolean;
+  notifyEmail: boolean;
 };
 
 const blank = (team: string, tier: ConversationTier): Draft => ({
   id: "", revision: 0, title: "", goal: "", team, tier,
   zone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-  timing: "daily", localTime: "09:00", cron: "", notifyFeishu: false,
+  timing: "daily", localTime: "09:00", cron: "", notifyFeishu: false, notifyEmail: false,
 });
 
 const notificationStatus: Record<Notification["state"], string> = {
@@ -75,8 +77,8 @@ function inZone(value: string, zone: string) {
 }
 
 function edit(schedule: Schedule): Draft {
-  const { id, revision, title, goal, team, tier, zone, notifyFeishu } = schedule;
-  const draft: Draft = { id, revision, title, goal, team, tier, zone, notifyFeishu, timing: "custom", localTime: "09:00", cron: schedule.cron || "" };
+  const { id, revision, title, goal, team, tier, zone, notifyFeishu, notifyEmail } = schedule;
+  const draft: Draft = { id, revision, title, goal, team, tier, zone, notifyFeishu, notifyEmail, timing: "custom", localTime: "09:00", cron: schedule.cron || "" };
   if (schedule.onceAt) return { ...draft, timing: "once", localTime: localMinute(new Date(schedule.onceAt), zone) };
   const clock = /^(\d+) (\d+) \* \* (\*|MON-FRI)$/.exec(draft.cron);
   return clock ? { ...draft, timing: clock[3] === "*" ? "daily" : "weekdays",
@@ -102,7 +104,7 @@ export function AutomationSchedules({ teams, tiers, openProject }: {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [requestKey, setRequestKey] = useState("");
-  const [feishuLinked, setFeishuLinked] = useState(false);
+  const [channels, setChannels] = useState({ feishu: false, email: false });
   const listRequest = useRef(0);
   const synchronizing = schedules.some(schedule => schedule.sync !== "ready");
   const firstTeam = teams.find(team => team.default)?.id || teams[0]?.id || "";
@@ -114,8 +116,8 @@ export function AutomationSchedules({ teams, tiers, openProject }: {
   useEffect(() => {
     let current = true;
     void reload().catch((e: Error) => { if (current) setError(e.message); });
-    void api<{ feishu: boolean }>("automations/notification-channels").then(channels => {
-      if (current) setFeishuLinked(channels.feishu === true);
+    void api<{ feishu: boolean; email: boolean }>("automations/notification-channels").then(channels => {
+      if (current) setChannels({ feishu: channels.feishu === true, email: channels.email === true });
     }).catch(() => {});
     return () => { current = false; listRequest.current++; };
   }, [reload]);
@@ -138,7 +140,8 @@ export function AutomationSchedules({ teams, tiers, openProject }: {
       const cron = draft.timing === "once" ? null : draft.timing === "custom" ? draft.cron
         : `${Number(minute)} ${Number(hour)} * * ${draft.timing === "weekdays" ? "MON-FRI" : "*"}`;
       const input = { title: draft.title, goal: draft.goal, team: draft.team, tier: draft.tier, zone: draft.zone, cron,
-        notifyFeishu: feishuLinked || !draft.notifyFeishu ? draft.notifyFeishu : undefined,
+        notifyFeishu: channels.feishu || !draft.notifyFeishu ? draft.notifyFeishu : undefined,
+        notifyEmail: channels.email || !draft.notifyEmail ? draft.notifyEmail : undefined,
         onceAt: draft.timing === "once" ? inZone(draft.localTime, draft.zone) : null, expected: draft.revision };
       if (draft.id) await api("automations/" + draft.id, "PUT", input);
       else await api("automations", "POST", input, { "Idempotency-Key": requestKey });
@@ -236,9 +239,12 @@ export function AutomationSchedules({ teams, tiers, openProject }: {
             {["Asia/Shanghai", "Asia/Hong_Kong", "Asia/Tokyo", "UTC", "Europe/London", "America/New_York", "America/Los_Angeles"]
               .map(zone => <option key={zone} value={zone} />)}
           </datalist>
-          {(feishuLinked || draft.notifyFeishu) &&
+          {(channels.feishu || draft.notifyFeishu) &&
             <label><input type="checkbox" checked={draft.notifyFeishu}
               onChange={event => setDraft({ ...draft, notifyFeishu: event.target.checked })} /> 完成时用飞书通知我</label>}
+          {(channels.email || draft.notifyEmail) &&
+            <label><input type="checkbox" checked={draft.notifyEmail}
+              onChange={event => setDraft({ ...draft, notifyEmail: event.target.checked })} /> 完成时用邮件通知我</label>}
           <div className="row">
             <button className="primary" type="submit" disabled={busy}>保存定时委托</button>
             <button type="button" disabled={busy} onClick={() => setDraft(undefined)}>取消</button>

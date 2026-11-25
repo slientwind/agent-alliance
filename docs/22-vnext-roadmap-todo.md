@@ -65,7 +65,7 @@
   - [x] 实现 Go MCP Client（`Streamable HTTP` 与旧版 `SSE`），支持 `tools/list`、转为模型工具 Schema、Vault 凭据代注入，以及只读 L0 与写入 L2 标注。管理员可维护目录并探测服务。
   - [x] 将企业目录中已授权的只读 MCP 工具按团队注入通用 Agent，执行前校验授权及工具版本。
   - [x] 将获授权的写入 MCP 工具接入通用 Agent，并接通 L2 工具的人工审核。
-- [ ] **后台与定时委托（`/automations`）**
+- [x] **后台与定时委托（`/automations`）**
   - [x] 基于 Temporal Schedule 实现周期/定时任务管理（CRUD、启停、时区、数据游标、防重入）。
   - [x] 分别记录任务运行状态与飞书通知回执，支持单独补发通知。
   - [ ] 接入邮件通知投递回执并支持单独补发。
