@@ -37,6 +37,30 @@ try {
     await page.waitForURL("**/chat");
     await page.getByRole("textbox", { name: "消息" }).waitFor();
     await checkWidth();
+    await page.keyboard.press("Meta+k");
+    const search = page.getByRole("combobox", { name: "搜索对话、Agent 和操作" });
+    await search.waitFor();
+    assert.equal(await search.evaluate(input => input === document.activeElement), true);
+    await search.fill("报价");
+    await page.getByRole("option", { name: "采购报价核对 历史对话" }).waitFor();
+    await search.press("Enter");
+    await page.waitForURL("**/chat/" + id);
+    await page.getByText("整理报价表", { exact: true }).waitFor();
+    await page.keyboard.press("Meta+n");
+    await page.waitForURL("**/chat");
+    const rail = page.locator(".workspace-shell");
+    const collapseBefore = await rail.getAttribute("data-collapsed");
+    await page.keyboard.press("Meta+Backslash");
+    assert.notEqual(await rail.getAttribute("data-collapsed"), collapseBefore);
+    await page.keyboard.press("Meta+Backslash");
+    assert.equal(await rail.getAttribute("data-collapsed"), collapseBefore);
+    const searchButton = page.getByRole("button", { name: "搜索对话和操作" });
+    await searchButton.click();
+    await search.fill("没有对应的内容");
+    await page.getByText("没有找到匹配的结果。").waitFor();
+    await page.keyboard.press("Escape");
+    await search.waitFor({ state: "detached" });
+    assert.equal(await searchButton.evaluate(button => button === document.activeElement), true);
     if (width === 390) {
       await page.getByRole("button", { name: "展开侧栏" }).click();
       await page.getByRole("button", { name: "折叠侧栏" }).waitFor();
@@ -67,7 +91,7 @@ try {
     assert.deepEqual(errors, []);
     await page.close();
   }
-  console.log("Navigation, legacy and direct conversation links, and theme persistence passed at desktop and mobile widths.");
+  console.log("Workspace shortcuts, navigation, legacy and direct conversation links, and theme persistence passed at desktop and mobile widths.");
 } finally {
   await browser.close();
 }

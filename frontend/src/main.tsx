@@ -71,6 +71,7 @@ import { Preferences, extractionNotice, upload } from "./knowledge";
 import { MyManagementScopes } from "./management-scopes";
 import { applyDraftDelta, type DraftFragment, type SessionDrafts } from "./live-drafts";
 import { applyTheme, readTheme, type Theme } from "./theme";
+import { WorkspaceCommands } from "./workspace-commands";
 import { WorkspaceSidebar } from "./workspace-sidebar";
 import { chatPath, pageFromPath, projectFromPath, workspacePage } from "./workspace-routes";
 import "./style.css";
@@ -127,6 +128,7 @@ function App() {
   navigateRef.current = navigate;
   const current = useRef("");
   const [dialogPanel, setDialogPanel] = useState("");
+  const [commandsOpen, setCommandsOpen] = useState(false);
   const routePanel = pageFromPath(route.pathname);
   const panel = dialogPanel || routePanel;
   const [collapsed, setCollapsed] = useState(() => window.matchMedia("(max-width: 1023px)").matches);
@@ -149,7 +151,10 @@ function App() {
     setDialogPanel(next);
   }, []);
   useEffect(() => {
-    const closeDialog = () => setDialogPanel("");
+    const closeDialog = () => {
+      setDialogPanel("");
+      setCommandsOpen(false);
+    };
     window.addEventListener("popstate", closeDialog);
     return () => window.removeEventListener("popstate", closeDialog);
   }, []);
@@ -527,12 +532,14 @@ function App() {
       }
     }
   }
+  const selectRef = useRef(select);
+  selectRef.current = select;
   useEffect(() => {
     const path = route.pathname.replace(/\/+$/, "");
     const id = projectFromPath(route.pathname, route.hash);
     if (!user || (path !== "/chat" && !id) || id === current.current) return;
-    void select(id);
-  });
+    void selectRef.current(id);
+  }, [route.pathname, route.hash, user]);
   const visibleProject = p?.id;
   const [streamInterrupted, setStreamInterrupted] = useState(false);
   const [sessionDrafts, setSessionDrafts] = useState<(SessionDrafts & { project: string })>();
@@ -1069,12 +1076,18 @@ function App() {
     const order = (id: string) => { const i = recent.current.indexOf(id); return i < 0 ? Number.MAX_SAFE_INTEGER : i; };
     return order(a.id) - order(b.id);
   });
+  const openPage = (page: Parameters<typeof setPanel>[0]) => {
+    if (page === "history") setInbox("review");
+    setPanel(page);
+  };
+  const openProject = (id: string) => void select(id);
+  const newConversation = () => openProject("");
+  const toggleCollapse = () => setCollapsed(value => !value);
   return (
     <div className="workspace-shell" data-collapsed={collapsed}>
-      <WorkspaceSidebar collapsed={collapsed} toggleCollapse={() => setCollapsed(!collapsed)}
-        onNew={() => void select("")} onSearch={() => { setInbox("recent"); setPanel("history"); }}
-        openPage={(page) => { if (page === "history") setInbox("review"); setPanel(page); }}
-        openProject={(id) => void select(id)} page={routePanel} current={current.current}
+      <WorkspaceSidebar collapsed={collapsed} toggleCollapse={toggleCollapse}
+        onNew={newConversation} onSearch={() => setCommandsOpen(true)}
+        openPage={openPage} openProject={openProject} page={routePanel} current={current.current}
         projects={recentProjects} userName={user.name} admin={user.role === "admin"} theme={theme} toggleTheme={toggleTheme} />
       <div className="workspace-area">
         {visiblePage ? (
@@ -1409,6 +1422,11 @@ function App() {
           {pageContent}
         </Overlay>
       )}
+      <WorkspaceCommands open={commandsOpen} setOpen={setCommandsOpen} onNew={newConversation}
+        toggleCollapse={toggleCollapse} openPage={openPage} openProject={openProject}
+        openAgent={agent => { newConversation(); chooseAgents([agent], agent.team); }}
+        projects={recentProjects} agents={agents.filter(agent => agent.publishedReady && agent.published > 0 && teams?.some(team => team.id === agent.team))}
+        theme={theme} toggleTheme={toggleTheme} admin={user.role === "admin"} otherDialog={!!dialogPanel} />
     </div>
   );
 }

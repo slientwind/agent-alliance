@@ -151,6 +151,54 @@
   justify-content: center;
   padding-inline: 0;
 }
+.command-palette {
+  width: min(560px, 94vw);
+  padding: 0.6rem;
+  margin-block: min(15vh, 7rem) auto;
+}
+.command-search-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding-inline: 0.35rem;
+  color: var(--ink-secondary);
+}
+.command-search-row input {
+  flex: 1;
+  min-width: 0;
+}
+.command-results {
+  padding: 0;
+  margin: 0.4rem 0 0;
+  max-height: min(340px, 55dvh);
+  list-style: none;
+  overflow-y: auto;
+}
+.command-results button {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.6rem;
+  border-color: transparent;
+  text-align: start;
+}
+.command-results button[aria-selected="true"] {
+  background: var(--bg-active);
+}
+.command-results button span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.command-results button small, .command-empty {
+  color: var(--ink-secondary);
+}
+.command-empty {
+  padding-inline: 0.7rem;
+}
 @media (max-width: 600px) {
   .workspace-shell[data-collapsed="false"] { --rail-width: 56px; }
   .workspace-shell[data-collapsed="false"] .workspace-rail {

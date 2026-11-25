@@ -31,3 +31,25 @@ test("login retains both history styles and validates review anchors", async () 
   assert.equal(loginReturnPath({ pathname: `/chat/${id}`, search: "?task=javascript:bogus", hash: "" }), `/chat/${id}`);
   assert.equal(loginReturnPath({ pathname: "/inbox", search: "", hash: "" }), "/inbox");
 });
+
+test("workspace shortcuts respect composition and modifiers", async () => {
+  const { workspaceShortcut } = await server.ssrLoadModule("/src/workspace-commands.tsx");
+  assert.equal(workspaceShortcut({ key: "K", metaKey: true }), "search");
+  assert.equal(workspaceShortcut({ key: "n", ctrlKey: true }), "new");
+  assert.equal(workspaceShortcut({ key: "\\", metaKey: true }), "rail");
+  for (const modifier of ["isComposing", "repeat", "altKey", "shiftKey", "defaultPrevented"]) {
+    assert.equal(workspaceShortcut({ key: "k", metaKey: true, [modifier]: true }), undefined);
+  }
+  assert.equal(workspaceShortcut({ key: "k" }), undefined);
+  assert.equal(workspaceShortcut({ key: "a", metaKey: true }), undefined);
+});
+
+test("command search matches titles and categories and limits rendered suggestions", async () => {
+  const { matchingCommands } = await server.ssrLoadModule("/src/workspace-commands.tsx");
+  const orders = { label: "采购报价", category: "历史对话" };
+  const agent = { label: "采购", category: "Agent" };
+  assert.deepEqual(matchingCommands([orders, agent], "报价 历史"), [orders]);
+  assert.deepEqual(matchingCommands([orders, agent], "采购 Ａｇｅｎｔ"), [agent]);
+  assert.deepEqual(matchingCommands([orders, agent], "差旅"), []);
+  assert.equal(matchingCommands(Array(42).fill(orders), "").length, 20);
+});

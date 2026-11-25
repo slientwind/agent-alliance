@@ -32,15 +32,15 @@ export function WorkspaceSidebar({
     <aside className="workspace-rail" aria-label="工作区导航">
       <div className="rail-brand">
         <strong className="rail-label">Alliance</strong>
-        <button type="button" className="rail-icon" onClick={toggleCollapse} title={toggleLabel} aria-label={toggleLabel} aria-expanded={!collapsed}>
+        <button type="button" className="rail-icon" onClick={toggleCollapse} title={toggleLabel} aria-label={toggleLabel} aria-expanded={!collapsed} aria-keyshortcuts="Meta+\\ Control+\\">
           {collapsed ? <ChevronRight /> : <ChevronLeft />}
         </button>
       </div>
       <nav aria-label="工作区" className="rail-navigation">
-        <button type="button" className="rail-entry rail-new" onClick={onNew} title="新对话" aria-label="新对话">
+        <button type="button" className="rail-entry rail-new" onClick={onNew} title="新对话" aria-label="新对话" aria-keyshortcuts="Meta+N Control+N">
           <Plus /><span className="rail-label">新对话</span>
         </button>
-        <button type="button" className="rail-entry" onClick={onSearch} title="打开对话历史" aria-label="打开对话历史">
+        <button type="button" className="rail-entry" onClick={onSearch} title="搜索对话和操作" aria-label="搜索对话和操作" aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K">
           <Search /><span className="rail-label">搜索对话</span>
         </button>
         {nav.map(({ id, text, Icon }) => (
