@@ -6,6 +6,7 @@ import (
 	"alliance/internal/channels"
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
+	"alliance/internal/llmgateway"
 	"alliance/internal/monitor"
 	"alliance/internal/onboarding"
 	"alliance/internal/planner"
@@ -53,6 +54,7 @@ func main() {
 	go dingTalk.Serve(ctx)
 	billing.Server{DB: c.DB}.Routes(mux, s)
 	monitor.Server{DB: c.DB}.Routes(mux, s)
+	llmgateway.Admin{DB: c.DB, Vault: c.Vault, Provider: llmgateway.HTTPProvider{Vault: c.Vault}}.Routes(mux, s)
 	services.Server{DB: c.DB, Planner: planner.Server{Catalog: c}}.Routes(mux, s)
 	knowledge.Server{DB: c.DB, Objects: knowledge.ConfiguredObjects()}.Routes(mux, s)
 	c.Routes(mux, s)
