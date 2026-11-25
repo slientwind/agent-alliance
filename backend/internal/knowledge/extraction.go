@@ -164,12 +164,12 @@ func (s Server) retryExtraction(w http.ResponseWriter, r *http.Request, u identi
 			return web.Fail(503, "原件暂不可读取")
 		}
 		defer file.Close()
-		raw, err := io.ReadAll(io.LimitReader(file, (8<<20)+1))
+		raw, err := io.ReadAll(io.LimitReader(file, AttachmentLimit+1))
 		if err != nil {
 			return err
 		}
-		if len(raw) > 8<<20 {
-			return web.Fail(413, "原件超过 8 MiB")
+		if len(raw) > AttachmentLimit {
+			return web.Fail(413, "附件最多 25 MiB")
 		}
 		result := extractDocument(ctx, format, raw)
 		err = database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {

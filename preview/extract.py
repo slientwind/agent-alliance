@@ -13,7 +13,7 @@ import tempfile
 import zipfile
 from xml.etree import ElementTree
 
-from package_checks import check_package
+from package_checks import ATTACHMENT_LIMIT, check_package
 
 
 class Limit(Exception):
@@ -145,17 +145,17 @@ def pdf(raw, out):
 
 def main():
     resource.setrlimit(resource.RLIMIT_CPU, (18, 20))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (9 << 20, 9 << 20))
+    resource.setrlimit(resource.RLIMIT_FSIZE, (ATTACHMENT_LIMIT, ATTACHMENT_LIMIT))
     if sys.platform.startswith("linux"):
         resource.setrlimit(resource.RLIMIT_AS, (640 << 20, 640 << 20))
     # Single-threaded numerical imports in optional Office dependencies.
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
-    raw = sys.stdin.buffer.read((8 << 20) + 1)
+    raw = sys.stdin.buffer.read(ATTACHMENT_LIMIT + 1)
     fmt = sys.argv[1]
     out = Segments()
     state = "ready"
     try:
-        if len(raw) > 8 << 20:
+        if len(raw) > ATTACHMENT_LIMIT:
             raise Limit()
         if fmt != "pdf":
             check_package(raw, fmt)

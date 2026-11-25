@@ -116,12 +116,20 @@ func main() {
 }
 
 func requestBodyLimit(r *http.Request) int64 {
-	if r.Method == http.MethodPost {
-		if studioPath, ok := strings.CutPrefix(r.URL.Path, "/api/studio/"); ok {
-			if id, ok := strings.CutSuffix(studioPath, "/chat"); ok && id != "" && !strings.Contains(id, "/") {
-				return studio.MaxChatBody
-			}
-		}
+	path, isAPI := strings.CutPrefix(r.URL.Path, "/api/")
+	if !isAPI {
+		return 9 << 20
+	}
+	parts := strings.Split(path, "/")
+	if len(parts) < 3 || parts[1] == "" {
+		return 9 << 20
+	}
+	if r.Method == http.MethodPost && len(parts) == 3 && parts[0] == "studio" && parts[2] == "chat" {
+		return studio.MaxChatBody
+	}
+	if parts[0] == "projects" && parts[2] == "sources" &&
+		(r.Method == http.MethodPost && len(parts) == 3 || r.Method == http.MethodPut && len(parts) == 4 && parts[3] != "") {
+		return knowledge.AttachmentLimit + 1
 	}
 	return 9 << 20
 }

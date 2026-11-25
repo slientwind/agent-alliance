@@ -11,9 +11,9 @@ import zipfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from xml.etree import ElementTree
 
-LIMIT = 8 << 20
+from package_checks import ATTACHMENT_LIMIT, PARTS, check_package
+
 PDF_LIMIT = 16 << 20
-from package_checks import PARTS, check_package
 
 TOKEN = os.environ["CONNECTOR_TOKEN"]
 if not TOKEN:
@@ -100,7 +100,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < length <= LIMIT:
+            if not 0 < length <= ATTACHMENT_LIMIT:
                 self.send_error(413)
                 return
             source = self.rfile.read(length)

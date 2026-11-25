@@ -2,6 +2,7 @@ import io
 import zipfile
 from xml.etree import ElementTree
 
+ATTACHMENT_LIMIT = 25 << 20
 PARTS = {
     "docx": "word/document.xml",
     "pptx": "ppt/presentation.xml",

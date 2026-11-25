@@ -138,9 +138,9 @@
 ## 三、现有代码需要重点修改 / 重构的部分
 
 ### 3.1 后端代码重构清单
-- [ ] **[`backend/cmd/api/main.go`](../backend/cmd/api/main.go)**
+- [x] **[`backend/cmd/api/main.go`](../backend/cmd/api/main.go)**
   - [x] Line 69：`http.FileServer` 增加 **SPA History Fallback**（非 `/api/` 且非静态资源路径返回 `index.html`），支撑前端 `/chat/:id`、`/agents`、`/admin/monitor` 等独立路由刷新不 404。
-  - [ ] 注册新路由组：`llmgateway`、`studio`、`ecosystem`、`automations`、协同评论与隐式信号埋点；按上传接口分级放宽 `MaxBytesReader`（如标杆/附件上传支持 25 MiB）。
+  - [x] 注册新路由组：`llmgateway`、`studio`、`ecosystem`、`automations`、协同评论与隐式信号埋点；按上传接口分级放宽 `MaxBytesReader`（如标杆/附件上传支持 25 MiB）。
 - [ ] **[`backend/cmd/worker/main.go`](../backend/cmd/worker/main.go)**
   - [ ] 冻结现有 23 个历史特化 Activity（仅做旧运行兼容恢复，不再新增单场景 Activity），新流量统一走通用 `GeneralAgentWorkflow` + `AdvanceTurn` + `ExecuteTool`。
   - [ ] 挂载定时任务调度：`EcosystemScanWorkflow`、监控 5 分钟预聚合 Rollup、主动告警巡检、Temporal Schedule 后台委托。

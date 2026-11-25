@@ -61,11 +61,11 @@ func (o Objects) renderPreview(ctx context.Context, ref fileRef) ([]byte, string
 		return nil, "", err
 	}
 	defer blob.Close()
-	data, err := io.ReadAll(io.LimitReader(blob, (8<<20)+1))
+	data, err := io.ReadAll(io.LimitReader(blob, AttachmentLimit+1))
 	if err != nil {
 		return nil, "", err
 	}
-	if len(data) > 8<<20 {
+	if len(data) > AttachmentLimit {
 		return nil, "", web.Fail(413, "文件超出预览大小限制")
 	}
 	media := http.DetectContentType(data)

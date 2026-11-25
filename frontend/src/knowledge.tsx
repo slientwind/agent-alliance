@@ -223,7 +223,7 @@ export function Sources({
     <details className="card">
       <summary>项目资料 · {items.filter((s) => !s.revoked).length}</summary>
       <label>
-        添加资料（每份最多 8 MiB）
+        添加资料（每份最多 25 MiB，图片最多 3 MiB）
         <input
           type="file"
           onChange={(e) => {

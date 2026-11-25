@@ -77,6 +77,7 @@ func (s Server) list(w http.ResponseWriter, r *http.Request, u identity.Member) 
 }
 
 const SourceFileLimit = 8 << 20
+const AttachmentLimit = 25 << 20
 const RunContextLimit = 96 << 10
 
 func (s Server) upload(w http.ResponseWriter, r *http.Request, u identity.Member) error {
@@ -109,12 +110,12 @@ func (s Server) upload(w http.ResponseWriter, r *http.Request, u identity.Member
 			return web.Fail(403, "需要资料维护权限")
 		}
 	}
-	raw, err := io.ReadAll(io.LimitReader(r.Body, SourceFileLimit+1))
+	raw, err := io.ReadAll(io.LimitReader(r.Body, AttachmentLimit+1))
 	if err != nil {
 		return err
 	}
-	if len(raw) > SourceFileLimit {
-		return web.Fail(413, "文件超过 8 MiB")
+	if len(raw) > AttachmentLimit {
+		return web.Fail(413, "附件最多 25 MiB")
 	}
 	media := "application/octet-stream"
 	var extracted extraction
@@ -183,7 +184,7 @@ func (s Server) upload(w http.ResponseWriter, r *http.Request, u identity.Member
 				return err
 			}
 		}
-		if err := s.Objects.saveSourceVersion(ctx, tx, id, u.ID, name, ver, bytes.NewReader(raw), SourceFileLimit, media, extracted); err != nil {
+		if err := s.Objects.saveSourceVersion(ctx, tx, id, u.ID, name, ver, bytes.NewReader(raw), AttachmentLimit, media, extracted); err != nil {
 			return err
 		}
 		if ver > 1 {
