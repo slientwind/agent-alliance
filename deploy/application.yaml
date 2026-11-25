@@ -45,7 +45,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
   worker:
-    networks: [default, preview-internal, ecosystem-inspection]
+    networks: [default, preview-internal, ecosystem-inspection, knowledge-parse-internal]
     image: alliance-workspace:local
     command: ["worker"]
     volumes: [objects:/data/objects, brand-templates:/data/templates, brand-socket:/run/alliance-brand:ro]
@@ -65,7 +65,8 @@ services:
       OBJECT_ROOT: /data/objects
       BRAND_TEMPLATE_ROOT: /data/templates
       BRAND_RENDERER_SOCKET: /run/alliance-brand/render.sock
-    depends_on: [api, temporal, brand-renderer]
+      KB_PARSE_URL: http://knowledge-parser:18730
+    depends_on: [api, temporal, brand-renderer, knowledge-parser]
     restart: unless-stopped
 
   ecosystem-inspector:
@@ -141,12 +142,30 @@ services:
     cpus: 1.0
     pids_limit: 96
     restart: unless-stopped
+  knowledge-parser:
+    build:
+      context: ../preview
+      target: knowledge-parser
+    environment:
+      CONNECTOR_TOKEN: ${CONNECTOR_TOKEN}
+    networks: [knowledge-parse-internal]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:size=256m,mode=1777"]
+    mem_limit: 960m
+    cpus: 2.0
+    pids_limit: 40
+    init: true
+    restart: unless-stopped
 networks:
   preview-internal:
     internal: true
   sandbox-internal:
     internal: true
   ecosystem-inspection:
+    internal: true
+  knowledge-parse-internal:
     internal: true
 volumes:
   objects:

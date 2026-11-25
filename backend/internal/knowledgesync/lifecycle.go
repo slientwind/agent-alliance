@@ -20,6 +20,7 @@ type documentView struct {
 	Title          string             `json:"title"`
 	Path           []string           `json:"path"`
 	Media          string             `json:"mediaType"`
+	ParseStatus    string             `json:"parseStatus"`
 	Status         string             `json:"docStatus"`
 	EffectiveFrom  *string            `json:"effectiveFrom"`
 	EffectiveUntil *string            `json:"effectiveUntil"`
@@ -57,9 +58,10 @@ func (s Server) listDocuments(w http.ResponseWriter, r *http.Request, actor iden
 		return web.Fail(422, "知识目录筛选参数无效")
 	}
 	rows, err := s.DB.Query(r.Context(), `with recursive visible as materialized (
-	 select d.id,d.collection_id,d.title,d.directory_path,d.media_type,d.doc_status,d.effective_from,d.effective_until,d.authority_level,
+	 select d.id,d.collection_id,d.title,d.directory_path,d.media_type,k.parse_status,d.doc_status,d.effective_from,d.effective_until,d.authority_level,
 	 d.sensitivity,d.content_version,d.lifecycle_revision,d.remote_parent_id
-	 from kb_documents d where d.space_id=$1 and ($3='' or d.collection_id=nullif($3,'')::uuid)
+	 from kb_documents d join kb_document_versions k on (k.document_id,k.version)=(d.id,d.content_version)
+	 where d.space_id=$1 and ($3='' or d.collection_id=nullif($3,'')::uuid)
 	 and ($4='' or d.doc_status=$4) and ($5='' or d.id>nullif($5,'')::uuid)
 	 and ($6='' or strpos(lower(d.title),lower($6))>0) and kb_document_readable(d.id,$2)
 	 order by d.id limit 101
@@ -73,7 +75,7 @@ func (s Server) listDocuments(w http.ResponseWriter, r *http.Request, actor iden
 	), paths as (
 	 select distinct on (id) id,path from ancestors order by id,cardinality(path) desc
 	) select v.id,v.collection_id,v.title,case when cardinality(v.directory_path)>0 then v.directory_path else coalesce(p.path,'{}') end,
-	 v.media_type,v.doc_status,v.effective_from::text,v.effective_until::text,v.authority_level,v.sensitivity,v.content_version,v.lifecycle_revision
+	 v.media_type,v.parse_status,v.doc_status,v.effective_from::text,v.effective_until::text,v.authority_level,v.sensitivity,v.content_version,v.lifecycle_revision
 	 from visible v left join paths p on p.id=v.id order by v.id`, space, actor.ID, collection, status, after, query)
 	if err != nil {
 		return err

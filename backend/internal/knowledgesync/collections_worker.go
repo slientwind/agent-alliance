@@ -325,7 +325,7 @@ func (s Server) storeDirectoryEntry(ctx context.Context, tx pgx.Tx, job collecti
 	}
 	tag, err := tx.Exec(ctx, `insert into kb_document_versions(document_id,version,source_revision,object_hash,media_type)
 	 values($1,$2,$3,$4,$5) on conflict do nothing`, id, version, item.Revision, hash, item.Media)
-	if err != nil || tag.RowsAffected() == 0 || (item.Media != "text/plain" && item.Media != "text/markdown" && item.Media != "text/csv") {
+	if err != nil || tag.RowsAffected() == 0 || (item.Media != "text/plain" && item.Media != "text/markdown") {
 		return err
 	}
 	obj, err := s.Objects.Open(hash)
@@ -348,7 +348,7 @@ func (s Server) storeDirectoryEntry(ctx context.Context, tx pgx.Tx, job collecti
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, "update kb_document_versions set parsed_at=clock_timestamp() where (document_id,version)=($1,$2)", id, version)
+	_, err = tx.Exec(ctx, "update kb_document_versions set parsed_at=clock_timestamp(),parse_status='ready' where (document_id,version)=($1,$2)", id, version)
 	return err
 }
 

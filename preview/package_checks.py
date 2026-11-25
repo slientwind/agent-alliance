@@ -10,10 +10,11 @@ PARTS = {
 }
 
 
-def check_package(data, fmt):
-    with zipfile.ZipFile(io.BytesIO(data)) as package:
+def check_package(data, fmt, expanded_limit=48 << 20):
+    source = io.BytesIO(data) if isinstance(data, bytes) else data
+    with zipfile.ZipFile(source) as package:
         files = package.infolist()
-        if len(files) > 3000 or sum(f.file_size for f in files) > 48 << 20:
+        if len(files) > 3000 or sum(f.file_size for f in files) > expanded_limit:
             raise ValueError("Document exceeds conversion limits")
         if (
             PARTS[fmt] not in package.namelist()

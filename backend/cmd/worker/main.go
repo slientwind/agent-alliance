@@ -116,6 +116,7 @@ func main() {
 	sync := knowledgesync.Server{DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Egress: egress.Policy{DB: catalog.DB}}
 	go sync.Serve(ctx)
 	go sync.ServeCollections(ctx)
+	go sync.ServeLayout(ctx)
 	go knowledge.ConfiguredObjects().ServeArtifactPreviews(ctx, catalog.DB)
 	go telemetry.Serve(ctx, catalog.DB)
 	go policy.PruneDLPExchanges(ctx, catalog.DB)
