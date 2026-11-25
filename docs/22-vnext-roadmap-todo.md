@@ -111,8 +111,8 @@
   - [x] 升级 `internal/sandbox` 与沙箱 Python 渲染套件：运行期只读挂载 `/workspace/templates:ro`，基于母版 Slide Layouts / Word Styles / Excel 公式区原生填充生成合规交付件。
 
 ### 模块 L：业务事件驱动唤醒网关（Business Event Webhook Triggers）
-- [ ] **Webhook 接入、验签与防风暴网关**
-  - [ ] 新增 `event_triggers` 表与公开回调端点 `POST /api/webhooks/events/{token}`：支持各业务系统 HMAC 签名校验、CEL 表达式过滤、幂等事件键去重与冷却时间窗聚合（防止异常高峰连环刷屏）。
+- [x] **Webhook 接入、验签与防风暴网关**
+  - [x] 新增 `event_triggers` 表与公开回调端点 `POST /api/webhooks/events/{token}`：支持各业务系统 HMAC 签名校验、CEL 表达式过滤、幂等事件键去重与冷却时间窗聚合（防止异常高峰连环刷屏）。
 - [ ] **空间 Agent 主动唤醒与飞书拍板闭环**
   - [ ] 事件命中后通过 Temporal 自动在目标团队空间拉起 `GeneralAgentWorkflow`，联查知识库 SOP 与关联系统详情，产出预警复盘草稿及可选 L2 系统写回预览卡，主动推送飞书/钉钉交互卡片供负责人一键拍板。
 
