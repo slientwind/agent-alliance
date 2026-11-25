@@ -45,3 +45,18 @@ test("the chart provides an accessible name and leaves gaps for missing observat
   const empty = renderToStaticMarkup(createElement(Sparkline, { values: [], label: "任务量" }));
   assert.match(empty, /任务量暂无数据/);
 });
+
+test("the selected theme persists and still applies when storage is blocked", async () => {
+  const { applyTheme, readTheme, themeKey } = await server.ssrLoadModule("/src/theme.ts");
+  const preferences = new Map();
+  const storage = { getItem: key => preferences.get(key), setItem: (key, value) => preferences.set(key, value) };
+  const root = { dataset: {} };
+  assert.equal(readTheme(storage), "light");
+  applyTheme("dark", root, storage);
+  assert.equal(root.dataset.theme, "dark");
+  assert.equal(preferences.get(themeKey), "dark");
+  assert.equal(readTheme(storage), "dark");
+  applyTheme("light", root, { setItem() { throw Error("storage blocked"); } });
+  assert.equal(root.dataset.theme, "light");
+  assert.equal(readTheme({ getItem: () => "unknown" }), "light");
+});

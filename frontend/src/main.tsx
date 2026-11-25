@@ -35,10 +35,12 @@ import { BrowserRouter } from "react-router-dom";
 import {
   ArrowUp,
   Bot,
+  Moon,
   Plus,
   PanelLeft,
   Paperclip,
   SquarePen,
+  Sun,
   UserRound,
   X,
 } from "lucide-react";
@@ -73,6 +75,7 @@ import { Services } from "./services";
 import { Preferences, extractionNotice, upload } from "./knowledge";
 import { MyManagementScopes } from "./management-scopes";
 import { applyDraftDelta, type DraftFragment, type SessionDrafts } from "./live-drafts";
+import { applyTheme, readTheme, type Theme } from "./theme";
 import "./style.css";
 const Work = lazy(() => import("./work").then(({ Work }) => ({ default: Work })));
 
@@ -120,6 +123,12 @@ function CollaborationOptions({ children }: { children: ReactNode }) {
 type Attachment = { key: string; file: File; outline?: SlideText[] };
 
 function App() {
+  const [theme, setTheme] = useState<Theme>(readTheme);
+  function toggleTheme() {
+    const next = theme === "light" ? "dark" : "light";
+    applyTheme(next, document.documentElement);
+    setTheme(next);
+  }
   const [state, setState] = useState<{
       initialized: boolean;
       sso?: SSOMode;
@@ -857,6 +866,14 @@ function App() {
             </button>
           )}
           <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "切换浅色主题" : "切换深色主题"}
+            title={theme === "dark" ? "切换浅色主题" : "切换深色主题"}
+          >
+            {theme === "dark" ? <Sun /> : <Moon />}
+          </button>
+          <button
             aria-label="我的工作区"
             title="我的工作区"
             onClick={() => {
@@ -1414,6 +1431,7 @@ function App() {
   );
 }
 const ssoMessage = consumeSSO();
+document.documentElement.dataset.theme = readTheme();
 createRoot(document.getElementById("root")!).render(
   <BrowserRouter>
     <LoginNotice message={ssoMessage} />

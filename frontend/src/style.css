@@ -1,23 +1,73 @@
 :root {
   color-scheme: light;
-  --ink: #101112;
-  --charcoal: #272829;
-  --secondary: #595a5b;
-  --outline: #696a6b;
-  --line: #cccdce;
-  --inset: #ecedee;
-  --canvas: #f3f4f5;
-  --surface: #fff;
-  accent-color: var(--ink);
+  --bg-rail: #f6f7f4;
+  --bg-main: #ffffff;
+  --bg-canvas: #f1f4f0;
+  --bg-surface: #ffffff;
+  --bg-hover: #eaefea;
+  --bg-active: #e1ebe4;
+  --ink-primary: #1d2621;
+  --ink-secondary: #55615b;
+  --ink-muted: #7d8a83;
+  --border: #dde3de;
+  --border-strong: #c5d0c8;
+  --brand: #205a45;
+  --brand-hover: #174534;
+  --brand-soft: #e6f1eb;
+  --on-brand: #ffffff;
+  --amber: #925715;
+  --amber-soft: #fbf3e4;
+  --danger: #b83737;
+  --danger-soft: #fdecec;
+  --info: #255d87;
+  --info-soft: #eaf2f8;
+  --ink: var(--ink-primary);
+  --charcoal: var(--brand-hover);
+  --secondary: var(--ink-secondary);
+  --outline: var(--border-strong);
+  --line: var(--border);
+  --inset: var(--bg-hover);
+  --canvas: var(--bg-canvas);
+  --surface: var(--bg-surface);
+  accent-color: var(--brand);
   font-family:
-    Inter,
     -apple-system,
     BlinkMacSystemFont,
     "PingFang SC",
+    Inter,
+    "Microsoft YaHei",
+    system-ui,
     sans-serif;
   color: var(--ink);
   background: var(--canvas);
   font-synthesis: none;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-rail: #161a18;
+  --bg-main: #1c211e;
+  --bg-canvas: #141816;
+  --bg-surface: #232926;
+  --bg-hover: #2a322e;
+  --bg-active: #24392f;
+  --ink-primary: #eef2ef;
+  --ink-secondary: #9ca9a2;
+  --ink-muted: #6f7d75;
+  --border: #2d3631;
+  --border-strong: #3d4a43;
+  --brand: #3ca37c;
+  --brand-hover: #4ab88e;
+  --brand-soft: #1b352a;
+  --on-brand: #102219;
+  --amber: #eab362;
+  --amber-soft: #332818;
+  --danger: #f07474;
+  --danger-soft: #381f1f;
+  --info: #6cb0e0;
+  --info-soft: #192c3b;
+  --code-keyword: #d4a8e7;
+  --code-string: #9bd6af;
+  --code-number: #f6bc88;
 }
 * {
   box-sizing: border-box;
@@ -91,13 +141,13 @@ button:hover:not(:disabled) {
   background: var(--inset);
 }
 .primary {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--surface);
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--on-brand);
   font-weight: 700;
 }
 .primary:hover:not(:disabled) {
-  background: var(--charcoal);
+  background: var(--brand-hover);
 }
 input,
 textarea,
@@ -191,8 +241,8 @@ input:autofill {
   box-shadow: inset 0 0 0 1000px var(--inset);
 }
 .composer:focus-within {
-  border-color: var(--ink);
-  box-shadow: 0 0 0 1px var(--ink);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px var(--brand);
 }
 .composer-tools button:not(.send) {
   border-color: transparent;
@@ -333,14 +383,15 @@ dialog section + section {
 button:focus-visible,
 a:focus-visible,
 :is(input, select, textarea):focus-visible {
-  outline: 2px solid var(--charcoal);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 .composer textarea:focus-visible {
   outline: none;
 }
 [role="alert"] {
-  border-left: 3px solid var(--ink);
+  border-left: 3px solid var(--danger);
+  color: var(--danger);
   padding-left: 0.7rem;
   font-weight: 700;
 }
@@ -382,8 +433,8 @@ a:visited {
   text-underline-offset: 0.18em;
 }
 ::selection {
-  background: var(--ink);
-  color: var(--surface);
+  background: var(--brand);
+  color: var(--on-brand);
 }
 ::placeholder {
   color: var(--secondary);
@@ -400,9 +451,9 @@ dialog {
   opacity: 1;
 }
 .list[aria-current="page"], .receipt-passages .list[aria-pressed="true"] {
-  background: var(--inset);
+  background: var(--bg-active);
   font-weight: 700;
-  box-shadow: inset 3px 0 var(--ink);
+  box-shadow: inset 3px 0 var(--brand);
 }
 .receipt-passages .list {
   overflow-wrap: anywhere;
