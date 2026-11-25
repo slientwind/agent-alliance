@@ -76,6 +76,7 @@ import "./workspace.css";
 const Work = lazy(() => import("./work").then(({ Work }) => ({ default: Work })));
 const ArtifactCanvas = lazy(() => import("./artifact-canvas").then(({ ArtifactCanvas }) => ({ default: ArtifactCanvas })));
 const SearchIntegration = lazy(() => import("./search-integration").then(({ SearchIntegration }) => ({ default: SearchIntegration })));
+const AutomationSchedules = lazy(() => import("./automation-schedules").then(({ AutomationSchedules }) => ({ default: AutomationSchedules })));
 
 function Overlay({
   title,
@@ -1075,11 +1076,12 @@ function App() {
         </>
       )}
       {panel === "services" && (
-        <Services
-          admin={user.role === "admin"}
-          agents={agents}
-          projects={list}
-        />
+        <>
+          <Suspense fallback={<p role="status">正在加载定时委托…</p>}>
+            <AutomationSchedules teams={teams || []} tiers={availableTiers} openProject={id => void select(id)} />
+          </Suspense>
+          <Services admin={user.role === "admin"} agents={agents} projects={list} />
+        </>
       )}
       {((panel === "setup" && user.role === "admin") || panel === "templates") && (
         <TeamSetup

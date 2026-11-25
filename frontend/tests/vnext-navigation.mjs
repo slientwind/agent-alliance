@@ -36,10 +36,35 @@ try {
       provider: "tavily", endpoint: "https://api.tavily.com/search",
       revision: 1, enabled: false, hasCredential: false, health: "unchecked",
     };
+    let schedule = null;
     await page.route("**/api/**", (route) => {
       const request = route.request();
       const url = new URL(request.url());
       const path = url.pathname;
+      if (path === "/api/automations") {
+        if (request.method() === "POST") {
+          const next = request.postDataJSON();
+          assert.ok(request.headers()["idempotency-key"]);
+          assert.equal(next.onceAt, "2030-12-03T01:30:00.000Z");
+          assert.equal(next.cron, null);
+          schedule = { ...next, id: "schedule", revision: 1, state: "active", sync: "ready", cursor: null };
+          return route.fulfill({ status: 201, json: { id: schedule.id } });
+        }
+        return route.fulfill({ json: schedule ? [schedule] : [] });
+      }
+      if (path === "/api/automations/schedule") {
+        if (request.method() === "PATCH") {
+          const next = request.postDataJSON();
+          assert.deepEqual(next, { expected: 1, active: false });
+          schedule.state = "paused";
+          schedule.revision++;
+        } else if (request.method() === "DELETE") {
+          assert.equal(url.searchParams.get("expected"), "2");
+          schedule = null;
+        }
+        return route.fulfill({ status: 204 });
+      }
+      if (path === "/api/automations/schedule/runs") return route.fulfill({ json: [] });
       if (path === "/api/admin/integrations/search") {
         if (request.method() === "PUT") {
           const next = request.postDataJSON();
@@ -94,6 +119,7 @@ try {
       const data = {
         "/api/instance": { initialized: true, name: "示例企业" },
         "/api/me": { id: "member", name: "林予", role: "admin", enabled: true },
+        "/api/general-tiers": ["default"],
         "/api/projects": [project],
         ["/api/projects/" + id]: project,
         "/api/teams": [{ id: "team", name: "团队", default: true, joined: true }],
@@ -187,6 +213,24 @@ try {
     await page.getByRole("button", { name: "待办与审核", exact: true }).click();
     await page.waitForURL("**/inbox");
     await page.getByRole("heading", { name: "待办与审核" }).waitFor();
+    await page.getByRole("button", { name: "后台与定时", exact: true }).click();
+    await page.waitForURL("**/automations");
+    await page.getByRole("button", { name: "新建定时委托" }).click();
+    await page.getByLabel("任务名称").fill("月度事项");
+    await page.getByLabel("工作目标").fill("整理待处理工作");
+    await page.getByRole("combobox", { name: /^执行频率/ }).selectOption("once");
+    await page.getByLabel("执行时间").fill("2030-12-03T09:30");
+    await page.getByLabel("时区").fill("Asia/Shanghai");
+    await page.getByRole("button", { name: "保存定时委托" }).click();
+    await page.getByRole("heading", { name: "月度事项" }).waitFor();
+    await page.getByText(/2030-12-03 09:30/).waitFor();
+    await page.getByRole("button", { name: "暂停", exact: true }).click();
+    await page.getByText(/已暂停/).waitFor();
+    await page.getByRole("button", { name: "运行记录" }).click();
+    await page.getByText("暂无运行记录").waitFor();
+    await page.getByRole("button", { name: "删除计划" }).click();
+    await page.getByRole("heading", { name: "月度事项" }).waitFor({ state: "hidden" });
+    await checkWidth();
     await page.getByRole("button", { name: "企业管理", exact: true }).click();
     await page.waitForURL("**/admin");
     assert.equal(await page.locator("dialog[open]").count(), 0);

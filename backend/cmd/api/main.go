@@ -3,6 +3,7 @@ package main
 import (
 	"alliance/internal/agentloop"
 	"alliance/internal/app"
+	"alliance/internal/automations"
 	"alliance/internal/billing"
 	"alliance/internal/channels"
 	"alliance/internal/egress"
@@ -74,6 +75,7 @@ func main() {
 	}
 	projects.Server{DB: c.DB, Vault: c.Vault, SessionUpdates: projectUpdates}.Routes(mux, s)
 	agentloop.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
+	automations.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
 	mux.Handle("GET /api/health", web.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		if err := c.DB.Ping(r.Context()); err != nil {
 			return web.Fail(503, "数据库不可用")

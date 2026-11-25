@@ -114,7 +114,7 @@ func TestConversationSendsOnlyTheConsentedSearchQuery(t *testing.T) {
 			if err := db.QueryRow(ctx, "select revision from projects where id=$1", project).Scan(&revision); err != nil {
 				t.Fatal(err)
 			}
-			input := startInput{Goal: internalGoal, Expected: revision}
+			input := StartInput{Goal: internalGoal, Expected: revision}
 			if tt.optedIn {
 				input.SearchQuery = publicQuery
 			}

@@ -3,6 +3,7 @@ package main
 import (
 	"alliance/internal/agentloop"
 	"alliance/internal/app"
+	"alliance/internal/automations"
 	"alliance/internal/egress"
 	"alliance/internal/knowledge"
 	"alliance/internal/llmgateway"
@@ -76,11 +77,16 @@ func main() {
 	generalWorker.RegisterWorkflowWithOptions(agentloop.GeneralAgentWorkflow, workflow.RegisterOptions{Name: agentloop.WorkflowName})
 	generalWorker.RegisterActivityWithOptions(general.AdvanceTurn, activity.RegisterOptions{Name: agentloop.AdvanceTurnActivity})
 	generalWorker.RegisterActivityWithOptions(general.ExecuteTool, activity.RegisterOptions{Name: agentloop.ExecuteToolActivity})
+	scheduled := automations.Activities{DB: catalog.DB, Vault: catalog.Vault}
+	generalWorker.RegisterWorkflowWithOptions(automations.AutomationWorkflow, workflow.RegisterOptions{Name: automations.WorkflowName})
+	generalWorker.RegisterActivityWithOptions(scheduled.Prepare, activity.RegisterOptions{Name: automations.PrepareActivity})
+	generalWorker.RegisterActivityWithOptions(scheduled.Progress, activity.RegisterOptions{Name: automations.ProgressActivity})
 	if err := generalWorker.Start(); err != nil {
 		log.Fatal(err)
 	}
 	defer generalWorker.Stop()
 	go general.Dispatch(ctx, c, generalQueue)
+	go automations.Serve(ctx, catalog.DB, c.ScheduleClient(), generalQueue)
 	go a.FollowRemote(ctx, c)
 	go a.CleanRetention(ctx)
 	go knowledge.MaintainPassages(ctx, catalog.DB)
