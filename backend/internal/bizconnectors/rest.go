@@ -77,15 +77,16 @@ func readOperation(c Connector, name string) (Operation, error) {
 	return Operation{}, ErrBadQuery
 }
 
-func (s Server) businessHTTP(ctx context.Context, request *http.Request) (*http.Response, error) {
-	var client *http.Client
-	var err error
+func (s Server) businessClient(ctx context.Context, endpoint string) (*http.Client, error) {
 	if s.HTTP != nil {
-		client, err = s.HTTP(ctx, request.URL.String())
-	} else {
-		base := &http.Client{Timeout: 8 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-		client, err = s.Egress.Client(ctx, request.URL.String(), false, base)
+		return s.HTTP(ctx, endpoint)
 	}
+	base := &http.Client{Timeout: 8 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	return s.Egress.Client(ctx, endpoint, false, base)
+}
+
+func (s Server) businessHTTP(ctx context.Context, request *http.Request) (*http.Response, error) {
+	client, err := s.businessClient(ctx, request.URL.String())
 	if err != nil || client == nil {
 		return nil, ErrUnavailable
 	}

@@ -117,8 +117,12 @@ func validateView(v *SemanticView, c Connector) bool {
 		if err != nil || v.Relation != "" {
 			return false
 		}
-		for _, field := range op.Parameters {
-			if field.Required {
+		employeeParam := c.Settings.Resources["obo_employee_param"]
+		deptParam := c.Settings.Resources["obo_department_param"]
+		for name, field := range op.Parameters {
+			reserved := c.AuthMode == "obo" && c.Driver == "openapi_rest" &&
+				(name == employeeParam || name == deptParam) && field.Type == "string" && field.Location == "query"
+			if field.Required && !reserved {
 				return false
 			}
 		}
@@ -153,6 +157,9 @@ func validateView(v *SemanticView, c Connector) bool {
 			(c.Driver == "readonly_sql" && !identifierPattern.MatchString(source)) {
 			return false
 		}
+	}
+	if c.AuthMode == "obo" && (len(v.RLS) != 2 || v.RLS["employee_no"] == v.RLS["dept_id"]) {
+		return false
 	}
 	if v.Metrics == nil {
 		v.Metrics = map[string]Metric{}
@@ -191,8 +198,8 @@ func (s Server) configureView(w http.ResponseWriter, r *http.Request, actor iden
 			return err
 		}
 		var connector Connector
-		if err := tx.QueryRow(ctx, `select driver,settings,operations from business_connectors
-		  where (id,space_id)=($1,$2) for share`, input.Connector, space).Scan(&connector.Driver, &connector.Settings, &connector.Operations); err != nil {
+		if err := tx.QueryRow(ctx, `select driver,auth_mode,settings,operations from business_connectors
+		  where (id,space_id)=($1,$2) for share`, input.Connector, space).Scan(&connector.Driver, &connector.AuthMode, &connector.Settings, &connector.Operations); err != nil {
 			return err
 		}
 		if !validateView(&input.SemanticView, connector) {

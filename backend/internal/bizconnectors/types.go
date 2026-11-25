@@ -40,6 +40,7 @@ type Settings struct {
 	Resources        map[string]string `json:"resources,omitempty"`
 	BrowserPath      string            `json:"browserPath,omitempty"`
 	TableSelector    string            `json:"tableSelector,omitempty"`
+	OBO              *OBOSettings      `json:"obo,omitempty"`
 }
 
 type Credentials struct {

@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"go/ast"
 	"math/big"
+	"net/http"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"alliance/internal/identity"
+	"alliance/internal/web"
 	"github.com/jackc/pgx/v5"
 	"github.com/xwb1989/sqlparser"
 )
@@ -42,6 +45,7 @@ type QueryProvenance struct {
 	ViewRevision   int               `json:"-"`
 	SourceRevision int               `json:"-"`
 	ActorOnly      bool              `json:"-"`
+	OBOGrant       string            `json:"-"`
 }
 
 type ViewResult struct {
@@ -103,6 +107,7 @@ type viewPlan struct {
 	aggregates []metricAggregate
 	filters    map[string]any
 	limit      int
+	identity   rowIdentity
 }
 
 func makeViewPlan(v SemanticView, q ViewQuery, provenance *QueryProvenance) (viewPlan, error) {
@@ -179,10 +184,6 @@ func (s Server) QueryView(ctx context.Context, space, actor string, query ViewQu
 	if err != nil {
 		return result, err
 	}
-	// Employee-bound views must use verified identity and predicates before fetching data.
-	if c.AuthMode != "service" || len(view.RLS) != 0 {
-		return result, ErrUnavailable
-	}
 	provenance := QueryProvenance{View: view.ID, ViewName: view.Name, Source: c.Name, Provider: c.Provider,
 		From: query.From, Until: query.Until, Access: "按当前空间成员权限", Filters: []string{}, Formulas: map[string]string{},
 		Sensitivity: view.Sensitivity, ViewRevision: view.Revision, SourceRevision: c.Revision}
@@ -190,8 +191,29 @@ func (s Server) QueryView(ctx context.Context, space, actor string, query ViewQu
 	if err != nil {
 		return result, err
 	}
+	if c.AuthMode == "obo" {
+		if len(view.RLS) != 2 || view.RLS["employee_no"] == "" || view.RLS["dept_id"] == "" || view.RLS["employee_no"] == view.RLS["dept_id"] {
+			return result, ErrUnavailable
+		}
+		for key := range query.Filters {
+			source := view.Dimensions[key].Source
+			if source == view.RLS["employee_no"] || source == view.RLS["dept_id"] {
+				return result, ErrBadQuery
+			}
+		}
+		plan.identity, secret, err = s.loadOBO(ctx, c, actor, secret)
+		if err != nil {
+			return result, err
+		}
+		provenance.Access = "仅限获授权的本人及当前部门记录"
+		provenance.ActorOnly, provenance.OBOGrant = true, plan.identity.Grant
+	} else if len(view.RLS) != 0 {
+		return result, ErrUnavailable
+	}
 	var readable bool
-	err = s.DB.QueryRow(ctx, "select business_view_readable($1,$2,$3,$4,$5)", view.ID, space, actor, view.Revision, c.Revision).Scan(&readable)
+	const accessCheck = `select business_view_readable($1,$2,$3,$4,$5)
+	 and ($6='' or business_obo_grant_usable($7,$3,nullif($6,'')::uuid))`
+	err = s.DB.QueryRow(ctx, accessCheck, view.ID, space, actor, view.Revision, c.Revision, plan.identity.Grant, c.ID).Scan(&readable)
 	if err != nil || !readable {
 		return result, ErrUnavailable
 	}
@@ -203,7 +225,7 @@ func (s Server) QueryView(ctx context.Context, space, actor string, query ViewQu
 	if err != nil {
 		return ViewResult{}, err
 	}
-	err = s.DB.QueryRow(ctx, "select business_view_readable($1,$2,$3,$4,$5)", view.ID, space, actor, view.Revision, c.Revision).Scan(&readable)
+	err = s.DB.QueryRow(ctx, accessCheck, view.ID, space, actor, view.Revision, c.Revision, plan.identity.Grant, c.ID).Scan(&readable)
 	if err != nil || !readable {
 		return ViewResult{}, ErrUnavailable
 	}
@@ -251,6 +273,13 @@ func (s Server) queryWarehouseView(ctx context.Context, c Connector, secret Cred
 		field := quotedField(view.Dimensions[view.Time].Source)
 		predicates = append(predicates, field+" >= "+viewLiteral(query.From), field+" < "+viewLiteral(query.Until))
 	}
+	if plan.identity.Grant != "" {
+		if !identifierPattern.MatchString(view.RLS["employee_no"]) || !identifierPattern.MatchString(view.RLS["dept_id"]) {
+			return nil, ErrBadQuery
+		}
+		predicates = append(predicates, quotedField(view.RLS["employee_no"])+" = "+viewLiteral(plan.identity.Employee),
+			quotedField(view.RLS["dept_id"])+" = "+viewLiteral(plan.identity.Department))
+	}
 	statement := "SELECT " + strings.Join(selection, ",") + " FROM " + quotedRelation(view.Relation)
 	if len(predicates) != 0 {
 		statement += " WHERE " + strings.Join(predicates, " AND ")
@@ -290,6 +319,16 @@ func (s Server) queryEndpointView(ctx context.Context, c Connector, secret Crede
 		return nil, err
 	}
 	args := make(map[string]any)
+	if plan.identity.Grant != "" && c.Driver == "openapi_rest" {
+		employee, department := c.Settings.Resources["obo_employee_param"], c.Settings.Resources["obo_department_param"]
+		if employee != "" || department != "" {
+			if employee == department || op.Parameters[employee].Location != "query" || op.Parameters[department].Location != "query" ||
+				op.Parameters[employee].Type != "string" || op.Parameters[department].Type != "string" {
+				return nil, ErrBadQuery
+			}
+			args[employee], args[department] = plan.identity.Employee, plan.identity.Department
+		}
+	}
 	if query.From != "" && c.Category == "commerce" {
 		from, _ := time.ParseInLocation(time.DateOnly, query.From, vendorChinaZone)
 		until, _ := time.ParseInLocation(time.DateOnly, query.Until, vendorChinaZone)
@@ -305,7 +344,7 @@ func (s Server) queryEndpointView(ctx context.Context, c Connector, secret Crede
 	if err != nil {
 		return nil, err
 	}
-	filtered := len(plan.filters) != 0 || query.From != "" || len(plan.formulas) != 0
+	filtered := len(plan.filters) != 0 || query.From != "" || len(plan.formulas) != 0 || plan.identity.Grant != ""
 	if (filtered || len(raw.Rows) <= plan.limit) && (len(raw.Rows) >= pageSize || raw.Truncated) {
 		return nil, ErrUnavailable
 	}
@@ -317,6 +356,10 @@ func (s Server) queryEndpointView(ctx context.Context, c Connector, secret Crede
 	order := []string{}
 	out := []map[string]any{}
 	for _, row := range raw.Rows {
+		if plan.identity.Grant != "" && (!matchesIdentityField(row[view.RLS["employee_no"]], plan.identity.Employee) ||
+			!matchesIdentityField(row[view.RLS["dept_id"]], plan.identity.Department)) {
+			continue
+		}
 		match := true
 		for key, value := range plan.filters {
 			field := view.Dimensions[key]
@@ -381,4 +424,33 @@ func (s Server) queryEndpointView(ctx context.Context, c Connector, secret Crede
 		out = append(out, item.values)
 	}
 	return out, nil
+}
+
+func matchesIdentityField(value any, expected string) bool {
+	switch field := value.(type) {
+	case string:
+		return field == expected
+	case json.Number:
+		return field.String() == expected
+	default:
+		return false
+	}
+}
+
+func (s Server) testView(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
+	space, view := r.PathValue("space"), r.PathValue("view")
+	if !validID(space) || !validID(view) {
+		return web.Fail(404, "找不到业务数据视图")
+	}
+	var query ViewQuery
+	if err := web.ReadLimited(w, r, &query, 8<<10); err != nil {
+		return err
+	}
+	query.View, query.Limit = view, 5
+	result, err := s.QueryView(r.Context(), space, actor.ID, query)
+	if err != nil {
+		return web.Fail(422, "当前员工授权或查询条件未通过验证")
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	return web.JSON(w, http.StatusOK, map[string]any{"rowCount": len(result.Rows), "provenance": result.Provenance})
 }

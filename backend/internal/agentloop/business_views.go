@@ -108,10 +108,11 @@ func (a Activities) executeBusinessTool(ctx context.Context, ref ToolRef, task t
 }
 
 func (a Activities) recordBusinessProvenance(ctx context.Context, tx pgx.Tx, ref ToolRef, data runData, provenance bizconnectors.QueryProvenance) error {
-	tag, err := tx.Exec(ctx, `insert into business_query_provenance(run_id,turn,position,view_id,view_revision,connector_revision,restricted_to_actor,provenance)
-	 select r.id,$2,$3,$4,$5,$6,$8,$9 from runs r join projects p on p.id=r.project_id where r.id=$1
-	 and r.actor=$7 and business_view_readable($4,p.space_id,$7,$5,$6)
-	 on conflict do nothing`, ref.RunID, ref.Turn, ref.Position, provenance.View, provenance.ViewRevision, provenance.SourceRevision, data.actor, provenance.ActorOnly, provenance)
+	tag, err := tx.Exec(ctx, `insert into business_query_provenance(run_id,turn,position,view_id,view_revision,connector_revision,restricted_to_actor,provenance,obo_grant_id)
+	 select r.id,$2,$3,v.id,$5,$6,$8,$9,nullif($10,'')::uuid from runs r join projects p on p.id=r.project_id join semantic_data_views v on v.id=$4
+	 where r.id=$1 and r.actor=$7 and business_view_readable(v.id,p.space_id,$7,$5,$6)
+	 and ($10='' or business_obo_grant_usable(v.connector_id,$7,nullif($10,'')::uuid))
+	 on conflict do nothing`, ref.RunID, ref.Turn, ref.Position, provenance.View, provenance.ViewRevision, provenance.SourceRevision, data.actor, provenance.ActorOnly, provenance, provenance.OBOGrant)
 	if err == nil && tag.RowsAffected() != 1 {
 		return policy.ErrDenied
 	}

@@ -34,6 +34,12 @@ func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("POST /api/spaces/{space}/business/openapi/import", auth.Protect(false, s.importOpenAPI))
 	mux.Handle("GET /api/spaces/{space}/business/views", auth.Protect(false, s.listViews))
 	mux.Handle("PUT /api/spaces/{space}/business/views/{view}", auth.Protect(false, s.configureView))
+	mux.Handle("PUT "+root+"/{connector}/obo-identities/{member}", auth.Protect(false, s.bindOBOIdentity))
+	mux.Handle("GET "+root+"/{connector}/obo-identities/{member}", auth.Protect(false, s.getOBOIdentity))
+	mux.Handle("POST "+root+"/{connector}/obo", auth.Protect(false, s.authorizeOBO))
+	mux.Handle("GET "+root+"/{connector}/obo", auth.Protect(false, s.oboStatus))
+	mux.Handle("DELETE "+root+"/{connector}/obo", auth.Protect(false, s.revokeOBO))
+	mux.Handle("POST /api/spaces/{space}/business/views/{view}/test", auth.Protect(false, s.testView))
 }
 
 const safeColumns = `c.id,c.space_id,c.category,c.driver,c.provider,c.name,
@@ -92,6 +98,13 @@ func validateConnector(input *Connector) bool {
 		return false
 	}
 	input.Endpoint = strings.TrimSuffix(endpoint.String(), "/")
+	if input.AuthMode == "obo" {
+		if !validOBOSettings(input.Settings.OBO) {
+			return false
+		}
+	} else if input.Settings.OBO != nil {
+		return false
+	}
 	for _, value := range input.Settings.Resources {
 		if !validText(value, 1500) {
 			return false
