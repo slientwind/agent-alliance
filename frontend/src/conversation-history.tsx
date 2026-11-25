@@ -56,6 +56,7 @@ export function ConversationHistory({
   inbox,
   setInbox,
   open,
+  space,
 }: {
   current: string;
   recent: string[];
@@ -64,6 +65,7 @@ export function ConversationHistory({
   inbox: HistoryView;
   setInbox: (v: HistoryView) => void;
   open: (id: string, task?: ReviewTask) => void;
+  space?: string;
 }) {
   const [rows, setRows] = useState<Summary[]>([]);
   const [tasks, setTasks] = useState<ReviewTask[]>([]);
@@ -111,7 +113,7 @@ export function ConversationHistory({
     recent.includes(id) ? recent.indexOf(id) : recent.length;
   const stage = (x: Summary) => x.isPartial ? "已部分交付" : statusLabel[x.stage] || x.stage;
   const conversations = rows
-    .filter((x) => matches(x.title, stage(x)))
+    .filter((x) => (!space || x.spaceId === space) && matches(x.title, stage(x)))
     .sort((a, b) => rank(a.id) - rank(b.id));
   const pending = tasks.filter((x) =>
     matches(

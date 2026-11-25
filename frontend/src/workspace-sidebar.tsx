@@ -1,11 +1,13 @@
-import { Bot, ChevronLeft, ChevronRight, Inbox, ListTodo, Moon, Plus, Search, Shield, Sun, UserRound } from "lucide-react";
+import { Bot, ChevronLeft, ChevronRight, Inbox, Layers, ListTodo, Moon, Plus, Search, Shield, Sun, UserRound } from "lucide-react";
 import type { Summary } from "./client";
+import type { SpaceOption } from "./eval-preflight";
 import type { Theme } from "./theme";
 import type { WorkspacePage } from "./workspace-routes";
 
 export function WorkspaceSidebar({
   collapsed, toggleCollapse, onNew, onSearch, openPage, openProject,
   page, current, projects, userName, admin, theme, toggleTheme,
+  spaces = [], space = "", selectSpace, spaceBusy,
 }: {
   collapsed: boolean;
   toggleCollapse: () => void;
@@ -20,6 +22,10 @@ export function WorkspaceSidebar({
   admin: boolean;
   theme: Theme;
   toggleTheme: () => void;
+  spaces?: SpaceOption[];
+  space?: string;
+  selectSpace?: (id: string) => void;
+  spaceBusy?: boolean;
 }) {
   const nav = [
     { id: "library", text: "Agent 广场", Icon: Bot },
@@ -36,6 +42,17 @@ export function WorkspaceSidebar({
           {collapsed ? <ChevronRight /> : <ChevronLeft />}
         </button>
       </div>
+      {spaces.length > 0 && (collapsed ? (
+        <button type="button" className="rail-entry" aria-label="选择工作空间" onClick={toggleCollapse} title="选择工作空间"><Layers /></button>
+      ) : (
+        <div className="rail-space">
+          <label><Layers size={16} aria-hidden="true" /><select aria-label="当前空间" value={space} disabled={spaceBusy}
+            onChange={event => selectSpace?.(event.target.value)}>
+            {spaces.map(item => <option key={item.id} value={item.id}>{item.kind === "personal" ? "个人空间" : item.name}</option>)}
+          </select></label>
+          <small>已继承全企公共底座</small>
+        </div>
+      ))}
       <nav aria-label="工作区" className="rail-navigation">
         <button type="button" className="rail-entry rail-new" onClick={onNew} title="新对话" aria-label="新对话" aria-keyshortcuts="Meta+N Control+N">
           <Plus /><span className="rail-label">新对话</span>

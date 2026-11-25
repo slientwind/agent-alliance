@@ -2,7 +2,7 @@ import { ArrowUp, AtSign, Paperclip, Plus, X } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 
 export function Composer({
-  children, tools, draft, setDraft, files, addFiles, removeFile, start, hidden, busy, sendDisabled, send, chooseAgent,
+  children, tools, draft, setDraft, files, addFiles, removeFile, start, hidden, busy, sendDisabled, send, chooseAgent, scopeHint,
 }: {
   children?: ReactNode;
   tools?: ReactNode;
@@ -17,11 +17,13 @@ export function Composer({
   sendDisabled: boolean;
   send: () => void;
   chooseAgent?: () => void;
+  scopeHint?: string;
 }) {
   const attachments = useRef<HTMLInputElement>(null);
   return (
     <form hidden={hidden} className="composer" onSubmit={event => { event.preventDefault(); if (!sendDisabled) send(); }}>
-      <textarea disabled={busy || hidden} aria-label="消息" rows={start ? 3 : 2}
+      {scopeHint && <p className="compose-scope" id="compose-scope-hint">{scopeHint}</p>}
+      <textarea disabled={busy || hidden} aria-label="消息" aria-describedby={scopeHint ? "compose-scope-hint" : undefined} rows={start ? 3 : 2}
         placeholder={start ? "描述你想完成的工作…" : "继续对话…"} value={draft}
         onChange={event => setDraft(event.target.value)}
         onKeyDown={event => {

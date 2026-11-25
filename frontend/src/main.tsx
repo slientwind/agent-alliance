@@ -67,6 +67,7 @@ import type { PublishedAssistant } from "./studio-client";
 import { ConversationModels, conversationTier, isConversationTier, usesGeneralConversation, type ConversationTier } from "./conversation-models";
 import { TaskCollaboration } from "./task-collaboration";
 import { WorkspaceSidebar } from "./workspace-sidebar";
+import type { SpaceOption } from "./eval-preflight";
 import { AgentSpace } from "./agent-space";
 import { AdminNavigation } from "./admin-navigation";
 import { PresenceStack, type OnlineMember } from "./presence-stack";
@@ -213,6 +214,45 @@ function App() {
     setPanel("workflowTemplates");
   }
   const { teams, error: teamError } = useJoinedTeams(user?.id, panel);
+  const [spaces, setSpaces] = useState<SpaceOption[]>([]);
+  const [space, setSpace] = useState("");
+  const scope = spaces.find(item => item.id === (p?.spaceId || space));
+  const selectableSpaces = spaces.filter(item => item.kind !== "commons" && item.role !== "guest");
+  const draftKey = space ? "space:" + space : "";
+  useEffect(() => {
+    if (!user) {
+      setSpaces([]);
+      setSpace("");
+      return;
+    }
+    let active = true;
+    const loadSpaces = async () => {
+      try {
+        const options = await api<SpaceOption[]>("spaces");
+        if (!active || !Array.isArray(options)) return;
+        setSpaces(options);
+        let stored = "";
+        try { stored = sessionStorage.getItem("alliance-space/" + user.id) || ""; } catch { /* Storage can be unavailable. */ }
+        setSpace(selected => {
+          const allowed = options.filter(item => item.kind !== "commons" && item.role !== "guest");
+          return allowed.find(item => item.id === (selected || stored))?.id || allowed[0]?.id || "";
+        });
+      } catch {
+        // A read failure leaves the current selection in place.
+      }
+    };
+    void loadSpaces();
+    window.addEventListener("focus", loadSpaces);
+    return () => { active = false; window.removeEventListener("focus", loadSpaces); };
+  }, [user?.id]);
+  useEffect(() => {
+    if (user && space) {
+      try { sessionStorage.setItem("alliance-space/" + user.id, space); } catch { /* Storage can be unavailable. */ }
+    }
+  }, [space, user?.id]);
+  useEffect(() => {
+    if (p?.spaceId && spaces.some(item => item.id === p.spaceId && item.role !== "guest" && item.kind !== "commons")) setSpace(p.spaceId);
+  }, [p?.spaceId, spaces]);
   const {
     id: conversationTeam,
     choose: setChosenTeam,
@@ -221,7 +261,7 @@ function App() {
   const [agentDestination, setAgentDestination] = useState("");
   const hasPicks = pickedAgents.length > 0;
   const studioTeam = studioAssistant && studioAssistant.scope !== "enterprise" ? studioAssistant.team : "";
-  const draftTeam = hasPicks ? agentDestination : studioTeam || conversationTeam;
+  const draftTeam = scope?.kind === "team" && scope.teamId ? scope.teamId : hasPicks ? agentDestination : studioTeam || conversationTeam;
   const canCreate = !!teams?.some(t => t.id === draftTeam);
   const selectedDeck =
     pickedAgents.length === 1 && pickedAgents[0].publishedOutline
@@ -236,7 +276,7 @@ function App() {
     teams?.some((t) => t.id === agent.team),
   );
   const teamSelect = useRef<HTMLSelectElement>(null);
-  const multipleDestinations = !p && !hasPicks && (teams?.length ?? 0) > 1;
+  const multipleDestinations = scope?.kind !== "team" && !p && !hasPicks && (teams?.length ?? 0) > 1;
   const [deliveryReceipt, setDeliveryReceipt] = useState("");
   const sessionMember = useRef("");
   const resetSession = useCallback(() => {
@@ -309,8 +349,9 @@ function App() {
   );
   const outlineFile = files.find((f) => f.outline);
   function keepFiles(project: string, items: Attachment[]) {
-    if (items.length) attachments.current.set(project, items);
-    else attachments.current.delete(project);
+    const key = project || draftKey;
+    if (items.length) attachments.current.set(key, items);
+    else attachments.current.delete(key);
     if (current.current === project) setFiles(items);
   }
   const leaveProject = useCallback(
@@ -536,24 +577,24 @@ function App() {
       document.removeEventListener("visibilitychange", check);
     };
   }, [user, resetSession, setPanel]);
-  async function select(id: string, task?: ReviewTask) {
+  async function select(id: string, task?: ReviewTask, nextDraftKey = draftKey, keepPage = false) {
     setDeliveryReceipt("");
     setCanvasTarget("");
     setCanvasFocus(undefined);
     const old = current.current;
     const thread = document.querySelector(".thread");
     if (old && thread) positions.current.set(old, thread.scrollTop);
-    if (draft) drafts.current.set(old, draft);
-    else drafts.current.delete(old);
+    if (draft) drafts.current.set(old || draftKey, draft);
+    else drafts.current.delete(old || draftKey);
     current.current = id;
-    if (chatPath(id) !== location.pathname || location.hash) navigateRef.current(chatPath(id));
+    if (!keepPage && (chatPath(id) !== location.pathname || location.hash)) navigateRef.current(chatPath(id));
     restore.current = { id, task };
     if (id) recent.current = [id, ...recent.current.filter((x) => x !== id)];
     ++pending.current;
     setP(null);
     setDialogPanel("");
-    setFiles(attachments.current.get(id) || []);
-    setDraft(drafts.current.get(id) || "");
+    setFiles(attachments.current.get(id || nextDraftKey) || []);
+    setDraft(drafts.current.get(id || nextDraftKey) || "");
     setErr("");
     if (id) {
       try {
@@ -562,6 +603,16 @@ function App() {
         setErr((e as Error).message);
       }
     }
+  }
+  function switchSpace(id: string) {
+    if (busy || id === space || !selectableSpaces.some(item => item.id === id)) return;
+    setSpace(id);
+    pickAgents([]);
+    setStudioPicker(undefined);
+    setExternalPicker(undefined);
+    setSearchDraft(undefined);
+    setRequestedTier(undefined);
+    void select("", undefined, "space:" + id, !!routePanel);
   }
   const selectRef = useRef(select);
   selectRef.current = select;
@@ -933,6 +984,7 @@ function App() {
         const res = await api<{ id: string }>("projects", "POST", {
           goal: draft,
           team: draftTeam,
+          ...(scope ? { space: scope.id } : {}),
           ...(hasPicks && !hasFiles ? pins : {}),
         });
         // Keep the member's explicit destination for successive briefs in this
@@ -943,8 +995,8 @@ function App() {
         pickAgents([]);
         if (hasFiles) attachments.current.set(res.id, files);
         if (!current.current) await select(res.id);
-        drafts.current.delete("");
-        attachments.current.delete("");
+        drafts.current.delete(draftKey);
+        attachments.current.delete(draftKey);
         let receipts: Awaited<ReturnType<typeof sendAttachments>> = [];
         if (hasFiles) {
           const plan: PlanDraft | undefined = hasPicks
@@ -1058,7 +1110,7 @@ function App() {
           <WorkflowTemplates initialTemplate={initialWorkflowTemplate} initialGoal={current.current ? "" : draft} back={current.current ? undefined : () => setPanel("agents")} openProject={async (id) => {
             if (!current.current && files.length) {
               attachments.current.set(id, files);
-              attachments.current.delete("");
+              attachments.current.delete(draftKey);
             }
             await select(id);
             await history();
@@ -1106,7 +1158,7 @@ function App() {
       {panel === "agents" && (
         <AgentPicker
           files={files.map(item => item.file)}
-          agents={agents}
+          agents={scope?.kind === "team" ? agents.filter(agent => agent.team === scope.teamId) : agents}
           models={models}
           team={draftTeam}
           teams={teams || []}
@@ -1143,6 +1195,7 @@ function App() {
           inbox={inbox}
           setInbox={setInbox}
           open={select}
+          space={space}
         />
       )}
       {panel === "account" && (
@@ -1324,7 +1377,7 @@ function App() {
   const canvasArtifact = !visiblePage && canvasTarget
     ? p?.artifacts.find(artifact => artifact.id === canvasTarget && artifact.reviewNotesReadable && !artifact.draftBlock)
     : undefined;
-  const recentProjects = [...list].sort((a, b) => {
+  const recentProjects = list.filter(item => !space || item.spaceId === space).sort((a, b) => {
     const order = (id: string) => { const i = recent.current.indexOf(id); return i < 0 ? Number.MAX_SAFE_INTEGER : i; };
     return order(a.id) - order(b.id);
   });
@@ -1340,7 +1393,8 @@ function App() {
       <WorkspaceSidebar collapsed={collapsed} toggleCollapse={toggleCollapse}
         onNew={newConversation} onSearch={() => setCommandsOpen(true)}
         openPage={openPage} openProject={openProject} page={routePanel} current={current.current}
-        projects={recentProjects} userName={user.name} admin={user.role === "admin"} theme={theme} toggleTheme={toggleTheme} />
+        projects={recentProjects} userName={user.name} admin={user.role === "admin"} theme={theme} toggleTheme={toggleTheme}
+        spaces={selectableSpaces} space={space} selectSpace={switchSpace} spaceBusy={busy} />
       <div className={"workspace-area" + (canvasArtifact ? " with-artifact-canvas" : "")}>
         {visiblePage ? (
           <main className="workspace-page" aria-label={title}>
@@ -1441,6 +1495,7 @@ function App() {
             )}
             <Composer
               hidden={!!current.current && !p} busy={busy} start={!p}
+              scopeHint={scope ? `${scope.kind === "personal" ? "个人空间" : scope.name} · 使用当前空间知识与全企公共底座` : undefined}
               draft={draft} setDraft={value => {
                 setDraft(value);
                 if (value === "@" && canUseExternal && externalAgents.length) setExternalPicker({ project: p?.id || "" });
