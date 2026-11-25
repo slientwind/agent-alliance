@@ -6,7 +6,7 @@ import io
 import json
 import os
 from decimal import InvalidOperation
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from slides import OutlineError, outline_pages, render_outline
 from aggregation import aggregate, InputProblem, MissingColumns
@@ -133,5 +133,12 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(500, {"error": "受控工具未完成"})
 
 
+def create_server(host, port):
+    return ThreadingHTTPServer((host, port), Handler)
+
+
 if __name__ == "__main__":
-    HTTPServer((os.environ.get("CONNECTOR_HOST", "127.0.0.1"), int(os.environ.get("CONNECTOR_PORT", "18726"))), Handler).serve_forever()
+    host = os.environ.get("CONNECTOR_HOST", "127.0.0.1")
+    port = int(os.environ.get("CONNECTOR_PORT", "18726"))
+    with create_server(host, port) as server:
+        server.serve_forever()

@@ -154,7 +154,8 @@
 - [ ] **[`backend/internal/monitor/usage.sql`](../backend/internal/monitor/usage.sql)** & **[`monitor.go`](../backend/internal/monitor/monitor.go)**
   - [ ] 将实时全表查询切换至小时预聚合表，并补全按 Agent、模型、来源、时间趋势、双轨有效率与 P50/P95 延迟的接口返回。
 - [ ] **[`connectors/server.py`](../connectors/server.py)**
-  - [ ] 立刻将单线程 `HTTPServer` 改为 `ThreadingHTTPServer`（消除单任务阻塞全平台并发的严重 Bug），并将现有高确定性财务汇总/Office 能力作为 Trusted Tool 注册到通用 Loop 中。
+  - [x] 将单线程 `HTTPServer` 改为 `ThreadingHTTPServer`，避免单个工具请求阻塞其他请求。
+  - [ ] 将现有高确定性财务汇总/Office 能力作为 Trusted Tool 注册到通用 Loop 中。
 
 ### 3.2 前端代码重构清单（对齐 [vnext-prototype.html](uiux/vnext-prototype.html)）
 - [ ] **引入核心基础依赖（[`frontend/package.json`](../frontend/package.json)）**
