@@ -31,7 +31,8 @@ func Reserve(ctx context.Context, tx pgx.Tx, op Operation) error {
 		return err
 	}
 	var limit *string
-	if err := tx.QueryRow(ctx, "select limit_cny::text from budgets where team_id=$1 for update", op.Team).Scan(&limit); err != nil {
+	var used string
+	if err := tx.QueryRow(ctx, "select limit_cny::text, used_cny::text from budgets where team_id=$1 for update", op.Team).Scan(&limit, &used); err != nil {
 		return err
 	}
 	var existing bool
@@ -41,44 +42,38 @@ func Reserve(ctx context.Context, tx pgx.Tx, op Operation) error {
 	if existing {
 		return nil
 	}
-	if err := enforceLimit(ctx, tx, "team_id", op.Team, "团队", limit, op.Estimate); err != nil {
+	if err := enforceLimit(ctx, tx, "团队", used, limit, op.Estimate); err != nil {
 		return err
 	}
 	if op.Project != "" {
-		if err := tx.QueryRow(ctx, "select limit_cny::text from project_budgets where project_id=$1 for update", op.Project).Scan(&limit); err != nil {
+		if err := tx.QueryRow(ctx, "select limit_cny::text, used_cny::text from project_budgets where project_id=$1 for update", op.Project).Scan(&limit, &used); err != nil {
 			return err
 		}
-		if err := enforceLimit(ctx, tx, "project_id", op.Project, "项目", limit, op.Estimate); err != nil {
+		if err := enforceLimit(ctx, tx, "项目", used, limit, op.Estimate); err != nil {
 			return err
 		}
 	}
 	var calls *int
-	if err := tx.QueryRow(ctx, "select limit_cny::text,call_limit from resource_budgets where id=$1 and team_id=$2 for update", op.Resource, op.Team).Scan(&limit, &calls); err != nil {
+	var usedCalls int64
+	if err := tx.QueryRow(ctx, "select limit_cny::text, used_cny::text, call_limit, used_calls from resource_budgets where id=$1 and team_id=$2 for update", op.Resource, op.Team).Scan(&limit, &used, &calls, &usedCalls); err != nil {
 		return err
 	}
-	if err := enforceLimit(ctx, tx, "resource_budget", op.Resource, "资源", limit, op.Estimate); err != nil {
+	if err := enforceLimit(ctx, tx, "资源", used, limit, op.Estimate); err != nil {
 		return err
 	}
-	if calls != nil {
-		var exhausted bool
-		if err := tx.QueryRow(ctx, "select count(*) >= $2 from spend where resource_budget=$1", op.Resource, *calls).Scan(&exhausted); err != nil {
-			return err
-		}
-		if exhausted {
-			return web.Fail(409, "资源调用次数已用完，请追加次数或调整方案")
-		}
+	if calls != nil && usedCalls >= int64(*calls) {
+		return web.Fail(409, "资源调用次数已用完，请追加次数或调整方案")
 	}
 	_, err := tx.Exec(ctx, `insert into spend(op_key,kind,actor,team_id,project_id,run_id,reserved_cny,unknown_authorized,resource_budget,source_revision,source_name) values($1,$2,$3,$4,nullif($5,'')::uuid,nullif($6,'')::uuid,$7,$8,$9,$10,$11)`, op.Key, op.Kind, op.Actor, op.Team, op.Project, op.Run, op.Estimate, op.AllowUnknown, op.Resource, op.SourceRevision, op.SourceName)
 	return err
 }
 
-// column is selected only by Reserve, never from an API argument.
-func enforceLimit(ctx context.Context, tx pgx.Tx, column, id, scope string, limit, estimate *string) error {
+func enforceLimit(ctx context.Context, tx pgx.Tx, scope, used string, limit, estimate *string) error {
 	if limit == nil {
 		return nil
 	}
 	var over bool
-	err := tx.QueryRow(ctx, `select budget_amount_short(used,coalesce($2::numeric,0),$2::numeric is null,$3::numeric) from (select coalesce(sum(amount_cny + case when settled then 0 else greatest(coalesce(reserved_cny,0)-amount_cny,0) end),0) used from spend where `+column+`=$1) totals`, id, estimate, limit).Scan(&over)
+	err := tx.QueryRow(ctx, `select budget_amount_short($1::numeric,coalesce($2::numeric,0),$2::numeric is null,$3::numeric)`, used, estimate, limit).Scan(&over)
 	if err != nil {
 		return err
 	}

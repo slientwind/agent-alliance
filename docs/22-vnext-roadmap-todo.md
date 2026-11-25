@@ -150,7 +150,8 @@
 - [ ] **[`backend/internal/skills/catalog.go`](../backend/internal/skills/catalog.go)** & **[`package.go`](../backend/internal/skills/package.go)**
   - [ ] 在保留 ZIP/SHA-256/防路径穿越校验的基础上，扩展企业级共享作用域（不限于单团队）、上游来源元数据、许可证/安全扫描报告字段及按用户加载绑定查询。
 - [ ] **[`backend/internal/billing/billing.go`](../backend/internal/billing/billing.go)**
-  - [ ] 增加增量余额/已用汇总维护（替代每次 `Reserve` 时在行锁内全表 `SUM(spend)`）；L0 个人任务在有效额度内自动静默放行，去除繁琐的前置费用确认阻碍。
+  - [x] 增加增量余额与已用汇总，替代 `Reserve` 在行锁内对 `spend` 做整表聚合。
+  - [ ] L0 个人任务在有效额度内自动静默放行，去除繁琐的前置费用确认。
 - [ ] **[`backend/internal/monitor/usage.sql`](../backend/internal/monitor/usage.sql)** & **[`monitor.go`](../backend/internal/monitor/monitor.go)**
   - [ ] 将实时全表查询切换至小时预聚合表，并补全按 Agent、模型、来源、时间趋势、双轨有效率与 P50/P95 延迟的接口返回。
 - [ ] **[`connectors/server.py`](../connectors/server.py)**
