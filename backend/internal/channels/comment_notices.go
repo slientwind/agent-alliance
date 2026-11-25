@@ -89,6 +89,7 @@ func deliverCommentNotice(ctx context.Context, db *pgxpool.Pool, feishuConnectio
 		if link != "" {
 			err := tx.QueryRow(ctx, `select coalesce(f.open_id,d.external_user,'') from artifact_comment_deliveries j
 			 join artifact_comments c on c.id=j.comment_id and c.resolved_at is null
+			 join artifact_comment_mentions mention on (mention.comment_id,mention.member_id)=(j.comment_id,j.member_id) and mention.transferred_at is null
 			 join artifacts a on a.id=c.artifact_id join members m on m.id=j.member_id and m.enabled
 			 join project_members pm on (pm.project_id,pm.member_id)=(a.project_id,m.id)
 			 left join channel_links f on j.channel='feishu' and (f.tenant,f.binding_id,f.member_id)=(j.connection,j.binding,j.member_id)

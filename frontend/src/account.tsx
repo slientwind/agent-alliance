@@ -425,6 +425,24 @@ function MemberChange({
     delegations: number;
   }>();
   const [dutiesError, setDutiesError] = useState("");
+  const [handoff, setHandoff] = useState<{
+    projects: number; agents: number; drafts: number; rules: number; automations: number;
+    successors: { id: string; name: string; email: string }[];
+  }>();
+  const [handoffError, setHandoffError] = useState("");
+  const [search, setSearch] = useState("");
+  const [successor, setSuccessor] = useState("");
+  useEffect(() => {
+    if (employment !== "depart") return;
+    let active = true;
+    setHandoffError("");
+    const timer = window.setTimeout(() => {
+      void api<NonNullable<typeof handoff>>("admin/members/" + selected.id + "/departure-handoff?q=" + encodeURIComponent(search))
+        .then(value => { if (active) setHandoff(value); })
+        .catch(error => { if (active) setHandoffError((error as Error).message); });
+    }, search ? 240 : 0);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [selected.id, employment, search]);
   useEffect(() => {
     let active = true;
     setDuties(undefined);
@@ -464,6 +482,7 @@ function MemberChange({
             role: nextRole,
             enabled: nextEnabled,
             employment,
+            ...(employment === "depart" && successor ? { successor } : {}),
             reason: f.get("reason"),
             password: f.get("password"),
           });
@@ -482,7 +501,11 @@ function MemberChange({
         变更类型
         <select
           value={employment}
-          onChange={(e) => setEmployment(e.target.value)}
+          onChange={(e) => {
+            setEmployment(e.target.value);
+            setSearch("");
+            setSuccessor("");
+          }}
         >
           {selected.departed ? (
             <option value="return">办理重新入职</option>
@@ -497,7 +520,7 @@ function MemberChange({
       {employment ? (
         <p role="status">
           {employment === "depart"
-            ? "将注销会话，撤销团队和项目成员资格、委托与飞书绑定。个人偏好进入隔离回收。请另行交接业务职责。"
+            ? "离职后，成员的会话、团队访问、应用委托和渠道绑定会失效，个人偏好进入隔离回收。"
             : "以普通用户身份恢复登录。团队和项目须重新授权，有效偏好可由本人验证后逐项恢复。"}
         </p>
       ) : (
@@ -522,6 +545,21 @@ function MemberChange({
           </label>
         </>
       )}
+      {employment === "depart" && <fieldset>
+        <legend>同时交接业务职责</legend>
+        {handoff && <p>
+          {handoff.projects} 个项目 · {handoff.agents + handoff.drafts} 份 Agent 资产 · {handoff.rules} 条团队规则 · {handoff.automations} 项定时任务
+        </p>}
+        {handoff?.automations ? <p>定时任务交接后处于暂停状态，由接手人恢复。</p> : null}
+        <label>搜索接手人<input value={search} onChange={event => { setSearch(event.target.value); setSuccessor(""); }} /></label>
+        <label>接手人<select value={successor} onChange={event => setSuccessor(event.target.value)}>
+          <option value="">稍后交接</option>
+          {handoff?.successors?.map(member => <option key={member.id} value={member.id}>{member.name} · {member.email}</option>)}
+        </select></label>
+        {!handoff && !handoffError && <p role="status">正在查找相关团队成员…</p>}
+        {handoff && !handoff.successors?.length && <p>暂无已加入全部相关团队的接手人。</p>}
+        {handoffError && <p role="alert">{handoffError}</p>}
+      </fieldset>}
       <section aria-label="变更影响">
         <p>
           {roleLabel(selected.role)}（
@@ -545,7 +583,7 @@ function MemberChange({
           <p>
             待最终确认项目 {duties.finalProjects} 个 · 待审核成果版本{" "}
             {duties.reviewVersions} 个 · 未到期且未撤销的成员委托{" "}
-            {duties.delegations} 项。项目确认权须由接任者明确接受。
+            {duties.delegations} 项。
           </p>
         )}
         {!duties && !dutiesError && <p role="status">正在读取待交接事项…</p>}

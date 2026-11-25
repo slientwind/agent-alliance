@@ -50,7 +50,7 @@ func ReviewTodos(ctx context.Context, q interface {
 		 else '第 '||c.anchor_index||' 段' end
 		from artifact_comment_mentions m join artifact_comments c on c.id=m.comment_id and c.resolved_at is null
 		join artifacts a on a.id=c.artifact_id join visible p on p.id=a.project_id
-		where m.member_id=$1 and artifact_comment_readable(c.id,$1)
+		where m.member_id=$1 and m.transferred_at is null and artifact_comment_readable(c.id,$1)
 	)
 	select p.id,p.title,t.kind,t.name,t.subject,t.version,t.revision,t.ordinal,t.position,coalesce(c.artifact_id::text,'')
 	 from pending t join visible p on p.id=t.project_id left join artifact_comments c on t.kind='mention' and c.id=t.subject

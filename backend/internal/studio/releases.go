@@ -232,8 +232,8 @@ func (s Server) withdrawRelease(w http.ResponseWriter, r *http.Request, actor id
 		if _, err := getDraft(ctx, tx, id, actor.ID, true); err != nil {
 			return err
 		}
-		tag, err := tx.Exec(ctx, `update studio_releases set state='withdrawn' where (id,draft_id,owner)=($1,$2,$3)
-		 and state in ('pending','published')`, release, id, actor.ID)
+		tag, err := tx.Exec(ctx, `update studio_releases set state='withdrawn' where (id,draft_id)=($1,$2)
+		 and state in ('pending','published')`, release, id)
 		if err != nil {
 			return err
 		}

@@ -42,6 +42,7 @@ func (s Server) Routes(m *http.ServeMux) {
 	m.Handle("GET /api/me/account-notices", s.Protect(false, s.accountNotices))
 	m.Handle("PUT /api/me/account-notices/{id}/read", s.Protect(false, s.readAccountNotice))
 	m.Handle("GET /api/admin/members/{id}/responsibilities", s.Protect(true, s.memberResponsibilities))
+	m.Handle("GET /api/admin/members/{id}/departure-handoff", s.Protect(true, s.departurePreview))
 	m.Handle("GET /api/admin/members", s.Protect(true, s.members))
 	m.Handle("POST /api/admin/invitations", s.Protect(true, s.invite))
 	m.Handle("GET /api/admin/members/{id}/history", s.Protect(true, s.memberHistory))
@@ -294,6 +295,7 @@ func (s Server) updateMember(w http.ResponseWriter, r *http.Request, u Member) e
 		Enabled          *bool
 		Reason, Password string
 		Employment       string
+		Successor        string
 		Expected         *string
 	}
 	if err := web.Read(r, &in); err != nil {
@@ -336,6 +338,9 @@ func (s Server) updateMember(w http.ResponseWriter, r *http.Request, u Member) e
 				return web.Fail(409, "请先交接给另一名可用管理员")
 			}
 		}
+		if in.Successor != "" && in.Employment != "depart" {
+			return web.Fail(422, "批量交接适用于正式离职")
+		}
 		switch in.Employment {
 		case "":
 			if departed {
@@ -344,6 +349,11 @@ func (s Server) updateMember(w http.ResponseWriter, r *http.Request, u Member) e
 		case "depart":
 			if *in.Enabled || departed || in.Role != "member" {
 				return web.Fail(409, "离职须停用账号并移除管理员身份")
+			}
+			if in.Successor != "" {
+				if err := applyDepartureHandoff(ctx, tx, u.ID, id, in.Successor, in.Reason); err != nil {
+					return err
+				}
 			}
 			if _, err := tx.Exec(ctx, "update members set enabled=false,departed_at=now(),department_id=null where id=$1", id); err != nil {
 				return err
@@ -354,6 +364,8 @@ func (s Server) updateMember(w http.ResponseWriter, r *http.Request, u Member) e
 				"delete from team_members where member_id=$1", "delete from project_memberships where member_id=$1", "delete from trace_grants where member_id=$1",
 				"delete from channel_codes where member_id=$1", "delete from channel_links where member_id=$1", "delete from channel_contexts where member_id=$1",
 				"delete from channel_replies where member_id=$1 and sent_at is null",
+				"delete from im_binding_codes where member_id=$1",
+				"delete from im_bindings where member_id=$1",
 			} {
 				if _, err := tx.Exec(ctx, statement, id); err != nil {
 					return err
