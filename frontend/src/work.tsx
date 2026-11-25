@@ -2,6 +2,7 @@ import { AggregationScope } from "./aggregation-scope";
 import { fileFormats } from "./output-operations";
 import { PlanningInputs, planningRequestKey, selectedPins, type PlanningPin } from "./planning-inputs";
 import { LookupBody } from "./lookup-body";
+import { MarkdownText } from "./markdown-text";
 import { LiveDrafts, type DraftFragment } from "./live-drafts";
 import type { BudgetDraft } from "./budget-request-form";
 import type { DraftField } from "./project-drafts";
@@ -238,7 +239,7 @@ export function Work({
           tabIndex={-1}
           className={m.kind === "user" ? "bubble user" : "bubble"}
         >
-          {m.body}
+          {m.kind === "assistant" ? <MarkdownText content={m.body} /> : m.body}
         </article>
       ))}
       {p.run?.draftAvailable && ["queued", "running", "reconcile"].includes(p.run.status) && (

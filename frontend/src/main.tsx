@@ -31,6 +31,7 @@ import { ResponsibilityQueue } from "./reviewer-handoffs";
 import { DingTalkIdentity, FeishuIdentity, SlackIdentity } from "./organization";
 import { EnterpriseWorkspace } from "./enterprise-workspace";
 import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 import {
   ArrowUp,
   Bot,
@@ -1414,8 +1415,8 @@ function App() {
 }
 const ssoMessage = consumeSSO();
 createRoot(document.getElementById("root")!).render(
-  <>
+  <BrowserRouter>
     <LoginNotice message={ssoMessage} />
     <App />
-  </>,
+  </BrowserRouter>,
 );

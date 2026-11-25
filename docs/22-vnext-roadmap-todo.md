@@ -163,7 +163,7 @@
 
 ### 3.2 前端代码重构清单（对齐 [vnext-prototype.html](uiux/vnext-prototype.html)）
 - [ ] **引入核心基础依赖（[`frontend/package.json`](../frontend/package.json)）**
-  - [ ] 引入前端路由（`react-router-dom`）、Markdown + GFM 表格 + 代码高亮渲染器（如 `react-markdown` + `remark-gfm`）、统一 SVG/轻量图表组件。
+  - [x] 引入前端路由（`react-router-dom`）、Markdown + GFM 表格 + 代码高亮渲染器（如 `react-markdown` + `remark-gfm`）、统一 SVG/轻量图表组件。
 - [ ] **视觉设计系统重写（[`frontend/src/style.css`](../frontend/src/style.css)）**
   - [ ] 全面替换为 [21-vnext-uiux-spec.md](21-vnext-uiux-spec.md) 的 **暖灰白纸面 + 深墨绿强调色 Design Tokens**，支持 `data-theme="light|dark"` 一键切换与持久化。
   - [ ] 统一全站 Lucide 线性图标（`16/18/20px`，`stroke-width: 1.65`）与 `tabular-nums` 等宽数字，淘汰黑白灰菱形/圆点编码。

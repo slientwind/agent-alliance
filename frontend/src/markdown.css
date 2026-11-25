@@ -1,0 +1,63 @@
+.markdown-text {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+.markdown-text > :first-child {
+  margin-top: 0;
+}
+.markdown-text > :last-child {
+  margin-bottom: 0;
+}
+.markdown-text p {
+  white-space: pre-line;
+}
+.markdown-text pre,
+.markdown-table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.markdown-text pre {
+  padding: 0.8rem;
+  background: var(--inset);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.markdown-text code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+.markdown-text :not(pre) > code {
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  background: var(--inset);
+}
+.markdown-text .hljs-keyword,
+.markdown-text .hljs-selector-tag,
+.markdown-text .hljs-built_in {
+  color: var(--code-keyword, #78428b);
+}
+.markdown-text .hljs-string,
+.markdown-text .hljs-attr {
+  color: var(--code-string, #31684c);
+}
+.markdown-text .hljs-number,
+.markdown-text .hljs-literal {
+  color: var(--code-number, #975322);
+}
+.markdown-text .hljs-comment {
+  color: var(--secondary);
+}
+.markdown-table table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+}
+.markdown-table :is(th, td) {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--line);
+  text-align: start;
+}
+.markdown-table th {
+  background: var(--inset);
+}
