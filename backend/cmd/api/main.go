@@ -8,6 +8,7 @@ import (
 	"alliance/internal/channels"
 	"alliance/internal/ecosystem"
 	"alliance/internal/egress"
+	"alliance/internal/glossary"
 	"alliance/internal/hotstream"
 	"alliance/internal/identity"
 	"alliance/internal/intake"
@@ -57,6 +58,7 @@ func main() {
 	mux := http.NewServeMux()
 	s.Routes(mux)
 	spaces.Server{DB: c.DB, Objects: knowledge.ConfiguredObjects()}.Routes(mux, s)
+	glossary.Server{DB: c.DB}.Routes(mux, s)
 	bots := &channels.Bots{DB: c.DB, Vault: c.Vault}
 	bots.Routes(ctx, mux, s)
 	mail := mailrelay.Relay{DB: c.DB, Vault: c.Vault, Egress: egress.Policy{DB: c.DB}, Public: os.Getenv("PUBLIC_BASE_URL")}

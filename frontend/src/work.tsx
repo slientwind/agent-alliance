@@ -5,6 +5,7 @@ import { LookupBody } from "./lookup-body";
 import { ToolApprovals } from "./tool-approval";
 import { ReplyActions } from "./reply-actions";
 import { MarkdownText } from "./markdown-text";
+import { GlossaryCorrection } from "./glossary-correction";
 import { StatusIcon } from "./status-icon";
 import { LiveDrafts, type DraftFragment } from "./live-drafts";
 import type { BudgetDraft } from "./budget-request-form";
@@ -249,7 +250,9 @@ export function Work({
           tabIndex={-1}
           className={m.kind === "user" ? "bubble user" : "bubble"}
         >
-          {m.kind === "assistant" ? <MarkdownText content={m.body} /> : m.body}
+          {m.kind === "assistant" ? <MarkdownText content={m.body} /> : <div>{m.body}</div>}
+          {m.kind === "user" && m.mine && p.spaceKind === "team" &&
+            <GlossaryCorrection project={p.id} message={m.seq} />}
         </article>
       ))}
       {p.run && (p.run.draftAvailable || drafts.length > 0) && ["queued", "running", "reconcile"].includes(p.run.status) && (

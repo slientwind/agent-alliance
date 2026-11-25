@@ -91,6 +91,8 @@ export type Summary = {
   owner: string;
   reviewer: string;
   planVersion: number;
+  spaceId?: string;
+  spaceKind?: "personal" | "team" | "commons";
   isPartial?: boolean;
 };
 type ColumnIssue = {
@@ -517,7 +519,7 @@ export type Project = Summary & {
       }[];
     };
   };
-  messages: { seq: number; kind: string; body: string }[];
+  messages: { seq: number; kind: string; body: string; mine?: boolean }[];
   plan: null | {
     rules: { revision: number; body: string | null; available: boolean; scoped?: boolean; steps?: number[] }[];
     brief: string;

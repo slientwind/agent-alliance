@@ -24,7 +24,7 @@ try {
     };
     const project = {
       id, title: "采购报价核对", stage: "brief", revision: 1, owner: "member", reviewer: "member", team: "team", planVersion: 0,
-      messages: [{ seq: 1, kind: "user", body: "整理报价表" }], artifacts: [artifact],
+      spaceKind: "team", messages: [{ seq: 1, kind: "user", mine: true, body: "整理报价表" }], artifacts: [artifact],
       participants: [
         { id: "member", name: "林予", role: "owner", canReview: true, canViewCosts: true, enabled: true },
         { id: "72cc7480-9e2b-4e46-a5d5-9d76b353ed4c", name: "叶青", role: "contributor", canReview: false, canViewCosts: false, enabled: true },
@@ -118,6 +118,14 @@ try {
         mailSettings.health = "ready";
         return route.fulfill({ json: { health: "ready" } });
       }
+      if (path === "/api/projects/" + id + "/glossary" && request.method() === "POST") {
+        const next = request.postDataJSON();
+        assert.deepEqual({ ...next, id: undefined }, {
+          id: undefined, messageSeq: 1, term: "核准报价", aliases: ["QCC"], definition: "复核后的正式报价",
+        });
+        assert.match(next.id, /^[0-9a-f-]{36}$/);
+        return route.fulfill({ json: { id: next.id, revision: 1 } });
+      }
       const artifactPath = "/api/projects/" + id + "/artifacts/" + artifact.id;
       if (path.endsWith("/session-events") || path.endsWith("/events")) {
         return route.fulfill({ contentType: "text/event-stream", body: ": ready\n\n" });
@@ -188,6 +196,13 @@ try {
     await search.press("Enter");
     await page.waitForURL("**/chat/" + id);
     await page.getByText("整理报价表", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "沉淀至团队口径词典" }).click();
+    const correction = page.getByRole("form", { name: "保存团队术语" });
+    await correction.getByLabel("术语", { exact: true }).fill("核准报价");
+    await correction.getByLabel("同义词").fill("QCC");
+    await correction.getByLabel("口径说明").fill("复核后的正式报价");
+    await correction.getByRole("button", { name: "保存团队术语" }).click();
+    await page.getByText("已保存到团队口径词典", { exact: true }).waitFor();
     await initialSources;
     await page.waitForFunction(() => !!window.testSessionStream);
     const changedSources = page.waitForResponse(sourceResponse);

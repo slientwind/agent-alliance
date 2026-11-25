@@ -995,3 +995,18 @@ dialog .service-version-contract {
 .conversation-activity ol { padding-inline-start: 1.2rem; }
 .conversation-activity li { padding-block: .2rem; overflow-wrap: anywhere; }
 .conversation-activity li > span { margin-inline-start: .35rem; }
+
+.glossary-correction {
+  display: grid;
+  justify-items: start;
+  gap: .45rem;
+  margin-top: .5rem;
+}
+
+.glossary-correction > button {
+  font-size: .78rem;
+}
+
+.glossary-correction form {
+  width: min(100%, 24rem);
+}
