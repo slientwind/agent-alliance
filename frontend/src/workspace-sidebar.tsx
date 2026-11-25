@@ -1,4 +1,4 @@
-import { Bot, ChevronLeft, ChevronRight, Inbox, Layers, ListTodo, Moon, Plus, Search, Shield, Sun, UserRound } from "lucide-react";
+import { BookOpenText, Bot, ChevronLeft, ChevronRight, Inbox, Layers, ListTodo, Moon, Plus, Search, Shield, Sun, UserRound } from "lucide-react";
 import type { Summary } from "./client";
 import type { SpaceOption } from "./eval-preflight";
 import type { Theme } from "./theme";
@@ -29,6 +29,7 @@ export function WorkspaceSidebar({
 }) {
   const nav = [
     { id: "library", text: "Agent 广场", Icon: Bot },
+    { id: "knowledge", text: "知识与数据", Icon: BookOpenText },
     { id: "services", text: "后台与定时", Icon: ListTodo },
     { id: "history", text: "待办与审核", Icon: Inbox },
   ] as const;

@@ -3,6 +3,7 @@ export const workspacePages = {
   library: { path: "/agents", title: "Agent 广场" },
   externalConnect: { path: "/agents/connect", title: "接入外部 Agent" },
   studio: { path: "/agents/studio", title: "构建助手" },
+  knowledge: { path: "/knowledge", title: "知识与数据工作台" },
   account: { path: "/account", title: "我的工作区" },
   prefs: { path: "/account/preferences", title: "个人偏好" },
   rules: { path: "/account/team-rules", title: "团队规则" },

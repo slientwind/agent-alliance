@@ -88,6 +88,7 @@ const EcosystemSources = lazy(() => import("./ecosystem-sources").then(({ Ecosys
 const StudioWorkspace = lazy(() => import("./studio-workspace").then(({ StudioWorkspace }) => ({ default: StudioWorkspace })));
 const AdminMonitor = lazy(() => import("./admin-monitor").then(({ AdminMonitor }) => ({ default: AdminMonitor })));
 const AdminGateway = lazy(() => import("./admin-gateway").then(({ AdminGateway }) => ({ default: AdminGateway })));
+const KnowledgeWorkbench = lazy(() => import("./knowledge-workbench").then(({ KnowledgeWorkbench }) => ({ default: KnowledgeWorkbench })));
 const OutboundHosts = lazy(() => import("./outbound-hosts").then(({ OutboundHosts }) => ({ default: OutboundHosts })));
 const EnterpriseWorkspace = lazy(() => import("./enterprise-workspace").then(({ EnterpriseWorkspace }) => ({ default: EnterpriseWorkspace })));
 const Library = lazy(() => import("./library").then(({ Library }) => ({ default: Library })));
@@ -1105,6 +1106,9 @@ function App() {
   const title = workspacePage(panel)?.title ?? ({ agents: "Agent", outline: "分页提纲", courseWriter: "选择编稿 Agent", onboarding: "首次设置", intake: "消息与事项" }[panel] || panel);
   const pageContent = (
     <>
+      {panel === "knowledge" && <Suspense fallback={<p role="status">正在加载知识与数据…</p>}>
+        <KnowledgeWorkbench space={scope} commons={spaces.find(item => item.kind === "commons")} />
+      </Suspense>}
       {panel === "workflowTemplates" && (
         <Suspense fallback={<p role="status">正在加载协作模板…</p>}>
           <WorkflowTemplates initialTemplate={initialWorkflowTemplate} initialGoal={current.current ? "" : draft} back={current.current ? undefined : () => setPanel("agents")} openProject={async (id) => {

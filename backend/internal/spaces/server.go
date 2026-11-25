@@ -1,6 +1,7 @@
 package spaces
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -37,7 +38,25 @@ func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("GET /api/spaces", auth.Protect(false, s.list))
 	mux.Handle("GET /api/spaces/{id}", auth.Protect(false, s.detail))
 	mux.Handle("PUT /api/spaces/{id}", auth.Protect(false, s.configure))
+	mux.Handle("GET /api/spaces/{id}/members", auth.Protect(false, s.roster))
 	s.publicationRoutes(mux, auth)
+}
+
+func (s Server) roster(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
+	id, err := readID(r.PathValue("id"))
+	if err != nil {
+		return err
+	}
+	var result json.RawMessage
+	err = s.DB.QueryRow(r.Context(), `select coalesce(jsonb_agg(jsonb_build_object('id',x.id,'name',x.display_name) order by x.display_name,x.id),'[]'::jsonb)
+	 from (select m.id,m.display_name from space_members sm join members m on m.id=sm.member_id and m.enabled and m.departed_at is null
+	   where sm.space_id=$1 and sm.role in ('space_admin','member') and space_role($1,$2)='space_admin'
+	   order by m.display_name,m.id limit 300)x`, id, actor.ID).Scan(&result)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	return web.JSON(w, 200, result)
 }
 
 const fields = `s.id,s.kind,s.slug,s.name,s.description,
