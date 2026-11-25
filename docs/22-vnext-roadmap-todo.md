@@ -53,7 +53,7 @@
 
 ### 模块 A：通用 Agent Loop + Docker Compose 隔离沙箱 + MCP 工具层
 - [ ] **通用执行引擎（Go Worker）**
-  - [ ] 实现统一 `GeneralAgentWorkflow` 与两类核心 Activity：`AdvanceTurn`（装配上下文 + 调模型网关 + Harness 纯决策）与 `ExecuteTool`（策略门禁 + 派发 + 观察落账）。
+  - [x] 实现统一 `GeneralAgentWorkflow` 与两类核心 Activity：`AdvanceTurn`（装配上下文 + 调模型网关 + Harness 纯决策）与 `ExecuteTool`（策略门禁 + 派发 + 观察落账）。
   - [x] 实现 **L0 / L1 / L2 自主策略评估器（`AutonomyPolicy`）**，根据工具注册风险、当前权限、费用和额度决定直接执行、确认、审核或拒绝。
   - [ ] 将自主策略接入通用执行器，提供 L1 内联确认卡及 L2 人工审核门禁。
   - [x] 实现通用停滞检测（比较工具名 + 规范化参数 + 来源版本 + 未决对象）与安全上下文压缩（保留 System、最新用户纠偏、未闭合 Tool Pair、来源引用）。

@@ -1,14 +1,18 @@
 package main
 
 import (
+	"alliance/internal/agentloop"
 	"alliance/internal/app"
 	"alliance/internal/knowledge"
+	"alliance/internal/llmgateway"
 	"alliance/internal/monitor"
 	"alliance/internal/runtime"
 	"alliance/internal/telemetry"
 	"context"
+	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
+	"go.temporal.io/sdk/workflow"
 	"log"
 	"os"
 	"os/signal"
@@ -58,6 +62,20 @@ func main() {
 		log.Fatal(err)
 	}
 	defer w.Stop()
+	general := agentloop.Activities{DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Gateway: llmgateway.Gateway{
+		Catalog: llmgateway.Catalog{DB: catalog.DB}, Provider: llmgateway.HTTPProvider{Vault: catalog.Vault},
+		Budget: llmgateway.Budget{DB: catalog.DB}, Resilience: llmgateway.Resilience{DB: catalog.DB},
+	}}
+	generalQueue := runtime.Queue() + "-general"
+	generalWorker := worker.New(c, generalQueue, worker.Options{})
+	generalWorker.RegisterWorkflowWithOptions(agentloop.GeneralAgentWorkflow, workflow.RegisterOptions{Name: agentloop.WorkflowName})
+	generalWorker.RegisterActivityWithOptions(general.AdvanceTurn, activity.RegisterOptions{Name: agentloop.AdvanceTurnActivity})
+	generalWorker.RegisterActivityWithOptions(general.ExecuteTool, activity.RegisterOptions{Name: agentloop.ExecuteToolActivity})
+	if err := generalWorker.Start(); err != nil {
+		log.Fatal(err)
+	}
+	defer generalWorker.Stop()
+	go general.Dispatch(ctx, c, generalQueue)
 	go a.FollowRemote(ctx, c)
 	go a.CleanRetention(ctx)
 	go knowledge.MaintainPassages(ctx, catalog.DB)
