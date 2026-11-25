@@ -73,7 +73,7 @@
   - [x] 实现 `internal/llmgateway` 模型协议适配，统一接入阿里百炼、火山方舟、DeepSeek、OpenAI、Anthropic、Gemini 和本地 vLLM/Ollama 的对话接口。
   - [x] 实现全局模型网关熔断、自动主备 Fallback（3s 内无感切换）和 RPM/TPM 限流。
   - [x] 实现精确 Token 计价引擎与企业、团队、员工三级月度预算账本，支持幂等预占与结算、硬上限判断，并登记 80%/100% 告警事件。
-  - [ ] 将三级月度预算接入 L0 模型请求，实现静默扣减，并将额度告警推送给管理员。
+  - [x] 将三级月度预算接入 L0 模型请求，实现静默扣减，并将额度告警推送给管理员。
   - [x] 新增管理员接口：`/api/admin/models/tiers`、`/api/admin/models/providers`（含连通探测与影响面预览）、`/api/admin/models/pricing`。
 - [ ] **企业服务资源中心（`/admin/integrations`）**
   - [ ] 新增统一配置与健康检查接口，覆盖 5 类底座：Docker Compose 沙箱池配额、联网搜索服务（博查/Tavily 等）、企业知识源连接器（飞书/钉钉文档/Confluence 同步状态）、企业 MCP Server 目录、IM 渠道机器人配置（数据库加密托管替代 env）。

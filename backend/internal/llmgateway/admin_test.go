@@ -125,4 +125,17 @@ func TestAdminConfiguresProviderTierAndImmutablePrices(t *testing.T) {
 	if probe := check(a.probeProvider, `{"modelId":"`+model+`","expectedRevision":2}`, providerPath, 200); !seenProbe || !strings.Contains(probe, `"providerStatus":429`) {
 		t.Fatalf("probe did not report sanitized status: %s", probe)
 	}
+	team := uuid.NewString()
+	if _, err := tx.Exec(ctx, `insert into teams(id,name) values($1,$1::uuid::text)`, team); err != nil {
+		t.Fatal(err)
+	}
+	budgetPath := map[string]string{"scope": "team"}
+	budget := `{"scopeId":"` + team + `","limitMicroCny":"1000000","expectedRevision":0}`
+	check(a.configureBudget, budget, budgetPath, 200)
+	check(a.configureBudget, budget, budgetPath, 409)
+	check(a.configureBudget, `{"scopeId":"`+team+`","expectedRevision":1}`, budgetPath, 422)
+	if listed := check(a.listBudgets, "", nil, 200); !strings.Contains(listed, `"limitMicroCny":"1000000"`) {
+		t.Fatalf("missing configured budget in %s", listed)
+	}
+	check(a.configureBudget, `{"scopeId":"`+team+`","limitMicroCny":null,"expectedRevision":1}`, budgetPath, 200)
 }

@@ -189,13 +189,21 @@ func adjustBudgets(ctx context.Context, tx pgx.Tx, c charge, holdDelta, spendDel
 		 where (scope,scope_id,month_start)=($1,$2,$3)`, scope[0], scope[1], c.month, held, spent); err != nil {
 			return err
 		}
-		if limit != nil && *limit > 0 && used >= *limit-*limit/5 {
-			if _, err := tx.Exec(ctx, `insert into model_budget_alert_events(scope,scope_id,month_start,threshold,limit_micro_cny,used_micro_cny)
-			 select $1,$2,$3,t,$4::bigint,$5::bigint from (values(80),(100)) as thresholds(t)
-			 where t=80 or $5::bigint>=$4::bigint on conflict do nothing`, scope[0], scope[1], c.month, *limit, used); err != nil {
+		if limit != nil {
+			if err := recordBudgetThresholds(ctx, tx, scope[0], scope[1], c.month, *limit, used); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+func recordBudgetThresholds(ctx context.Context, tx pgx.Tx, scope, id string, month time.Time, limit, used int64) error {
+	if limit == 0 || used < limit-limit/5 {
+		return nil
+	}
+	_, err := tx.Exec(ctx, `insert into model_budget_alert_events(scope,scope_id,month_start,threshold,limit_micro_cny,used_micro_cny)
+	 select $1,$2,$3,t,$4::bigint,$5::bigint from (values(80),(100)) as thresholds(t)
+	 where t=80 or $5::bigint>=$4::bigint on conflict do nothing`, scope, id, month, limit, used)
+	return err
 }

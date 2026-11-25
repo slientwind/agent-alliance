@@ -42,6 +42,8 @@ func (a Admin) Routes(mux *http.ServeMux, auth identity.Server) {
 		"PUT /api/admin/models/tiers/{tier}":                  a.updateTier,
 		"GET /api/admin/models/pricing":                       a.listPrices,
 		"POST /api/admin/models/pricing":                      a.createPrice,
+		"GET /api/admin/models/budgets":                       a.listBudgets,
+		"PUT /api/admin/models/budgets/{scope}":               a.configureBudget,
 	} {
 		mux.Handle(pattern, auth.Protect(true, handle))
 	}
