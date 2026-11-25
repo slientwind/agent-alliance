@@ -5,6 +5,7 @@ import (
 	"alliance/internal/harness"
 	"alliance/internal/identity"
 	"alliance/internal/llmgateway"
+	"alliance/internal/mcphub"
 	"alliance/internal/web"
 	"encoding/json"
 	"net/http"
@@ -164,6 +165,9 @@ func (s Server) start(w http.ResponseWriter, r *http.Request, actor identity.Mem
 			return err
 		}
 		if _, err := tx.Exec(ctx, `insert into general_agent_runs(run_id,tier,goal_message_seq) values($1,$2,$3)`, run, in.Tier, initialMessage); err != nil {
+			return err
+		}
+		if err := mcphub.BindRun(ctx, tx, run, team); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `insert into general_agent_dispatch(run_id) values($1)`, run); err != nil {

@@ -25,17 +25,70 @@ func (a Admin) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("GET /api/admin/mcp/servers", auth.Protect(true, a.list))
 	mux.Handle("PUT /api/admin/mcp/servers/{id}", auth.Protect(true, a.configure))
 	mux.Handle("POST /api/admin/mcp/servers/{id}/probe", auth.Protect(true, a.probe))
+	mux.Handle("PUT /api/admin/mcp/servers/{id}/teams/{team}", auth.Protect(true, a.grantTeam))
 }
 
 func (a Admin) list(w http.ResponseWriter, r *http.Request, _ identity.Member) error {
 	var result json.RawMessage
 	err := a.DB.QueryRow(r.Context(), `select coalesce(jsonb_agg(jsonb_build_object('id',id,'name',name,'endpoint',endpoint,
 		'transport',transport,'hasCredential',encrypted_bearer is not null,'tools',tools,'allowPrivateHttp',allow_private_http,
-		'enabled',enabled,'revision',revision) order by name,id),'[]') from mcp_servers`).Scan(&result)
+		'enabled',enabled,'revision',revision,'teams',array(select jsonb_build_object('id',g.team_id,
+		  'enabled',g.enabled,'revision',g.revision) from mcp_team_grants g where g.server_id=mcp_servers.id order by g.team_id))
+		order by name,id),'[]') from mcp_servers`).Scan(&result)
 	if err != nil {
 		return err
 	}
 	return web.JSON(w, http.StatusOK, result)
+}
+
+func (a Admin) grantTeam(w http.ResponseWriter, r *http.Request, actor identity.Member) error {
+	var in struct {
+		Expected int   `json:"expected"`
+		Enabled  *bool `json:"enabled"`
+	}
+	if err := web.ReadLimited(w, r, &in, 1024); err != nil {
+		return err
+	}
+	server, team := r.PathValue("id"), r.PathValue("team")
+	if _, err := uuid.Parse(server); err != nil {
+		return web.Fail(422, "MCP 服务编号无效")
+	}
+	if _, err := uuid.Parse(team); err != nil || in.Enabled == nil || in.Expected < 0 {
+		return web.Fail(422, "请选择团队及授权状态")
+	}
+	var revision int
+	ctx := r.Context()
+	err := database.WithTx(ctx, a.DB, func(tx pgx.Tx) error {
+		if err := identity.RequireAdmin(ctx, tx, actor.ID); err != nil {
+			return err
+		}
+		if err := tx.QueryRow(ctx, "select 1 from mcp_servers s cross join teams t where s.id=$1 and t.id=$2",
+			server, team).Scan(new(int)); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return web.Fail(404, "MCP 服务或团队不存在")
+			}
+			return err
+		}
+		var err error
+		if in.Expected == 0 {
+			err = tx.QueryRow(ctx, `insert into mcp_team_grants(server_id,team_id,enabled)
+				values($1,$2,$3) on conflict do nothing returning revision`, server, team, *in.Enabled).Scan(&revision)
+		} else {
+			err = tx.QueryRow(ctx, `update mcp_team_grants set enabled=$3,revision=revision+1
+				where server_id=$1 and team_id=$2 and revision=$4 returning revision`, server, team, *in.Enabled, in.Expected).Scan(&revision)
+		}
+		if errors.Is(err, pgx.ErrNoRows) {
+			return web.Fail(409, "团队授权已更新，请刷新")
+		}
+		if err != nil {
+			return err
+		}
+		return database.Audit(ctx, tx, actor.ID, "mcp.team.grant", server, map[string]any{"team": team, "enabled": *in.Enabled, "revision": revision})
+	})
+	if err != nil {
+		return err
+	}
+	return web.JSON(w, http.StatusOK, map[string]int{"revision": revision})
 }
 
 func (a Admin) configure(w http.ResponseWriter, r *http.Request, actor identity.Member) error {

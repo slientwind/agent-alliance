@@ -55,6 +55,7 @@ func toolRisk(name string) harness.ToolRisk {
 
 type toolWork struct {
 	name, args, state, fingerprint string
+	server, definitionDigest       string
 	sources                        []knowledge.InputSource
 }
 
@@ -80,9 +81,9 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 			return nil
 		}
 		var args []byte
-		if err := tx.QueryRow(ctx, `select tool_name,state,args_cipher,fingerprint from general_agent_actions
+		if err := tx.QueryRow(ctx, `select tool_name,state,args_cipher,fingerprint,coalesce(mcp_server::text,''),coalesce(mcp_tool_digest,'') from general_agent_actions
 		 where (run_id,turn,position)=($1,$2,$3) for update`, ref.RunID, ref.Turn, ref.Position).
-			Scan(&task.name, &task.state, &args, &task.fingerprint); err != nil {
+			Scan(&task.name, &task.state, &args, &task.fingerprint, &task.server, &task.definitionDigest); err != nil {
 			return err
 		}
 		switch task.state {
@@ -93,7 +94,14 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 		}
 		knownFree := int64(0)
 		policy := harness.AutonomyPolicy{MaxAutomaticBatch: maxToolsPerTurn}
-		decision := policy.Evaluate(harness.ToolGate{Risk: toolRisk(task.name), Authorized: d.authorized, QuotaAvailable: true,
+		risk := toolRisk(task.name)
+		if task.server != "" {
+			if a.MCP == nil {
+				return a.recordObservation(ctx, tx, ref, "rejected", "企业工具暂不可用。", "", "")
+			}
+			risk = harness.ReadOnly
+		}
+		decision := policy.Evaluate(harness.ToolGate{Risk: risk, Authorized: d.authorized, QuotaAvailable: true,
 			EstimatedCost: &knownFree, BatchSize: 1})
 		if decision.Level != harness.L0 || task.fingerprint == "invalid" {
 			return a.recordObservation(ctx, tx, ref, "rejected", "该工具不可调用，或参数格式错误。", "", "")
@@ -126,7 +134,15 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 	if err != nil || !started {
 		return result, err
 	}
-	reply, toolErr := invokeTrusted(ctx, task)
+	var reply resources.Reply
+	var toolErr error
+	if task.server != "" {
+		var result json.RawMessage
+		result, toolErr = a.MCP.CallReadOnly(ctx, ref.RunID, task.server, task.name, task.definitionDigest, json.RawMessage(task.args))
+		reply.Text = string(result)
+	} else {
+		reply, toolErr = invokeTrusted(ctx, task)
+	}
 	err = database.WithTx(ctx, a.DB, func(tx pgx.Tx) error {
 		d, err := loadRun(ctx, tx, ref.RunID)
 		if err != nil {

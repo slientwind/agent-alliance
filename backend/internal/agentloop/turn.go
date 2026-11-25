@@ -5,6 +5,7 @@ import (
 	"alliance/internal/harness"
 	"alliance/internal/knowledge"
 	"alliance/internal/llmgateway"
+	"alliance/internal/mcphub"
 	"alliance/internal/memory"
 	"alliance/internal/projects"
 	"alliance/internal/resources"
@@ -23,6 +24,7 @@ type Activities struct {
 	DB      *pgxpool.Pool
 	Vault   resources.Vault
 	Objects knowledge.Objects
+	MCP     *mcphub.Runtime
 	Gateway interface {
 		Call(context.Context, llmgateway.CallIdentity, llmgateway.Request) (llmgateway.RoutedResult, error)
 	}
@@ -52,6 +54,7 @@ func loadRun(ctx context.Context, tx pgx.Tx, id string) (runData, error) {
 	 and (s.project_id<>r.project_id or s.revoked_at is not null or s.current_version<>ps.source_version))
 	 and not exists(select from plan_rules pr where (pr.project_id,pr.plan_version)=(r.project_id,r.plan_version)
 	 and not rule_usable(pr.rule_id,pr.rule_revision,r.actor))
+	 and general_mcp_observations_usable(r.id,r.charge_team)
 	 from general_agent_runs g join runs r on r.id=g.run_id join projects current on current.id=r.project_id
 	 join plans p on (p.project_id,p.version)=(r.project_id,r.plan_version) where r.id=$1 for update of r,g,current`, id).
 		Scan(&d.project, &d.actor, &d.team, &d.state, &d.goal, &d.quality, &d.tier, &d.plan, &d.progress, &d.authorized)
@@ -132,6 +135,13 @@ func (a Activities) AdvanceTurn(ctx context.Context, ref TurnRef) (TurnResult, e
 		return result, err
 	}
 	request := llmgateway.Request{Tier: d.tier, Messages: messages, Tools: modelTools(), ProviderHistory: native}
+	dynamic := map[string]mcphub.RunTool{}
+	if a.MCP != nil {
+		for _, tool := range a.MCP.Discover(ctx, ref.RunID) {
+			dynamic[tool.Definition.Function.Name] = tool
+			request.Tools = append(request.Tools, tool.Definition)
+		}
+	}
 	if d.tier == llmgateway.Reasoning {
 		request.ReasoningEffort = "medium"
 	}
@@ -159,7 +169,7 @@ func (a Activities) AdvanceTurn(ctx context.Context, ref TurnRef) (TurnResult, e
 			}
 			return finishGeneralRun(ctx, tx, ref.RunID, current, "failed", reason)
 		}
-		result, err = a.saveTurn(ctx, tx, ref, current, sources, model)
+		result, err = a.saveTurn(ctx, tx, ref, current, sources, model, dynamic)
 		return err
 	})
 	return result, err
@@ -199,13 +209,16 @@ func (a Activities) contextForTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, 
 		join artifact_versions v on (v.artifact_id,v.version)=(a.id,a.current_version)
 		where g.goal_message_seq=recent.seq and previous.project_id=$2 and previous.status='completed'
 		  and distribution_readable(a.id,v.version,$3)
+		  and general_mcp_observations_usable(previous.id,previous.charge_team)
+		  and (previous.charge_team=$6 or not exists(select from general_agent_actions ga
+		    where ga.run_id=previous.id and ga.mcp_server is not null and ga.state='completed'))
 		  and not exists(select from plan_sources p join sources s on s.id=p.source_id
 		    where (p.project_id,p.plan_version)=(previous.project_id,previous.plan_version)
 		      and (s.revoked_at is not null or s.current_version<>p.source_version
 		        or not exists(select from plan_sources current
 		          where (current.project_id,current.plan_version,current.source_id,current.source_version)=($2,$5,p.source_id,p.source_version))))
 		order by previous.created_at desc limit 1
-	) answer on true order by recent.seq`, ref.RunID, d.project, d.actor, maxModelTurns*maxToolsPerTurn+1, d.plan)
+	) answer on true order by recent.seq`, ref.RunID, d.project, d.actor, maxModelTurns*maxToolsPerTurn+1, d.plan, d.team)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -287,7 +300,7 @@ func (a Activities) contextForTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, 
 	return messages, native, sourceRefs, nil
 }
 
-func (a Activities) saveTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, d runData, sourceRefs []harness.SourceRevision, result llmgateway.RoutedResult) (TurnResult, error) {
+func (a Activities) saveTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, d runData, sourceRefs []harness.SourceRevision, result llmgateway.RoutedResult, dynamic map[string]mcphub.RunTool) (TurnResult, error) {
 	reply := result.Reply
 	if reply.FinishReason != "tool_calls" {
 		if strings.TrimSpace(reply.Text) == "" || len(reply.Text) > 64<<10 || strings.ContainsRune(reply.Text, 0) ||
@@ -326,17 +339,21 @@ func (a Activities) saveTurn(ctx context.Context, tx pgx.Tx, ref TurnRef, d runD
 		return TurnResult{}, err
 	}
 	for i, call := range reply.ToolCalls {
+		external := dynamic[call.Function.Name]
 		fingerprint, err := (harness.ActionFingerprint{Tool: call.Function.Name, Arguments: json.RawMessage(call.Function.Arguments), Sources: sourceRefs}).Digest()
 		if err != nil {
 			fingerprint = "invalid"
+		} else if external.Digest != "" {
+			fingerprint = fmt.Sprintf("%x", web.Hash(fingerprint+"/"+external.Digest))
 		}
 		tool := ToolRef{RunID: ref.RunID, Turn: ref.Turn, Position: i + 1}
 		args, err := a.Vault.Seal(call.Function.Arguments, actionScope(tool)+"/arguments")
 		if err != nil {
 			return TurnResult{}, err
 		}
-		if _, err := tx.Exec(ctx, `insert into general_agent_actions(run_id,turn,position,tool_name,call_id,args_cipher,fingerprint)
-		 values($1,$2,$3,$4,$5,$6,$7)`, ref.RunID, ref.Turn, tool.Position, call.Function.Name, call.ID, args, fingerprint); err != nil {
+		if _, err := tx.Exec(ctx, `insert into general_agent_actions(run_id,turn,position,tool_name,call_id,args_cipher,fingerprint,mcp_server,mcp_tool_digest)
+		 values($1,$2,$3,$4,$5,$6,$7,nullif($8,'')::uuid,nullif($9,''))`, ref.RunID, ref.Turn, tool.Position, call.Function.Name, call.ID,
+			args, fingerprint, external.Server, external.Digest); err != nil {
 			return TurnResult{}, err
 		}
 	}

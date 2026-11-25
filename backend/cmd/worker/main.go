@@ -6,6 +6,7 @@ import (
 	"alliance/internal/egress"
 	"alliance/internal/knowledge"
 	"alliance/internal/llmgateway"
+	"alliance/internal/mcphub"
 	"alliance/internal/monitor"
 	"alliance/internal/runtime"
 	"alliance/internal/telemetry"
@@ -67,6 +68,7 @@ func main() {
 		Catalog: llmgateway.Catalog{DB: catalog.DB}, Provider: llmgateway.HTTPProvider{Vault: catalog.Vault, Egress: &egress.Policy{DB: catalog.DB}},
 		Budget: llmgateway.Budget{DB: catalog.DB}, Resilience: llmgateway.Resilience{DB: catalog.DB},
 	}}
+	general.MCP = &mcphub.Runtime{DB: catalog.DB, Client: mcphub.Client{Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB}}}
 	generalQueue := runtime.Queue() + "-general"
 	generalWorker := worker.New(c, generalQueue, worker.Options{})
 	generalWorker.RegisterWorkflowWithOptions(agentloop.GeneralAgentWorkflow, workflow.RegisterOptions{Name: agentloop.WorkflowName})

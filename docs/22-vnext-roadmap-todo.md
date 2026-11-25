@@ -63,7 +63,8 @@
   - [x] 实现产物自动回收：扫描 `/workspace/outputs` 哈希登记为受控 Artifact 版本，并自动触发 `preview` 生成可预览视图。
 - [ ] **标准 MCP Client Hub**
   - [x] 实现 Go MCP Client（`Streamable HTTP` 与旧版 `SSE`），支持 `tools/list`、转为模型工具 Schema、Vault 凭据代注入，以及只读 L0 与写入 L2 标注。管理员可维护目录并探测服务。
-  - [ ] 将企业目录中已授权的 MCP 工具注入通用 Agent 执行，并接通 L2 工具的人工审核。
+  - [x] 将企业目录中已授权的只读 MCP 工具按团队注入通用 Agent，执行前校验授权及工具版本。
+  - [ ] 将获授权的写入 MCP 工具接入通用 Agent，并接通 L2 工具的人工审核。
 - [ ] **后台与定时委托（`/automations`）**
   - [ ] 基于 Temporal Schedule 实现周期/定时任务管理（CRUD、启停、时区、数据游标、防重入）。
   - [ ] 分别记录「任务运行状态」与「飞书/邮件通知投递回执」，支持运行成功而通知失败时仅补发提醒。
