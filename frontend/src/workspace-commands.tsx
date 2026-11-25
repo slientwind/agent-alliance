@@ -25,7 +25,7 @@ export function matchingCommands<T extends Pick<Command, "label" | "category">>(
 
 export function WorkspaceCommands({
   open, setOpen, onNew, toggleCollapse, openPage, openProject, openAgent,
-  projects, agents, theme, toggleTheme, admin, otherDialog,
+  projects, agents, theme, toggleTheme, admin,
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
@@ -39,15 +39,14 @@ export function WorkspaceCommands({
   theme: Theme;
   toggleTheme: () => void;
   admin: boolean;
-  otherDialog: boolean;
 }) {
-  const handlers = useRef({ open, setOpen, onNew, toggleCollapse, otherDialog });
-  handlers.current = { open, setOpen, onNew, toggleCollapse, otherDialog };
+  const handlers = useRef({ open, setOpen, onNew, toggleCollapse });
+  handlers.current = { open, setOpen, onNew, toggleCollapse };
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       const shortcut = workspaceShortcut(event);
       const actions = handlers.current;
-      if (!shortcut || actions.otherDialog) return;
+      if (!shortcut || document.querySelector("dialog[open]:not(.command-palette)")) return;
       event.preventDefault();
       if (shortcut === "search") actions.setOpen(!actions.open);
       if (shortcut === "rail") actions.toggleCollapse();

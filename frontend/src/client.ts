@@ -444,6 +444,7 @@ export type Project = Summary & {
   participants: {
     id: string;
     name: string;
+    role?: "owner" | "contributor" | "reviewer" | "approver";
     canReview: boolean;
     canViewCosts: boolean;
     enabled: boolean;

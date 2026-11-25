@@ -99,7 +99,7 @@
 
 ### 模块 E：团队多人协同工作台（企业核心特色）
 - [ ] **单人对话一键升档团队协同任务**
-  - [ ] 扩展 `task_participants`（兼容现有 `project_members`），支持在任意对话顶部一键拉入同事并指定业务分工角色（`owner` 发起人、`contributor` 资料补件人、`reviewer` 内容审核人、`approver` 最终确认人），支持随时移出并即时撤权。
+  - [x] 扩展 `task_participants`（兼容现有 `project_members`），支持在任意对话顶部一键拉入同事并指定业务分工角色（`owner` 发起人、`contributor` 资料补件人、`reviewer` 内容审核人、`approver` 最终确认人），支持随时移出并即时撤权。
 - [ ] **实时在线态与多人同屏协同**
   - [ ] 基于冷热分离热流通道支持同任务多成员在线头像栈（`presence.joined/left`）及 AI 流式草稿/产物更新向全部有权协作成员实时广播。
 - [ ] **Canvas 行内锚点评论与 `@同事 / @Agent` 派单**

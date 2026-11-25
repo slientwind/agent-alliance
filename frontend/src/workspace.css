@@ -108,6 +108,40 @@
   font-size: 0.95rem;
   font-weight: 600;
 }
+.conversation-bar {
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+.task-collaboration-button {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.55rem;
+}
+.task-collaboration-dialog ul {
+  margin-block: 0.65rem;
+  padding: 0;
+  list-style: none;
+}
+.task-collaboration-dialog li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 40px;
+}
+.task-collaboration-dialog small {
+  color: var(--ink-secondary);
+}
+.task-collaboration-dialog form {
+  display: grid;
+  gap: 0.6rem;
+}
+.collaboration-actions {
+  display: flex;
+  gap: 0.35rem;
+}
 .workspace-area > .start, .workspace-area > .chat {
   flex: 1;
   max-width: 100%;

@@ -72,6 +72,7 @@ import { MyManagementScopes } from "./management-scopes";
 import { applyDraftDelta, type DraftFragment, type SessionDrafts } from "./live-drafts";
 import { applyTheme, readTheme, type Theme } from "./theme";
 import { WorkspaceCommands } from "./workspace-commands";
+import { TaskCollaboration } from "./task-collaboration";
 import { WorkspaceSidebar } from "./workspace-sidebar";
 import { chatPath, pageFromPath, projectFromPath, workspacePage } from "./workspace-routes";
 import "./style.css";
@@ -1103,7 +1104,10 @@ function App() {
           </main>
         ) : (
           <>
-            {p && <header className="conversation-bar"><strong>{p.title}</strong></header>}
+            {p && <header className="conversation-bar">
+              <strong>{p.title}</strong>
+              <TaskCollaboration key={p.id} project={p} user={user} refresh={refresh} />
+            </header>}
           <main className={p ? "chat" : "start"}>
             {err && <p role="alert">{err}</p>}
             {p && streamInterrupted && (
@@ -1426,7 +1430,7 @@ function App() {
         toggleCollapse={toggleCollapse} openPage={openPage} openProject={openProject}
         openAgent={agent => { newConversation(); chooseAgents([agent], agent.team); }}
         projects={recentProjects} agents={agents.filter(agent => agent.publishedReady && agent.published > 0 && teams?.some(team => team.id === agent.team))}
-        theme={theme} toggleTheme={toggleTheme} admin={user.role === "admin"} otherDialog={!!dialogPanel} />
+        theme={theme} toggleTheme={toggleTheme} admin={user.role === "admin"} />
     </div>
   );
 }

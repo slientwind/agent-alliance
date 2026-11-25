@@ -11,14 +11,29 @@ try {
     const id = "2b40fe15-8725-45cf-9576-5661de125cb5";
     const project = {
       id, title: "采购报价核对", stage: "brief", revision: 1, owner: "member", reviewer: "member", team: "team", planVersion: 0,
-      messages: [{ seq: 1, kind: "user", body: "整理报价表" }], artifacts: [], participants: [], handoffs: [],
+      messages: [{ seq: 1, kind: "user", body: "整理报价表" }], artifacts: [],
+      participants: [{ id: "member", name: "林予", role: "owner", canReview: true, canViewCosts: true, enabled: true }], handoffs: [],
       sharedAgents: [], deliveries: [], distributionCases: [], budget: { warning: false, pending: 0 }, costSummary: {},
       run: null, suggestion: null, plan: null,
     };
+    const collaborationRequests = [];
     await page.route("**/api/**", (route) => {
-      const path = new URL(route.request().url()).pathname;
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
       if (path.endsWith("/session-events") || path.endsWith("/events")) {
         return route.fulfill({ contentType: "text/event-stream", body: ": ready\n\n" });
+      }
+      if (path === "/api/projects/" + id + "/participants" && request.method() === "POST") {
+        collaborationRequests.push(request.postDataJSON());
+        project.participants.push({ id: "coworker", name: "陈子", role: "reviewer", canReview: true, canViewCosts: false, enabled: true });
+        project.revision++;
+        return route.fulfill({ status: 204 });
+      }
+      if (path === "/api/projects/" + id + "/participants/coworker" && request.method() === "DELETE") {
+        collaborationRequests.push(request.postDataJSON());
+        project.participants.pop();
+        project.revision++;
+        return route.fulfill({ status: 204 });
       }
       const data = {
         "/api/instance": { initialized: true, name: "示例企业" },
@@ -46,6 +61,19 @@ try {
     await search.press("Enter");
     await page.waitForURL("**/chat/" + id);
     await page.getByText("整理报价表", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "拉同事协作" }).click();
+    const collaboration = page.getByRole("dialog", { name: "协作成员" });
+    await collaboration.getByLabel("企业成员邮箱").fill("colleague@example.invalid");
+    await collaboration.getByLabel("分工").selectOption("reviewer");
+    await collaboration.getByRole("button", { name: "保存分工" }).click();
+    await collaboration.getByText("内容审核人", { exact: true }).filter({ visible: true }).waitFor();
+    await collaboration.getByRole("button", { name: "移除 陈子" }).click();
+    await collaboration.getByRole("button", { name: "确认移除" }).click();
+    await collaboration.getByRole("button", { name: "移除 陈子" }).waitFor({ state: "detached" });
+    await collaboration.getByText("已移除 陈子 的项目访问权。", { exact: true }).waitFor();
+    assert.deepEqual(collaborationRequests, [{ email: "colleague@example.invalid", role: "reviewer", expected: 1 }, { expected: 2 }]);
+    await checkWidth();
+    await collaboration.getByRole("button", { name: "关闭协作成员" }).click();
     await page.keyboard.press("Meta+n");
     await page.waitForURL("**/chat");
     const rail = page.locator(".workspace-shell");
@@ -91,7 +119,7 @@ try {
     assert.deepEqual(errors, []);
     await page.close();
   }
-  console.log("Workspace shortcuts, navigation, legacy and direct conversation links, and theme persistence passed at desktop and mobile widths.");
+  console.log("Workspace navigation, shortcuts, member collaboration, and theme persistence passed at desktop and mobile widths.");
 } finally {
   await browser.close();
 }

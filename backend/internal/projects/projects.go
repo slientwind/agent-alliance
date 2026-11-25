@@ -128,6 +128,7 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 		"POST /api/projects":                                                           s.create, "GET /api/projects": s.list, "GET /api/projects/{id}": s.detail,
 		"POST /api/projects/{id}/messages": s.message, "POST /api/projects/{id}/plan": s.plan, "POST /api/projects/{id}/runs": s.start,
 		"POST /api/projects/{id}/participants": s.participant, "POST /api/projects/{id}/artifacts/{artifact}/review": s.review,
+		"DELETE /api/projects/{id}/participants/{member}":             s.removeParticipant,
 		"POST /api/projects/{id}/artifacts/{artifact}/file-revisions": s.reviseFile,
 		"POST /api/projects/{id}/artifacts/{artifact}/revise":         s.revise, "POST /api/projects/{id}/deliver": s.deliver, "GET /api/projects/{id}/delivery": s.download,
 		"POST /api/projects/{id}/distribution-reviews":                      s.reviewDistribution,
@@ -143,6 +144,10 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 func lock(ctx context.Context, tx pgx.Tx, id, actor string) (Project, error) {
 	var p Project
 	err := tx.QueryRow(ctx, "select "+fields+access+"and p.id=$2 for update of p", actor, id).Scan(&p.ID, &p.Title, &p.Stage, &p.Revision, &p.PlanVersion, &p.Owner, &p.Reviewer)
+	if err == nil && actor != p.Owner {
+		// A request waiting on the project lock may predate a membership removal.
+		err = tx.QueryRow(ctx, "select 1 from project_members where project_id=$1 and member_id=$2", p.ID, actor).Scan(new(int))
+	}
 	return p, err
 }
 func Note(ctx context.Context, tx pgx.Tx, id, kind, body string, actor any) error {
@@ -287,7 +292,7 @@ func (s Server) detail(w http.ResponseWriter, r *http.Request, u identity.Member
  'recoveryUntil',(select h.recovery_until from reviewer_handoffs h where h.id=m.recovery_assignment),
  'takeoverAssignment',(select h.id from reviewer_handoffs h where h.id=p.reviewer_assignment and h.emergency and h.successor=$1 and p.final_reviewer=$1),
  'handoffs',coalesce((select jsonb_agg(jsonb_build_object('id',h.id,'previous',o.display_name,'next',n.display_name,'successor',h.successor,'author',h.proposer,'by',a.display_name,'emergency',h.emergency,'reason',h.reason,'end',h.end_condition,'state',h.state,'created',h.created_at,'recoveryUntil',h.recovery_until,'accessEnd',coalesce(h.access_end_reason,case when h.recovery_until<=now() then '授权已到期' end),'decidedAt',h.decided_at,'decidedBy',d.display_name,'decisionReason',h.decision_reason) order by h.created_at desc) from reviewer_handoffs h join members o on o.id=h.previous_reviewer join members n on n.id=h.successor join members a on a.id=h.proposer left join members d on d.id=h.decision_by where h.project_id=p.id),'[]'),
- 'participants',(select jsonb_agg(jsonb_build_object('id',u.id,'name',u.display_name,'canReview',pm.can_review,'canViewCosts',(pm.can_view_costs or p.owner=pm.member_id),'enabled',u.enabled) order by u.display_name,u.id) from project_members pm join members u on u.id=pm.member_id where pm.project_id=p.id),
+ 'participants',(select jsonb_agg(jsonb_build_object('id',u.id,'name',u.display_name,'role',pm.role,'canReview',pm.can_review,'canViewCosts',(pm.can_view_costs or p.owner=pm.member_id),'enabled',u.enabled) order by u.display_name,u.id) from task_participants pm join members u on u.id=pm.member_id where pm.project_id=p.id),
  'previousPlanningOutputs',(select string_to_array(q.required_output,',') from planning_requests q where q.project_id=p.id and q.actor=$1 and p.owner=$1 and p.stage in ('brief','plan') order by q.created_at desc,q.id desc limit 1),
  'previousPlanningOutput',(select case when strpos(q.required_output,',')=0 then q.required_output else '' end from planning_requests q where q.project_id=p.id and q.actor=$1 and p.owner=$1 and p.stage in ('brief','plan') order by q.created_at desc,q.id desc limit 1),
  'previousPlanningSources',(select q.input_sources from planning_requests q where q.project_id=p.id and q.actor=$1 and p.owner=$1 and p.stage in ('brief','plan') and q.input_sources is not null order by q.created_at desc,q.id desc limit 1),
@@ -449,12 +454,20 @@ func AppendProjectMessage(ctx context.Context, tx pgx.Tx, project, actor, body s
 }
 func (s Server) participant(w http.ResponseWriter, r *http.Request, u identity.Member) error {
 	var in struct {
-		Member, Email, Reason string
-		Review, Final         bool
-		Expected              int
+		Member, Email, Reason, Role string
+		Review, Final               bool
+		Expected                    int
 	}
 	if err := web.Read(r, &in); err != nil {
 		return err
+	}
+	if in.Role != "" {
+		switch in.Role {
+		case "contributor", "reviewer", "approver":
+			in.Review, in.Final = in.Role == "reviewer", in.Role == "approver"
+		default:
+			return web.Fail(422, "请选择补件人、审核人或最终确认人")
+		}
 	}
 	var offer string
 	ctx := r.Context()
@@ -463,10 +476,11 @@ func (s Server) participant(w http.ResponseWriter, r *http.Request, u identity.M
 		if err != nil {
 			return err
 		}
-		if (!in.Final && p.Owner != u.ID) || (in.Final && p.Reviewer != u.ID && p.Owner != u.ID) {
+		if p.Owner != u.ID && (in.Role != "" || !in.Final || p.Reviewer != u.ID) {
 			return web.Fail(403, "需要项目邀请或最终确认转交权限")
 		}
-		if p.Revision != in.Expected || p.Stage == "delivered" {
+		if p.Revision != in.Expected || p.Stage == "delivered" ||
+			in.Role != "" && (p.Stage == "adopted" || p.Stage == "cancelled" || p.Stage == "failed") {
 			return web.Fail(409, "项目已变更")
 		}
 		if in.Final && web.Blank(in.Reason) {
@@ -481,12 +495,19 @@ func (s Server) participant(w http.ResponseWriter, r *http.Request, u identity.M
 			return web.Fail(422, "请选择成员或输入企业成员邮箱")
 		}
 		if in.Final {
+			if in.Role == "approver" {
+				// The nominee can inspect the task immediately and must accept
+				// the existing handoff before gaining final approval authority.
+				if err = inviteCollaborator(ctx, tx, p.ID, in.Member); err != nil {
+					return err
+				}
+			}
 			offer, err = nominateReviewer(ctx, tx, p, u.ID, in.Member, in.Reason, "", false)
 			return err
 		}
 		if !in.Review {
-			if in.Member == p.Reviewer {
-				return web.Fail(409, "请先正式转交最终确认权")
+			if in.Member == p.Reviewer || in.Member == p.Owner {
+				return web.Fail(409, "发起人和最终确认人需要保留审核权限")
 			}
 			var pending bool
 			err := tx.QueryRow(ctx, "select exists(select from feedback f join artifacts a on a.id=f.artifact_id where a.project_id=$1 and f.reviewer=$2 and f.state in ('suggested','required','investigate','verification'))", p.ID, in.Member).Scan(&pending)

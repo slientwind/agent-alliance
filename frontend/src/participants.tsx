@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { HandoffQueueActions } from "./reviewer-handoffs";
 import type { Member, Project } from "./client";
 import { api } from "./client";
+import { participantRole } from "./task-collaboration";
 export function Participants({
   children,
   project: p,
@@ -34,13 +35,8 @@ export function Participants({
       <ul>
         {p.participants.map((m) => (
           <li key={m.id}>
-            {m.name} ·{" "}
-            {m.id === p.reviewer
-              ? "最终确认人"
-              : m.canReview
-                ? "可审核"
-                : "参与者"}
-            {m.id === p.owner && " · 发起人"}
+            {m.name} · {participantRole(p, m)}
+            {m.id === p.owner && m.id === p.reviewer && " · 最终确认人"}
             {m.canViewCosts && " · 可查费用明细"}
             {!m.enabled && " · 已停用"}
           </li>
