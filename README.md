@@ -164,6 +164,8 @@ docker compose --env-file .env.local \
 
 轮换业务资源加密密钥时，先让 API 和 Worker 都能通过 `RESOURCE_PREVIOUS_KEYS` 读取备用密钥，再切换 `RESOURCE_KEY`。该变量可配置最多四个以英文逗号分隔的 64 位十六进制密钥。切换后新写入内容使用当前密钥。历史发布版本、在途任务和旧备份仍可能需要原密钥，请在密钥管理系统中保留对应版本。
 
+单机部署默认由 Worker 将实时草稿发送到 API 的进程内流。部署多个 API 副本时，在 API 和 Worker 设置相同的 `HOT_STREAM_REDIS_URL` 以共享 Redis Streams。Redis 中的草稿短期保留并以资源密钥加密。正式成果、运行记录和访问权限由 PostgreSQL 保存。
+
 ---
 
 ## 当前版本与演进路线

@@ -6,6 +6,7 @@ import (
 	"alliance/internal/automations"
 	"alliance/internal/ecosystem"
 	"alliance/internal/egress"
+	"alliance/internal/hotstream"
 	"alliance/internal/knowledge"
 	"alliance/internal/mcphub"
 	"alliance/internal/runtime"
@@ -35,7 +36,21 @@ func main() {
 		log.Fatal(err)
 	}
 	defer c.Close()
-	a := runtime.Activities{Catalog: catalog}
+	var projectStream hotstream.Publisher
+	if address := os.Getenv("HOT_STREAM_REDIS_URL"); address != "" {
+		stream, err := hotstream.OpenRedis(address, catalog.Vault)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer stream.Close()
+		projectStream = stream
+	} else if address := os.Getenv("HOT_STREAM_PUBLISH_URL"); address != "" {
+		projectStream, err = hotstream.OpenRelay(address, os.Getenv("CONNECTOR_TOKEN"))
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	a := runtime.Activities{Catalog: catalog, Hot: projectStream}
 	w := worker.New(c, runtime.Queue(), worker.Options{})
 	w.RegisterWorkflow(runtime.Collaborate)
 	w.RegisterActivity(a.ExecuteStep)
@@ -65,7 +80,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer w.Stop()
-	general := agentloop.Activities{DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Gateway: app.ModelGateway(catalog)}
+	general := agentloop.Activities{DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Gateway: app.ModelGateway(catalog), Hot: projectStream}
 	general.MCP = &mcphub.Runtime{DB: catalog.DB, Client: mcphub.Client{Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB}}}
 	general.Search = &websearch.Runtime{DB: catalog.DB, Client: websearch.Client{Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB}}}
 	generalQueue := runtime.Queue() + "-general"

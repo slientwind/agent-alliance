@@ -569,6 +569,7 @@ function App() {
   const [sourcesRevision, setSourcesRevision] = useState(0);
   const [commentRevision, setCommentRevision] = useState(0);
   const [sessionDrafts, setSessionDrafts] = useState<(SessionDrafts & { project: string })>();
+  const [thinking, setThinking] = useState<{ project: string; run: string; text: string }>();
   const restoreThread = useCallback((thread: HTMLDivElement | null) => {
     const request = restore.current;
     if (!thread || !visibleProject || request?.id !== visibleProject) return;
@@ -600,6 +601,7 @@ function App() {
   useEffect(() => {
     setStreamInterrupted(false);
     setSessionDrafts(undefined);
+    setThinking(undefined);
     if (!visibleProject) return;
     const id = visibleProject;
     let fetching = false;
@@ -608,7 +610,9 @@ function App() {
     let connected = false;
     let interruption: number | undefined;
     let stream: EventSource | undefined;
+    let liveStream: EventSource | undefined;
     let draftView: SessionDrafts = { run: "", drafts: [] };
+    let liveView: SessionDrafts = { run: "", drafts: [] };
     const sync = async (force = false) => {
       if (!active || (!force && document.hidden) || current.current !== id) return;
       if (fetching) {
@@ -629,9 +633,50 @@ function App() {
       }
     };
     const check = () => void sync();
+    const renderDrafts = () => setSessionDrafts({ ...(liveView.drafts.length ? liveView : draftView), project: id });
     const showDrafts = (view: SessionDrafts) => {
       draftView = view;
-      setSessionDrafts({ ...view, project: id });
+      renderDrafts();
+    };
+    const openLive = () => {
+      if (liveStream) return;
+      const live = new EventSource("/api/projects/" + encodeURIComponent(id) + "/live-events");
+      liveStream = live;
+      const liveCurrent = () => active && liveStream === live && current.current === id;
+      const clear = () => {
+        liveView = { run: "", drafts: [] };
+        setThinking(undefined);
+        renderDrafts();
+      };
+      live.onerror = () => { if (liveCurrent()) clear(); };
+      live.addEventListener("hot.reset", event => {
+        if (!liveCurrent()) return;
+        liveView = JSON.parse(event.data) as SessionDrafts;
+        setThinking(undefined);
+        renderDrafts();
+      });
+      live.addEventListener("draft.delta", event => {
+        if (!liveCurrent()) return;
+        const fragment = JSON.parse(event.data) as DraftFragment & { run: string };
+        if (fragment.run !== liveView.run) return;
+        const next = applyDraftDelta(liveView.drafts, fragment);
+        if (next && next !== liveView.drafts) {
+          liveView = { run: fragment.run, drafts: next };
+          renderDrafts();
+        }
+      });
+      live.addEventListener("thinking.progress", event => {
+        if (!liveCurrent()) return;
+        const data = JSON.parse(event.data) as { run: string; text: string };
+        if (data.run === liveView.run) setThinking({ ...data, project: id });
+      });
+      live.addEventListener("comments.changed", () => { if (liveCurrent()) setCommentRevision(value => value + 1); });
+      live.addEventListener("access-ended", () => {
+        if (!liveCurrent()) return;
+        clear();
+        live.close();
+        void sync(true);
+      });
     };
     const subscribe = () => {
       const connection = new EventSource("/api/projects/" + encodeURIComponent(id) + "/session-events");
@@ -655,7 +700,9 @@ function App() {
       };
       connection.addEventListener("session.snapshot", event => {
         if (!currentConnection()) return;
-        showDrafts(JSON.parse(event.data) as SessionDrafts);
+        const snapshot = JSON.parse(event.data) as SessionDrafts & { hot?: boolean };
+        showDrafts(snapshot);
+        if (snapshot.hot) openLive();
         setSourcesRevision(value => value + 1);
         setCommentRevision(value => value + 1);
         void sync();
@@ -684,6 +731,9 @@ function App() {
       });
       connection.addEventListener("access-ended", () => {
         if (!currentConnection()) return;
+        liveStream?.close();
+        liveView = { run: "", drafts: [] };
+        setThinking(undefined);
         showDrafts({ run: "", drafts: [] });
         connection.close();
         connected = false;
@@ -705,6 +755,7 @@ function App() {
     return () => {
       active = false;
       stream?.close();
+      liveStream?.close();
       window.clearTimeout(interruption);
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", check);
@@ -1269,6 +1320,8 @@ function App() {
             {p && streamInterrupted && (
               <p role="status">实时连接中断，正在重新连接。工作仍会在后台运行。</p>
             )}
+            {p && thinking?.project === p.id && thinking.run === p.run?.id && (!sessionDrafts?.drafts.length || sessionDrafts.run !== thinking.run) &&
+              <p role="status">{thinking.text}</p>}
             {deliveryReceipt && (
               <p role="status">
                 <strong>已确认交付</strong> · 回执 {deliveryReceipt}

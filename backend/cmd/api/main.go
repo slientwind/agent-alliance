@@ -8,6 +8,7 @@ import (
 	"alliance/internal/channels"
 	"alliance/internal/ecosystem"
 	"alliance/internal/egress"
+	"alliance/internal/hotstream"
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
 	"alliance/internal/llmgateway"
@@ -80,7 +81,18 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	projects.Server{DB: c.DB, Vault: c.Vault, SessionUpdates: projectUpdates}.Routes(mux, s)
+	var projectStream hotstream.HotStreamBus = hotstream.NewMemory()
+	if address := os.Getenv("HOT_STREAM_REDIS_URL"); address != "" {
+		stream, err := hotstream.OpenRedis(address, c.Vault)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer stream.Close()
+		projectStream = stream
+	} else {
+		mux.Handle("POST "+hotstream.RelayPath, hotstream.RelayHandler(projectStream, os.Getenv("CONNECTOR_TOKEN")))
+	}
+	projects.Server{DB: c.DB, Vault: c.Vault, SessionUpdates: projectUpdates, Hot: projectStream}.Routes(mux, s)
 	agentloop.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
 	studio.Server{DB: c.DB, Vault: c.Vault, Gateway: app.ModelGateway(c)}.Routes(mux, s)
 	ecosystem.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)

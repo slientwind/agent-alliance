@@ -5,6 +5,7 @@ import (
 	"alliance/internal/database"
 	"alliance/internal/ecosystem"
 	"alliance/internal/harness"
+	"alliance/internal/hotstream"
 	"alliance/internal/knowledge"
 	"alliance/internal/llmgateway"
 	"alliance/internal/mcphub"
@@ -18,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -29,6 +31,7 @@ type Activities struct {
 	Objects knowledge.Objects
 	MCP     *mcphub.Runtime
 	Search  *websearch.Runtime
+	Hot     hotstream.Publisher
 	Gateway interface {
 		Call(context.Context, llmgateway.CallIdentity, llmgateway.Request) (llmgateway.RoutedResult, error)
 	}
@@ -37,7 +40,7 @@ type Activities struct {
 type runData struct {
 	project, actor, team, state, goal, quality string
 	tier                                       llmgateway.Tier
-	plan                                       int
+	plan, control                              int
 	authorized                                 bool
 	direct                                     bool
 	capabilities                               []string
@@ -52,23 +55,13 @@ type savedMessage struct {
 
 func loadRun(ctx context.Context, tx pgx.Tx, id string) (runData, error) {
 	var d runData
-	err := tx.QueryRow(ctx, `select r.project_id,r.actor,r.charge_team,r.status,p.brief,r.quality_track,g.tier,r.plan_version,g.progress,
-	 current.plan_version=r.plan_version
-	 and exists(select from members m join project_members pm on pm.member_id=m.id and pm.project_id=r.project_id
-	 join team_members tm on tm.member_id=m.id and tm.team_id=r.charge_team where m.id=r.actor and m.enabled)
-	 and not exists(select from plan_sources ps join sources s on s.id=ps.source_id
-	 where (ps.project_id,ps.plan_version)=(r.project_id,r.plan_version)
-	 and (s.project_id<>r.project_id or s.revoked_at is not null or s.current_version<>ps.source_version))
-	 and not exists(select from plan_rules pr where (pr.project_id,pr.plan_version)=(r.project_id,r.plan_version)
-	 and not rule_usable(pr.rule_id,pr.rule_revision,r.actor))
-	 and general_mcp_observations_usable(r.id,r.charge_team)
-	 and general_external_observations_usable(r.id) and general_ecosystem_skills_usable(r.id)
-	 and (g.studio_release is null or studio_release_usable(g.studio_release,r.actor,r.project_id)),
+	err := tx.QueryRow(ctx, `select r.project_id,r.actor,r.charge_team,r.status,p.brief,r.quality_track,g.tier,r.plan_version,r.control_revision,g.progress,
+	 general_run_inputs_usable(r.id),
 	 g.direct_external,g.enabled_capabilities,studio.spec
 	 from general_agent_runs g join runs r on r.id=g.run_id join projects current on current.id=r.project_id
 	 left join studio_releases studio on studio.id=g.studio_release
 	 join plans p on (p.project_id,p.version)=(r.project_id,r.plan_version) where r.id=$1 for update of r,g,current`, id).
-		Scan(&d.project, &d.actor, &d.team, &d.state, &d.goal, &d.quality, &d.tier, &d.plan, &d.progress, &d.authorized, &d.direct, &d.capabilities, &d.profile)
+		Scan(&d.project, &d.actor, &d.team, &d.state, &d.goal, &d.quality, &d.tier, &d.plan, &d.control, &d.progress, &d.authorized, &d.direct, &d.capabilities, &d.profile)
 	return d, err
 }
 
@@ -189,9 +182,21 @@ func (a Activities) AdvanceTurn(ctx context.Context, ref TurnRef) (TurnResult, e
 	if d.tier == llmgateway.Reasoning {
 		request.ReasoningEffort = "medium"
 	}
+	var flush func()
+	if a.Hot != nil {
+		progress, done := context.WithTimeout(ctx, time.Second)
+		_ = a.Hot.Publish(progress, d.project, hotstream.Event{Kind: hotstream.Thought, Run: ref.RunID,
+			Step: ref.Turn, Attempt: 1, Control: d.control, Text: "正在处理这轮任务"})
+		done()
+		request.EmitText, flush = hotstream.DraftEmitter(ctx, a.Hot, d.project, hotstream.Event{
+			Kind: hotstream.Draft, Run: ref.RunID, Step: ref.Turn, Attempt: 1, Control: d.control})
+	}
 	model, callErr := a.Gateway.Call(ctx, llmgateway.CallIdentity{
 		OperationKey: runScope(ref.RunID, ref.Turn), TeamID: d.team, MemberID: d.actor, RunID: ref.RunID, Turn: ref.Turn,
 	}, request)
+	if flush != nil {
+		flush()
+	}
 	err = database.WithTx(ctx, a.DB, func(tx pgx.Tx) error {
 		current, err := loadRun(ctx, tx, ref.RunID)
 		if err != nil {

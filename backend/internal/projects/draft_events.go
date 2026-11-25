@@ -46,7 +46,13 @@ type draftWindow struct {
 
 func (s Server) draftEvents(g identity.Server) web.Handler {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		return streamDraftEvents(w, r, 300*time.Millisecond, func(r *http.Request, after int64, scope string) (draftBatch, error) {
+		var wake <-chan struct{}
+		if s.SessionUpdates != nil {
+			var close func()
+			wake, close = s.SessionUpdates.subscribe(r.PathValue("id"))
+			defer close()
+		}
+		return streamDraftEvents(w, r, wake, func(r *http.Request, after int64, scope string) (draftBatch, error) {
 			u, err := g.Authenticate(r)
 			if err != nil {
 				return draftBatch{}, err
@@ -73,6 +79,10 @@ func readDraftBatch(ctx context.Context, tx pgx.Tx, project, run, actor string, 
 }
 
 func readDraftWindow(ctx context.Context, tx pgx.Tx, project, run, actor string) (draftWindow, error) {
+	return authorizeDraftWindow(ctx, tx, project, run, actor, false)
+}
+
+func authorizeDraftWindow(ctx context.Context, tx pgx.Tx, project, run, actor string, hot bool) (draftWindow, error) {
 	var window draftWindow
 	var state, runner string
 	err := tx.QueryRow(ctx, `select r.draft_seq,r.status,r.control_revision,r.actor from runs r
@@ -83,7 +93,7 @@ func readDraftWindow(ctx context.Context, tx pgx.Tx, project, run, actor string)
 	if err != nil {
 		return window, err
 	}
-	if window.head > 0 && (state == "running" || state == "reconcile") {
+	if (window.head > 0 || hot) && (state == "running" || state == "reconcile") {
 		rows, err := tx.Query(ctx, `select i.ordinal,i.attempt_no,i.status
             from invocations i join effective_run_nodes n on(n.run_id,n.ordinal)=(i.run_id,i.ordinal)
             where i.run_id=$1 and (i.status in('submitted','unknown') or exists(
@@ -94,10 +104,10 @@ func readDraftWindow(ctx context.Context, tx pgx.Tx, project, run, actor string)
                   and agent_skills_usable(n.agent_id,n.agent_revision,$3)
                   and ($3=$5 or collaborative_draft_readable(i.run_id,i.ordinal,i.attempt_no,$3))
                   and run_working_set_usable(i.run_id,i.ordinal,i.attempt_no)
-                  and exists(select from run_draft_fragments f where
+				  and ($6 or exists(select from run_draft_fragments f where
                       (f.run_id,f.ordinal,f.attempt_no)=(i.run_id,i.ordinal,i.attempt_no)
-                      and f.control_revision=$4 and f.byte_offset=0 and f.created_at>now()-interval '1 hour')
-            order by i.ordinal`, run, project, actor, window.control, runner)
+					  and f.control_revision=$4 and f.byte_offset=0 and f.created_at>now()-interval '1 hour'))
+			order by i.ordinal`, run, project, actor, window.control, runner, hot)
 		if err != nil {
 			return window, err
 		}
@@ -153,7 +163,7 @@ func (d draftWindow) fragments(ctx context.Context, tx pgx.Tx, run string, after
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[draftFragment])
 }
 
-func streamDraftEvents(w http.ResponseWriter, r *http.Request, every time.Duration, read func(*http.Request, int64, string) (draftBatch, error)) error {
+func streamDraftEvents(w http.ResponseWriter, r *http.Request, wake <-chan struct{}, read func(*http.Request, int64, string) (draftBatch, error)) error {
 	var after int64
 	if cursor := r.Header.Get("Last-Event-ID"); cursor != "" {
 		var err error
@@ -164,7 +174,7 @@ func streamDraftEvents(w http.ResponseWriter, r *http.Request, every time.Durati
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
-	tick := time.NewTicker(every)
+	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 	controller := http.NewResponseController(w)
 	var lastWrite time.Time
@@ -235,6 +245,7 @@ func streamDraftEvents(w http.ResponseWriter, r *http.Request, every time.Durati
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-wake:
 		case <-tick.C:
 		}
 	}

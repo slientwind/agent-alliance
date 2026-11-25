@@ -176,6 +176,7 @@ func (s Server) createArtifactComment(w http.ResponseWriter, r *http.Request, ac
 	if err != nil {
 		return err
 	}
+	s.publishLiveComment(ctx, project)
 	return web.JSON(w, http.StatusCreated, comment)
 }
 
@@ -237,6 +238,7 @@ func (s Server) resolveArtifactComment(w http.ResponseWriter, r *http.Request, a
 	if err != nil {
 		return err
 	}
+	s.publishLiveComment(ctx, project)
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }

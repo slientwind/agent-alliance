@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"alliance/internal/database"
+	"alliance/internal/hotstream"
 	"alliance/internal/identity"
 	"alliance/internal/projects"
 	"alliance/internal/resources"
@@ -21,6 +22,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -94,16 +96,18 @@ func TestTextDraftPostgresSSE(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	worker := Activities{Catalog: resources.Catalog{DB: db, Vault: vault}}
+	worker := Activities{Catalog: resources.Catalog{DB: db, Vault: vault}, Hot: historicalDraftPublisher{db}}
 	routes := http.NewServeMux()
 	updates, err := projects.StartSessionUpdates(ctx, db)
 	if err != nil {
 		t.Fatal(err)
 	}
-	projects.Server{DB: db, Vault: vault, SessionUpdates: updates}.Routes(routes, identity.Server{DB: db})
+	bus := hotstream.NewMemory()
+	routes.Handle("POST "+hotstream.RelayPath, hotstream.RelayHandler(bus, "draft-fixture-connector"))
+	projects.Server{DB: db, Vault: vault, SessionUpdates: updates, Hot: bus}.Routes(routes, identity.Server{DB: db})
 	api := httptest.NewServer(routes)
 	defer api.Close()
-	for _, test := range []string{"reconnect", "interrupted", "revoked", "edited preference", "session", "session revoked"} {
+	for _, test := range []string{"reconnect", "interrupted", "revoked", "edited preference", "session", "session revoked", "hot stream"} {
 		t.Run(test, func(t *testing.T) {
 			sub, stop := context.WithCancel(ctx)
 			defer stop()
@@ -137,13 +141,26 @@ func TestTextDraftPostgresSSE(t *testing.T) {
 			plays <- play{produce, finish, test != "interrupted"}
 			started := calls.Load()
 			done := make(chan error, 1)
+			execution := worker
+			if test == "hot stream" {
+				relay, err := hotstream.OpenRelay(api.URL+hotstream.RelayPath, "draft-fixture-connector")
+				if err != nil {
+					t.Fatal(err)
+				}
+				execution.Hot = relay
+			}
 			go func() {
-				outcome, err := worker.AdvanceTextStep(sub, step)
+				outcome, err := execution.AdvanceTextStep(sub, step)
 				if err == nil && outcome.TextReply != nil {
 					_, err = worker.CommitTextReply(sub, *outcome.TextReply)
 				}
 				done <- err
 			}()
+			if test == "hot stream" {
+				verifyHotStream(t, sub, db, api.URL+"/api/projects/"+project+"/live-events", step, project, token,
+					first, second, produce, finish, done)
+				return
+			}
 			if strings.HasPrefix(test, "session") {
 				verifyProjectSessionStream(t, sub, db, api.URL+"/api/projects/"+project+"/session-events",
 					step, project, actor, token, first, second, produce, finish, done, test == "session revoked")
@@ -224,6 +241,83 @@ func TestTextDraftPostgresSSE(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+type historicalDraftPublisher struct{ db *pgxpool.Pool }
+
+func (p historicalDraftPublisher) Publish(ctx context.Context, _ string, event hotstream.Event) error {
+	written, err := recordHistoricalDraft(ctx, p.db, Step{event.Run, event.Step}, event.Attempt, event.Control, event.Offset, event.Text)
+	if err == nil && !written {
+		return fmt.Errorf("historical draft was already invalidated")
+	}
+	return err
+}
+
+// Stand in for a pre-upgrade Worker so that the existing cursor and cleanup
+// tests continue to exercise real rows written by the former protocol.
+func recordHistoricalDraft(ctx context.Context, db *pgxpool.Pool, step Step, attempt, control, offset int, body string) (bool, error) {
+	var written bool
+	err := database.WithTx(ctx, db, func(tx pgx.Tx) error {
+		var active bool
+		if err := tx.QueryRow(ctx, `select status='running' and control_revision=$2 from runs where id=$1 for update`,
+			step.Run, control).Scan(&active); err != nil || !active {
+			return err
+		}
+		tag, err := tx.Exec(ctx, `with advanced as (
+		 update runs set draft_seq=draft_seq+1 where id=$1 and exists(
+		  select from invocations where run_id=$1 and ordinal=$2 and attempt_no=$3 and status='submitted'
+		   and run_working_set_usable(run_id,ordinal,attempt_no)) returning draft_seq
+		 ) insert into run_draft_fragments(run_id,seq,ordinal,attempt_no,control_revision,byte_offset,body)
+		 select $1,draft_seq,$2,$3,$4,$5,$6 from advanced on conflict do nothing`, step.Run, step.Ordinal, attempt, control, offset, body)
+		written = tag.RowsAffected() != 0
+		return err
+	})
+	return written, err
+}
+
+func verifyHotStream(t *testing.T, ctx context.Context, db *pgxpool.Pool, url string, step Step,
+	project, token, first, second string, produce, finish chan struct{}, done <-chan error) {
+	t.Helper()
+	owner, closeOwner := openDraftResponse(t, ctx, url, token, "")
+	defer closeOwner()
+	firstFrame := readDraftFrame(t, owner, func(frame string) bool { return strings.Contains(frame, "event: draft.delta") })
+	if !strings.Contains(firstFrame, first) || !strings.Contains(firstFrame, step.Run) {
+		t.Fatalf("owner did not receive the live draft: %s", firstFrame)
+	}
+	viewer, viewerToken := registerDraftPeer(t, ctx, db, project)
+	lookupTestSQL(t, ctx, db, "insert into team_members select team_id,$2 from projects where id=$1", project, viewer)
+	shared, closeShared := openDraftResponse(t, ctx, url, viewerToken, "")
+	defer closeShared()
+	sharedFrame := readDraftFrame(t, shared, func(frame string) bool { return strings.Contains(frame, "event: draft.delta") })
+	if !strings.Contains(sharedFrame, first) {
+		t.Fatalf("authorized teammate did not replay the live draft: %s", sharedFrame)
+	}
+	lookupTestSQL(t, ctx, db, "delete from project_members where project_id=$1 and member_id=$2", project, viewer)
+	close(produce)
+	readDraftFrame(t, shared, func(frame string) bool {
+		if strings.Contains(frame, second) {
+			t.Fatalf("withdrawn teammate received new text: %s", frame)
+		}
+		return strings.Contains(frame, "event: access-ended")
+	})
+	secondFrame := readDraftFrame(t, owner, func(frame string) bool { return strings.Contains(frame, second) })
+	if !strings.Contains(secondFrame, fmt.Sprintf("\"offset\":%d", len(first))) {
+		t.Fatalf("live channel lost the UTF-8 byte offset: %s", secondFrame)
+	}
+	var persisted int
+	if err := db.QueryRow(ctx, "select count(*) from run_draft_fragments where run_id=$1", step.Run).Scan(&persisted); err != nil || persisted != 0 {
+		t.Fatalf("the hot publisher wrote database draft fragments: %d %v", persisted, err)
+	}
+	close(finish)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	readDraftFrame(t, owner, func(frame string) bool { return strings.Contains(frame, "event: hot.reset") })
+	var candidate string
+	if err := db.QueryRow(ctx, `select v.body from artifacts a join artifact_versions v on (v.artifact_id,v.version)=(a.id,a.current_version)
+	 where a.run_id=$1 and a.ordinal=$2`, step.Run, step.Ordinal).Scan(&candidate); err != nil || candidate != first+second {
+		t.Fatalf("final artifact was not committed independently: %v", err)
 	}
 }
 

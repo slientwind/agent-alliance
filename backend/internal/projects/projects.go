@@ -2,6 +2,7 @@ package projects
 
 import (
 	"alliance/internal/database"
+	"alliance/internal/hotstream"
 	"alliance/internal/identity"
 	"alliance/internal/resources"
 	"alliance/internal/web"
@@ -19,6 +20,7 @@ type Server struct {
 	DB             *pgxpool.Pool
 	Vault          resources.Vault
 	SessionUpdates *SessionUpdates
+	Hot            hotstream.HotStreamBus
 }
 type Project struct {
 	ID          string `json:"id"`
@@ -72,6 +74,9 @@ func (s Server) Routes(m *http.ServeMux, g identity.Server) {
 	m.Handle("GET /api/admin/monitor/trace/{run}", g.Protect(true, s.monitorTrace))
 	m.Handle("GET /api/projects/{id}/runs/{run}/draft-events", s.draftEvents(g))
 	m.Handle("GET /api/projects/{id}/session-events", s.sessionEvents(g))
+	if s.Hot != nil {
+		m.Handle("GET /api/projects/{id}/live-events", s.liveEvents(g))
+	}
 	actions := map[string]identity.Action{
 		"GET /api/projects/{id}/artifacts/{artifact}/feedback/{feedback}/source-quote": s.feedbackQuote,
 		"GET /api/projects/{id}/artifacts/{artifact}/source-comparison/{source}":       s.sourceComparison,

@@ -252,7 +252,7 @@ export function Work({
           {m.kind === "assistant" ? <MarkdownText content={m.body} /> : m.body}
         </article>
       ))}
-      {p.run?.draftAvailable && ["queued", "running", "reconcile"].includes(p.run.status) && (
+      {p.run && (p.run.draftAvailable || drafts.length > 0) && ["queued", "running", "reconcile"].includes(p.run.status) && (
         <LiveDrafts drafts={drafts} />
       )}
       {p.stage === "adopted" && (

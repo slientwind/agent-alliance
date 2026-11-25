@@ -72,6 +72,7 @@ type sessionBatch struct {
 type sessionSnapshot struct {
 	Run    string          `json:"run"`
 	Drafts []draftFragment `json:"drafts"`
+	Hot    bool            `json:"hot,omitempty"`
 }
 
 type sessionDelta struct {
@@ -116,6 +117,14 @@ func (s Server) sessionEvents(g identity.Server) web.Handler {
 					batch, readErr = readSessionBatch(ctx, tx, project, u.ID, cursor)
 					return readErr
 				})
+				if err == nil && s.Hot != nil {
+					for i, record := range batch.records {
+						if snapshot, ok := record.data.(sessionSnapshot); ok {
+							snapshot.Hot = true
+							batch.records[i].data = snapshot
+						}
+					}
+				}
 				return batch, err
 			})
 	}
@@ -174,7 +183,7 @@ func readSessionBatch(ctx context.Context, tx pgx.Tx, project, actor string, cur
 		if drafts == nil {
 			drafts = []draftFragment{}
 		}
-		batch.records = []sessionRecord{{head, "session.snapshot", sessionSnapshot{run, drafts}}}
+		batch.records = []sessionRecord{{head, "session.snapshot", sessionSnapshot{Run: run, Drafts: drafts}}}
 		return batch, nil
 	}
 	if cursor.Seq == head {

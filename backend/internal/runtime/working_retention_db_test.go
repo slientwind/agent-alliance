@@ -80,7 +80,7 @@ func TestRetireDerivedWorkingPayloadsPostgres(t *testing.T) {
      from runs r join agent_budget_bindings b on (b.agent_id,b.revision)=($2,1) where r.id=$1`, run, agent)
 	const obsolete, independent = "受影响的草稿", "独立步骤的草稿"
 	for step, draft := range map[int]string{3: independent, 5: obsolete} {
-		if written, err := worker.appendDraft(ctx, Step{run, step}, 1, 1, 0, draft); err != nil || !written {
+		if written, err := recordHistoricalDraft(ctx, db, Step{run, step}, 1, 1, 0, draft); err != nil || !written {
 			t.Fatalf("write initial draft %d: written=%t err=%v", step, written, err)
 		}
 	}
@@ -106,7 +106,7 @@ func TestRetireDerivedWorkingPayloadsPostgres(t *testing.T) {
 	if got := snapshot(); strings.Contains(got, obsolete) || !strings.Contains(got, independent) {
 		t.Fatalf("expiry did not replace just the affected part of the stream: %q", got)
 	}
-	if written, err := worker.appendDraft(ctx, Step{run, 5}, 1, 1, len(obsolete), "迟到的流式片段"); err != nil || written {
+	if written, err := recordHistoricalDraft(ctx, db, Step{run, 5}, 1, 1, len(obsolete), "迟到的流式片段"); err != nil || written {
 		t.Fatalf("obsolete stream accepted another fragment: written=%t err=%v", written, err)
 	}
 	check := func(reason, query string, args ...any) {

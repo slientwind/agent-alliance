@@ -5,6 +5,7 @@ import (
 	"alliance/internal/builder"
 	"alliance/internal/database"
 	"alliance/internal/harness"
+	"alliance/internal/hotstream"
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
 	"alliance/internal/memory"
@@ -87,7 +88,10 @@ func Collaborate(ctx workflow.Context, run string) error {
 	return errors.New("plan exceeded its maximum size")
 }
 
-type Activities struct{ Catalog resources.Catalog }
+type Activities struct {
+	Catalog resources.Catalog
+	Hot     hotstream.Publisher
+}
 
 type turnMode int
 
@@ -734,7 +738,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 			msgs = append(msgs, resources.Message{Role: "user", Content: upstreamResultsLabel + d.prior})
 		}
 		if streamText {
-			return a.streamDraft(ctx, step, dispatchedAttempt, d.controlRevision, d.model, msgs)
+			return a.streamDraft(ctx, d.project, step, dispatchedAttempt, d.controlRevision, d.model, msgs)
 		}
 		return d.model.Generate(ctx, msgs)
 	}))
