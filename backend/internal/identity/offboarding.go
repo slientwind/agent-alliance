@@ -23,28 +23,58 @@ func (s Server) departurePreview(w http.ResponseWriter, r *http.Request, _ Membe
 	if utf8.RuneCountInString(search) > 120 {
 		return web.Fail(422, "搜索词最多 120 字")
 	}
+	mode, team := r.URL.Query().Get("mode"), r.URL.Query().Get("teamId")
+	if mode == "" {
+		mode = "depart"
+	}
+	if mode == "transfer" {
+		if !handoffTeamID(team) {
+			return web.Fail(422, "请选择要移出的团队空间")
+		}
+	} else if mode != "depart" || team != "" {
+		return web.Fail(422, "未知交接模式")
+	}
 	var result json.RawMessage
-	err := s.DB.QueryRow(r.Context(), `with teams as materialized (select team_id from staff_departure_teams($1))
+	err := s.DB.QueryRow(r.Context(), `with target as (select nullif($3,'')::uuid as team_id),
+	required_teams as materialized (
+	 select t.team_id from staff_departure_teams($1) t cross join target where target.team_id is null
+	 union select team_id from target where team_id is not null
+	)
 	select jsonb_build_object(
-	 'projects',(select count(*) from staff_departure_projects($1)),
-	 'agents',(select count(*) from agents where owner=$1 and not removed),
-	 'drafts',(select count(*) from studio_drafts where owner=$1),
-	 'rules',(select count(*) from team_rules where maintainer=$1),
-	 'automations',(select count(*) from automation_schedules where owner=$1 and state<>'deleted'),
+	 'mode',$4::text,'teamId',target.team_id,'accountRevision',leaving.account_revision::text,
+	 'teams',array(select jsonb_build_object('id',t.id,'spaceId',s.id,'name',s.name)
+	  from team_members tm join teams t on t.id=tm.team_id join spaces s on s.team_id=t.id and s.archived_at is null
+	  where tm.member_id=$1 order by s.name,s.id),
+	 'projects',(select count(*) from staff_departure_projects($1) p where target.team_id is null or p.team_id=target.team_id),
+	 'agents',(select count(*) from agents where owner=$1 and not removed and (target.team_id is null or team_id=target.team_id)),
+	 'drafts',(select count(*) from studio_drafts where owner=$1 and (target.team_id is null or team_id=target.team_id)),
+	 'rules',(select count(*) from team_rules where maintainer=$1 and (target.team_id is null or team_id=target.team_id)),
+	 'automations',(select count(*) from automation_schedules where owner=$1 and state<>'deleted' and (target.team_id is null or team_id=target.team_id)),
 	 'successors',array(select jsonb_build_object('id',m.id,'name',m.display_name,'email',m.email)
 	   from members m where m.id<>$1 and m.enabled and m.departed_at is null and m.kind='person'
 	   and ($2='' or strpos(lower(m.display_name),lower($2))>0 or strpos(lower(m.email),lower($2))>0)
-	   and not exists(select from teams t where not exists(
+	   and not exists(select from required_teams t where not exists(
 	     select from team_members tm where (tm.team_id,tm.member_id)=(t.team_id,m.id)))
 	   order by m.display_name,m.id limit 250))
-	from members leaving where leaving.id=$1 and leaving.kind='person' and leaving.departed_at is null`, person, search).Scan(&result)
+	from members leaving cross join target where leaving.id=$1 and leaving.kind='person' and leaving.departed_at is null
+	 and (target.team_id is null or (leaving.enabled and exists(
+	  select from team_members tm join spaces s on s.team_id=tm.team_id and s.archived_at is null
+	  where (tm.team_id,tm.member_id)=(target.team_id,leaving.id))))`, person, search, team, mode).Scan(&result)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return web.Fail(404, "成员或团队交接范围已失效")
+	}
 	if err != nil {
 		return err
 	}
 	return web.JSON(w, http.StatusOK, result)
 }
 
-func applyDepartureHandoff(ctx context.Context, tx pgx.Tx, actor, departing, successor, reason string) error {
+func handoffTeamID(team string) bool {
+	id, err := uuid.Parse(team)
+	return err == nil && id != uuid.Nil && id.String() == team
+}
+
+func applyDepartureHandoff(ctx context.Context, tx pgx.Tx, actor, departing, successor, reason, team string) error {
 	ref, err := uuid.Parse(successor)
 	if err != nil || ref == uuid.Nil || ref.String() == departing {
 		return web.Fail(422, "请选择另一位在职成员接手")
@@ -62,35 +92,48 @@ func applyDepartureHandoff(ctx context.Context, tx pgx.Tx, actor, departing, suc
 	if err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `select p.id from projects p join staff_departure_projects($1) t on t.project_id=p.id
-	 order by p.id for update of p`, departing); err != nil {
-		return err
-	}
-	for _, query := range []string{
-		"select id from agents where owner=$1 and not removed order by id for update",
-		"select id from studio_drafts where owner=$1 order by id for update",
-		"select id from team_rules where maintainer=$1 order by id for update",
-		"select id from automation_schedules where owner=$1 and state<>'deleted' order by id for update",
-	} {
-		// All affected rows are locked before checking the successor's team scope.
-		if _, err := tx.Exec(ctx, query, departing); err != nil {
+	if team != "" {
+		var space string
+		if err := tx.QueryRow(ctx, `select s.id from team_members tm join spaces s on s.team_id=tm.team_id and s.archived_at is null
+		 where (tm.team_id,tm.member_id)=($1,$2) for update of tm for share of s`, team, departing).Scan(&space); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return web.Fail(409, "成员已移出该团队空间，请刷新后核对")
+			}
 			return err
 		}
 	}
+	if _, err := tx.Exec(ctx, `select p.id from projects p join staff_departure_projects($1) t on t.project_id=p.id
+	 where ($2='' or p.team_id=nullif($2,'')::uuid) order by p.id for update of p`, departing, team); err != nil {
+		return err
+	}
+	for _, query := range []string{
+		"select id from agents where owner=$1 and not removed",
+		"select id from studio_drafts where owner=$1",
+		"select id from team_rules where maintainer=$1",
+		"select id from automation_schedules where owner=$1 and state<>'deleted'",
+	} {
+		// All affected rows are locked before checking the successor's team scope.
+		if _, err := tx.Exec(ctx, query+" and ($2='' or team_id=nullif($2,'')::uuid) order by id for update", departing, team); err != nil {
+			return err
+		}
+	}
+	const teams = `(select team_id from staff_departure_teams($1) where $3=''
+	 union select nullif($3,'')::uuid where $3<>'')`
 	if _, err := tx.Exec(ctx, `select team_id from team_members where member_id=$2
-	 and team_id in (select team_id from staff_departure_teams($1)) order by team_id for share`, departing, successor); err != nil {
+	 and team_id in `+teams+` order by team_id for share`, departing, successor, team); err != nil {
 		return err
 	}
 	var covered bool
-	if err := tx.QueryRow(ctx, `select not exists(select from staff_departure_teams($1) t where not exists(
-	 select from team_members m where (m.team_id,m.member_id)=(t.team_id,$2)))`, departing, successor).Scan(&covered); err != nil {
+	if err := tx.QueryRow(ctx, `select not exists(select from `+teams+` t where not exists(
+	 select from team_members m where (m.team_id,m.member_id)=(t.team_id,$2)))`, departing, successor, team).Scan(&covered); err != nil {
 		return err
 	}
 	if !covered {
 		return web.Fail(409, "接手人须已加入所有相关团队，请重新选择")
 	}
 	var projectIDs []string
-	if err := tx.QueryRow(ctx, `select array(select project_id from staff_departure_projects($1) order by project_id)`, departing).
+	if err := tx.QueryRow(ctx, `select array(select project_id from staff_departure_projects($1)
+	 where ($2='' or team_id=nullif($2,'')::uuid) order by project_id)`, departing, team).
 		Scan(&projectIDs); err != nil {
 		return err
 	}
@@ -171,7 +214,7 @@ func applyDepartureHandoff(ctx context.Context, tx pgx.Tx, actor, departing, suc
 		{"update team_rules set maintainer=$2,maintenance_vacant=false,maintenance_version=maintenance_version+1,proposed_owner=null,proposed_by=null,transfer_reason=null where maintainer=$1", &counts.Rules},
 		{"update automation_schedules set owner=$2,state='paused',revision=revision+1,sync_next_at=clock_timestamp(),updated_at=clock_timestamp() where owner=$1 and state<>'deleted'", &counts.Automations},
 	} {
-		tag, err := tx.Exec(ctx, change.sql, departing, successor)
+		tag, err := tx.Exec(ctx, change.sql+" and ($3='' or team_id=nullif($3,'')::uuid)", departing, successor, team)
 		if err != nil {
 			return err
 		}
@@ -179,10 +222,37 @@ func applyDepartureHandoff(ctx context.Context, tx pgx.Tx, actor, departing, suc
 	}
 	detail := map[string]any{"projects": projectIDs, "feedback": counts.Feedback, "mentions": counts.Mentions, "requirements": counts.Requirements,
 		"agents": counts.Agents, "drafts": counts.Drafts, "rules": counts.Rules, "pausedAutomations": counts.Automations}
+	action := "member.departure.handoff"
+	if team != "" {
+		detail["teamId"] = team
+		action = "member.transfer.handoff"
+		if err := leaveTeamScope(ctx, tx, departing, team); err != nil {
+			return err
+		}
+	}
 	var batch string
 	if err := tx.QueryRow(ctx, `insert into staff_departure_batches(departing,successor,actor,reason,transferred)
 	 values($1,$2,$3,$4,$5) returning id`, departing, successor, actor, reason, detail).Scan(&batch); err != nil {
 		return err
 	}
-	return database.Audit(ctx, tx, actor, "member.departure.handoff", departing, map[string]any{"batch": batch, "successor": successor})
+	return database.Audit(ctx, tx, actor, action, departing, map[string]any{"batch": batch, "successor": successor, "teamId": team})
+}
+
+func leaveTeamScope(ctx context.Context, tx pgx.Tx, member, team string) error {
+	for _, statement := range []string{
+		`delete from project_memberships pm using projects p, spaces s
+		 where pm.project_id=p.id and p.space_id=s.id and pm.member_id=$1 and s.team_id=$2`,
+		`delete from trace_grants g using runs r, projects p, spaces s
+		 where g.run_id=r.id and r.project_id=p.id and p.space_id=s.id and g.member_id=$1 and s.team_id=$2`,
+		`delete from channel_contexts c using projects p, spaces s
+		 where c.project_id=p.id and p.space_id=s.id and c.member_id=$1 and s.team_id=$2`,
+		`update teams set trace_manager=null,trace_policy_revision=trace_policy_revision+1 where trace_manager=$1 and id=$2`,
+		`delete from team_members where member_id=$1 and team_id=$2`,
+	} {
+		if _, err := tx.Exec(ctx, statement, member, team); err != nil {
+			return err
+		}
+	}
+	_, err := tx.Exec(ctx, "update members set account_revision=account_revision+1 where id=$1", member)
+	return err
 }

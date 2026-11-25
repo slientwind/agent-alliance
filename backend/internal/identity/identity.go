@@ -5,7 +5,9 @@ import (
 	"alliance/internal/web"
 	"context"
 	"crypto/subtle"
+	"errors"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
@@ -296,6 +298,7 @@ func (s Server) updateMember(w http.ResponseWriter, r *http.Request, u Member) e
 		Reason, Password string
 		Employment       string
 		Successor        string
+		TeamID           string
 		Expected         *string
 	}
 	if err := web.Read(r, &in); err != nil {
@@ -304,9 +307,20 @@ func (s Server) updateMember(w http.ResponseWriter, r *http.Request, u Member) e
 	if in.Enabled == nil || web.Blank(in.Reason) || (in.Role != "admin" && in.Role != "member") {
 		return web.Fail(422, "请选择角色、账号状态并说明原因")
 	}
+	if in.Employment == "transfer" {
+		if !handoffTeamID(in.TeamID) || in.Successor == "" {
+			return web.Fail(422, "请选择要移出的团队空间及接手人")
+		}
+	} else if in.TeamID != "" {
+		return web.Fail(422, "团队范围适用于部门调岗")
+	}
 	ctx := r.Context()
 	id := r.PathValue("id")
-	err := database.WithTx(ctx, s.DB, func(tx pgx.Tx) error {
+	var opts pgx.TxOptions
+	if in.Employment == "depart" || in.Employment == "transfer" {
+		opts.IsoLevel = pgx.Serializable
+	}
+	err := pgx.BeginTxFunc(ctx, s.DB, opts, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, "select pg_advisory_xact_lock(17952102)"); err != nil {
 			return err
 		}
@@ -338,20 +352,27 @@ func (s Server) updateMember(w http.ResponseWriter, r *http.Request, u Member) e
 				return web.Fail(409, "请先交接给另一名可用管理员")
 			}
 		}
-		if in.Successor != "" && in.Employment != "depart" {
-			return web.Fail(422, "批量交接适用于正式离职")
+		if in.Successor != "" && in.Employment != "depart" && in.Employment != "transfer" {
+			return web.Fail(422, "批量交接适用于调岗或离职")
 		}
 		switch in.Employment {
 		case "":
 			if departed {
 				return web.Fail(409, "请明确办理重新入职")
 			}
+		case "transfer":
+			if departed || !enabled || !*in.Enabled || in.Role != old {
+				return web.Fail(409, "调岗须保留在职账号和现有组织角色")
+			}
+			if err := applyDepartureHandoff(ctx, tx, u.ID, id, in.Successor, in.Reason, in.TeamID); err != nil {
+				return err
+			}
 		case "depart":
 			if *in.Enabled || departed || in.Role != "member" {
 				return web.Fail(409, "离职须停用账号并移除管理员身份")
 			}
 			if in.Successor != "" {
-				if err := applyDepartureHandoff(ctx, tx, u.ID, id, in.Successor, in.Reason); err != nil {
+				if err := applyDepartureHandoff(ctx, tx, u.ID, id, in.Successor, in.Reason, ""); err != nil {
 					return err
 				}
 			}
@@ -392,8 +413,12 @@ func (s Server) updateMember(w http.ResponseWriter, r *http.Request, u Member) e
 				return err
 			}
 		}
-		return database.Audit(ctx, tx, u.ID, "member.change", id, map[string]any{"employment": in.Employment, "oldRole": old, "oldEnabled": enabled, "role": in.Role, "enabled": *in.Enabled, "reason": in.Reason})
+		return database.Audit(ctx, tx, u.ID, "member.change", id, map[string]any{"employment": in.Employment, "teamId": in.TeamID, "oldRole": old, "oldEnabled": enabled, "role": in.Role, "enabled": *in.Enabled, "reason": in.Reason})
 	})
+	var conflict *pgconn.PgError
+	if errors.As(err, &conflict) && conflict.Code == "40001" {
+		return web.Fail(409, "交接范围已发生并发变更，请刷新后重新核对")
+	}
 	if err != nil {
 		return err
 	}
