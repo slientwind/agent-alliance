@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go/ast"
+	"maps"
 	"math/big"
 	"net/http"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"alliance/internal/glossary"
 	"alliance/internal/identity"
 	"alliance/internal/web"
 	"github.com/jackc/pgx/v5"
@@ -30,22 +32,23 @@ type ViewQuery struct {
 }
 
 type QueryProvenance struct {
-	View           string            `json:"viewId"`
-	ViewName       string            `json:"viewName"`
-	Source         string            `json:"source"`
-	Provider       string            `json:"provider"`
-	From           string            `json:"from,omitempty"`
-	Until          string            `json:"until,omitempty"`
-	Access         string            `json:"access"`
-	Filters        []string          `json:"filters"`
-	Formulas       map[string]string `json:"formulas"`
-	Rows           int               `json:"rows"`
-	Truncated      bool              `json:"truncated,omitempty"`
-	Sensitivity    string            `json:"sensitivity"`
-	ViewRevision   int               `json:"-"`
-	SourceRevision int               `json:"-"`
-	ActorOnly      bool              `json:"-"`
-	OBOGrant       string            `json:"-"`
+	View           string                             `json:"viewId"`
+	ViewName       string                             `json:"viewName"`
+	Source         string                             `json:"source"`
+	Provider       string                             `json:"provider"`
+	From           string                             `json:"from,omitempty"`
+	Until          string                             `json:"until,omitempty"`
+	Access         string                             `json:"access"`
+	Filters        []string                           `json:"filters"`
+	Formulas       map[string]string                  `json:"formulas"`
+	FormulaSources map[string]glossary.VerifiedMetric `json:"formulaSources,omitempty"`
+	Rows           int                                `json:"rows"`
+	Truncated      bool                               `json:"truncated,omitempty"`
+	Sensitivity    string                             `json:"sensitivity"`
+	ViewRevision   int                                `json:"-"`
+	SourceRevision int                                `json:"-"`
+	ActorOnly      bool                               `json:"-"`
+	OBOGrant       string                             `json:"-"`
 }
 
 type ViewResult struct {
@@ -187,6 +190,17 @@ func (s Server) QueryView(ctx context.Context, space, actor string, query ViewQu
 	provenance := QueryProvenance{View: view.ID, ViewName: view.Name, Source: c.Name, Provider: c.Provider,
 		From: query.From, Until: query.Until, Access: "按当前空间成员权限", Filters: []string{}, Formulas: map[string]string{},
 		Sensitivity: view.Sensitivity, ViewRevision: view.Revision, SourceRevision: c.Revision}
+	standard, err := glossary.ResolveMetrics(ctx, s.DB, space, actor, query.Metrics)
+	if err != nil {
+		return result, err
+	}
+	for key, formula := range standard {
+		if metric, ok := view.Metrics[key]; ok {
+			metric.Formula = formula.Formula
+			view.Metrics[key] = metric
+		}
+	}
+	provenance.FormulaSources = standard
 	plan, err := makeViewPlan(view, query, &provenance)
 	if err != nil {
 		return result, err
@@ -227,6 +241,9 @@ func (s Server) QueryView(ctx context.Context, space, actor string, query ViewQu
 	}
 	err = s.DB.QueryRow(ctx, accessCheck, view.ID, space, actor, view.Revision, c.Revision, plan.identity.Grant, c.ID).Scan(&readable)
 	if err != nil || !readable {
+		return ViewResult{}, ErrUnavailable
+	}
+	if latest, err := glossary.ResolveMetrics(ctx, s.DB, space, actor, query.Metrics); err != nil || !maps.Equal(latest, standard) {
 		return ViewResult{}, ErrUnavailable
 	}
 	provenance.Truncated = len(result.Rows) > plan.limit

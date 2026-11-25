@@ -160,6 +160,16 @@ func TestSpaceSemanticViewsGuardDefaultFiltersAndRelations(t *testing.T) {
 	if err != nil || len(result.Rows) != 1 || result.Rows[0]["return_rate"] != json.Number("0.33333333") || len(result.Rows[0]) != 2 {
 		t.Fatalf("incorrect verified metric or extra fields: %+v %v", result, err)
 	}
+	standard := uuid.NewString()
+	if _, err := db.Exec(t.Context(), `insert into enterprise_glossary(id,space_id,term,definition,metric_key,metric_formula,verified_by)
+	 values($1,$2,'退货率','按百分比显示','return_rate','sum(returns) / sum(sales) * 100',$3)`, standard, space, actors[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	result, err = s.QueryView(t.Context(), space, actors[1].ID, ViewQuery{View: view, Dimensions: []string{"shop"}, Metrics: []string{"return_rate"}})
+	if err != nil || len(result.Rows) != 1 || result.Rows[0]["return_rate"] != json.Number("33.33333333") ||
+		result.Provenance.FormulaSources["return_rate"].ID != standard {
+		t.Fatalf("approved glossary formula did not override the view default: %+v %v", result, err)
+	}
 	if _, err := s.QueryView(t.Context(), space, actors[1].ID, ViewQuery{View: view, Dimensions: []string{"shop"}, Filters: map[string]any{"status": "draft"}}); err != ErrBadQuery {
 		t.Fatalf("mandatory metric filter was replaceable: %v", err)
 	}

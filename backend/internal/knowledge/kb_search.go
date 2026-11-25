@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"alliance/internal/glossary"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -159,13 +160,21 @@ func SearchKnowledge(ctx context.Context, db *pgxpool.Pool, inference KBInferenc
 		return out, nil
 	}
 	limit = min(limit, 12)
+	expansion, err := glossary.SearchExpansion(ctx, db, space, actor, query)
+	if err != nil {
+		return out, err
+	}
+	expanded := query
+	if len(expansion) > 0 {
+		expanded += "\n" + strings.Join(expansion, " ")
+	}
 	type encodedQuery struct{ model, vector string }
 	pending := make(chan encodedQuery, 1)
 	if inference != nil {
 		encodeCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
 		defer cancel()
 		go func() {
-			revision, vectors, err := inference.Embed(encodeCtx, []string{query})
+			revision, vectors, err := inference.Embed(encodeCtx, []string{expanded})
 			if err != nil || !kbEmbedRevision.MatchString(revision) || len(vectors) != 1 {
 				pending <- encodedQuery{}
 				return
@@ -176,8 +185,13 @@ func SearchKnowledge(ctx context.Context, db *pgxpool.Pool, inference KBInferenc
 		pending <- encodedQuery{}
 	}
 	var words []knowledgeHit
-	var err error
-	if terms := searchTerms(query); len(terms) != 0 {
+	terms := searchTerms(query)
+	for _, alias := range searchTerms(strings.Join(expansion, " ")) {
+		if !slices.Contains(terms, alias) {
+			terms = append(terms, alias)
+		}
+	}
+	if len(terms) != 0 {
 		words, err = recallKnowledge(ctx, db, knowledgeLexicalSQL, space, actor, terms)
 		if err != nil {
 			return out, err
@@ -213,7 +227,7 @@ func SearchKnowledge(ctx context.Context, db *pgxpool.Pool, inference KBInferenc
 			texts[i] = boundedKnowledgeText(strings.Join(hit.Breadcrumb, " > ")+"\n"+hit.Excerpt, 2000)
 		}
 		rankCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
-		model, scores, err := inference.Rerank(rankCtx, query, texts)
+		model, scores, err := inference.Rerank(rankCtx, expanded, texts)
 		cancel()
 		if err == nil && kbRankRevision.MatchString(model) && len(scores) == len(results) {
 			out.Mode = "cross_encoder"

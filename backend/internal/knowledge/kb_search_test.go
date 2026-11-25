@@ -149,6 +149,22 @@ func TestKnowledgeHybridRankingRespectsEffectiveDatesAndLiveScope(t *testing.T) 
 	if err != nil || lexical.Mode != "bm25" || len(lexical.Matches) != 3 || lexical.Matches[0].Title != "Current team policy" || lexical.Matches[1].Title != "Company baseline" {
 		t.Fatalf("wrong exact-code lexical results: %+v %v", lexical, err)
 	}
+	if _, err := db.Exec(ctx, `insert into enterprise_glossary(space_id,term,aliases,definition,verified_by)
+	 values($1,'BZ-42',array['蓝叶交付'],'协议编号',$2)`, space, actor); err != nil {
+		t.Fatal(err)
+	}
+	synonym, err := SearchKnowledge(ctx, db, nil, space, actor, "蓝叶交付", 12)
+	if err != nil || len(synonym.Matches) == 0 || synonym.Matches[0].Title != "Current team policy" {
+		t.Fatalf("real knowledge retrieval ignored the approved alias: %+v %v", synonym, err)
+	}
+	var otherSpace string
+	if err := db.QueryRow(ctx, "select id from spaces where owner_member_id=$1", outsider).Scan(&otherSpace); err != nil {
+		t.Fatal(err)
+	}
+	synonym, err = SearchKnowledge(ctx, db, nil, otherSpace, outsider, "蓝叶交付", 12)
+	if err != nil || len(synonym.Matches) != 0 {
+		t.Fatalf("another space inherited the private alias: %+v %v", synonym, err)
+	}
 	model := new(fixtureKBInference)
 	for range 2 {
 		if _, err := maintainKnowledgeVectors(ctx, db, model, fixtureKBEncoder); err != nil {
