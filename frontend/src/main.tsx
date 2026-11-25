@@ -82,6 +82,7 @@ const MailIntegration = lazy(() => import("./mail-integration").then(({ MailInte
 const AutomationSchedules = lazy(() => import("./automation-schedules").then(({ AutomationSchedules }) => ({ default: AutomationSchedules })));
 const ExternalConnect = lazy(() => import("./external-connect").then(({ ExternalConnect }) => ({ default: ExternalConnect })));
 const AdminReleases = lazy(() => import("./admin-releases").then(({ AdminReleases }) => ({ default: AdminReleases })));
+const EcosystemSources = lazy(() => import("./ecosystem-sources").then(({ EcosystemSources }) => ({ default: EcosystemSources })));
 const StudioWorkspace = lazy(() => import("./studio-workspace").then(({ StudioWorkspace }) => ({ default: StudioWorkspace })));
 
 function Overlay({
@@ -1206,6 +1207,7 @@ function App() {
         <Suspense fallback={<p role="status">正在加载企业服务…</p>}>
           <SearchIntegration />
           <MailIntegration />
+          <EcosystemSources />
         </Suspense>
       )}
       {panel === "releases" && user.role === "admin" && (

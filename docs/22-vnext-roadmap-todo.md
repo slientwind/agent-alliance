@@ -113,9 +113,9 @@
   - [x] 保留并接入乐观版本锁（`expected_version`），多人并发修订/审核时给出清晰版本对比防止覆盖。
 
 ### 模块 F：Skill 与 Agent 生态发现市场（定期扫描正规渠道 + 自主加载）
-- [ ] **基于 Temporal Schedule 的正规渠道自动扫描引擎**
+- [x] **基于 Temporal Schedule 的正规渠道自动扫描引擎**
   - [x] 新增数据表：`ecosystem_sources`（扫描源与 Cron）、`ecosystem_catalog`（发现池）、`enterprise_approved_packages`（企业准入冻结库）、`user_skill_bindings`（用户自主加载关联表）。
-  - [ ] 实现 `EcosystemScanWorkflow` 定时拉取正规渠道元数据：官方 MCP Registry、Anthropic/主流 `SKILL.md` 官方仓库、A2A Verified Directory、企业内网私有 Git 仓库；支持管理员一键「立即扫描同步」。
+  - [x] 实现 `EcosystemScanWorkflow` 定时拉取正规渠道元数据：官方 MCP Registry、Anthropic/主流 `SKILL.md` 官方仓库、A2A Verified Directory、企业内网私有 Git 仓库；支持管理员一键「立即扫描同步」。
 - [ ] **自动化合规与安全静态体检流水线**
   - [ ] 扫描入库前在隔离环境解析清单，自动生成：**开源许可证分类**（MIT/Apache-2.0 绿标 vs 商业附加条款琥珀预警）、**维护活跃度**、**安全扫描摘要**（检测路径穿越、越权外联、高危 Shell 命令、明文密钥索取）。
 - [ ] **三态加载流转与安全隔离**
