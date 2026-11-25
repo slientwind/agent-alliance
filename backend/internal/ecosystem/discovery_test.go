@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -67,6 +68,7 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	commit, tree := strings.Repeat("a", 40), strings.Repeat("b", 40)
+	agentDomain := "agent-" + uuid.NewString() + ".example.test"
 	skillText := []byte("---\nname: fixture-skill\ndescription: Prepare a reusable report\n---\nOrganize the approved columns.")
 	licenseText := []byte("MIT")
 	blob, license := gitObjectHash(skillText, 40), gitObjectHash(licenseText, 40)
@@ -92,9 +94,10 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 				w.WriteHeader(400)
 			}
 		case "/directory":
-			fmt.Fprint(w, `{"agents":[{"id":"verified","verified":true,"card":{"name":"Verified fixture","version":"1",
-			 "supportedInterfaces":[{"url":"https://agent.example.test/rpc","protocolBinding":"JSONRPC","protocolVersion":"0.3.0"}]}},
-			 {"id":"unverified","verified":false,"card":{"name":"Unverified","version":"1","url":"https://agent.example.test/no"}}]}`)
+			fmt.Fprintf(w, `{"agents":[{"id":"verified","verified":true,"card":{"name":"Verified fixture","version":"1",
+			 "supportedInterfaces":[{"url":%q,"protocolBinding":"JSONRPC","protocolVersion":"0.3.0"}]}},
+			 {"id":"unverified","verified":false,"card":{"name":"Unverified","version":"1","url":"https://agent.example.test/no"}}]}`,
+				"https://"+agentDomain+"/rpc")
 		case "/repos/official/skills/commits/main", "/internal/repos/fixture/private/commits/main":
 			fmt.Fprintf(w, `{"sha":%q,"html_url":"https://repo.example.test/example",
 			 "commit":{"tree":{"sha":%q},"committer":{"date":"2026-10-01T12:30:00Z"}}}`, commit, tree)
@@ -272,4 +275,44 @@ func TestDiscoveryScheduledFeedsPostgres(t *testing.T) {
 			t.Fatalf("the schedule was not paused: %+v %v", description, err)
 		}
 	})
+	fixture.Close()
+	t.Setenv("OBJECT_ROOT", t.TempDir())
+	const queue = "/api/admin/ecosystem/catalog"
+	var skillID, skillDigest, agentID, agentDigest string
+	for _, pair := range []struct {
+		ref        ScanRef
+		id, digest *string
+	}{{public, &skillID, &skillDigest}, {agents, &agentID, &agentDigest}} {
+		if err := db.QueryRow(ctx, `select c.id,ecosystem_review_digest(c.id) from ecosystem_catalog c
+		 where c.source_id=$1`, pair.ref.ID).Scan(pair.id, pair.digest); err != nil {
+			t.Fatal(err)
+		}
+	}
+	approvedBody := fmt.Sprintf(`{"expected":%q}`, skillDigest)
+	original := call("POST", queue+"/"+skillID+"/approve", approvedBody, "", 201)
+	var approved approvalReceipt
+	err = json.Unmarshal(original, &approved)
+	if err != nil || approved.Kind != "skill" || approved.Catalog != skillID || approved.Digest != skillDigest {
+		t.Fatalf("incorrect offline approval: %s %v", original, err)
+	}
+	if replay := call("POST", queue+"/"+skillID+"/approve", approvedBody, "", 200); string(replay) != string(original) {
+		t.Fatalf("replayed a different approval: %s", replay)
+	}
+	body, err := ReadFrozen(approved.Hash)
+	if err != nil || len(body) == 0 || snapshotDigest(body) != approved.Hash {
+		t.Fatalf("missing or invalid frozen Skill: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(os.Getenv("OBJECT_ROOT"), "skills", approved.Hash)); err != nil {
+		t.Fatal(err)
+	}
+	agentBody := fmt.Sprintf(`{"expected":%q,"reason":"Reviewed the endpoint ownership"}`, agentDigest)
+	call("POST", queue+"/"+agentID+"/approve", agentBody, "", 409)
+	exec("insert into outbound_host_allowlist(host,port) values($1,443) on conflict do nothing", agentDomain)
+	call("POST", queue+"/"+agentID+"/approve", agentBody, "", 201)
+	list := string(call("GET", queue, "", "", 200))
+	if !strings.Contains(list, `"approved":true`) || strings.Contains(list, `"snapshot"`) || strings.Contains(list, "fixture-repo-key") {
+		t.Fatalf("unexpected queue receipt: %s", list)
+	}
+	call("POST", "/api/admin/ecosystem/approved/"+approved.ID+"/revoke", fmt.Sprintf(`{"hash":%q}`, approved.Hash), "", 204)
+	call("POST", queue+"/"+skillID+"/approve", approvedBody, "", 409)
 }

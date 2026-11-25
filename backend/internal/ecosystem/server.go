@@ -24,6 +24,9 @@ func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("POST /api/admin/ecosystem/sources", auth.Protect(true, s.saveSource))
 	mux.Handle("PUT /api/admin/ecosystem/sources/{id}", auth.Protect(true, s.saveSource))
 	mux.Handle("POST /api/admin/ecosystem/sources/{id}/scan", auth.Protect(true, s.scanNow))
+	mux.Handle("GET /api/admin/ecosystem/catalog", auth.Protect(true, s.catalogQueue))
+	mux.Handle("POST /api/admin/ecosystem/catalog/{id}/approve", auth.Protect(true, s.approve))
+	mux.Handle("POST /api/admin/ecosystem/approved/{id}/revoke", auth.Protect(true, s.revokeApproval))
 }
 
 func (s Server) sources(w http.ResponseWriter, r *http.Request, _ identity.Member) error {

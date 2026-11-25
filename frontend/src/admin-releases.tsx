@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./client";
+import { EcosystemApprovals } from "./ecosystem-approvals";
 
 type StudioRelease = {
   id: string;
@@ -31,7 +32,7 @@ const labels: Record<string, string> = {
 export function AdminReleases() {
   const [studio, setStudio] = useState<StudioRelease[]>([]);
   const [external, setExternal] = useState<ExternalRelease[]>([]);
-  const [selection, setSelection] = useState<"studio" | "external">("studio");
+  const [selection, setSelection] = useState<"studio" | "external" | "ecosystem">("studio");
   const [reason, setReason] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -72,17 +73,20 @@ export function AdminReleases() {
     }
   }
 
-  const requests = selection === "studio" ? studio : external;
+  const requests = selection === "studio" ? studio : selection === "external" ? external : [];
   return (
     <>
       <div className="row" role="group" aria-label="审批类别">
         <button type="button" aria-pressed={selection === "studio"} onClick={() => setSelection("studio")}>企业助手</button>
         <button type="button" aria-pressed={selection === "external"} onClick={() => setSelection("external")}>外部 Agent 认证</button>
+        <button type="button" aria-pressed={selection === "ecosystem"} onClick={() => setSelection("ecosystem")}>生态准入</button>
       </div>
-      {loading && <p role="status">正在读取发布申请…</p>}
-      {error && <p role="alert">{error}</p>}
-      {notice && <p role="status">{notice}</p>}
-      {!loading && !error && requests.length === 0 && <p>当前没有待审批的申请。</p>}
+      {selection === "ecosystem" ? <EcosystemApprovals /> : <>
+        {loading && <p role="status">正在读取发布申请…</p>}
+        {error && <p role="alert">{error}</p>}
+        {notice && <p role="status">{notice}</p>}
+        {!loading && !error && requests.length === 0 && <p>当前没有待审批的申请。</p>}
+      </>}
       {requests.map(item => (
         <section className="card" key={item.id} aria-labelledby={"release-" + item.id}>
           <h2 id={"release-" + item.id}>{item.name}</h2>

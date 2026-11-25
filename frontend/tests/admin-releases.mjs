@@ -17,6 +17,7 @@ try {
     const path = new URL(request.url()).pathname;
     if (request.method() === "POST") {
       requests.push({ path, body: request.postDataJSON() });
+      if (path.startsWith("/api/admin/ecosystem/")) return route.fulfill({ status: 201, json: { id: "approved" } });
       return route.fulfill({ status: 204 });
     }
     const data = {
@@ -32,6 +33,14 @@ try {
         { id: "verify", agent: "external", revision: 2, name: "外部采购助手", description: "查询公示规则",
           state: "pending_verify", buildDigest: "build", evidenceDigest: "evidence" },
       ],
+      "/api/admin/ecosystem/catalog": [
+        { id: "candidate", name: "报告 Skill", source: "公开仓库", kind: "skill", version: "v1",
+          review: { status: "review_required", license: "unknown", activity: "recent", findings: [{ code: "license_review" }] },
+          reviewDigest: digest },
+        { id: "blocked", name: "有风险的 Skill", source: "公开仓库", kind: "skill", version: "v2",
+          review: { status: "blocked", license: "MIT", activity: "recent", findings: [{ code: "unsafe_command" }] },
+          reviewDigest: digest },
+      ],
     };
     return route.fulfill({ json: data[path] ?? [] });
   });
@@ -46,10 +55,20 @@ try {
   await request.getByLabel("退回原因").fill("请补充一条公开规则查询样例");
   await request.getByRole("button", { name: "退回", exact: true }).click();
   await page.getByText("外部采购助手 已退回").waitFor();
+  await page.getByRole("button", { name: "生态准入" }).click();
+  const candidate = page.getByRole("article", { name: "报告 Skill" });
+  await candidate.getByText("查看体检报告").click();
+  await candidate.getByText("许可证需要人工复核").waitFor();
+  assert.equal(await candidate.getByRole("button", { name: "批准准入" }).isDisabled(), true);
+  await candidate.getByLabel("人工复核意见").fill("已确认企业使用许可");
+  await candidate.getByRole("button", { name: "批准准入" }).click();
+  await page.getByText("报告 Skill 已准入并固化版本").waitFor();
+  assert.equal(await page.getByRole("article", { name: "有风险的 Skill" }).getByRole("button", { name: "批准准入" }).count(), 0);
   assert.deepEqual(requests, [
     { path: "/api/admin/studio/releases/studio", body: { action: "approve", digest, reason: "" } },
     { path: "/api/agents/external/release-requests/verify", body: { action: "return", revision: 2,
       buildDigest: "build", evidenceDigest: "evidence", reason: "请补充一条公开规则查询样例" } },
+    { path: "/api/admin/ecosystem/catalog/candidate/approve", body: { expected: digest, reason: "已确认企业使用许可" } },
   ]);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   admin = false;
