@@ -9,6 +9,7 @@ import (
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
 	"alliance/internal/llmgateway"
+	"alliance/internal/mcphub"
 	"alliance/internal/monitor"
 	"alliance/internal/onboarding"
 	"alliance/internal/planner"
@@ -59,6 +60,7 @@ func main() {
 	monitor.Alerts{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
 	egress.Admin{DB: c.DB}.Routes(mux, s)
 	llmgateway.Admin{DB: c.DB, Vault: c.Vault, Provider: llmgateway.HTTPProvider{Vault: c.Vault, Egress: &egress.Policy{DB: c.DB}}}.Routes(mux, s)
+	mcphub.Admin{DB: c.DB, Client: mcphub.Client{Vault: c.Vault, Egress: egress.Policy{DB: c.DB}}}.Routes(mux, s)
 	services.Server{DB: c.DB, Planner: planner.Server{Catalog: c}}.Routes(mux, s)
 	knowledge.Server{DB: c.DB, Objects: knowledge.ConfiguredObjects()}.Routes(mux, s)
 	c.Routes(mux, s)

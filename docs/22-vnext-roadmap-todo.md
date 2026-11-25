@@ -62,7 +62,8 @@
   - [x] 实现按任务隔离目录挂载与执行限额：`/workspace/inputs:ro`、`/workspace/outputs:rw`、只读根文件系统、`cap_drop: [ALL]`、`no-new-privileges:true`、CPU/RAM/PID/60s 超时硬限、零凭据注入。
   - [x] 实现产物自动回收：扫描 `/workspace/outputs` 哈希登记为受控 Artifact 版本，并自动触发 `preview` 生成可预览视图。
 - [ ] **标准 MCP Client Hub**
-  - [ ] 实现 Go MCP Client（支持 `Streamable HTTP` 与 `SSE` 传输），支持工具发现（`tools/list`）、Schema 注入、运行时凭据代注入与风险等级标签（`read_only -> L0`，`write -> L2`）。
+  - [x] 实现 Go MCP Client（`Streamable HTTP` 与旧版 `SSE`），支持 `tools/list`、转为模型工具 Schema、Vault 凭据代注入，以及只读 L0 与写入 L2 标注。管理员可维护目录并探测服务。
+  - [ ] 将企业目录中已授权的 MCP 工具注入通用 Agent 执行，并接通 L2 工具的人工审核。
 - [ ] **后台与定时委托（`/automations`）**
   - [ ] 基于 Temporal Schedule 实现周期/定时任务管理（CRUD、启停、时区、数据游标、防重入）。
   - [ ] 分别记录「任务运行状态」与「飞书/邮件通知投递回执」，支持运行成功而通知失败时仅补发提醒。
