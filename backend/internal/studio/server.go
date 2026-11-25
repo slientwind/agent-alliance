@@ -37,6 +37,7 @@ type conversationTurn struct {
 
 func (s Server) Routes(mux *http.ServeMux, auth identity.Server) {
 	mux.Handle("POST /api/studio", auth.Protect(false, s.create))
+	mux.Handle("POST /api/studio/from-run", auth.Protect(false, s.fromRun))
 	mux.Handle("GET /api/studio", auth.Protect(false, s.list))
 	mux.Handle("GET /api/studio/{id}", auth.Protect(false, s.read))
 	mux.Handle("POST /api/studio/{id}/chat", auth.Protect(false, s.chat))

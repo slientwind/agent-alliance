@@ -116,6 +116,19 @@ func TestRefinementKeepsUnselectedRulesAndUTF16Offsets(t *testing.T) {
 	}
 }
 
+func TestDistillationKeepsReusableOperationsAndDiscardsUnknowns(t *testing.T) {
+	spec := distillSpec("报价 核对 ACME PRIVATE 915527", llmgateway.Fast,
+		[]string{"aggregate_csv", "aggregate", "read_sources", "create_xlsx", "vendor_private_action"})
+	raw, err := json.Marshal(spec)
+	if err != nil || spec.Name != "业务核对助手" || spec.Tier != llmgateway.Fast ||
+		!reflect.DeepEqual(spec.Capabilities, []string{"office", "knowledge"}) || len(spec.Steps) != 5 {
+		t.Fatalf("unusable distilled specification: %+v %v", spec, err)
+	}
+	if bytes.Contains(raw, []byte("PRIVATE")) || bytes.Contains(raw, []byte("915527")) || bytes.Contains(raw, []byte("vendor_")) {
+		t.Fatalf("private task data was retained: %s", raw)
+	}
+}
+
 type gatewayFixture func(context.Context, llmgateway.CallIdentity, llmgateway.Request) (llmgateway.RoutedResult, error)
 
 func (g gatewayFixture) Call(ctx context.Context, actor llmgateway.CallIdentity, request llmgateway.Request) (llmgateway.RoutedResult, error) {
@@ -298,6 +311,40 @@ func TestStudioBuilderPostgres(t *testing.T) {
 	current = call(token, "GET", path, "", "", "", 200)
 	if !strings.Contains(current, "保留币种。金额右对齐。将小计放在末尾。") || strings.Contains(current, "私有试聊内容") || calls != 5 {
 		t.Fatalf("unexpected refined draft or call count: %s calls=%d", current, calls)
+	}
+	project, run := uuid.NewString(), uuid.NewString()
+	exec(`insert into projects(id,owner,team_id,final_reviewer,title,plan_version)
+	 values($1,$2,$3,$2,'PRIVATE-PROJECT',1)`, project, owner, team)
+	exec(`insert into project_memberships(project_id,member_id,can_review) values($1,$2,true)`, project, owner)
+	exec(`insert into plans(project_id,version,brief,confirmed_by) values($1,1,'核对报价 SECRET-ACCOUNT',$2)`, project, owner)
+	exec(`insert into runs(id,project_id,plan_version,actor,charge_team,request_key,request_hash,max_calls)
+	 values($1,$2,1,$3,$4,$1::uuid::text,'x'::bytea,2)`, run, project, owner, team)
+	var messageID int64
+	if err := db.QueryRow(ctx, `insert into messages(project_id,author,kind,body) values($1,$2,'user','SECRET-ACCOUNT') returning seq`,
+		project, owner).Scan(&messageID); err != nil {
+		t.Fatal(err)
+	}
+	exec(`insert into general_agent_runs(run_id,tier,goal_message_seq) values($1,'fast',$2)`, run, messageID)
+	exec(`insert into general_agent_turns(run_id,turn,state,response) values($1,1,'tools','unused'::bytea)`, run)
+	exec(`insert into general_agent_actions(run_id,turn,position,tool_name,call_id,args_cipher,fingerprint,state,observation_cipher)
+	 values($1,1,1,'aggregate_csv','one','SECRET-COLUMN'::bytea,'fp','completed','SECRET-RESULT'::bytea),
+	 ($1,1,2,'web_search','two','unused'::bytea,'fp2','rejected','unused'::bytea)`, run)
+	fromRun := `{"run":"` + run + `"}`
+	call(token, "POST", "/api/studio/from-run", fromRun, "application/json", "", 404)
+	exec("update runs set status='completed' where id=$1", run)
+	call(teammate, "POST", "/api/studio/from-run", fromRun, "application/json", "", 404)
+	raw := call(token, "POST", "/api/studio/from-run", fromRun, "application/json", "", 201)
+	var reusable struct {
+		ID   string
+		Spec Spec
+	}
+	if err := json.Unmarshal([]byte(raw), &reusable); err != nil || reusable.ID == "" || strings.Contains(raw, "SECRET") ||
+		reusable.Spec.Tier != llmgateway.Fast || !reflect.DeepEqual(reusable.Spec.Capabilities, []string{"office"}) {
+		t.Fatalf("invalid reusable draft: %s (%v)", raw, err)
+	}
+	replayed := call(token, "POST", "/api/studio/from-run", fromRun, "application/json", "", 200)
+	if !strings.Contains(replayed, reusable.ID) || calls != 5 {
+		t.Fatal("saving the same run constructed a separate draft or made a model call")
 	}
 	exec("delete from team_members where (team_id,member_id)=($1,$2)", team, owner)
 	call(token, "GET", path, "", "", "", 404)
