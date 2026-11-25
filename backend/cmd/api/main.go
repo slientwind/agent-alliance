@@ -17,6 +17,7 @@ import (
 	"alliance/internal/planner"
 	"alliance/internal/projects"
 	"alliance/internal/services"
+	"alliance/internal/studio"
 	"alliance/internal/web"
 	"alliance/internal/websearch"
 	"context"
@@ -25,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -79,6 +81,7 @@ func main() {
 	}
 	projects.Server{DB: c.DB, Vault: c.Vault, SessionUpdates: projectUpdates}.Routes(mux, s)
 	agentloop.Server{DB: c.DB, Vault: c.Vault}.Routes(mux, s)
+	studio.Server{DB: c.DB, Vault: c.Vault, Gateway: app.ModelGateway(c)}.Routes(mux, s)
 	automations.Server{DB: c.DB, Vault: c.Vault, Feishu: feishu}.Routes(mux, s)
 	mux.Handle("GET /api/health", web.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		if err := c.DB.Ping(r.Context()); err != nil {
@@ -94,7 +97,7 @@ func main() {
 		addr = "127.0.0.1:18085"
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, 9<<20)
+		r.Body = http.MaxBytesReader(w, r.Body, requestBodyLimit(r))
 		mux.ServeHTTP(w, r)
 	})
 	server := http.Server{Addr: addr, Handler: http.NewCrossOriginProtection().Handler(handler), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: time.Minute}
@@ -108,4 +111,15 @@ func main() {
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
+}
+
+func requestBodyLimit(r *http.Request) int64 {
+	if r.Method == http.MethodPost {
+		if studioPath, ok := strings.CutPrefix(r.URL.Path, "/api/studio/"); ok {
+			if id, ok := strings.CutSuffix(studioPath, "/chat"); ok && id != "" && !strings.Contains(id, "/") {
+				return studio.MaxChatBody
+			}
+		}
+	}
+	return 9 << 20
 }

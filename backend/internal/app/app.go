@@ -3,6 +3,7 @@ package app
 import (
 	"alliance/internal/database"
 	"alliance/internal/egress"
+	"alliance/internal/llmgateway"
 	"alliance/internal/resources"
 	"context"
 	"errors"
@@ -28,4 +29,13 @@ func Catalog(ctx context.Context) (resources.Catalog, error) {
 		return c, err
 	}
 	return resources.Catalog{DB: db, Vault: vault}, nil
+}
+
+func ModelGateway(c resources.Catalog) llmgateway.Gateway {
+	return llmgateway.Gateway{
+		Catalog:    llmgateway.Catalog{DB: c.DB},
+		Provider:   llmgateway.HTTPProvider{Vault: c.Vault, Egress: &egress.Policy{DB: c.DB}},
+		Budget:     llmgateway.Budget{DB: c.DB},
+		Resilience: llmgateway.Resilience{DB: c.DB},
+	}
 }

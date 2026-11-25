@@ -6,7 +6,6 @@ import (
 	"alliance/internal/automations"
 	"alliance/internal/egress"
 	"alliance/internal/knowledge"
-	"alliance/internal/llmgateway"
 	"alliance/internal/mcphub"
 	"alliance/internal/monitor"
 	"alliance/internal/runtime"
@@ -66,10 +65,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer w.Stop()
-	general := agentloop.Activities{DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Gateway: llmgateway.Gateway{
-		Catalog: llmgateway.Catalog{DB: catalog.DB}, Provider: llmgateway.HTTPProvider{Vault: catalog.Vault, Egress: &egress.Policy{DB: catalog.DB}},
-		Budget: llmgateway.Budget{DB: catalog.DB}, Resilience: llmgateway.Resilience{DB: catalog.DB},
-	}}
+	general := agentloop.Activities{DB: catalog.DB, Vault: catalog.Vault, Objects: knowledge.ConfiguredObjects(), Gateway: app.ModelGateway(catalog)}
 	general.MCP = &mcphub.Runtime{DB: catalog.DB, Client: mcphub.Client{Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB}}}
 	general.Search = &websearch.Runtime{DB: catalog.DB, Client: websearch.Client{Vault: catalog.Vault, Egress: egress.Policy{DB: catalog.DB}}}
 	generalQueue := runtime.Queue() + "-general"
