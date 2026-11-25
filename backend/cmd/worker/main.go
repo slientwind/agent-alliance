@@ -11,6 +11,7 @@ import (
 	"alliance/internal/knowledge"
 	"alliance/internal/knowledgesync"
 	"alliance/internal/mcphub"
+	"alliance/internal/policy"
 	"alliance/internal/runtime"
 	"alliance/internal/telemetry"
 	"alliance/internal/websearch"
@@ -112,5 +113,6 @@ func main() {
 		Egress: egress.Policy{DB: catalog.DB}}).Serve(ctx)
 	go knowledge.ConfiguredObjects().ServeArtifactPreviews(ctx, catalog.DB)
 	go telemetry.Serve(ctx, catalog.DB)
+	go policy.PruneDLPExchanges(ctx, catalog.DB)
 	a.Dispatch(ctx, c)
 }

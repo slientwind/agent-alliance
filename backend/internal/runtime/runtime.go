@@ -9,6 +9,7 @@ import (
 	"alliance/internal/identity"
 	"alliance/internal/knowledge"
 	"alliance/internal/memory"
+	"alliance/internal/policy"
 	"alliance/internal/projects"
 	"alliance/internal/resources"
 	"alliance/internal/web"
@@ -731,6 +732,7 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 	}
 	if d.model.External {
 		d.model.ExternalTrace = resources.ExternalTrace{RunID: step.Run, ActorID: d.actor, Turn: step.Ordinal}
+		a.setExternalDLP(&d.model, step, dispatchedAttempt, d.actor)
 	}
 	streamText := d.memberDraft && d.model.StreamText && !d.change && d.lookupPhase == "" &&
 		d.routing.target == 0 && d.prior == ""
@@ -804,6 +806,22 @@ func (a Activities) executeStep(ctx context.Context, step Step, mode turnMode) (
 		if err := tx.QueryRow(ctx, `select i.attempt_no,exists(select from active_call_redos c where(c.run_id,c.ordinal,c.attempt_no)=(i.run_id,i.ordinal,$3))
          from invocations i where i.run_id=$1 and i.ordinal=$2`, step.Run, step.Ordinal, dispatchedAttempt).Scan(&currentAttempt, &replaced); err != nil {
 			return err
+		}
+		if errors.Is(callErr, policy.ErrDLPBlocked) {
+			if err := billing.CancelUndispatched(ctx, tx, d.model.Operation); err != nil {
+				return err
+			}
+			if replaced || currentAttempt != dispatchedAttempt || status != "running" {
+				result.Stop = runEnded(status)
+				result.Wait = !result.Stop
+				return nil
+			}
+			if _, err := tx.Exec(ctx, `update invocations set status='remote_closed',diagnostic='dlp_blocked',
+				ended_at=clock_timestamp() where run_id=$1 and ordinal=$2`, step.Run, step.Ordinal); err != nil {
+				return err
+			}
+			result.Stop = true
+			return setState(ctx, tx, step, d.project, "failed", "dlp_blocked", policy.ErrDLPBlocked.Error()+"。")
 		}
 		if d.model.External {
 			if err := resources.RecordExternalReceipt(ctx, tx, resources.ExternalReceiptRef{Request: "external/" + d.model.Operation,

@@ -166,6 +166,8 @@ func (a Activities) prepareExternal(ctx context.Context, tx pgx.Tx, ref ToolRef,
 		}
 		return nil
 	}
+	model.ExternalContent = policy.ExternalDLP{DB: a.DB, Vault: a.Vault, Run: ref.RunID, Actor: d.actor,
+		Exchange: model.Operation, Endpoint: model.Endpoint}
 	task.remote.model = model
 	return nil
 }
@@ -262,6 +264,16 @@ func (a Activities) executeExternal(ctx context.Context, ref ToolRef, task toolW
 		d, err := loadRun(ctx, tx, ref.RunID)
 		if err != nil {
 			return err
+		}
+		if errors.Is(callErr, policy.ErrDLPBlocked) {
+			if err := billing.CancelUndispatched(ctx, tx, m.Operation); err != nil {
+				return err
+			}
+			if d.terminal() {
+				result.Done = true
+				return nil
+			}
+			return a.rejectExternal(ctx, tx, ref, d, &result, policy.ErrDLPBlocked.Error()+"。")
 		}
 		if err := resources.RecordExternalReceipt(ctx, tx, resources.ExternalReceiptRef{
 			Request: fmt.Sprintf("%s/%s/%d", m.Operation, operation, task.remote.poll), Run: ref.RunID,

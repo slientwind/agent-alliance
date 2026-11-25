@@ -34,7 +34,9 @@ func Catalog(ctx context.Context) (resources.Catalog, error) {
 		db.Close()
 		return c, err
 	}
-	return resources.Catalog{DB: db, Vault: vault}, nil
+	return resources.Catalog{DB: db, Vault: vault, ExternalTrialContent: func(trial, actor, endpoint string) resources.ExternalContentPolicy {
+		return policy.ExternalDLP{DB: db, Vault: vault, Validation: trial, Actor: actor, Exchange: "trial", Endpoint: endpoint}
+	}}, nil
 }
 
 func ModelGateway(c resources.Catalog) llmgateway.Gateway {

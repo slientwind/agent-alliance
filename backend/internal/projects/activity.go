@@ -37,7 +37,10 @@ func (s Server) activity(w http.ResponseWriter, r *http.Request, viewer identity
 	  from invocations i left join effective_run_nodes n on (n.run_id,n.ordinal)=(i.run_id,i.ordinal)
 	   left join agent_revisions ar on (ar.agent_id,ar.revision)=(n.agent_id,n.agent_revision)
 	  where i.run_id=r.id and not exists(select from general_agent_runs g where g.run_id=r.id)
-	 ) item order by item.step,item.position limit 64))
+	 ) item order by item.step,item.position limit 64),'dlp',array(
+	  select jsonb_build_object('outcome',outcome,'counts',counts)
+	  from dlp_egress_audit_logs where run_id=r.id and outcome in ('masked','blocked')
+	  order by id desc limit 20))
 	 from runs r join members m on m.id=$3 and m.enabled
 	 join project_members pm on (pm.project_id,pm.member_id)=(r.project_id,m.id)
 	 where (r.project_id,r.id)=($1,$2) and run_review_notes_readable(r.id,m.id)

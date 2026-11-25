@@ -23,8 +23,9 @@ import (
 )
 
 type Catalog struct {
-	DB    *pgxpool.Pool
-	Vault Vault
+	DB                   *pgxpool.Pool
+	Vault                Vault
+	ExternalTrialContent func(trial, actor, endpoint string) ExternalContentPolicy
 }
 
 func (c Catalog) Routes(m *http.ServeMux, s identity.Server) {
@@ -657,6 +658,9 @@ func (c Catalog) validate(w http.ResponseWriter, r *http.Request, u identity.Mem
 	}
 	m.Operation = evidence
 	m.ExternalTrace = ExternalTrace{RunID: evidence, ActorID: u.ID, Turn: 1}
+	if m.External && c.ExternalTrialContent != nil {
+		m.ExternalContent = c.ExternalTrialContent(evidence, u.ID, m.Endpoint)
+	}
 	reply, callErr := m.Generate(ctx, []Message{{Role: "system", Content: prompt}, {Role: "user", Content: in.Input}})
 	status, body, err := c.saveTrial(context.WithoutCancel(ctx), evidence, m, in.Expected, reply, callErr, "", "send")
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"alliance/internal/identity"
 	"alliance/internal/web"
 	"context"
+	"errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"net/http"
@@ -266,4 +267,23 @@ func (s Server) reconcile(w http.ResponseWriter, r *http.Request, u identity.Mem
 	}
 	w.WriteHeader(204)
 	return nil
+}
+
+// CancelUndispatched returns a reservation only after a local gate confirms
+// nothing was sent to the provider.
+func CancelUndispatched(ctx context.Context, tx pgx.Tx, key string) error {
+	var id string
+	err := tx.QueryRow(ctx, `select id from spend where op_key=$1 and not settled and amount_cny=0
+		and not exists(select from bill_rows b where b.spend_id=spend.id) for update`, key).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, "delete from project_agent_calls where op_key=$1", key); err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, "delete from spend where id=$1", id)
+	return err
 }

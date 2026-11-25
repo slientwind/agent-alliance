@@ -161,6 +161,7 @@ func (a Activities) prepareRemoteInput(ctx context.Context, tx pgx.Tx, job *remo
 	}
 	job.model = model
 	job.model.ExternalTrace = resources.ExternalTrace{RunID: job.Run, ActorID: operator, Turn: job.Ordinal}
+	a.setExternalDLP(&job.model, job.Step, job.attempt, operator)
 	return nil
 }
 

@@ -47,6 +47,13 @@ func (c Catalog) saveTrial(ctx context.Context, id string, m Model, expected str
 	if errors.Is(callErr, ErrImageFormat) || errors.Is(callErr, ErrSlideContract) || errors.Is(callErr, ErrOfficeFile) {
 		status, body = "failed", callErr.Error()
 	}
+	blocked := errors.Is(callErr, ErrExternalContentBlocked)
+	if blocked {
+		status, body = "failed", callErr.Error()
+		if operation == "supplement" {
+			status = "remote"
+		}
+	}
 	if IsCredentialRejection(callErr) {
 		status = "failed"
 		body = "供应商拒绝此凭据"
@@ -110,6 +117,19 @@ func (c Catalog) saveTrial(ctx context.Context, id string, m Model, expected str
 			status, body, tokens, task, correlation, state, id, lease, question, questionMessage).Scan(&status)
 		if err == pgx.ErrNoRows {
 			err = web.Fail(409, "此回执已由另一次核对接管")
+		}
+		if err == nil && blocked {
+			if operation == "supplement" {
+				if err := billing.CancelUndispatched(ctx, tx, "validation-input/"+lease); err != nil {
+					return err
+				}
+				_, err = tx.Exec(ctx, "delete from remote_trial_inputs where id=$1", lease)
+			} else {
+				// Keep the original validation receipt addressable by its request
+				// key while releasing its zero-value reservation.
+				_, err = tx.Exec(ctx, "update spend set settled=true where op_key=$1 and not settled and amount_cny=0", "validation/"+id)
+			}
+			return err
 		}
 		if err == nil && m.External {
 			outcome := remoteTrialOutcome(reply, callErr)
@@ -261,6 +281,9 @@ func (c Catalog) trialReceipt(w http.ResponseWriter, r *http.Request, u identity
 	}
 	operation := "query"
 	model.ExternalTrace = ExternalTrace{RunID: id, ActorID: u.ID, Turn: 1}
+	if model.External && c.ExternalTrialContent != nil {
+		model.ExternalContent = c.ExternalTrialContent(id, u.ID, model.Endpoint)
+	}
 	var reply Reply
 	var callErr error
 	if supplement {

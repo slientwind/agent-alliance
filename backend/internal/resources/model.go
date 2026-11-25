@@ -149,6 +149,7 @@ type Model struct {
 	RemoteOperations  *RemoteOperations
 	ExternalTrace     ExternalTrace
 	AuthorizeExternal func(context.Context) error
+	ExternalContent   ExternalContentPolicy
 	Adapter           *AdapterSpec
 	Tools             []ToolDefinition
 	MaxTokens         int

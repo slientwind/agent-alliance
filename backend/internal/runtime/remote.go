@@ -9,9 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"alliance/internal/billing"
 	"alliance/internal/database"
 	"alliance/internal/knowledge"
 	"alliance/internal/memory"
+	"alliance/internal/policy"
 	"alliance/internal/resources"
 	"alliance/internal/web"
 	"github.com/jackc/pgx/v5"
@@ -245,6 +247,7 @@ func (a Activities) checkRemote(ctx context.Context) (bool, error) {
 	}
 	queryCtx, stop := context.WithDeadline(ctx, job.deadline)
 	job.model.ExternalTrace = resources.ExternalTrace{RunID: job.Run, ActorID: job.actor, Turn: job.Ordinal}
+	a.setExternalDLP(&job.model, job.Step, job.attempt, job.actor)
 	reply, callErr := job.model.CheckRemote(queryCtx, job.receipt, job.cancel)
 	stop()
 	return true, a.applyRemoteOutcome(ctx, job, reply, callErr)
@@ -262,6 +265,17 @@ func (a Activities) applyRemoteOutcome(ctx context.Context, job remoteJob, reply
 			return nil
 		}
 		if err != nil {
+			return err
+		}
+		if job.inputID != "" && errors.Is(callErr, policy.ErrDLPBlocked) {
+			if err := billing.CancelUndispatched(ctx, tx, "remote-input/"+job.inputID); err != nil {
+				return err
+			}
+			if err := finishRemoteInput(ctx, tx, job.inputID, "rejected", "dlp_blocked"); err != nil {
+				return err
+			}
+			_, err := tx.Exec(ctx, "update remote_jobs set lease=null,lease_until=null where (run_id,ordinal)=($1,$2)",
+				job.Run, job.Ordinal)
 			return err
 		}
 		operation := "poll"

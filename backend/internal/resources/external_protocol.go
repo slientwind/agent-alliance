@@ -3,10 +3,20 @@ package resources
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"alliance/internal/web"
 )
+
+var ErrExternalContentBlocked = errors.New("这条消息包含受限内容，已阻止外发")
+
+// ExternalContentPolicy protects request text and restores the response within
+// an already scoped external exchange. It never handles provider credentials.
+type ExternalContentPolicy interface {
+	ProtectExternal(context.Context, string, []string) ([]string, error)
+	RestoreExternal(context.Context, string) (string, error)
+}
 
 type externalProtocol interface {
 	submit(context.Context, []Message, func(string)) (Reply, error)
@@ -44,7 +54,29 @@ func (m Model) generateExternal(ctx context.Context, messages []Message, emit fu
 	}
 	sub, cancel := context.WithTimeout(ctx, time.Duration(m.Policy.ExecutionSeconds)*time.Second)
 	defer cancel()
-	return protocol.submit(sub, messages, emit)
+	if m.ExternalContent == nil {
+		return protocol.submit(sub, messages, emit)
+	}
+	positions := make([]int, 0, len(messages))
+	values := make([]string, 0, len(messages))
+	for index, message := range messages {
+		if message.Role == "user" {
+			positions = append(positions, index)
+			values = append(values, message.Content)
+		}
+	}
+	values, err := m.ExternalContent.ProtectExternal(sub, "submit", values)
+	if err != nil {
+		return Reply{}, err
+	}
+	messages = slices.Clone(messages)
+	for i, position := range positions {
+		messages[position].Content = values[i]
+	}
+	// A provider may split a placeholder between chunks. Live updates keep
+	// placeholders intact and the committed response restores complete tokens.
+	reply, err := protocol.submit(sub, messages, emit)
+	return m.restoreExternalReply(sub, reply, err)
 }
 
 type RemoteWait struct {
@@ -66,7 +98,15 @@ func (m Model) SupplementRemote(ctx context.Context, receipt RemoteWait, message
 	}
 	sub, stop := context.WithTimeout(ctx, time.Duration(m.Policy.ExecutionSeconds)*time.Second)
 	defer stop()
-	return protocol.supplement(sub, receipt, messageID, input)
+	if m.ExternalContent != nil {
+		fields, err := m.ExternalContent.ProtectExternal(sub, "supplement/"+messageID, []string{input})
+		if err != nil {
+			return Reply{}, err
+		}
+		input = fields[0]
+	}
+	reply, err := protocol.supplement(sub, receipt, messageID, input)
+	return m.restoreExternalReply(sub, reply, err)
 }
 
 func (m Model) CheckRemote(ctx context.Context, receipt RemoteWait, cancel bool) (Reply, error) {
@@ -79,5 +119,32 @@ func (m Model) CheckRemote(ctx context.Context, receipt RemoteWait, cancel bool)
 	}
 	sub, stop := context.WithTimeout(ctx, time.Duration(m.Policy.QuerySeconds)*time.Second)
 	defer stop()
-	return protocol.follow(sub, receipt, cancel)
+	reply, err := protocol.follow(sub, receipt, cancel)
+	return m.restoreExternalReply(sub, reply, err)
+}
+
+func (m Model) restoreExternalReply(ctx context.Context, reply Reply, callErr error) (Reply, error) {
+	if m.ExternalContent == nil {
+		return reply, callErr
+	}
+	var err error
+	if reply.Text, err = m.ExternalContent.RestoreExternal(ctx, reply.Text); err != nil {
+		return Reply{ExternalMetadata: reply.ExternalMetadata}, err
+	}
+	if reply.Receipt != nil {
+		copy := *reply.Receipt
+		if copy.Question, err = m.ExternalContent.RestoreExternal(ctx, copy.Question); err != nil {
+			return Reply{ExternalMetadata: reply.ExternalMetadata}, err
+		}
+		reply.Receipt = &copy
+	}
+	var remote *RemoteWait
+	if errors.As(callErr, &remote) {
+		copy := *remote
+		if copy.Question, err = m.ExternalContent.RestoreExternal(ctx, copy.Question); err != nil {
+			return Reply{ExternalMetadata: reply.ExternalMetadata}, err
+		}
+		callErr = &copy
+	}
+	return reply, callErr
 }

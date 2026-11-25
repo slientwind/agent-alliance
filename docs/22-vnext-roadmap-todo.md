@@ -117,9 +117,9 @@
   - [ ] 事件命中后通过 Temporal 自动在目标团队空间拉起 `GeneralAgentWorkflow`，联查知识库 SOP 与关联系统详情，产出预警复盘草稿及可选 L2 系统写回预览卡，主动推送飞书/钉钉交互卡片供负责人一键拍板。
 
 ### 模块 M：DLP 敏感数据防泄漏脱敏护栏与黄金回归体检（DLP & Eval Suite）
-- [ ] **内外分级的 DLP 敏感识别与可逆掩码网关（扩展 [`backend/internal/policy/`](../backend/internal/policy/policy.go)）**
+- [x] **内外分级的 DLP 敏感识别与可逆掩码网关（扩展 [`backend/internal/policy/`](../backend/internal/policy/policy.go)）**
   - [x] 实现高性能 `DLPScanner`（手机号、身份证校验位、银行卡 Luhn、自定义底价/机密词表及知识/语义视图密级标签）。
-  - [ ] 对外部第三方商业 Agent（`Purpose == external_agent`）出站载荷自动执行**可逆占位符脱敏**（如替换为 `[MOBILE_01]` / `[FLOOR_PRICE_01]`，映射关系加密暂存于当前 `run_id` 作用域并在返回后本地还原）或对绝密级数据直接阻断/转 L2 特批，全量记录 `dlp_egress_audit_logs`。
+  - [x] 对外部第三方商业 Agent（`Purpose == external_agent`）出站载荷自动执行**可逆占位符脱敏**（如替换为 `[MOBILE_01]` / `[FLOOR_PRICE_01]`，映射关系加密暂存于当前 `run_id` 作用域并在返回后本地还原）或对绝密级数据直接阻断/转 L2 特批，全量记录 `dlp_egress_audit_logs`。
 - [ ] **数字员工上岗黄金回归体检集（新增 `internal/evalsuite`）**
   - [ ] 新增 `eval_suites`、`eval_cases`、`eval_runs` 表与 Temporal 并发评测 Workflow：支持从团队空间真实满意任务一键脱敏沉淀黄金用例（含关键事实、引用出处与数值误差断言）。
   - [ ] 在 `/admin/models` 切换主力模型档位或空间大批量更新知识制度前，支持一键触发回归体检并输出通过率、口径偏差与延迟对比报告。

@@ -20,6 +20,7 @@ import (
 	"alliance/internal/harness"
 	"alliance/internal/identity"
 	"alliance/internal/llmgateway"
+	"alliance/internal/policy"
 	"alliance/internal/resources"
 	"alliance/internal/web"
 	"github.com/google/uuid"
@@ -63,7 +64,9 @@ func TestExternalAgentDirectAndDelegatedPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const directInput, delegatedInput, internalGoal = "only direct message", "approved external request", "private project context"
+	const directInput, wireInput = "only direct message 13800000000", "only direct message [MOBILE_01]"
+	const delegatedInput, internalGoal = "approved external request", "private project context"
+	const secretTerm = "roadmap-confidential-fixture"
 	var sends, polls atomic.Int32
 	fixture := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer local-external-key" || r.Header.Get("X-Alliance-Run-Id") == "" {
@@ -77,7 +80,7 @@ func TestExternalAgentDirectAndDelegatedPostgres(t *testing.T) {
 				t.Errorf("bad outbound payload: %v %v", body, err)
 			}
 			switch input := body["input"]; input {
-			case "smoke", directInput, delegatedInput:
+			case "smoke", wireInput, delegatedInput:
 				id := fmt.Sprintf("job-%d", sends.Add(1))
 				fmt.Fprintf(w, `{"task_id":%q,"status":"working"}`, id)
 			default:
@@ -89,8 +92,12 @@ func TestExternalAgentDirectAndDelegatedPostgres(t *testing.T) {
 				t.Errorf("poll omitted the original job: %s", r.URL.Path)
 			}
 			polls.Add(1)
-			fmt.Fprintf(w, `{"task_id":%q,"status":"completed","output":"external fixture reply","usage":{"total_tokens":6}}`,
-				strings.TrimPrefix(r.URL.Path, "/poll/"))
+			id := strings.TrimPrefix(r.URL.Path, "/poll/")
+			output := "external fixture reply"
+			if id == "job-2" {
+				output += " [MOBILE_01]"
+			}
+			fmt.Fprintf(w, `{"task_id":%q,"status":"completed","output":%q,"usage":{"total_tokens":6}}`, id, output)
 		}
 	}))
 	defer fixture.Close()
@@ -124,13 +131,15 @@ func TestExternalAgentDirectAndDelegatedPostgres(t *testing.T) {
 	s := Server{DB: db, Vault: vault}
 	auth := identity.Server{DB: db}
 	routes := http.NewServeMux()
-	resources.Catalog{DB: db, Vault: vault}.Routes(routes, auth)
+	resources.Catalog{DB: db, Vault: vault, ExternalTrialContent: func(trial, actor, endpoint string) resources.ExternalContentPolicy {
+		return policy.ExternalDLP{DB: db, Vault: vault, Validation: trial, Actor: actor, Exchange: "trial", Endpoint: endpoint}
+	}}.Routes(routes, auth)
 	s.Routes(routes, auth)
 	call := func(method, path, body string, status int) string {
 		t.Helper()
 		w := httptest.NewRecorder()
 		r := httptest.NewRequestWithContext(ctx, method, path, strings.NewReader(body))
-		r.Header.Set("Idempotency-Key", path+"/"+method)
+		r.Header.Set("Idempotency-Key", path+"/"+method+"/"+fmt.Sprintf("%x", web.Hash(body))[:12])
 		r.AddCookie(&http.Cookie{Name: "aa_session", Value: token})
 		routes.ServeHTTP(w, r)
 		if w.Code != status {
@@ -192,6 +201,48 @@ func TestExternalAgentDirectAndDelegatedPostgres(t *testing.T) {
 	if err := db.QueryRow(ctx, `select count(*) from external_agent_receipts where run_id=$1 and operation='poll' and cost_disclosure='reported'`, run).
 		Scan(&cost); err != nil || cost != 1 {
 		t.Fatalf("missing reported usage: %d %v", cost, err)
+	}
+	var body, outcome, audit string
+	var cipher []byte
+	if err := db.QueryRow(ctx, `select v.body from artifacts a join artifact_versions v on v.artifact_id=a.id
+		where a.run_id=$1`, run).Scan(&body); err != nil || body != "external fixture reply 13800000000" {
+		t.Fatalf("reply was not restored within the original run: %q %v", body, err)
+	}
+	if err := db.QueryRow(ctx, `select outcome,counts::text from dlp_egress_audit_logs where run_id=$1`, run).
+		Scan(&outcome, &audit); err != nil || outcome != "masked" || !strings.Contains(audit, "mobile") || strings.Contains(audit, "13800000000") {
+		t.Fatalf("unexpected DLP audit: %s %s %v", outcome, audit, err)
+	}
+	if err := db.QueryRow(ctx, "select encrypted_tokens from dlp_egress_exchanges where run_id=$1", run).Scan(&cipher); err != nil ||
+		strings.Contains(string(cipher), "13800000000") {
+		t.Fatal("reversible mapping is not encrypted")
+	}
+	keywordID := uuid.NewString()
+	keywordCipher, err := vault.Seal(secretTerm, "enterprise/dlp/rule/"+keywordID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(`insert into dlp_rules(id,kind,name,sensitivity,encrypted_match) values
+	 ($1,'custom_term','fixture internal code','secret',$2)`, keywordID, keywordCipher)
+	_, deniedRun := start("do not export "+secretTerm, true)
+	advance(deniedRun, 1, TurnResult{Tools: 1})
+	execute(deniedRun, ToolResult{Done: true})
+	if sends.Load() != 2 || polls.Load() != 2 {
+		t.Fatal("a restricted request reached the provider")
+	}
+	var remaining int
+	if err := db.QueryRow(ctx, `select outcome,counts::text,(select count(*) from spend where run_id=$1)
+		from dlp_egress_audit_logs where run_id=$1`, deniedRun).Scan(&outcome, &audit, &remaining); err != nil ||
+		outcome != "blocked" || remaining != 0 || strings.Contains(audit, secretTerm) {
+		t.Fatalf("blocked send leaked or retained cost: %s %s %d %v", outcome, audit, remaining, err)
+	}
+	blockedTrial := call("POST", "/api/agents/"+connection.ID+"/validate",
+		fmt.Sprintf(`{"revision":1,"input":%q,"admissionTest":true,"authorizeOneCall":true}`, secretTerm), 200)
+	var blockedRecord struct{ ID, Status string }
+	if err := json.Unmarshal([]byte(blockedTrial), &blockedRecord); err != nil || blockedRecord.Status != "failed" || sends.Load() != 2 {
+		t.Fatalf("validation allow-list leaked restricted test input: %s %v", blockedTrial, err)
+	}
+	if err := db.QueryRow(ctx, "select outcome from dlp_egress_audit_logs where validation_id=$1", blockedRecord.ID).Scan(&outcome); err != nil || outcome != "blocked" {
+		t.Fatalf("validation was not audited: %s %v", outcome, err)
 	}
 	provider, model := uuid.NewString(), uuid.NewString()
 	exec(`insert into model_providers(id,name,kind,endpoint) values($1,$1::uuid::text,'openai','https://fixture.example.test/v1')`, provider)
