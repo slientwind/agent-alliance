@@ -4,6 +4,7 @@ import (
 	"alliance/internal/database"
 	"alliance/internal/egress"
 	"alliance/internal/llmgateway"
+	"alliance/internal/policy"
 	"alliance/internal/resources"
 	"context"
 	"errors"
@@ -38,6 +39,7 @@ func Catalog(ctx context.Context) (resources.Catalog, error) {
 
 func ModelGateway(c resources.Catalog) llmgateway.Gateway {
 	return llmgateway.Gateway{
+		Policy:     &policy.Policy{DB: c.DB},
 		Catalog:    llmgateway.Catalog{DB: c.DB},
 		Provider:   llmgateway.HTTPProvider{Vault: c.Vault, Egress: &egress.Policy{DB: c.DB}},
 		Budget:     llmgateway.Budget{DB: c.DB},

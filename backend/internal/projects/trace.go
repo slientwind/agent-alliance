@@ -9,6 +9,7 @@ import (
 
 	"alliance/internal/database"
 	"alliance/internal/identity"
+	"alliance/internal/policy"
 	"alliance/internal/web"
 	"github.com/jackc/pgx/v5"
 )
@@ -131,15 +132,8 @@ func traceExcerpt(value *string) *string {
 	if value == nil {
 		return nil
 	}
-	if redacted := web.TraceText(*value); redacted != *value {
-		return &redacted
-	}
-	chars := []rune(*value)
-	if len(chars) > 2000 {
-		preview := string(chars[:2000]) + "〔节选〕"
-		return &preview
-	}
-	return value
+	projected := policy.TextProjection(*value, 2000)
+	return &projected
 }
 
 func (s Server) monitorTrace(w http.ResponseWriter, r *http.Request, actor identity.Member) error {

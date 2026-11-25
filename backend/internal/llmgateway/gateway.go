@@ -1,6 +1,7 @@
 package llmgateway
 
 import (
+	"alliance/internal/policy"
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
@@ -22,6 +23,7 @@ var (
 const primaryWindow = 2 * time.Second
 
 type Gateway struct {
+	Policy  *policy.Policy
 	Catalog interface {
 		ModelsForTier(context.Context, Tier, time.Time) ([]Candidate, error)
 	}
@@ -82,6 +84,17 @@ func (g Gateway) Call(ctx context.Context, actor CallIdentity, in Request) (Rout
 	}
 	cutoff := time.Now().Add(window)
 	for index, model := range order {
+		if g.Policy != nil {
+			decision, err := g.Policy.Decide(ctx, policy.Request{Purpose: policy.Model, Actor: actor.MemberID,
+				Team: actor.TeamID, Run: actor.RunID, Destination: model.Endpoint, LocalHTTP: model.Kind == "vllm" || model.Kind == "ollama"})
+			if err != nil {
+				return RoutedResult{}, err
+			}
+			if !decision.Allowed {
+				last = policy.ErrDenied
+				continue
+			}
+		}
 		estimate := in.estimate(model)
 		permit, err := g.Resilience.Acquire(ctx, model, estimate.PromptTokens+estimate.CompletionTokens, time.Now())
 		if err != nil {

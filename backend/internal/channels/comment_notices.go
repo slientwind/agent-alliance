@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"alliance/internal/database"
+	"alliance/internal/policy"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -113,9 +114,16 @@ func deliverCommentNotice(ctx context.Context, db *pgxpool.Pool, feishuConnectio
 				return err
 			}
 			if err == nil {
-				call, cancel := context.WithTimeout(ctx, 10*time.Second)
-				result = send(call, target, link, job.id)
-				cancel()
+				decision, err := policy.DecideTx(ctx, tx, policy.Request{Purpose: policy.Notification,
+					Actor: job.member, Project: job.project, Fields: []policy.Field{{Name: "link", Value: link, Class: policy.Task}}})
+				if err != nil {
+					return err
+				}
+				if decision.Allowed && len(decision.Fields) == 1 {
+					call, cancel := context.WithTimeout(ctx, 10*time.Second)
+					result = send(call, target, decision.Fields[0].Value, job.id)
+					cancel()
+				}
 			}
 		}
 		if result.state == "pending" && job.attempt >= 4 {

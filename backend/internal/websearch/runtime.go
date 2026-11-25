@@ -3,6 +3,7 @@ package websearch
 import (
 	"context"
 
+	"alliance/internal/policy"
 	"alliance/internal/resources"
 	"alliance/internal/web"
 	"github.com/jackc/pgx/v5"
@@ -76,7 +77,15 @@ func (runtime Runtime) Search(ctx context.Context, run string) ([]Result, error)
 	if err != nil {
 		return nil, ErrUnavailable
 	}
-	return runtime.Client.Search(ctx, config, query, func(ctx context.Context) bool {
+	decision, err := (policy.Policy{DB: runtime.DB}).Decide(ctx, policy.Request{Purpose: policy.Search, Run: run,
+		Destination: config.Endpoint, Approved: true, RequireAll: true, Fields: []policy.Field{{Name: "consented_query", Value: query, Class: policy.Public}}})
+	if err != nil {
+		return nil, err
+	}
+	if !decision.Allowed || len(decision.Fields) != 1 {
+		return nil, ErrUnavailable
+	}
+	return runtime.Client.Search(ctx, config, decision.Fields[0].Value, func(ctx context.Context) bool {
 		var allowed bool
 		err := runtime.DB.QueryRow(ctx, "select general_web_search_usable($1)", run).Scan(&allowed)
 		return err == nil && allowed

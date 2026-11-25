@@ -5,6 +5,7 @@ import (
 	"alliance/internal/database"
 	"alliance/internal/harness"
 	"alliance/internal/knowledge"
+	"alliance/internal/policy"
 	"alliance/internal/resources"
 	"alliance/internal/web"
 	"alliance/internal/websearch"
@@ -129,7 +130,6 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 			return a.recordObservation(ctx, tx, ref, "rejected", "上一次工具请求的结果无法确认。", "", "")
 		}
 		knownFree := int64(0)
-		policy := harness.AutonomyPolicy{MaxAutomaticBatch: maxToolsPerTurn}
 		tool := lookupTool(task.name)
 		task.team, task.actor = d.team, d.actor
 		gate := harness.ToolGate{Risk: tool.risk, Authorized: d.authorized && capability.Allows(d.capabilities, tool.cap), QuotaAvailable: true,
@@ -172,8 +172,16 @@ func (a Activities) ExecuteTool(ctx context.Context, ref ToolRef) (ToolResult, e
 				return a.rejectExternal(ctx, tx, ref, d, &result, "外部 Agent 使用权限已变化。")
 			}
 		}
-		decision := policy.Evaluate(gate)
-		if decision.Action == "deny" || task.fingerprint == "invalid" {
+		if task.fingerprint == "invalid" {
+			gate.Authorized = false
+		}
+		check, err := policy.DecideTx(ctx, tx, policy.Request{Purpose: policy.Tool, Run: ref.RunID,
+			Actor: d.actor, Team: d.team, Project: d.project, ToolGate: &gate})
+		if err != nil {
+			return err
+		}
+		decision := check.Autonomy
+		if !check.Allowed {
 			return a.recordObservation(ctx, tx, ref, "rejected", "该工具不可调用，或参数格式错误。", "", "")
 		}
 		if decision.Level != harness.L0 {

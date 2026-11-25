@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"alliance/internal/harness"
+	"alliance/internal/policy"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -120,6 +121,28 @@ func (runtime Runtime) Call(ctx context.Context, run, server, alias, digest stri
 			return nil, ErrApproval
 		}
 		allowed = func(ctx context.Context) bool { return approve(ctx) == nil }
+	}
+	class := policy.Task
+	if err := policy.JSONFields(arguments); err != nil {
+		if !errors.Is(err, policy.ErrDenied) {
+			return nil, err
+		}
+		class = policy.Credential
+	}
+	var endpoint string
+	var local bool
+	err := runtime.DB.QueryRow(ctx, "select s.endpoint,s.allow_private_http"+allowedRunServers+" and s.id=$2", run, server).Scan(&endpoint, &local)
+	if err != nil {
+		return nil, ErrUnavailable
+	}
+	decision, err := (policy.Policy{DB: runtime.DB}).Decide(ctx, policy.Request{
+		Purpose: policy.Enterprise, Run: run, Binding: server, Destination: endpoint, LocalHTTP: local, RequireAll: true,
+		Fields: []policy.Field{{Name: "arguments", Value: string(arguments), Class: class}}})
+	if err != nil {
+		return nil, err
+	}
+	if !decision.Allowed {
+		return nil, ErrUnavailable
 	}
 	session, err := runtime.openRunServer(ctx, run, server, allowed)
 	if err != nil {

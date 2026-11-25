@@ -12,6 +12,7 @@ import (
 	"alliance/internal/database"
 	"alliance/internal/egress"
 	"alliance/internal/harness"
+	"alliance/internal/policy"
 	"alliance/internal/resources"
 	"alliance/internal/web"
 	"github.com/google/uuid"
@@ -177,8 +178,17 @@ func (a Activities) startExternal(ctx context.Context, tx pgx.Tx, ref ToolRef, d
 	if err := decodeToolArgs(task.args, &args); err != nil || strings.TrimSpace(args.Message) == "" || len(args.Message) > 8<<10 || strings.ContainsRune(args.Message, 0) {
 		return harness.ErrToolArguments
 	}
-	task.args = args.Message
 	m := task.remote.model
+	check, err := policy.DecideTx(ctx, tx, policy.Request{Purpose: policy.Delegate, Actor: d.actor, Team: d.team,
+		Project: d.project, Run: ref.RunID, Binding: task.external, Destination: m.Endpoint, Approved: true, RequireAll: true,
+		Fields: []policy.Field{{Name: "message", Value: args.Message, Class: policy.Task}}})
+	if err != nil {
+		return err
+	}
+	if !check.Allowed || len(check.Fields) != 1 {
+		return web.Fail(409, "外部 Agent 的访问或发送范围已变化")
+	}
+	task.args = check.Fields[0].Value
 	return billing.Reserve(ctx, tx, billing.Operation{Key: m.Operation, Kind: "execution", Actor: d.actor, Team: m.Team,
 		Resource: m.BudgetID, SourceRevision: m.SourceRevision, SourceName: m.Name, Run: ref.RunID, Project: d.project,
 		Estimate: m.Estimate, AllowUnknown: true})
