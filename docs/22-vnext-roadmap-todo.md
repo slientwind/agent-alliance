@@ -69,8 +69,8 @@
 - [x] **三级空间数据模型与权限隔离**
   - [x] 新增数据库迁移与 `internal/spaces` 模块：创建 `spaces(id, kind: personal|team|commons, owner_member_id, team_id, name, custom_instructions, default_template_id)` 与 `space_members(space_id, member_id, role: space_admin|member|guest)`。
   - [x] 为每位在职成员自动初始化唯一私密 `personal` 空间，初始化全企唯一 `commons` 公共空间；在 API 与存储层强制执行**个人空间绝对私密校验**（企业管理员常规管理与监控接口默认不可读取个人空间私聊正文与私有知识夹原件）。
-- [ ] **空间上下文自动装配与跨空间流转**
-  - [ ] 改造 `AdvanceTurn` 上下文构建器：按会话所属 `space_id` 自动分层合并 `当前任务短期集 → 当前空间（知识库 + 业务数据视图 + 术语口径 + 空间指令 + 默认母版）→ 全企公共底座`。
+- [x] **空间上下文自动装配与跨空间流转**
+  - [x] 改造 `AdvanceTurn` 上下文构建器：按会话所属 `space_id` 自动分层合并 `当前任务短期集 → 当前空间（知识库 + 业务数据视图 + 术语口径 + 空间指令 + 默认母版）→ 全企公共底座`。
   - [x] 实现**「个人空间一键发布/移交至团队空间」**接口（`POST /api/spaces/{id}/promote`），仅拷贝选定成果版本或 Agent 配置至目标团队空间，自动剥离其余私人聊天记录。
 - [ ] **调岗/离职公私分离无感交接（升级 [`identity/offboarding.go`](../backend/internal/identity/offboarding.go)）**
   - [x] 扩展交接预览与事务逻辑：支持「部门调岗（移出单个团队空间）」与「员工离职（全局停用）」两种模式。

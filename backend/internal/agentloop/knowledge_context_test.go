@@ -54,10 +54,25 @@ func TestGeneralKnowledgeRechecksACLAndProtectsProviderContext(t *testing.T) {
 	exec("insert into projects(id,owner,team_id,final_reviewer,title,plan_version) values($1,$2,$3,$2,'Knowledge test',1)", project, actor, team)
 	exec("insert into project_memberships(project_id,member_id,can_review) values($1,$2,true),($1,$3,true)", project, actor, colleague)
 	exec("insert into plans(project_id,version,brief,confirmed_by) values($1,1,'Find BZ-42',$2)", project, actor)
+	exec("update spaces set custom_instructions='TEAM-CLAUSE-APPROVED' where team_id=$1", team)
+	exec("update spaces set custom_instructions='PERSONAL-WORKSPACE-ONLY' where owner_member_id=$1", actor)
+	exec("update spaces set custom_instructions='ORG-FALLBACK-APPROVED' where kind='commons'")
+	defer db.Exec(context.Background(), "update spaces set custom_instructions='' where kind='commons' and custom_instructions='ORG-FALLBACK-APPROVED'")
+	exec(`insert into enterprise_glossary(space_id,term,definition,verified_by) select space_id,'BZ-42','TEAM-GLOSSARY',$2
+	 from projects where id=$1`, project, actor)
+	exec(`insert into business_connectors(id,space_id,category,driver,provider,name,endpoint,auth_mode,maintainer)
+	 select $1,space_id,'warehouse','readonly_sql','postgresql','Warehouse','postgresql://mirror.example.test','service',$2
+	 from projects where id=$3`, secret, actor, project)
+	exec(`insert into semantic_data_views(connector_id,space_id,view_name,business_desc,allowed_dimensions,verified_metrics_json,verified_by)
+	 select $1,space_id,'TEAM-BUSINESS-VIEW','Reviewed view','{}','{}',$2 from projects where id=$3`, secret, actor, project)
 	const email = "evidence.fixture@example.test"
 	if err := database.WithTx(ctx, db, func(tx pgx.Tx) error {
 		hash, _, err := objects.Put(ctx, tx, strings.NewReader("fixture"), 8192)
 		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `insert into corporate_templates(space_id,doc_type,name,object_hash,is_default,author)
+		  select space_id,'docx','TEAM-DEFAULT-TEMPLATE',$1,true,$2 from projects where id=$3`, hash, actor, project); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `insert into kb_collections(id,space_id,name,sync_provider,acl_mode,maintainer,sync_status,next_sync_at)
@@ -107,6 +122,11 @@ func TestGeneralKnowledgeRechecksACLAndProtectsProviderContext(t *testing.T) {
 			return llmgateway.RoutedResult{}, err
 		}
 		prompt := prepared.Request.Messages[0].Content
+		teamText, commonText := strings.Index(prompt, "TEAM-CLAUSE-APPROVED"), strings.Index(prompt, "ORG-FALLBACK-APPROVED")
+		if teamText < 0 || commonText <= teamText || !strings.Contains(prompt, "TEAM-GLOSSARY") || !strings.Contains(prompt, "TEAM-BUSINESS-VIEW") ||
+			!strings.Contains(prompt, "TEAM-DEFAULT-TEMPLATE") || strings.Contains(prompt, "PERSONAL-WORKSPACE-ONLY") {
+			return llmgateway.RoutedResult{}, fmt.Errorf("invalid layered workspace context")
+		}
 		placeholder := marker.FindString(prompt)
 		if placeholder == "" || strings.Contains(prompt, email) || strings.Contains(prompt, "NEVER_SHOW_SECRET") || !strings.Contains(prompt, "Travel contact") || prepared.Authorize == nil {
 			return llmgateway.RoutedResult{}, fmt.Errorf("outgoing context did not mask the contact and exclude the secret")
