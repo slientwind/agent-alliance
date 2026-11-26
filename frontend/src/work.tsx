@@ -60,6 +60,7 @@ type Props = {
   openCitation: (item: KnowledgeCitation) => void;
   mutationAnchor: string;
   mayCaptureEvaluation: boolean;
+  mayArchiveReviewed: boolean;
   drafts: DraftFragment[];
   uploadedPins?: PlanningPin[];
   planningSubmitted: (uploads?: PlanningPin[]) => void;
@@ -86,7 +87,7 @@ type Props = {
   reloadCatalog: () => Promise<void>;
 };
 export function Work({
-  p, threadRef, sourcesRevision, canvasArtifact, openArtifact, openCitation, mutationAnchor, mayCaptureEvaluation, drafts, uploadedPins, planningSubmitted,
+  p, threadRef, sourcesRevision, canvasArtifact, openArtifact, openCitation, mutationAnchor, mayCaptureEvaluation, mayArchiveReviewed, drafts, uploadedPins, planningSubmitted,
   revisions,
   changeRevision,
   budgetDraft,
@@ -1242,6 +1243,7 @@ export function Work({
           project={p}
           base={base}
           busy={busy}
+          archiveSpace={mayArchiveReviewed ? p.spaceId : undefined}
           revise={(data) =>
             void perform(() => api(base + "/delivery/revisions", "POST", data))
           }

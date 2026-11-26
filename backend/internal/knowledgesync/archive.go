@@ -75,8 +75,11 @@ func (s Server) storeReviewedArtifact(ctx context.Context, tx pgx.Tx, space, col
 	  where dl.project_id=p.id and (i.artifact_id,i.version)=(a.id,v.version)
 	   and distribution_state(dl.id) in ('clear','reference') order by dl.edition desc limit 1
 	 ) chosen
-	 where (s.id,c.id,a.id)=($1,$2,$4) and c.sync_provider='manual' and c.enabled
+	 where (s.id,c.id,a.id)=($1,$2,$4) and c.sync_provider='manual' and c.enabled and c.privacy_state='active'
 	 and (space_role(s.id,$3)='space_admin' or (space_role(s.id,$3)='member' and pm.can_review and p.final_reviewer=$3))
+	 and not exists(select from business_query_provenance q
+	  where q.run_id in (a.run_id,artifact_execution_run(a.id,v.version))
+	   and (q.restricted_to_actor or q.provenance->>'sensitivity' in ('confidential','secret')))
 	 and distribution_readable(a.id,v.version,$3) for share of c,p,a`, space, collection, actor, in.Artifact, in.Version).
 		Scan(&out.Delivery, &title, &body, &media, &hash, &sensitivity)
 	if err != nil {

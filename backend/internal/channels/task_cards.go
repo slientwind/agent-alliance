@@ -60,6 +60,8 @@ func taskLocation(task projects.ReviewTodo) (label, anchor string) {
 	switch task.Kind {
 	case "distribution":
 		return "核对资料撤权影响", "delivery-distribution"
+	case "mutation":
+		return "审批业务系统写回", "mutation-" + task.Subject
 	case "deliver":
 		return "最终确认交付", fmt.Sprintf("deliver-%d", task.Revision)
 	case "coverage":

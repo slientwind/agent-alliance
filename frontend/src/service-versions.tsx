@@ -120,7 +120,7 @@ export function ServiceVersions({
   const approved = preview && String(preview.target.version) === target &&
     preview.routingRevision === history?.routingRevision && preview.blockers.length === 0;
   return (
-    <details onToggle={event => setOpen(event.currentTarget.open)}>
+    <details className="service-versions" onToggle={event => setOpen(event.currentTarget.open)}>
       <summary>版本与回退</summary>
       {open && (
         <>

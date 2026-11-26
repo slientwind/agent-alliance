@@ -68,12 +68,16 @@ func (s Server) setCapabilities(w http.ResponseWriter, r *http.Request, actor id
 	var in struct {
 		Expected     int
 		Capabilities []string
+		Tier         *llmgateway.Tier
 	}
 	if err := web.ReadLimited(w, r, &in, 2048); err != nil {
 		return err
 	}
-	if in.Expected < 1 || in.Capabilities == nil || !capability.Valid(in.Capabilities) {
-		return web.Fail(422, "请选择助手需要的能力")
+	if in.Expected < 1 || (in.Capabilities == nil && in.Tier == nil) || (in.Capabilities != nil && !capability.Valid(in.Capabilities)) {
+		return web.Fail(422, "请核对助手能力、模型档位和草稿版本")
+	}
+	if in.Tier != nil && !conversationTier(*in.Tier) {
+		return web.Fail(422, "请选择通用、快速或深度思考档位")
 	}
 	ctx := r.Context()
 	var d draft
@@ -84,19 +88,33 @@ func (s Server) setCapabilities(w http.ResponseWriter, r *http.Request, actor id
 			return err
 		}
 		if d.Revision != in.Expected {
-			return web.Fail(409, "草稿已更新，请刷新后再修改能力")
+			return web.Fail(409, "草稿已更新，请刷新后再修改配置")
 		}
-		if slices.Equal(d.Spec.Capabilities, in.Capabilities) {
+		changeTier := in.Tier != nil && d.Spec.Tier != *in.Tier
+		changeCapabilities := in.Capabilities != nil && !slices.Equal(d.Spec.Capabilities, in.Capabilities)
+		if !changeTier && !changeCapabilities {
 			return nil
 		}
+		if changeTier {
+			ready, err := llmgateway.ConversationTierReady(ctx, tx, *in.Tier)
+			if err != nil {
+				return err
+			}
+			if !ready {
+				return web.Fail(422, "当前模型档位暂不可用")
+			}
+			d.Spec.Tier = *in.Tier
+		}
+		if changeCapabilities {
+			d.Spec.Capabilities = in.Capabilities
+		}
 		d.Revision++
-		d.Spec.Capabilities = in.Capabilities
 		if _, err := tx.Exec(ctx, "update studio_drafts set revision=$2,spec=$3,updated_at=clock_timestamp() where id=$1",
 			id, d.Revision, d.Spec); err != nil {
 			return err
 		}
 		return database.Audit(ctx, tx, actor.ID, "studio.capabilities", id, map[string]any{
-			"revision": d.Revision, "capabilities": d.Spec.Capabilities,
+			"revision": d.Revision, "capabilities": d.Spec.Capabilities, "tier": d.Spec.Tier,
 		})
 	})
 	if err != nil {

@@ -106,6 +106,7 @@ export function Services({
             </p>
           )}
           <form
+            className="service-publish-form"
             key={target?.id || "new"}
             onSubmit={async (e) => {
               e.preventDefault();

@@ -1,5 +1,5 @@
 import { held, distributionLabel } from "./distribution";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { api, type Project, type DeliveryCoverage, type DeliveryEdition } from "./client";
 
 const fields = [
@@ -9,7 +9,8 @@ const fields = [
 ] as const;
 type Handoff = Partial<Record<(typeof fields)[number][0], string>>;
 type Item = { step: number; name: string; version: number };
-type SealedItem = Item & { dependencies: Item[] };
+type SealedItem = Item & { artifact?: string; dependencies: Item[] };
+type ArchiveCollection = { id: string; name: string; provider: string; enabled: boolean };
 
 function Contents({ items }: { items: SealedItem[] }) {
   return (
@@ -127,11 +128,13 @@ export function DeliveryHistory({
   base,
   project,
   busy,
+  archiveSpace,
   revise,
 }: {
   base: string;
   project: Project;
   busy: boolean;
+  archiveSpace?: string;
   revise: (data: {
     artifact: string;
     version: number;
@@ -175,6 +178,7 @@ export function DeliveryHistory({
         key={selected.id + "-" + project.revision}
         base={base}
         selected={selected}
+        archiveSpace={archiveSpace}
       />
       {!held(selected.distribution) && (
         <div className="actions">
@@ -311,9 +315,11 @@ function EditionDifference({
 function DeliveryReceipt({
   base,
   selected,
+  archiveSpace,
 }: {
   base: string;
   selected: DeliveryEdition;
+  archiveSpace?: string;
 }) {
   const [receipt, setReceipt] = useState<{
     handoff: Handoff;
@@ -347,6 +353,9 @@ function DeliveryReceipt({
       {receipt && (
         <>
           <Contents items={receipt.items} />
+          {archiveSpace && !held(receipt.distribution) && (
+            <ArchiveReviewed space={archiveSpace} items={receipt.items.filter(item => item.artifact)} />
+          )}
           {selected.isPartial && <DeliveryGaps coverage={receipt.coverage} />}
           {receipt.comparisonHeld && (
             <p>前一批次已暂停分发，版本内容对照暂时关闭。</p>
@@ -391,6 +400,76 @@ function DeliveryReceipt({
           {error} <button onClick={load}>重试</button>
         </p>
       )}
+    </details>
+  );
+}
+
+function ArchiveReviewed({ space, items }: { space: string; items: SealedItem[] }) {
+  const [collections, setCollections] = useState<ArchiveCollection[]>();
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const base = `spaces/${space}/knowledge/collections`;
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const entries = await api<ArchiveCollection[]>(base);
+      setCollections(entries.filter(entry => entry.provider === "manual" && entry.enabled));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function archive(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const item = items.find(item => item.artifact === form.get("artifact"));
+    const collection = collections?.find(entry => entry.id === form.get("collection"));
+    if (!item || !collection || saving) return;
+    setSaving(true);
+    setStatus("");
+    setError("");
+    try {
+      const result = await api<{ created: boolean }>(`${base}/${collection.id}/review-archive`, "POST", {
+        artifactId: item.artifact, version: item.version,
+      });
+      setStatus(result.created ? `已将 ${item.name} v${item.version} 归档至 ${collection.name}。`
+        : `${collection.name} 已归档 ${item.name} v${item.version}。`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (items.length === 0) return null;
+  return (
+    <details onToggle={e => { if (e.currentTarget.open && !collections && !loading) void load(); }}>
+      <summary>归档至空间知识库</summary>
+      {loading && <p role="status">正在加载知识目录…</p>}
+      {collections?.length === 0 && <p>该空间没有可用的手动知识目录。</p>}
+      {collections && collections.length > 0 && (
+        <form onSubmit={archive} onChange={() => { setStatus(""); setError(""); }}>
+          <label>已审核成果
+            <select name="artifact" disabled={saving}>
+              {items.map(item => <option key={item.artifact} value={item.artifact}>{item.name} · v{item.version}</option>)}
+            </select>
+          </label>
+          <label>知识目录
+            <select name="collection" disabled={saving}>
+              {collections.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            </select>
+          </label>
+          <button type="submit" disabled={saving}>确认归档</button>
+        </form>
+      )}
+      {status && <p role="status">{status}</p>}
+      {error && <p role="alert">{error} {!collections && <button onClick={load}>重试</button>}</p>}
     </details>
   );
 }

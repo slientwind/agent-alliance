@@ -66,6 +66,7 @@ func (a Activities) attachKnowledgeContext(ctx context.Context, ref TurnRef, dat
 		var observations strings.Builder
 		var chosen []knowledge.KnowledgeEvidence
 		usedLayers := false
+		masked := false
 		for _, layer := range layers {
 			var content strings.Builder
 			for _, hit := range fresh {
@@ -96,6 +97,7 @@ func (a Activities) attachKnowledgeContext(ctx context.Context, ref TurnRef, dat
 				content.Write(body)
 				remaining -= len(prefix) + len(body)
 				chosen = append(chosen, hit)
+				masked = masked || secured[0] != text
 			}
 			if layerHasContent(layer.Body) && len(layer.Body)+100 <= remaining {
 				guard.Classification = policy.SensitivityInternal
@@ -108,6 +110,7 @@ func (a Activities) attachKnowledgeContext(ctx context.Context, ref TurnRef, dat
 					content.WriteString(safe[0])
 					remaining -= len(safe[0]) + 1
 					usedLayers = true
+					masked = masked || safe[0] != string(layer.Body)
 				}
 			}
 			if content.Len() == 0 {
@@ -126,7 +129,11 @@ func (a Activities) attachKnowledgeContext(ctx context.Context, ref TurnRef, dat
 		prepared.Request.Messages = append([]resources.Message(nil), input.Messages...)
 		prepared.Request.Messages[0].Content += "\n优先完成当前任务。当前空间的已核定口径优先于全企公共底座。" +
 			"空间说明可补充任务要求，权限与审批由平台校验。向用户引用知识时用 [K-编号] 标注出处。" + observations.String()
-		prepared.Request.EmitText = nil
+		// The live read path rechecks pinned evidence for each viewer. A masked
+		// exchange still needs the full answer for placeholder restoration.
+		if masked {
+			prepared.Request.EmitText = nil
+		}
 		prepared.Authorize = func(ctx context.Context) error {
 			if usedLayers {
 				latest, err := readSpaceContext(ctx, a.DB, space, data)

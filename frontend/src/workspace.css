@@ -488,6 +488,9 @@
 
 .administrator-page { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: 1.15rem; }
 .workspace-page-body { min-width: 0; }
+.outbound-hosts li, .ecosystem-catalog article { overflow-wrap: anywhere; }
+.service-publish-form { grid-template-columns: minmax(0, 1fr); }
+.service-publish-form select, .service-versions select { width: 100%; min-width: 0; }
 .admin-navigation { display: flex; flex-direction: column; gap: 0.45rem; align-self: start; }
 .admin-navigation button { display: flex; align-items: center; gap: 0.45rem; text-align: left; }
 .admin-navigation button[aria-current="page"] { background: var(--brand-soft); color: var(--ink); border-color: var(--brand); }

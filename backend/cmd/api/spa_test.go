@@ -13,11 +13,20 @@ func TestSPAFallback(t *testing.T) {
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte("ready"))
 	})
-	mux.Handle("GET /", spaHandler(fstest.MapFS{
+	// IM callbacks dispatch through a nested mux for all provider methods.
+	callbacks := http.NewServeMux()
+	callbacks.HandleFunc("POST /api/channels/feishu/events", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.Handle("/api/channels/feishu/", callbacks)
+	mux.HandleFunc("POST /internal/project-stream", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	routes := withWorkspaceFiles(mux, fstest.MapFS{
 		"index.html":    {Data: []byte("<html>Alliance</html>")},
 		"assets/app.js": {Data: []byte("console.log('ready')")},
 		"manifest":      {Data: []byte("static manifest")},
-	}))
+	})
 
 	for _, tc := range []struct {
 		method, path, body string
@@ -36,10 +45,15 @@ func TestSPAFallback(t *testing.T) {
 		{"GET", "/api", "404 page not found\n", 404},
 		{"GET", "/api/missing", "404 page not found\n", 404},
 		{"POST", "/chat", "Method Not Allowed\n", 405},
+		{"POST", "/api/health", "Method Not Allowed\n", 405},
+		{"POST", "/api/channels/feishu/events", "", 204},
+		{"GET", "/api/channels/feishu/events", "Method Not Allowed\n", 405},
+		{"POST", "/internal/project-stream", "", 204},
+		{"GET", "/internal/missing", "404 page not found\n", 404},
 	} {
 		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			mux.ServeHTTP(w, httptest.NewRequest(tc.method, tc.path, nil))
+			routes.ServeHTTP(w, httptest.NewRequest(tc.method, tc.path, nil))
 			if w.Code != tc.status || w.Body.String() != tc.body {
 				t.Fatalf("got %d %q, want %d %q", w.Code, w.Body.String(), tc.status, tc.body)
 			}

@@ -43,6 +43,10 @@ type Turn struct {
 
 var errPatch = errors.New("malformed studio patch")
 
+func conversationTier(tier llmgateway.Tier) bool {
+	return tier == llmgateway.Default || tier == llmgateway.Fast || tier == llmgateway.Reasoning
+}
+
 func emptySpec() Spec {
 	return Spec{Steps: []string{}, Checks: []string{}, Capabilities: []string{}, Tier: llmgateway.Default}
 }
@@ -117,9 +121,7 @@ func patchSpec(spec Spec, patch []Patch) (Spec, error) {
 		!validText(spec.Instructions, 6000, true) || !validList(spec.Steps, 16, 500) || !validList(spec.Checks, 16, 500) {
 		return Spec{}, errPatch
 	}
-	switch spec.Tier {
-	case llmgateway.Default, llmgateway.Fast, llmgateway.Reasoning:
-	default:
+	if !conversationTier(spec.Tier) {
 		return Spec{}, errPatch
 	}
 	if !capability.Valid(spec.Capabilities) {

@@ -319,6 +319,8 @@ func (f Feishu) reviewMessage(ctx context.Context, tx pgx.Tx, actor, project, ki
 			switch t.Kind {
 			case "distribution":
 				lines = append(lines, "交付分发受限 · 请在网页核对资料撤权影响")
+			case "mutation":
+				lines = append(lines, "业务系统写回待审批")
 			case "deliver":
 				lines = append(lines, "待确认最终交付")
 			case "coverage":

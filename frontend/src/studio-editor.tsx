@@ -45,6 +45,7 @@ export function StudioEditor({ id, back, use }: {
   const path = "studio/" + id;
   const [draft, setDraft] = useState<StudioDraft>();
   const [options, setOptions] = useState<CapabilityOption[]>([]);
+  const [availableTiers, setAvailableTiers] = useState<string[]>([]);
   const [targets, setTargets] = useState<ExternalAgent[]>([]);
   const [loadedSkills, setLoadedSkills] = useState<LoadedSkill[]>([]);
   const [skillError, setSkillError] = useState("");
@@ -72,10 +73,12 @@ export function StudioEditor({ id, back, use }: {
       api<StudioDraft>(path),
       api<CapabilityOption[]>(path + "/capabilities"),
       api<ExternalAgent[]>("agents/admissions").catch((): ExternalAgent[] => []),
-    ]).then(([loaded, caps, external]) => {
+      api<string[]>("general-tiers").catch((): string[] => []),
+    ]).then(([loaded, caps, external, available]) => {
       if (active) {
         setDraft(loaded);
         setOptions(caps);
+        setAvailableTiers(available);
         setTargets(external.filter(agent => agent.phase !== "draft"));
       }
     }).catch(error => { if (active) setError((error as Error).message); });
@@ -193,14 +196,19 @@ export function StudioEditor({ id, back, use }: {
     });
   }
 
+  function saveConfiguration(changes: { capabilities: string[] } | { tier: string }) {
+    if (!draft) return;
+    void run("正在保存配置…", async () => {
+      const saved = await api<StudioDraft>(path + "/capabilities", "PUT", { expected: draft.revision, ...changes });
+      setDraft(current => current && { ...current, revision: saved.revision, spec: saved.spec });
+      if (!saved.spec.capabilities.includes("external")) selectTargets([]);
+    });
+  }
+
   function toggleCapability(id: string, enabled: boolean) {
     if (!draft) return;
-    const capabilities = enabled ? [...draft.spec.capabilities, id] : draft.spec.capabilities.filter(item => item !== id);
-    void run("正在保存能力…", async () => {
-      const saved = await api<StudioDraft>(path + "/capabilities", "PUT", { expected: draft.revision, capabilities });
-      setDraft(current => current && { ...current, revision: saved.revision, spec: saved.spec });
-      if (id === "external" && !enabled) selectTargets([]);
-    });
+    const current = draft.spec.capabilities;
+    saveConfiguration({ capabilities: enabled ? [...current, id] : current.filter(item => item !== id) });
   }
 
   function getDependencies() {
@@ -291,7 +299,11 @@ export function StudioEditor({ id, back, use }: {
               {draft.spec.instructions && <p className="studio-instructions">{draft.spec.instructions}</p>}
               {draft.spec.steps.length > 0 && <section><h3>执行步骤</h3><ol>{draft.spec.steps.map((step, i) => <li key={i}>{step}</li>)}</ol></section>}
               {draft.spec.checks.length > 0 && <section><h3>交付前检查</h3><ul>{draft.spec.checks.map((value, i) => <li key={i}>{value}</li>)}</ul></section>}
-              <p>模型档位 {tiers[draft.spec.tier] || draft.spec.tier}</p>
+              <label>模型档位<select value={draft.spec.tier} disabled={!!busy}
+                onChange={event => saveConfiguration({ tier: event.target.value })}>
+                {Object.entries(tiers).map(([value, title]) => <option key={value} value={value}
+                  disabled={value !== draft.spec.tier && !availableTiers.includes(value)}>{title}</option>)}
+              </select></label>
               <fieldset disabled={!!busy}>
                 <legend>能力</legend>
                 {options.map(option => <label key={option.id} className="studio-check">

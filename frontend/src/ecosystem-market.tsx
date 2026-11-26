@@ -78,7 +78,7 @@ export function EcosystemMarket() {
     }
   }
 
-  return <section aria-label="生态发现市场">
+  return <section className="ecosystem-catalog" aria-label="生态发现市场">
     <h2>生态发现市场</h2>
     {scanError && <p role="status">{scanError}</p>}
     {scans.length > 0 && <section className="ecosystem-scan-status" aria-label="定期扫描状态">

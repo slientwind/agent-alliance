@@ -119,8 +119,9 @@ func main() {
 		}
 		return web.JSON(w, 200, map[string]string{"status": "ready"})
 	}))
+	var routes http.Handler = mux
 	if root := os.Getenv("WEB_ROOT"); root != "" {
-		mux.Handle("GET /", spaHandler(os.DirFS(root)))
+		routes = withWorkspaceFiles(mux, os.DirFS(root))
 	}
 	addr := os.Getenv("API_ADDR")
 	if addr == "" {
@@ -128,7 +129,7 @@ func main() {
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, requestBodyLimit(r))
-		mux.ServeHTTP(w, r)
+		routes.ServeHTTP(w, r)
 	})
 	server := http.Server{Addr: addr, Handler: http.NewCrossOriginProtection().Handler(handler), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: time.Minute}
 	go func() {

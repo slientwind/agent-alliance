@@ -11,6 +11,8 @@ func (s Server) orgRoutes(m *http.ServeMux) {
 	m.Handle("GET /api/teams", s.Protect(false, s.teams))
 	m.Handle("POST /api/admin/teams", s.Protect(true, s.newTeam))
 	m.Handle("PUT /api/admin/teams/{id}/members/{member}", s.Protect(true, s.assign))
+	m.Handle("GET /api/admin/teams/{id}/space-roles", s.Protect(true, s.teamSpaceRoles))
+	m.Handle("PUT /api/admin/teams/{id}/space-roles/{member}", s.Protect(true, s.setTeamSpaceRole))
 	m.Handle("POST /api/admin/departments", s.Protect(true, s.newDepartment))
 	m.Handle("PUT /api/admin/members/{id}/department", s.Protect(true, s.department))
 	m.Handle("GET /api/directory", s.Protect(false, s.directory))

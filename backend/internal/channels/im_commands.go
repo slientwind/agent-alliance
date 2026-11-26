@@ -203,6 +203,8 @@ func imProjectReply(ctx context.Context, tx pgx.Tx, actor, project, kind string)
 		switch todo.Kind {
 		case "distribution":
 			lines = append(lines, "交付分发待核对")
+		case "mutation":
+			lines = append(lines, "业务系统写回待审批")
 		case "deliver":
 			lines = append(lines, "待确认交付")
 		case "coverage":

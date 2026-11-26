@@ -667,6 +667,8 @@ export class RequestError extends Error {
     super(message);
   }
 }
+export const sessionCheckRequested = "alliance:session-check-requested";
+
 export async function api<T = void>(
   path: string,
   method = "GET",
@@ -683,6 +685,9 @@ export async function api<T = void>(
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!response.ok) {
+    if (response.status === 401 && path !== "me" && typeof window !== "undefined") {
+      window.dispatchEvent(new Event(sessionCheckRequested));
+    }
     const info = await response.json().catch(() => ({}));
     throw new RequestError(
       response.status,

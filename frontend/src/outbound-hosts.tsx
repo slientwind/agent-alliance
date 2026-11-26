@@ -46,7 +46,7 @@ export function OutboundHosts() {
     }
   }
 
-  return <section className="card" aria-label="域名访问许可">
+  return <section className="card outbound-hosts" aria-label="域名访问许可">
     <h2>域名访问许可</h2>
     {error && <p role="alert">{error}</p>}
     {status && <p role="status">{status}</p>}

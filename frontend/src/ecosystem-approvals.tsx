@@ -94,7 +94,7 @@ export function EcosystemApprovals() {
   }
 
   return (
-    <section aria-label="生态准入">
+    <section className="ecosystem-catalog" aria-label="生态准入">
       {loading && <p role="status">正在读取体检结果…</p>}
       {error && <p role="alert">{error}</p>}
       {status && <p role="status">{status}</p>}

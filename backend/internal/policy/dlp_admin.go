@@ -181,6 +181,17 @@ func (a DLPAdmin) inspect(w http.ResponseWriter, r *http.Request, _ identity.Mem
 		return err
 	}
 	findings := scanner.Scan(in.Field, in.Sample, in.Sensitivity)
+	if len(findings) == 1 && findings[0].Start == 0 && findings[0].End == len(in.Sample) &&
+		(findings[0].Kind == DLPFloorPrice || findings[0].Kind == DLPLabel) {
+		// A field-wide disposition still takes precedence on egress. The sample
+		// inspector also reports the independent rules matched by the same text.
+		classification := findings[0]
+		for _, match := range scanner.Scan("", in.Sample, "") {
+			if match != classification {
+				findings = append(findings, match)
+			}
+		}
+	}
 	if findings == nil {
 		findings = []DLPFinding{}
 	}

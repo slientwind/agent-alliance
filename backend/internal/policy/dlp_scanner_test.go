@@ -185,4 +185,25 @@ func TestDLPRulesAreEncryptedAndApplyThroughAdminAPI(t *testing.T) {
 	if body := do(admin, "POST", base+"/inspect", sample, 200); body != "{\"findings\":[]}\n" {
 		t.Fatalf("disabled rule remained active: %s", body)
 	}
+	const floorInput = `{"name":"底价","kind":"floor_price","sensitivity":"secret","enabled":true,"expectedVersion":0,"match":"fixture_cost_floor"}`
+	do(admin, "PUT", base+"/rules/"+uuid.NewString(), floorInput, 200)
+	const protectedText = "合成电话 13800000000，身份证 11010519491231002X，底价 88 元"
+	body = do(admin, "POST", base+"/inspect", `{"field":"fixture_cost_floor","sample":"`+protectedText+`"}`, 200)
+	if err := json.Unmarshal([]byte(body), &out); err != nil {
+		t.Fatal(err)
+	}
+	kinds := make(map[DLPKind]bool)
+	for _, finding := range out.Findings {
+		kinds[finding.Kind] = true
+	}
+	if len(out.Findings) != 3 || !kinds[DLPFloorPrice] || !kinds[DLPMobile] || !kinds[DLPNationalID] || strings.Contains(body, protectedText) {
+		t.Fatalf("overlapping classifications were not reported safely: %s", body)
+	}
+	scanner, err := loadDLPScanner(ctx, db, vault)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if enforced := scanner.Scan("fixture_cost_floor", protectedText, SensitivityInternal); len(enforced) != 1 || enforced[0].Kind != DLPFloorPrice {
+		t.Fatalf("field-wide enforcement changed: %+v", enforced)
+	}
 }

@@ -1,13 +1,14 @@
 import {FeishuReminders} from "./review-reminders";
 import {useEffect,useState} from 'react';
 import {api,type Member} from './client';
+import { TeamSpaceRoles } from "./team-space-roles";
 type Team={id:string;name:string;default:boolean;joined:boolean};
 export function Organization({members}:{members:Member[]}){
  const [teams,setTeams]=useState<Team[]>([]),[message,setMessage]=useState('');
  async function load(){setTeams(await api<Team[]>('teams'))}useEffect(()=>{void load().catch(e=>setMessage(e.message))},[]);
  return <details className="card"><summary>组织与团队成员</summary>
  <form onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{const v=await api<{id:string}>('admin/'+f.get('type'),'POST',{name:f.get('name')});await load();setMessage('已创建 · '+v.id)}catch(e){setMessage((e as Error).message)}}}><label>名称<input name="name" required/></label><select name="type"><option value="teams">团队</option><option value="departments">部门</option></select><button>创建</button></form>
- <form onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{await api('admin/teams/'+f.get('team')+'/members/'+f.get('member'),'PUT',{joined:f.get('action')==='join',reason:f.get('reason')});setMessage('团队成员已更新。')}catch(e){setMessage((e as Error).message)}}}><label>团队<select name="team">{teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label><label>成员<select name="member">{members.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label><select name="action"><option value="join">加入团队</option><option value="remove">移出团队</option></select><label>原因<input name="reason" required/></label><button>更新成员范围</button></form><p role="status">{message}</p></details>
+ <form onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{await api('admin/teams/'+f.get('team')+'/members/'+f.get('member'),'PUT',{joined:f.get('action')==='join',reason:f.get('reason')});setMessage('团队成员已更新。')}catch(e){setMessage((e as Error).message)}}}><label>团队<select name="team">{teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label><label>成员<select name="member">{members.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label><select name="action"><option value="join">加入团队</option><option value="remove">移出团队</option></select><label>原因<input name="reason" required/></label><button>更新成员范围</button></form><p role="status">{message}</p><TeamSpaceRoles teams={teams} /></details>
 }
 export function FeishuIdentity() {
   return <ChannelIdentity channel="feishu" name="飞书" />;

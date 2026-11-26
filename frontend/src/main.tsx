@@ -33,6 +33,7 @@ import { AtSign, Globe, X } from "lucide-react";
 import {
   api,
   RequestError,
+  sessionCheckRequested,
   type Agent,
   type Member,
   type KnowledgeCitation,
@@ -222,6 +223,7 @@ function App() {
   }
   const { teams, error: teamError } = useJoinedTeams(user?.id, panel);
   const [spaces, setSpaces] = useState<SpaceOption[]>([]);
+  const [spaceRevision, setSpaceRevision] = useState(0);
   const [space, setSpace] = useState("");
   const scope = spaces.find(item => item.id === (p?.spaceId || space));
   const selectableSpaces = spaces.filter(item => item.kind !== "commons" && item.role !== "guest");
@@ -251,7 +253,7 @@ function App() {
     void loadSpaces();
     window.addEventListener("focus", loadSpaces);
     return () => { active = false; window.removeEventListener("focus", loadSpaces); };
-  }, [user?.id]);
+  }, [user?.id, spaceRevision]);
   useEffect(() => {
     if (user && space) {
       try { sessionStorage.setItem("alliance-space/" + user.id, space); } catch { /* Storage can be unavailable. */ }
@@ -344,6 +346,9 @@ function App() {
   const [grantQuery, setGrantQuery] = useState("");
   const [budgetQuery, setBudgetQuery] = useState("");
   const [inbox, setInbox] = useState<HistoryView>(() => routePanel === "history" ? "review" : "recent");
+  useEffect(() => {
+    if (routePanel === "history") setInbox("review");
+  }, [routePanel]);
   const pending = useRef(0);
   const [files, setFiles] = useState<Attachment[]>([]);
   const hasFiles = files.length > 0;
@@ -364,6 +369,7 @@ function App() {
   const leaveProject = useCallback(
     (id: string) => {
       setP(null);
+      setSpaceRevision(value => value + 1);
       setList((items) => items.filter((item) => item.id !== id));
       recent.current = recent.current.filter((item) => item !== id);
       drafts.current.delete(id);
@@ -576,11 +582,13 @@ function App() {
     }
     const timer = window.setInterval(check, 30000);
     window.addEventListener("focus", check);
+    window.addEventListener(sessionCheckRequested, check);
     document.addEventListener("visibilitychange", check);
     return () => {
       active = false;
       window.clearInterval(timer);
       window.removeEventListener("focus", check);
+      window.removeEventListener(sessionCheckRequested, check);
       document.removeEventListener("visibilitychange", check);
     };
   }, [user, resetSession, setPanel]);
@@ -595,7 +603,10 @@ function App() {
     if (draft) drafts.current.set(old || draftKey, draft);
     else drafts.current.delete(old || draftKey);
     current.current = id;
-    if (!keepPage && (chatPath(id) !== location.pathname || location.hash && !mutationAnchor(location.hash))) navigateRef.current(chatPath(id));
+    const currentMutation = id && chatPath(id) === location.pathname && mutationAnchor(location.hash);
+    const anchor = task?.kind === "mutation" ? taskAnchor(task) : task ? "" : currentMutation;
+    const hash = anchor ? "#" + anchor : "";
+    if (!keepPage && (chatPath(id) !== location.pathname || location.hash !== hash)) navigateRef.current(chatPath(id) + hash);
     restore.current = { id, task };
     if (id) recent.current = [id, ...recent.current.filter((x) => x !== id)];
     ++pending.current;
@@ -648,11 +659,13 @@ function App() {
       setCanvasFocus({ comment: request.task.subject, version: request.task.version });
       return;
     }
+    if (request.task?.kind === "mutation") return;
     if (request.task) {
       const target = document.getElementById(taskAnchor(request.task));
       if (!target)
         setErr("这条待办已更新。请查看当前项目状态，或重新打开成果待办。");
       else {
+        if (target instanceof HTMLDetailsElement) target.open = true;
         for (
           let node = target.parentElement;
           node && node !== thread;
@@ -1480,6 +1493,8 @@ function App() {
                 mutationAnchor={mutationAnchor(route.hash)}
                 mayCaptureEvaluation={p.spaceKind === "team" && (p.canReview || p.owner === user.id) &&
                   spaces.some(item => item.id === p.spaceId && item.role === "space_admin")}
+                mayArchiveReviewed={p.spaceKind === "team" && (scope?.role === "space_admin" ||
+                  scope?.role === "member" && p.canReview && p.reviewer === user.id)}
                 drafts={sessionDrafts?.project === p.id && sessionDrafts.run === p.run?.id ? sessionDrafts.drafts : []}
                 uploadedPins={planningUpload?.project === p.id ? planningUpload.pins : undefined}
                 planningSubmitted={(pins) => setPlanningUpload(current => current?.pins === pins ? null : current)}

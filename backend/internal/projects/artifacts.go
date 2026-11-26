@@ -323,7 +323,7 @@ func (s Server) deliveryReceipt(w http.ResponseWriter, r *http.Request, u identi
      'unchanged',case when distribution_state(d.id) in('clear','reference') and distribution_state(c.previous) in('clear','reference') then
        (select count(*) from delivery_items cur join delivery_items old using(artifact_id,version) where cur.delivery_id=d.id and old.delivery_id=c.previous) end,
      'handoff',case when distribution_state(d.id) in('clear','reference') then d.handoff else '{}'::jsonb end,'items',jsonb_agg(
-     jsonb_build_object('step',i.ordinal,'name',i.name,'version',i.version,'dependencies',i.dependencies) order by i.ordinal))
+     jsonb_build_object('artifact',i.artifact_id,'step',i.ordinal,'name',i.name,'version',i.version,'dependencies',i.dependencies) order by i.ordinal))
      from deliveries d join delivery_comparisons c on c.id=d.id join project_members m on m.project_id=d.project_id join delivery_recipient_items i on i.delivery_id=d.id
      where m.member_id=$1 and d.project_id=$2 and d.edition=$3 group by d.id,c.previous,c.changes,c.changed_notes`, u.ID, r.PathValue("id"), edition).Scan(&data)
 	if err != nil {
