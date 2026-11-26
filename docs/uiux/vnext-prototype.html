@@ -122,6 +122,8 @@ svg { flex: none; display: block; }
 .profile-meta small { display: block; font-size: 11px; color: var(--ink-muted); }
 
 .app-shell.collapsed .brand-text,
+.app-shell.collapsed .space-switch-text,
+.app-shell.collapsed .space-caret,
 .app-shell.collapsed .rail-btn span,
 .app-shell.collapsed .rail-btn .kbd,
 .app-shell.collapsed .rail-btn .badge,
@@ -131,7 +133,17 @@ svg { flex: none; display: block; }
 .app-shell.collapsed .profile-caret { display: none; }
 .app-shell.collapsed .rail { align-items: center; padding: 12px 6px; }
 .app-shell.collapsed .rail-top { flex-direction: column; gap: 8px; padding: 2px 0 8px; }
-.app-shell.collapsed .rail-btn, .app-shell.collapsed .profile-btn { justify-content: center; width: 38px; height: 38px; padding: 0; }
+.app-shell.collapsed .rail-btn, .app-shell.collapsed .profile-btn, .app-shell.collapsed .space-switcher { justify-content: center; width: 38px; height: 38px; padding: 0; }
+
+.space-switcher { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border-radius: 10px; background: var(--brand-soft); border: 1px solid var(--border); color: var(--brand-ink); font-size: 13px; font-weight: 600; margin-bottom: 4px; text-align: left; transition: all .14s; }
+.space-switcher:hover { border-color: var(--brand); }
+.space-switcher svg { width: 15px; height: 15px; flex: none; }
+.space-switch-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prov-bar { padding: 10px 13px; border-radius: 10px; background: var(--info-soft); border: 1px solid var(--border); font-size: 12.5px; color: var(--ink-primary); display: flex; flex-direction: column; gap: 4px; }
+.l2-card { border: 1.5px solid var(--amber-border); background: var(--amber-soft); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.l2-card.done { border-color: var(--brand); background: var(--brand-soft); }
+.cite-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: 6px; background: var(--brand-soft); color: var(--brand-ink); font-size: 12px; font-weight: 550; vertical-align: baseline; margin: 0 2px; }
+.cite-chip:hover { filter: brightness(0.95); }
 
 /* Main Container */
 .main-area { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg-main); position: relative; overflow: hidden; }
@@ -460,7 +472,12 @@ const ICONS = {
   Activity: '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
   Edit: '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
   PanelsRight: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>',
-  Alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>'
+  Alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  Database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>',
+  BookOpen: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  Lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  Layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+  Zap: '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>'
 };
 const ic = (name, size = 17) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -479,7 +496,52 @@ const state = {
   quoteGapFixed: false,
   quoteReviewed: [false, false],
   quoteDelivered: false,
-  traceOpen: { 't-quote': false, 't-sales': false, 't-legal': false },
+  erpWritebackApproved: false,
+  traceOpen: { 't-quote': false, 't-sales': false, 't-legal': false, 't-ecom': false },
+  activeSpace: 'sp-personal',
+  spaces: [
+    { id: 'sp-personal', kind: 'personal', name: '个人空间（私密）', badge: '个人空间 · 仅自己可见', sub: '默认私密工作台（管理员不可查看私聊正文），已自动继承全企制度与官方母版', kbCount: 18, connSummary: '个人知识夹 · 继承全企制度' },
+    { id: 'sp-proc', kind: 'team', name: '采购中心空间', badge: '团队空间 · 采购中心', sub: '已自动挂载：采购制度库 186 篇 · 金蝶云星空 ERP 视图 · 核价口径与标准比价母版', kbCount: 186, connSummary: '金蝶 ERP · 供应商主数据' },
+    { id: 'sp-ecom', kind: 'team', name: '电商增长运营空间', badge: '团队空间 · 电商增长组', sub: '已自动挂载：售后/投流 SOP 94 篇 · 抖店/聚水潭/金蝶库存语义视图 · 集团汇报 PPT 母版', kbCount: 94, connSummary: '抖店 · 聚水潭 · 金蝶库存 · CRM' },
+  ],
+  kbTab: 'docs', // docs | connectors | assets
+  kbDocs: [
+    { id: 'kd-1', title: '电商售后退换货与批次锁库 SOP_2026v3.pdf', layer: '团队共享', space: 'sp-ecom', source: '飞书知识库自动同步', status: '现行有效', acl: '电商组与品控可见', snippet: '第 6 页第 4.2 条：单日单 SKU 质量退货率超 4.5% 或 2 小时内连续出现 ≥5 条同批次质量差评，须立即在金蝶 ERP 发起批次冻结待检单（L2 确认）。' },
+    { id: 'kd-2', title: '2026 年度集团采购比价与定标管理制度.pdf', layer: '团队共享', space: 'sp-proc', source: '本地表格保真精析', status: '现行有效', acl: '采购与财务可见', snippet: '第 12 页：常规物资采购须集齐不少于 3 家含税有效期内报价单，单价对比统一折算至含 13% 专票到厂价。' },
+    { id: 'kd-3', title: '全企差旅与费用报销管理规范（2026 现行版）.docx', layer: '全企公共底座', space: 'all', source: '钉钉企业文档库同步', status: '现行有效', acl: '全员可读', snippet: '第 4 条：一线城市差旅住宿标准上限为 650 元/晚，超标部分须附部门负责人事前特批单。' },
+    { id: 'kd-4', title: '2024 旧版供应商返利核算细则（已废止）.pdf', layer: '历史归档', space: 'all', source: 'Confluence Space', status: '已作废自动屏蔽', acl: '仅归档留存', snippet: '已于 2026-01-01 作废，混合检索默认压制不引用，防止误导新员工。' },
+    { id: 'kd-5', title: '我的 Q4 谈判要点与底价备忘笔记.md', layer: '个人私夹', space: 'sp-personal', source: '个人空间上传', status: '现行有效', acl: '仅林予本人可见', snippet: '个人谈判草稿记录，受个人空间私密保护，绝不进入其他同事检索范围。' },
+  ],
+  kbGaps: [
+    { id: 'gap-1', q: '跨境达人寄样报关与破损退税走哪套流程？', asks: 14, status: 'pending', owner: '待指派' },
+    { id: 'gap-2', q: '抖店安心购运费险补贴对账周期与差额申诉入口？', asks: 9, status: 'assigned', owner: '已指派 · 苏敏' },
+  ],
+  kbConflicts: [
+    { id: 'cf-1', title: '住宿补贴口径冲突预警', detail: '《2026 全企差旅规范》(¥650/晚) 与《华东销售补充细则》(¥700/晚) 数值不一致，建议统一标注优先级。', resolved: false },
+  ],
+  bizConnectors: [
+    { id: 'bc-1', name: '金蝶云星空 ERP', cat: 'ERP / 供应链', auth: 'OBO 工号映射行权限', rw: '读 L0 直达 · 建单/锁库 L2 确认', views: '批次库存视图、采购申请单、合格供应商名录', status: '实时连通' },
+    { id: 'bc-2', name: '抖店 & 聚水潭电商中台', cat: '电商 / 售后工单', auth: 'OBO 本人所辖店铺权限', rw: '读 L0 直达 · 批量退赔 L2 确认', views: 'doudian_sku_aftersales_v2（净退货率/差评流/在途单）', status: '实时连通' },
+    { id: 'bc-3', name: '纷享销客 CRM', cat: 'CRM / 客户商机', auth: '严格 RLS（仅查本人名下客户）', rw: '读 L0 直达 · 改商机阶段 L2 确认', views: '重点商机跟进表、客户回款账期视图', status: '实时连通' },
+    { id: 'bc-4', name: 'StarRocks 经营分析只读数仓', cat: 'BI 数仓语义层', auth: '按部门数据域过滤（AST 只读锁）', rw: '纯只读 L0（禁裸猜底层物理表）', views: '已核准区域净销售额、渠道核准毛利等 12 个受控视图', status: '实时连通' },
+  ],
+  glossary: [
+    { id: 'gl-1', term: '净毛利（电商口径）', alias: '实收毛利 / 核准毛利', formula: '含税确认收货实收 - 货品移动加权成本 - 达人佣金 - 平台技术服务费 - 退货运费险净支出', scope: '电商增长空间' },
+    { id: 'gl-2', term: '核准净销售额', alias: '有效销售额', formula: '已完成财务核准入账订单金额合计（剔除待审 pending 单与冲红退单）', scope: '全企公共底座' },
+    { id: 'gl-3', term: 'S 级核心爆品池', alias: 'S 池 / 主推款', formula: '月净销 ≥ 200 万且复购率 ≥ 22% 的当季重点保障 SKU 集合', scope: '电商增长空间' },
+  ],
+  brandTemplates: [
+    { id: 'tpl-1', name: '集团官方经营汇报演示母版_2026.pptx', kind: 'PPTX 品牌母版', scope: '全企默认', isDefault: true, desc: '内置墨绿/暖白标准色板、封面/目录/双栏对比/数据图表 14 套版式，沙箱生成 PPT 自动套用。' },
+    { id: 'tpl-2', name: '标准框架采购合同与红头公文模板.docx', kind: 'DOCX 公文/合同', scope: '采购与法务空间', isDefault: true, desc: '固化公司标准页眉签章区、法务锁定条款样式与标准字号行距。' },
+    { id: 'tpl-3', name: '供应商多轮比价与核价标准样表.xlsx', kind: 'XLSX 公式样表', scope: '采购中心空间', isDefault: false, desc: '预置含税/未税自动折算公式区、最低价高亮条件格式与审签签字栏。' },
+  ],
+  eventTriggers: [
+    { id: 'ev-1', name: '抖店单品质量差评激增主动预警', source: '抖店 Webhook · 2h 内同批次差评 ≥5 条', space: '电商增长运营空间', action: '自动联查金蝶批次质检 + 退换货 SOP → 生成复盘与 ERP 锁库 L2 确认卡推飞书', lastHit: '今天 13:45 触发', enabled: true },
+    { id: 'ev-2', name: 'CRM 大额新商机首访弹药包自动生成', source: '纷享销客 Webhook · 预计金额 ≥ ¥50 万', space: '销售作战空间', action: '检索知识库同行业中标案例与竞品对比 → 生成首访方案草稿推负责人', lastHit: '昨日 16:10 触发', enabled: true },
+    { id: 'ev-3', name: '金蝶安全库存跌破红线自动补货建议', source: '金蝶云星空 · 核心辅料可用库存 < 7 天', space: '采购中心空间', action: '拉取近 3 次合格供应商成交价 → 起草采购申请单（L2 待确认）', lastHit: '3 天前触发', enabled: true },
+  ],
+  handoverDone: false,
+  evalRunDone: false,
   composerText: '',
   composerAgent: 'general',
   composerTier: 'auto',
@@ -581,6 +643,11 @@ const state = {
       id: 't-legal', group: '昨天', title: '框架采购合同风险审查（外部）', dot: 'blue', agentId: 'legal-ext',
       extraTurns: [],
       feedback: null
+    },
+    't-ecom': {
+      id: 't-ecom', group: '置顶', title: '抖店退货异常 + 金蝶锁库质检（L2）', dot: 'amber', agentId: 'general',
+      extraTurns: [],
+      feedback: null
     }
   }
 };
@@ -612,9 +679,14 @@ function scopePill(agent) {
   return `<span class="pill pill-blue">${esc(agent.scope)}</span>`;
 }
 
+function currentSpace() {
+  return state.spaces.find(s => s.id === state.activeSpace) || state.spaces[0];
+}
+
 // Render Sidebar (Workspace mode)
 function renderSidebar() {
-  const pendingCount = (state.quoteGapFixed ? 0 : 1) + 1;
+  const sp = currentSpace();
+  const pendingCount = (state.quoteGapFixed ? 0 : 1) + (state.erpWritebackApproved ? 0 : 1) + 1;
   const groups = ['置顶', '今天', '昨天'];
   return `
   <aside class="rail" aria-label="主导航">
@@ -626,6 +698,29 @@ function renderSidebar() {
       <button class="icon-btn" data-act="toggle-rail" title="${state.collapsed ? '展开侧栏 (⌘\\)' : '收起侧栏 (⌘\\)'}" aria-label="切换侧栏">${ic('PanelLeft', 17)}</button>
     </div>
 
+    <div style="position:relative">
+      <button class="space-switcher" data-act="toggle-pop" data-pop="space" title="切换个人空间 / 团队空间">
+        ${ic(sp.kind === 'personal' ? 'Lock' : 'Layers', 15)}
+        <span class="space-switch-text">${esc(sp.name)}</span>
+        <span class="space-caret">${ic('ChevronDown', 13)}</span>
+      </button>
+      ${state.popover === 'space' ? `
+      <div class="popover" style="top:42px; left:0; width:262px;">
+        <div style="padding:4px 8px;font-size:11.5px;color:var(--ink-muted)">切换工作空间（自动切换知识库与业务数据源）</div>
+        ${state.spaces.map(s => `
+        <button class="popover-item" data-act="switch-space" data-id="${s.id}" style="${s.id===state.activeSpace?'background:var(--bg-active);font-weight:600':''}">
+          ${ic(s.kind === 'personal' ? 'Lock' : 'Users', 15)}
+          <div style="flex:1;min-width:0">
+            <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div>
+            <div style="font-size:11px;color:var(--ink-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.connSummary)}</div>
+          </div>
+          ${s.id===state.activeSpace ? ic('Check', 14) : ''}
+        </button>`).join('')}
+        <div class="popover-sep"></div>
+        <div style="padding:5px 8px;font-size:11px;color:var(--ink-secondary);line-height:1.45">✓ 所有空间均自动继承<strong>全企公共底座</strong>（公司制度库 · 全局口径 · 官方品牌母版）</div>
+      </div>` : ''}
+    </div>
+
     <button class="rail-btn new-chat" data-act="go" data-to="chat-new" title="新对话 (⌘N)">
       ${ic('Plus', 16)}<span>新对话</span><span class="kbd">⌘N</span>
     </button>
@@ -634,14 +729,17 @@ function renderSidebar() {
     </button>
 
     <div style="height:4px"></div>
+    <button class="rail-btn ${state.route==='knowledge'?'active':''}" data-act="go" data-to="knowledge" title="知识库、ERP/CRM/电商连接与术语母版">
+      ${ic('Database', 17)}<span>知识与数据</span><span class="kbd">${sp.kbCount}</span>
+    </button>
     <button class="rail-btn ${['agents','studio','connect'].includes(state.route)?'active':''}" data-act="go" data-to="agents" title="Agent 与 Skill 市场">
       ${ic('Bot', 17)}<span>Agent 与 Skill 市场</span>
     </button>
-    <button class="rail-btn ${state.route==='automations'?'active':''}" data-act="go" data-to="automations" title="后台与定时">
-      ${ic('Clock', 17)}<span>后台与定时</span>
+    <button class="rail-btn ${state.route==='automations'?'active':''}" data-act="go" data-to="automations" title="自动与事件委托">
+      ${ic('Zap', 17)}<span>自动与事件委托</span>
     </button>
-    <button class="rail-btn ${state.route==='inbox'?'active':''}" data-act="go" data-to="inbox" title="待办与审核">
-      ${ic('Inbox', 17)}<span>待办与审核</span>${pendingCount ? `<span class="badge num">${pendingCount}</span>` : ''}
+    <button class="rail-btn ${state.route==='inbox'?'active':''}" data-act="go" data-to="inbox" title="待办与审签">
+      ${ic('Inbox', 17)}<span>待办与审签</span>${pendingCount ? `<span class="badge num">${pendingCount}</span>` : ''}
     </button>
 
     <div class="rail-scroll">
@@ -769,25 +867,29 @@ function renderComposer(placeholder, isThread = false) {
 
 // View 1: Start Screen
 function renderStartView() {
+  const sp = currentSpace();
   return `
   <header class="topbar">
     <div class="topbar-left">
-      <span class="pill pill-green">个人助手 · 轻量直达</span>
+      <span class="pill ${sp.kind === 'personal' ? 'pill-green' : 'pill-blue'}">${ic(sp.kind === 'personal' ? 'Lock' : 'Layers', 12)} ${esc(sp.badge)}</span>
+      <span style="font-size:12px;color:var(--ink-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(sp.sub)}</span>
     </div>
     <div class="topbar-right">
+      <button class="btn btn-ghost btn-sm" data-act="go" data-to="knowledge">${ic('Database', 14)}空间知识与数据源</button>
       <button class="icon-btn" data-act="toggle-theme" title="切换浅/深色主题">${ic(state.theme==='light'?'Moon':'Sun', 17)}</button>
     </div>
   </header>
   <div class="start-screen">
     <div class="start-inner">
       <h1 class="start-greeting">林予，今天想先处理什么？</h1>
-      <p class="start-sub">直接说出你的业务目标，或输入 <code>@</code> 调用团队与外部专业 Agent</p>
+      <p class="start-sub">当前位于<strong>${esc(sp.name)}</strong> · 自动关联权限内知识库、ERP/CRM/电商语义视图与官方交付母版</p>
 
-      ${renderComposer('描述你想完成的工作，例如「把这三份报价整理成对照表并标出缺项」…', false)}
+      ${renderComposer('描述你想完成的工作，例如「结合售后 SOP 查一下抖店退货异常 SKU 与金蝶库存」…', false)}
 
       <div class="starter-row">
+        <button class="starter-chip" data-act="open-ecom-demo">${ic('Database', 15)}知识库 + 抖店/金蝶联查与写回</button>
         <button class="starter-chip" data-act="open-thread" data-id="t-quote">${ic('Users', 15)}团队协同核对报价</button>
-        <button class="starter-chip" data-act="open-thread" data-id="t-sales">${ic('BarChart', 15)}合并销售表并出图</button>
+        <button class="starter-chip" data-act="go" data-to="knowledge">${ic('BookOpen', 15)}治理知识缺口与口径母版</button>
         <button class="starter-chip" data-act="open-eco-market">${ic('Sparkles', 15)}生态市场加载 Skill</button>
         <button class="starter-chip" data-act="go" data-to="studio">${ic('Wand', 15)}大白话建周报助手</button>
       </div>
@@ -835,6 +937,7 @@ function renderChatView() {
   const isQuote = th.id === 't-quote';
   const isSales = th.id === 't-sales';
   const isLegal = th.id === 't-legal';
+  const isEcom = th.id === 't-ecom';
   const showCanvas = state.canvasOpen;
 
   let messagesHtml = '';
@@ -1080,6 +1183,9 @@ function renderChatView() {
             <div class="trace-step">${ic('Check', 13)} <span>外部 Agent 返回结构化审查清单及可选回传用量（4,280 tokens）</span><span class="step-time num">5.0s</span></div>
           </div>` : ''}
         </div>
+        <div class="prov-bar">
+          <div><strong>${ic('Shield', 13)} DLP 敏感数据护栏已自动脱敏保护：</strong>发往外部独立 Agent 前，已将合同内 2 处联系人手机号与采购底价替换为可逆掩码 <code>[MOBILE_01]</code> / <code>[FLOOR_PRICE_01]</code>，外部返回后在企业内自动还原展示。</div>
+        </div>
         <div class="ai-body">
           <p><strong>共发现 2 处高风险条款、1 处中风险条款：</strong></p>
           <ul>
@@ -1101,9 +1207,9 @@ function renderChatView() {
       </div>
       <div class="canvas-body">
         <article class="paper">
-          <div class="paper-meta"><span>外部自研 Agent 输出 · 已留存调用边界记录</span><span class="pill pill-blue">模型由外部独立托管</span></div>
+          <div class="paper-meta"><span>外部自研 Agent 输出 · 已留存调用边界与 DLP 审计记录</span><span class="pill pill-blue">模型由外部独立托管</span></div>
           <h2>框架采购合同风险审查清单</h2>
-          <p class="paper-desc">来源：2026年度框架采购合同_初稿.docx</p>
+          <p class="paper-desc">来源：2026年度框架采购合同_初稿.docx（已套用公司标准合同红头样式核验）</p>
           <table class="data-table">
             <thead><tr><th>条款位置</th><th>风险级别</th><th>修改建议</th></tr></thead>
             <tbody>
@@ -1112,6 +1218,93 @@ function renderChatView() {
               <tr><td><strong>第 14.1 条</strong></td><td><span class="pill pill-amber">中风险</span></td><td>将保密期明确为终止后 3 年</td></tr>
             </tbody>
           </table>
+        </article>
+      </div>`;
+  } else if (isEcom) {
+    messagesHtml = `
+      <div class="msg-user">
+        <div class="msg-files">
+          <span class="context-tag">${ic('Zap', 12)} 业务事件触发 · 抖店差评预警</span>
+          <span class="context-tag file">${ic('Layers', 12)} 电商增长运营空间</span>
+        </div>
+        结合公司《售后退换货 SOP》，查一下抖店昨天质量退货异常的 SKU 与金蝶 ERP 对应批次库存，用集团官方 PPT 母版生成复盘简报，并准备金蝶锁库质检申请单。
+      </div>
+      <div class="msg-ai">
+        <div class="ai-head"><span class="ai-badge-icon">${ic('Bot', 13)}</span><span>${esc(ag.name)}</span><span class="pill pill-blue">空间上下文已挂载</span></div>
+        <div class="trace-box">
+          <button class="trace-toggle" data-act="toggle-trace" data-id="t-ecom">
+            ${ic('CheckCircle', 14)}<span>已完成 4 步跨系统协同 · 混合知识检索 + 抖店/金蝶语义联查 + 母版渲染 · <span class="num">4.3s</span></span>
+            <span style="margin-left:auto">${ic(state.traceOpen['t-ecom'] ? 'ChevronDown' : 'ChevronRight', 14)}</span>
+          </button>
+          ${state.traceOpen['t-ecom'] ? `
+          <div class="trace-steps">
+            <div class="trace-step">${ic('Check', 13)} <span>口径改写 + 混合检索命中《电商售后退换货与批次锁库 SOP_2026v3.pdf》第 6 页</span><span class="step-time num">0.6s</span></div>
+            <div class="trace-step">${ic('Check', 13)} <span>OBO 本人店铺权限联查语义视图 <code>doudian_sku_aftersales_v2</code> 与金蝶批次库存</span><span class="step-time num">1.4s</span></div>
+            <div class="trace-step">${ic('Check', 13)} <span>断网沙箱套用《集团官方经营汇报演示母版_2026.pptx》生成 5 页异常复盘简报</span><span class="step-time num">1.8s</span></div>
+            <div class="trace-step">${ic('Check', 13)} <span>生成金蝶云星空 ERP 批次冻结待检单（L2 强制写回门禁，等待人工确认）</span><span class="step-time num">0.5s</span></div>
+          </div>` : ''}
+        </div>
+        <div class="prov-bar">
+          <div><strong>取数口径与权限核验：</strong>受控语义视图 <code>doudian_sku_aftersales_v2</code> × <code>kingdee_lot_inventory</code> · <strong>OBO 行权限：</strong>仅查询林予获授权旗舰店 · <strong>口径：</strong>按空间词典剔除未发货秒退单</div>
+        </div>
+        <div class="ai-body">
+          <p>经核查，<strong>SKU-8821（便携冲牙器 Pro）</strong>昨日质量净退货率达 <strong>6.8%</strong>（2 小时同批次封口渗水差评 7 条），已触发 <button class="cite-chip" data-act="show-source" data-title="电商售后退换货与批次锁库 SOP" data-src="电商售后退换货与批次锁库 SOP_2026v3.pdf · 第 6 页第 4.2 条（飞书同步·现行有效）" data-gap="0">${ic('BookOpen', 12)}售后SOP v3 · P.6</button> 规定的 <strong>≥4.5% 强制批次锁库红线</strong>。金蝶 ERP 显示涉事批次 <code>LOT-B2611</code> 华东仓尚有可售库存 <strong>1,240 件</strong>。</p>
+        </div>
+        <div class="l2-card ${state.erpWritebackApproved ? 'done' : ''}">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+            <strong>${state.erpWritebackApproved ? '✓ L2 业务系统写回已完成（幂等回执已归档）' : '⚠ L2 业务系统写回变更预览确认（未经批准绝不自动改库）'}</strong>
+            <span class="pill ${state.erpWritebackApproved ? 'pill-green' : 'pill-amber'}">${state.erpWritebackApproved ? '回执单号：QC-20261125-089' : '目标：金蝶云星空 ERP'}</span>
+          </div>
+          <div style="font-size:13px;line-height:1.6">
+            <div>· <strong>操作单据：</strong>创建库存批次冻结质检申请单（物料 <code>SKU-8821</code> · 批次 <code>LOT-B2611</code> · 华东一号仓）</div>
+            <div>· <strong>字段变更对比：</strong>原状态 <code>可售正常 (1,240 件)</code> → 拟变更 <strong><code>冻结待品控抽检 (1,240 件)</code></strong></div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            ${state.erpWritebackApproved
+              ? `<span style="font-size:12.5px;color:var(--brand-ink);font-weight:600">已由 林予 确认并携带幂等键写入金蝶 ERP，品控待办已同步飞书</span>`
+              : `<button class="btn btn-primary btn-sm" data-act="approve-l2-erp">${ic('CheckCircle', 14)}批准写入金蝶 ERP（幂等执行）</button>
+                 <button class="btn btn-secondary btn-sm" data-act="toast" data-msg="已将 L2 确认卡片转发给品控主管周宁会签">转交主管确认</button>`}
+          </div>
+        </div>
+      </div>`;
+    canvasHtml = `
+      <div class="canvas-head">
+        <div class="canvas-tabs">
+          <button class="canvas-tab active">${ic('Layers', 14)}退货异常复盘简报.pptx（官方母版）</button>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary btn-sm" data-act="toast" data-msg="已将本次核定复盘报告一键归档入「电商增长运营空间」共享知识库">${ic('BookOpen', 14)}归档入空间知识库</button>
+          <button class="btn btn-secondary btn-sm" data-act="download-artifact">${ic('Download', 14)}下载 PPTX</button>
+          <button class="icon-btn" data-act="toggle-canvas">${ic('X', 16)}</button>
+        </div>
+      </div>
+      <div class="canvas-body">
+        <article class="paper">
+          <div class="paper-meta"><span>已自动套用：集团官方经营汇报演示母版_2026.pptx</span><span class="pill pill-green">品牌 VI 合规</span></div>
+          <h2>SKU-8821 抖店退货率异常与批次锁库处置汇报</h2>
+          <p class="paper-desc">数据来源：抖店售后语义视图 × 金蝶云星空批次库存 · 制度依据：《售后退换货 SOP v3》P.6</p>
+          <div class="metric-strip">
+            <div><small>昨日净退货率（红线 4.5%）</small><b class="num" style="color:var(--danger)">6.8%</b></div>
+            <div><small>金蝶涉事批次在库（LOT-B2611）</small><b class="num">1,240 件</b></div>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>SKU 与批次</th><th>抖店异常表现</th><th>金蝶库存状态</th><th>SOP 处置动作</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>SKU-8821 · LOT-B2611</strong></td>
+                <td>2h 同批次渗水差评 7 条</td>
+                <td><span class="pill ${state.erpWritebackApproved?'pill-green':'pill-amber'}">${state.erpWritebackApproved?'已锁库待检 (QC-089)':'可售 1,240 件（待锁）'}</span></td>
+                <td>冻结华东仓批次 + 追索代工厂质检</td>
+              </tr>
+              <tr>
+                <td><strong>SKU-8821 · LOT-B2610</strong></td>
+                <td>退货率 1.6%（正常）</td>
+                <td><span class="pill pill-muted">可售 3,100 件</span></td>
+                <td>保持正常发货，无需误伤</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="callout good">生成的 PPTX 已严格套用公司官方封面、墨绿主色板、页眉 Logo 与标准经营指标卡，无需二次手工排版。</div>
         </article>
       </div>`;
   }
@@ -1131,6 +1324,7 @@ function renderChatView() {
       ${scopePill(ag)}
     </div>
     <div class="topbar-right">
+      ${state.activeSpace === 'sp-personal' ? `<button class="btn btn-ghost btn-sm" data-act="promote-to-space" title="将当前个人成果一键发布/移交至团队空间">${ic('Layers', 14)}移交团队空间</button>` : `<span class="pill pill-blue">${esc(currentSpace().name)}</span>`}
       <div class="avatar-stack" title="当前参与协同的团队成员">
         ${state.collaborators.slice(0, 4).map(m => `<span class="mini-av ${m.cls}">${esc(m.short)}</span>`).join('')}
       </div>
@@ -1521,16 +1715,194 @@ function renderConnectView() {
   </div>`;
 }
 
-// View 6a: Automations
-function renderAutomationsView() {
+// View 5b: Enterprise Knowledge Base, Business Data Connectors & Brand Assets (/knowledge)
+function renderKnowledgeView() {
+  const sp = currentSpace();
+  const visibleDocs = state.kbDocs.filter(d => d.space === 'all' || d.space === state.activeSpace || (state.activeSpace === 'sp-personal' && d.space === 'sp-ecom'));
   return `
   <header class="topbar bordered">
-    <div class="topbar-left"><span class="topbar-title">后台与定时任务</span></div>
-    <div class="topbar-right"><button class="btn btn-primary btn-sm" data-act="toast" data-msg="可在任意满意对话底部一键「设为定时任务」">${ic('Plus', 14)}新建定时委托</button></div>
+    <div class="topbar-left">
+      <div class="canvas-tabs">
+        <button class="canvas-tab ${state.kbTab==='docs'?'active':''}" data-act="kb-tab" data-tab="docs">${ic('BookOpen', 14)}空间知识库与缺口雷达</button>
+        <button class="canvas-tab ${state.kbTab==='connectors'?'active':''}" data-act="kb-tab" data-tab="connectors">${ic('Database', 14)}业务系统与语义视图（ERP/CRM/电商）</button>
+        <button class="canvas-tab ${state.kbTab==='assets'?'active':''}" data-act="kb-tab" data-tab="assets">${ic('Layers', 14)}术语口径词典 &amp; 官方母版</button>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="pill ${sp.kind==='personal'?'pill-green':'pill-blue'}">当前视角：${esc(sp.name)}</span>
+      <button class="btn btn-primary btn-sm" data-act="open-ecom-demo">${ic('Sparkles', 14)}在对话中联查试用</button>
+    </div>
   </header>
   <div class="page-scroll">
     <div class="page-inner">
-      <div class="page-header"><div><h1>持续运行的后台委托</h1><p>基于 Temporal Schedule 持久调度；每次执行的运行结果与飞书/邮件投递回执分别记账</p></div></div>
+      ${state.kbTab === 'docs' ? `
+      <div class="page-header">
+        <div>
+          <h1>${esc(sp.name)} · 企业知识库与混合检索</h1>
+          <p>支持飞书/钉钉/Confluence 目录级增量同步与跨页表格保真切分；采用 <code>BM25 + BGE 向量 + Rerank</code> 混合检索，实时继承 ACL 权限并自动压制作废旧制度</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" data-act="toast" data-msg="已触发飞书知识库与钉钉文档目录增量同步（仅重算变更节点）">${ic('Refresh', 14)}同步云文档源</button>
+          <button class="btn btn-primary btn-sm" data-act="toast" data-msg="已开启版面与跨页表格保真解析上传面板">${ic('Upload', 14)}上传知识文档</button>
+        </div>
+      </div>
+      <div class="panel-box">
+        <div class="panel-head">
+          <h3>已挂载知识文档（自动叠加「全企公共底座」制度）</h3>
+          <span class="pill pill-green">混合检索命中率 93.8% · 撤权毫秒级阻断</span>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>文档名称</th><th>空间归属</th><th>同步来源</th><th>生效生命周期</th><th>可见权限 (ACL)</th><th class="right">溯源预览</th></tr></thead>
+          <tbody>
+            ${visibleDocs.map(d => `
+            <tr>
+              <td><strong>${esc(d.title)}</strong></td>
+              <td><span class="pill ${d.layer==='全企公共底座'?'pill-blue':(d.layer==='个人私夹'?'pill-amber':'pill-green')}">${esc(d.layer)}</span></td>
+              <td>${esc(d.source)}</td>
+              <td><span class="pill ${d.status.includes('作废')?'pill-muted':'pill-green'}">${esc(d.status)}</span></td>
+              <td>${esc(d.acl)}</td>
+              <td class="right"><button class="btn btn-ghost btn-sm" data-act="show-source" data-title="${esc(d.title)}" data-src="${esc(d.snippet)}" data-gap="0">查看切片</button></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="chart-grid">
+        <div class="panel-box">
+          <div class="panel-head"><h3>知识缺口雷达（近 7 天高频未命中问题聚类）</h3><span class="pill pill-amber">反哺知识运营</span></div>
+          <p style="font-size:12.5px;color:var(--ink-secondary);margin-top:-6px">自动对低置信度提问做去隐私聚类，帮助空间管理员精准补齐缺失 SOP</p>
+          ${state.kbGaps.map(g => `
+          <div class="checklist-row" style="gap:10px">
+            <div style="min-width:0;flex:1">
+              <strong>“${esc(g.q)}”</strong>
+              <div style="font-size:11.5px;color:var(--ink-muted)">近 7 天被问及 <strong class="num">${g.asks}</strong> 次 · ${esc(g.owner)}</div>
+            </div>
+            <button class="btn ${g.status==='assigned'?'btn-ghost':'btn-secondary'} btn-sm" data-act="assign-gap" data-id="${g.id}" ${g.status==='assigned'?'disabled':''}>${g.status==='assigned'?'已派单补齐 ✓':'一键指派补齐'}</button>
+          </div>`).join('')}
+        </div>
+        <div class="panel-box">
+          <div class="panel-head"><h3>跨文档制度冲突巡检</h3><span class="pill pill-red">防口径打架</span></div>
+          <p style="font-size:12.5px;color:var(--ink-secondary);margin-top:-6px">入库时自动比对现行有效文档中的同一数值阈值与条款冲突</p>
+          ${state.kbConflicts.map(c => `
+          <div class="callout ${c.resolved?'good':''}" style="margin-top:0">
+            <strong>${esc(c.title)}</strong><br>${esc(c.detail)}
+            <div style="margin-top:8px">
+              <button class="btn btn-secondary btn-sm" data-act="resolve-conflict" data-id="${c.id}" ${c.resolved?'disabled':''}>${c.resolved?'已标记以全企 2026 新版为准 ✓':'设为以 2026 新版为准'}</button>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>` : ''}
+
+      ${state.kbTab === 'connectors' ? `
+      <div class="page-header">
+        <div>
+          <h1>企业核心业务系统连接与受控语义层</h1>
+          <p>打通 ERP、CRM、电商平台与经营数仓；<strong>OBO 用户身份行级权限透传</strong>（绝不越权查他人客户），<strong>读 L0 直达、写回强制 L2 变更预览确认</strong></p>
+        </div>
+        <button class="btn btn-primary btn-sm" data-act="toast" data-msg="支持金蝶/用友/SAP、CRM、抖店/千牛/聚水潭、只读 SQL 与 OpenAPI 导入">${ic('Plus', 14)}绑定业务数据源</button>
+      </div>
+      <div class="callout info" style="margin-top:0">
+        <strong>为什么引入「业务语义视图」？</strong> 禁止大模型直接裸猜 ERP 几百张底层物理表名；所有查询均走已核对统计公式的受控业务视图，并在对话回复中自动附上「取数口径说明卡」。
+      </div>
+      <div class="card-grid">
+        ${state.bizConnectors.map(c => `
+        <article class="agent-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <div><h3>${esc(c.name)}</h3><small style="color:var(--ink-muted)">${esc(c.cat)}</small></div>
+            <span class="pill pill-green"><i class="status-dot dot-green"></i>${esc(c.status)}</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--ink-secondary);display:flex;flex-direction:column;gap:5px;flex:1">
+            <div>· <strong>权限隔离：</strong>${esc(c.auth)}</div>
+            <div>· <strong>读写门禁：</strong><span style="color:var(--brand-ink);font-weight:550">${esc(c.rw)}</span></div>
+            <div>· <strong>已开放语义视图：</strong>${esc(c.views)}</div>
+          </div>
+          <div class="agent-card-foot">
+            <button class="btn btn-ghost btn-sm" data-act="toast" data-msg="OBO 行级权限校验通过：当前身份仅返回林予获授权数据行">测试本人行权限</button>
+            <button class="btn btn-secondary btn-sm" data-act="open-ecom-demo">去对话联查</button>
+          </div>
+        </article>`).join('')}
+      </div>` : ''}
+
+      ${state.kbTab === 'assets' ? `
+      <div class="page-header">
+        <div>
+          <h1>企业黑话口径词典 &amp; 官方品牌交付母版库</h1>
+          <p>统一全公司与各团队的缩写黑话及财务指标计算口径；沙箱生成 Word / PPT / Excel 时原生套用公司官方母版，免二次手工调格式</p>
+        </div>
+      </div>
+      <div class="panel-box">
+        <div class="panel-head">
+          <h3>企业术语与统一指标口径词典（检索知识库与查询 ERP/数仓自动共享注入）</h3>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>标准术语 / 指标名</th><th>内部常见别名</th><th>核定业务定义与计算公式</th><th>生效范围</th></tr></thead>
+          <tbody>
+            ${state.glossary.map(g => `
+            <tr>
+              <td><strong>${esc(g.term)}</strong></td>
+              <td><span class="pill pill-muted">${esc(g.alias)}</span></td>
+              <td>${esc(g.formula)}</td>
+              <td><span class="pill pill-blue">${esc(g.scope)}</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+        <div style="display:grid;grid-template-columns:180px 1fr auto;gap:8px;padding-top:6px">
+          <input class="field-input" id="glTermInput" placeholder="新增术语（如：有效线索）">
+          <input class="field-input" id="glFormulaInput" placeholder="输入统一口径定义（如：已完成实名认证且 7 日内有跟进记录的 CRM 线索）">
+          <button class="btn btn-primary btn-sm" data-act="add-glossary">+ 沉淀至口径库</button>
+        </div>
+      </div>
+      <div class="panel-box">
+        <div class="panel-head"><h3>官方标准交付母版与品牌规范（沙箱 <code>/workspace/templates:ro</code> 原生套版）</h3></div>
+        <div class="card-grid">
+          ${state.brandTemplates.map(t => `
+          <article class="agent-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+              <span class="pill pill-blue">${esc(t.kind)}</span>
+              <span class="pill ${t.isDefault?'pill-green':'pill-muted'}">${t.isDefault?'默认自动套用':'按需选用'}</span>
+            </div>
+            <h3>${esc(t.name)}</h3>
+            <p class="desc">${esc(t.desc)}</p>
+            <div class="agent-card-foot">
+              <small style="color:var(--ink-muted)">范围：${esc(t.scope)}</small>
+              <button class="btn btn-secondary btn-sm" data-act="set-default-tpl" data-id="${t.id}">${t.isDefault?'已设为默认 ✓':'设为本空间默认'}</button>
+            </div>
+          </article>`).join('')}
+        </div>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+// View 6a: Automations & Business Event Triggers
+function renderAutomationsView() {
+  return `
+  <header class="topbar bordered">
+    <div class="topbar-left"><span class="topbar-title">自动与业务事件委托</span></div>
+    <div class="topbar-right">
+      <button class="btn btn-secondary btn-sm" data-act="toast" data-msg="可绑定金蝶 ERP、抖店、纷享销客 CRM Webhook 异常事件">${ic('Zap', 14)}新建业务事件触发器</button>
+      <button class="btn btn-primary btn-sm" data-act="toast" data-msg="可在任意满意对话底部一键「设为定时任务」">${ic('Plus', 14)}新建定时委托</button>
+    </div>
+  </header>
+  <div class="page-scroll">
+    <div class="page-inner">
+      <div class="page-header"><div><h1>业务事件驱动唤醒（从“人找 AI”到“事找人”）</h1><p>监听 ERP / CRM / 电商系统关键事件 Webhook，签名防抖校验后自动唤醒对应团队空间 Agent 备好处置草稿推飞书拍板</p></div></div>
+      <div class="panel-box">
+        <table class="data-table">
+          <thead><tr><th>触发器名称</th><th>监听业务事件条件</th><th>唤醒团队空间</th><th>自动执行与拍板动作</th><th>最近命中</th><th class="right">状态</th></tr></thead>
+          <tbody>
+            ${state.eventTriggers.map(ev => `
+            <tr>
+              <td><strong>${esc(ev.name)}</strong></td>
+              <td><code>${esc(ev.source)}</code></td>
+              <td><span class="pill pill-blue">${esc(ev.space)}</span></td>
+              <td style="font-size:12.5px;color:var(--ink-secondary)">${esc(ev.action)}</td>
+              <td><span class="pill pill-amber">${esc(ev.lastHit)}</span></td>
+              <td class="right"><button class="toggle-chip ${ev.enabled?'on':''}" data-act="toggle-ev" data-id="${ev.id}">${ev.enabled?'监听中':'已暂停'}</button></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="page-header" style="margin-top:6px"><div><h1>周期定时委托（Temporal Schedule）</h1><p>持久调度周期报表与巡检任务；每次执行的运行状态与飞书/邮件回执独立记账</p></div></div>
       <div class="panel-box">
         <table class="data-table">
           <thead><tr><th>任务名称</th><th>触发频率</th><th>执行 Agent</th><th>上次运行</th><th>通知投递</th><th class="right">状态</th></tr></thead>
@@ -1554,25 +1926,32 @@ function renderAutomationsView() {
 // View 6b: Inbox
 function renderInboxView() {
   return `
-  <header class="topbar bordered"><div class="topbar-left"><span class="topbar-title">待办与审核</span></div></header>
+  <header class="topbar bordered"><div class="topbar-left"><span class="topbar-title">待办与审签</span></div></header>
   <div class="page-scroll">
     <div class="page-inner">
-      <div class="page-header"><div><h1>需要你确认或处理的事项</h1><p>仅展示 L1 轻量确认、L2 正式审签与缺件补交事项，网页与飞书卡片共享同一决定</p></div></div>
+      <div class="page-header"><div><h1>需要你确认、补件或批准写回业务系统的事项</h1><p>覆盖 L2 核心业务系统写回预览确认、多人协作缺件补交与 L1 高消耗确认，桌面与飞书卡片幂等同步</p></div></div>
       <div class="panel-box">
         <table class="data-table">
-          <thead><tr><th>事项</th><th>类型</th><th>来源任务</th><th class="right">操作</th></tr></thead>
+          <thead><tr><th>事项</th><th>类型</th><th>所属空间 / 来源任务</th><th class="right">操作</th></tr></thead>
           <tbody>
+            ${!state.erpWritebackApproved ? `
+            <tr>
+              <td><strong>批准金蝶 ERP 批次冻结质检申请单（SKU-8821 · LOT-B2611 · 1,240 件）</strong></td>
+              <td><span class="pill pill-red">L2 系统写回门禁</span></td>
+              <td>电商增长运营空间 · 抖店退货异常处置</td>
+              <td class="right"><button class="btn btn-primary btn-sm" data-act="open-ecom-demo">核对变更并确认</button></td>
+            </tr>` : ''}
             ${!state.quoteGapFixed ? `
             <tr>
               <td><strong>补充供应商乙的报价有效期依据</strong></td>
               <td><span class="pill pill-amber">缺件待补</span></td>
-              <td>供应商报价核对 · Q4 采购</td>
+              <td>采购中心空间 · 供应商报价核对</td>
               <td class="right"><button class="btn btn-primary btn-sm" data-act="open-thread" data-id="t-quote">回到原任务处理</button></td>
             </tr>` : ''}
             <tr>
               <td><strong>批准外部付费调研（预估 30 家竞品并发）</strong></td>
               <td><span class="pill pill-blue">L1 轻量确认</span></td>
-              <td>Q4 竞品调研 · Manus 外部 Agent</td>
+              <td>市场空间 · Q4 竞品调研（Manus 外部 Agent）</td>
               <td class="right"><button class="btn btn-secondary btn-sm" data-act="toast" data-msg="已确认执行，后台开始异步调度">一键确认执行</button></td>
             </tr>
           </tbody>
@@ -1870,34 +2249,61 @@ function renderAdminShell() {
     </div>`;
   } else if (state.adminTab === 'members') {
     content = `
-    <div class="page-header"><div><h1>组织与成员管理</h1><p>支持 OIDC 企业单点登录与受控邀请；管理员默认不自动获得员工私聊正文读取权</p></div><button class="btn btn-primary btn-sm" data-act="toast" data-msg="已生成 7 天有效团队邀请链接">${ic('Plus', 14)}邀请新成员</button></div>
+    <div class="page-header"><div><h1>组织、团队空间与岗位无感交接</h1><p>支持 OIDC 单点登录、三级空间成员自治；员工调岗/离职时严格执行「个人空间私密封存 + 团队空间资产一键继承」</p></div><button class="btn btn-primary btn-sm" data-act="toast" data-msg="已生成 7 天有效团队空间邀请链接">${ic('Plus', 14)}邀请成员 / 新建团队空间</button></div>
     <div class="panel-box">
       <table class="data-table">
-        <thead><tr><th>成员</th><th>部门</th><th>角色</th><th>近 30 天任务</th><th>IM 绑定</th><th>状态</th></tr></thead>
+        <thead><tr><th>成员</th><th>所属团队空间</th><th>角色</th><th>近 30 天任务</th><th>IM 绑定</th><th>状态</th></tr></thead>
         <tbody>
-          <tr><td><strong>林予</strong></td><td>采购部</td><td><span class="pill pill-green">企业管理员</span></td><td class="num">186 次</td><td>飞书已绑</td><td>正常</td></tr>
-          <tr><td><strong>周宁</strong></td><td>市场部</td><td><span class="pill pill-blue">部门管理者</span></td><td class="num">240 次</td><td>飞书已绑</td><td>正常</td></tr>
-          <tr><td><strong>陈默</strong></td><td>研发部</td><td><span class="pill pill-muted">研发接入者</span></td><td class="num">95 次</td><td>飞书 / Slack</td><td>正常</td></tr>
-          <tr><td><strong>苏敏</strong></td><td>运营部</td><td><span class="pill pill-muted">普通员工</span></td><td class="num">152 次</td><td>飞书已绑</td><td>正常</td></tr>
+          <tr><td><strong>林予</strong></td><td>采购中心 / 电商增长组</td><td><span class="pill pill-green">企业管理员</span></td><td class="num">186 次</td><td>飞书已绑</td><td>正常</td></tr>
+          <tr><td><strong>周宁</strong></td><td>市场空间 / 电商增长组</td><td><span class="pill pill-blue">团队空间管理员</span></td><td class="num">240 次</td><td>飞书已绑</td><td>正常</td></tr>
+          <tr><td><strong>陈默</strong></td><td>研发能力中心</td><td><span class="pill pill-muted">研发接入者</span></td><td class="num">95 次</td><td>飞书 / Slack</td><td>正常</td></tr>
+          <tr><td><strong>苏敏</strong></td><td>电商增长组 / 采购中心</td><td><span class="pill pill-muted">普通员工</span></td><td class="num">152 次</td><td>飞书已绑</td><td>${state.handoverDone?'已转岗交接':'拟调岗待交接'}</td></tr>
         </tbody>
       </table>
+    </div>
+    <div class="panel-box">
+      <div class="panel-head">
+        <h3>员工调岗 / 离职数字资产公私分离交接（防人走茶凉 · 护个人隐私）</h3>
+        <button class="btn ${state.handoverDone?'btn-secondary':'btn-primary'} btn-sm" data-act="run-handover" ${state.handoverDone?'disabled':''}>${state.handoverDone?'已完成事务级无感交接 ✓':'演示苏敏调岗一键交接给林予'}</button>
+      </div>
+      <div class="callout ${state.handoverDone?'good':'info'}" style="margin-top:0">
+        <div>· <strong>🔒 个人空间隐私保护：</strong>苏敏「个人空间」内的 42 条私聊记录与个人笔记自动隔离封存/按规清理，<strong>管理员与继任者均不可窥探</strong>；</div>
+        <div>· <strong>👥 团队空间资产不断档：</strong>苏敏在「电商增长空间」名下的共享知识 12 篇、抖店事件触发器 1 条、团队共享 Agent 2 个与未结补件单<strong>原子平移给林予</strong>。</div>
+      </div>
     </div>`;
   } else {
     content = `
-    <div class="page-header"><div><h1>预算限额与 L0–L2 自主策略</h1><p>日常 L0 在预算内静默放行，不打扰员工；超阈或高危外发强制进入确认门禁</p></div></div>
+    <div class="page-header"><div><h1>预算限额、DLP 敏感脱敏护栏与上岗回归体检</h1><p>日常 L0 静默放行；跨边界调用外部商业 Agent 强制过 DLP 可逆脱敏；换模型或大改知识前先跑黄金体检集</p></div></div>
     <div class="card-grid">
       <div class="panel-box">
         <h3>企业月度模型总预算</h3>
         <div class="num" style="font-size:26px;font-weight:650">¥2,273 <span style="font-size:14px;color:var(--ink-muted);font-weight:400">/ ¥10,000</span></div>
         <div class="funnel-bar"><i style="width:22.7%"></i></div>
-        <p style="font-size:12.5px;color:var(--ink-secondary)">达 80% 时自动推送飞书预警给企业管理员，不突然中断普通员工 L0 对话。</p>
+        <p style="font-size:12.5px;color:var(--ink-secondary)">支持企业 → 团队空间 → 个人三级月度额度，80% 软告警推飞书，不中断普通员工 L0 对话。</p>
       </div>
       <div class="panel-box">
-        <h3>风险自主等级策略</h3>
-        <div class="checklist-row"><span><strong>L0 自主直达</strong>（检索/沙箱/文件）</span><span class="pill pill-green">免审批静默放行</span></div>
-        <div class="checklist-row"><span><strong>L1 轻量确认</strong>（单次 > ¥5 / 外部付费）</span><span class="pill pill-amber">一键确认</span></div>
-        <div class="checklist-row"><span><strong>L2 强制门禁</strong>（对外发送 / 业务写入）</span><span class="pill pill-red">强制人工审批</span></div>
+        <h3>L0–L2 自主与写回门禁策略</h3>
+        <div class="checklist-row"><span><strong>L0 自主直达</strong>（知识检索 / OBO 只读查数 / 沙箱套母版）</span><span class="pill pill-green">静默放行</span></div>
+        <div class="checklist-row"><span><strong>L1 轻量确认</strong>（单次 > ¥5 / 外部付费调研）</span><span class="pill pill-amber">一键确认</span></div>
+        <div class="checklist-row"><span><strong>L2 强制门禁</strong>（ERP·CRM·电商写回 / 正式审签外发）</span><span class="pill pill-red">预览确认+幂等单号</span></div>
       </div>
+      <div class="panel-box">
+        <h3>DLP 敏感数据防泄漏护栏（内外分级）</h3>
+        <div class="checklist-row"><span><strong>客户手机号 / 身份证 / 银行卡</strong>（发往外部 Agent）</span><span class="pill pill-blue">自动可逆掩码脱敏</span></div>
+        <div class="checklist-row"><span><strong>采购底价 / 未公开财报字段</strong>（发往外部商业 Agent）</span><span class="pill pill-red">默认阻断 / L2 特批</span></div>
+        <div class="checklist-row"><span><strong>近 30 天自动脱敏保护调用</strong></span><span class="pill pill-green num">184 次零泄漏</span></div>
+      </div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-head">
+        <h3>数字员工黄金回归体检集（Eval Suite · 换模型或改知识库前自动验准）</h3>
+        <button class="btn btn-primary btn-sm" data-act="run-eval-suite">${ic('Activity', 14)}${state.evalRunDone?'重新运行回归体检':'一键运行 45 条真实业务体检集'}</button>
+      </div>
+      ${state.evalRunDone ? `
+      <div class="callout good" style="margin-top:0">
+        <strong>✓ 黄金回归体检通过（45 / 45 用例 · 口径准确率 97.8% vs 基线 +1.4% · 平均耗时 2.3s）</strong><br>
+        覆盖：采购三方比价核算（15 条）、抖店净毛利与退货 SOP 问答（18 条）、合同高危条款识别（12 条），可安全切换主力模型或发布新知识库。
+      </div>` : `<p style="font-size:13px;color:var(--ink-secondary)">汇集各团队空间沉淀的 45 条经典问答与 ERP/电商取数断言；升级模型网关路由或批量更新制度前一键跑批，防止新模型把老业务算错。</p>`}
     </div>`;
   }
 
@@ -1928,6 +2334,8 @@ function renderOverlays() {
     const q = state.cmdQuery.trim().toLowerCase();
     const items = [
       { icon: 'Plus', label: '发起新对话', meta: '工作区', act: 'go', to: 'chat-new' },
+      { icon: 'Database', label: '打开当前空间「知识与业务数据」（知识库 / ERP·CRM·电商 / 口径母版）', meta: '知识与数据', act: 'go', to: 'knowledge' },
+      { icon: 'Zap', label: '演示：知识库 SOP + 抖店/金蝶联查与 L2 写回确认', meta: '企业场景', act: 'open-ecom-demo' },
       { icon: 'Wand', label: '用自然语言创建 Agent（左聊右测）', meta: 'Studio', act: 'go', to: 'studio' },
       { icon: 'Plug', label: '接入外部 Agent（Dify/Coze/A2A/OpenAI）', meta: '向导', act: 'go', to: 'connect' },
       ...(state.role==='admin' ? [
@@ -2075,6 +2483,7 @@ function render() {
     let main = '';
     if (state.route === 'chat-new') main = renderStartView();
     else if (state.route === 'chat') main = renderChatView();
+    else if (state.route === 'knowledge') main = renderKnowledgeView();
     else if (state.route === 'agents') main = renderAgentsView();
     else if (state.route === 'studio') main = renderStudioView();
     else if (state.route === 'connect') main = renderConnectView();
@@ -2310,6 +2719,71 @@ function handleAction(act, el) {
     case 'toggle-auto': {
       const au = state.automations.find(x => x.id === d.id);
       if (au) { au.enabled = !au.enabled; toast(au.enabled ? '已恢复定时运行' : '已暂停该定时任务'); }
+      break;
+    }
+    case 'toggle-ev': {
+      const ev = state.eventTriggers.find(x => x.id === d.id);
+      if (ev) { ev.enabled = !ev.enabled; toast(ev.enabled ? `已启用「${ev.name}」实时事件唤醒` : `已暂停「${ev.name}」`); }
+      break;
+    }
+    case 'switch-space': {
+      state.activeSpace = d.id;
+      state.popover = null;
+      const sp = currentSpace();
+      toast(`已切换至「${sp.name}」：${sp.connSummary}`);
+      break;
+    }
+    case 'kb-tab': state.kbTab = d.tab; break;
+    case 'assign-gap': {
+      const g = state.kbGaps.find(x => x.id === d.id);
+      if (g) { g.status = 'assigned'; g.owner = '已指派 · 周宁'; toast('已生成知识补齐待办并推送飞书给责任人'); }
+      break;
+    }
+    case 'resolve-conflict': {
+      const c = state.kbConflicts.find(x => x.id === d.id);
+      if (c) { c.resolved = true; toast('已锁定以《2026 全企差旅规范》为唯一优先权威口径'); }
+      break;
+    }
+    case 'add-glossary': {
+      const term = document.getElementById('glTermInput')?.value.trim();
+      const formula = document.getElementById('glFormulaInput')?.value.trim();
+      if (!term || !formula) { toast('请填写术语名称与统一计算口径定义'); return; }
+      state.glossary.unshift({ id: 'gl-' + Date.now(), term, alias: '团队新增', formula, scope: currentSpace().name });
+      toast(`已将「${term}」沉淀至口径词典，知识检索与业务查数立即同步生效`);
+      break;
+    }
+    case 'set-default-tpl': {
+      state.brandTemplates.forEach(t => { if (t.id === d.id) t.isDefault = true; });
+      toast('已设为当前空间默认交付母版，沙箱生成文档将自动套版');
+      break;
+    }
+    case 'open-ecom-demo': {
+      state.activeSpace = 'sp-ecom';
+      state.activeThreadId = 't-ecom';
+      state.route = 'chat';
+      state.canvasOpen = true;
+      state.cmdOpen = false;
+      state.popover = null;
+      break;
+    }
+    case 'approve-l2-erp': {
+      state.erpWritebackApproved = true;
+      toast('已通过幂等键写入金蝶云星空 ERP，返回正式质检冻结单号 QC-20261125-089');
+      break;
+    }
+    case 'promote-to-space': {
+      state.activeSpace = 'sp-proc';
+      toast('已将当前成果与上下文发布至「采购中心空间」（个人其余私聊保持私密）');
+      break;
+    }
+    case 'run-handover': {
+      state.handoverDone = true;
+      toast('已完成公私分离交接：个人私聊已封存隔离，团队知识与触发器已平移给林予');
+      break;
+    }
+    case 'run-eval-suite': {
+      state.evalRunDone = true;
+      toast('45 条企业黄金回归体检用例全部跑通，准确率 97.8%');
       break;
     }
     case 'mon-btab': state.monBottomTab = d.val; break;

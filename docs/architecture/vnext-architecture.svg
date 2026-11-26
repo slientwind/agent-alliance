@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="860" viewBox="0 0 1400 860" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="890" viewBox="0 0 1400 890" fill="none">
   <defs>
     <style>
       .t-h1 { font: 700 22px -apple-system, BlinkMacSystemFont, "PingFang SC", "Inter", "Microsoft YaHei", sans-serif; fill: #1a241f; }
       .t-sub { font: 400 13px -apple-system, BlinkMacSystemFont, "PingFang SC", "Inter", "Microsoft YaHei", sans-serif; fill: #55625b; }
       .t-layer { font: 700 12.5px -apple-system, BlinkMacSystemFont, "PingFang SC", "Inter", "Microsoft YaHei", sans-serif; fill: #205a45; letter-spacing: 0.4px; }
       .t-layer-blue { font: 700 12.5px -apple-system, BlinkMacSystemFont, "PingFang SC", "Inter", "Microsoft YaHei", sans-serif; fill: #255d87; letter-spacing: 0.4px; }
-      .t-card-h { font: 650 14px -apple-system, BlinkMacSystemFont, "PingFang SC", "Inter", "Microsoft YaHei", sans-serif; fill: #1d2621; }
-      .t-card-b { font: 400 11.8px -apple-system, BlinkMacSystemFont, "PingFang SC", "Inter", "Microsoft YaHei", sans-serif; fill: #55615b; }
+      .t-card-h { font: 650 13.8px -apple-system, BlinkMacSystemFont, "PingFang SC", "Inter", "Microsoft YaHei", sans-serif; fill: #1d2621; }
+      .t-card-b { font: 400 11.6px -apple-system, BlinkMacSystemFont, "PingFang SC", "Inter", "Microsoft YaHei", sans-serif; fill: #55615b; }
       .t-pill { font: 600 11px -apple-system, BlinkMacSystemFont, "PingFang SC", "Inter", "Microsoft YaHei", sans-serif; }
       .t-foot { font: 400 11.5px -apple-system, BlinkMacSystemFont, "PingFang SC", "Inter", "Microsoft YaHei", sans-serif; fill: #6c7a72; }
     </style>
@@ -25,204 +25,205 @@
   </defs>
 
   <!-- Canvas Background -->
-  <rect width="1400" height="860" rx="18" fill="#f7f9f6"/>
-  <rect x="0.75" y="0.75" width="1398.5" height="858.5" rx="17.25" stroke="#dce3dd" stroke-width="1.5"/>
+  <rect width="1400" height="890" rx="18" fill="#f7f9f6"/>
+  <rect x="0.75" y="0.75" width="1398.5" height="888.5" rx="17.25" stroke="#dce3dd" stroke-width="1.5"/>
 
   <!-- Header -->
-  <rect x="36" y="26" width="34" height="34" rx="9" fill="#205a45"/>
-  <path d="M53 34 L55.5 40.5 L62 43 L55.5 45.5 L53 52 L50.5 45.5 L44 43 L50.5 40.5 Z" fill="#e6f4ec"/>
-  <text x="82" y="42" class="t-h1">Agent Alliance · 企业版 Personal Agent 系统架构</text>
-  <text x="82" y="62" class="t-sub">单企业独立 Docker Compose 自部署 · 冷热分离实时流 · 全局模型网关与外部 Agent 完全解耦</text>
+  <rect x="36" y="24" width="34" height="34" rx="9" fill="#205a45"/>
+  <path d="M53 32 L55.5 38.5 L62 41 L55.5 43.5 L53 50 L50.5 43.5 L44 41 L50.5 38.5 Z" fill="#e6f4ec"/>
+  <text x="82" y="40" class="t-h1">Agent Alliance · 企业版 Personal Agent 与团队空间系统架构</text>
+  <text x="82" y="60" class="t-sub">三级空间隔离 · 企业知识库与 ERP/CRM/电商语义打通 · 冷热分离实时流 · DLP 脱敏与外部 Agent 解耦</text>
 
   <!-- Legend -->
-  <g transform="translate(888, 30)">
+  <g transform="translate(888, 28)">
     <rect x="0" y="0" width="112" height="26" rx="13" fill="#e6f1eb"/>
     <circle cx="14" cy="13" r="4" fill="#205a45"/>
-    <text x="24" y="17" class="t-pill" fill="#1b4d3a">平台核心能力</text>
+    <text x="24" y="17" class="t-pill" fill="#1b4d3a">平台核心与空间</text>
 
     <rect x="122" y="0" width="116" height="26" rx="13" fill="#eaf2f8"/>
     <circle cx="136" cy="13" r="4" fill="#255d87"/>
-    <text x="146" y="17" class="t-pill" fill="#255d87">外部独立解耦</text>
+    <text x="146" y="17" class="t-pill" fill="#255d87">外部解耦 + DLP</text>
 
     <rect x="248" y="0" width="114" height="26" rx="13" fill="#fbf3e4"/>
     <circle cx="262" cy="13" r="4" fill="#925715"/>
-    <text x="272" y="17" class="t-pill" fill="#925715">断网隔离执行</text>
+    <text x="272" y="17" class="t-pill" fill="#925715">断网沙箱与门禁</text>
 
     <rect x="372" y="0" width="104" height="26" rx="13" fill="#ffffff" stroke="#d5ddd7"/>
     <line x1="383" y1="13" x2="401" y2="13" stroke="#2c6b99" stroke-width="1.8" stroke-dasharray="3 2.5"/>
     <text x="407" y="17" class="t-pill" fill="#55615b">事件/异步流</text>
   </g>
 
-  <!-- ==================== LAYER 1: CLIENTS ==================== -->
-  <rect x="36" y="84" width="1328" height="98" rx="14" fill="#ffffff" stroke="#dce3dd" filter="url(#shadow)"/>
-  <text x="54" y="106" class="t-layer">01 · 多端入口与协同触点</text>
+  <!-- ==================== LAYER 1: CLIENTS & EVENT TRIGGERS ==================== -->
+  <rect x="36" y="82" width="1328" height="100" rx="14" fill="#ffffff" stroke="#dce3dd" filter="url(#shadow)"/>
+  <text x="54" y="104" class="t-layer">01 · 多端协同入口与业务事件主动触发层</text>
 
   <!-- Card 1.1 -->
-  <rect x="52" y="116" width="424" height="54" rx="10" fill="#f7faf8" stroke="#cfe0d6"/>
-  <text x="68" y="137" class="t-card-h">桌面网页工作区（React 19 + TS · 浅/深双主题）</text>
-  <text x="68" y="156" class="t-card-b">对话与 Canvas · 团队协同 · 左聊右测构建 · 生态市场 · 全屏 /admin</text>
+  <rect x="52" y="114" width="432" height="56" rx="10" fill="#f7faf8" stroke="#cfe0d6"/>
+  <text x="68" y="135" class="t-card-h">桌面网页工作区（个人/团队空间切换 · 浅/深双主题）</text>
+  <text x="68" y="154" class="t-card-b">对话与 Canvas · 知识与业务数据台 · 左聊右测构建 · 生态市场 · /admin</text>
 
   <!-- Card 1.2 -->
-  <rect x="492" y="116" width="420" height="54" rx="10" fill="#f7faf8" stroke="#cfe0d6"/>
-  <text x="508" y="137" class="t-card-h">企业 IM 移动协同渠道</text>
-  <text x="508" y="156" class="t-card-b">飞书（首发）· 钉钉 Stream · Slack 单聊/待办卡片 · 幂等审批与告警推送</text>
+  <rect x="500" y="114" width="412" height="56" rx="10" fill="#f7faf8" stroke="#cfe0d6"/>
+  <text x="516" y="135" class="t-card-h">企业 IM 移动协同渠道</text>
+  <text x="516" y="154" class="t-card-b">飞书（首发）· 钉钉 · 企微/Slack · L2 写回确认卡片与异常告警推送</text>
 
   <!-- Card 1.3 -->
-  <rect x="928" y="116" width="420" height="54" rx="10" fill="#f7faf8" stroke="#cfe0d6"/>
-  <text x="944" y="137" class="t-card-h">Open API 与应用委托入口</text>
-  <text x="944" y="156" class="t-card-b">单 Agent / 协作方案发布为标准服务 · 应用/成员双身份 · 签名状态流与下载</text>
+  <rect x="928" y="114" width="420" height="56" rx="10" fill="#f7faf8" stroke="#cfe0d6"/>
+  <text x="944" y="135" class="t-card-h">业务事件 Webhook 触发器 &amp; Open API</text>
+  <text x="944" y="154" class="t-card-b">ERP 库存告急 / CRM 大单 / 电商差评激增主动唤醒空间 Agent · 标准 API</text>
 
   <!-- Connectors L1 -> L2 -->
-  <line x1="264" y1="182" x2="264" y2="206" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
-  <line x1="700" y1="182" x2="700" y2="206" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
-  <line x1="1138" y1="182" x2="1138" y2="206" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
+  <line x1="268" y1="182" x2="268" y2="206" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
+  <line x1="706" y1="182" x2="706" y2="206" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
+  <line x1="1138" y1="182" x2="1138" y2="206" stroke="#2c6b99" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#arrow-blue)"/>
 
-  <!-- ==================== LAYER 2: CONTROL PLANE ==================== -->
-  <rect x="36" y="210" width="1328" height="122" rx="14" fill="#ffffff" stroke="#dce3dd" filter="url(#shadow)"/>
-  <text x="54" y="232" class="t-layer">02 · 控制面、协同与安全治理（Go API）</text>
+  <!-- ==================== LAYER 2: CONTROL PLANE & SPACE GOVERNANCE ==================== -->
+  <rect x="36" y="210" width="1328" height="124" rx="14" fill="#ffffff" stroke="#dce3dd" filter="url(#shadow)"/>
+  <text x="54" y="232" class="t-layer">02 · 控制面、三级空间容器与安全治理（Go API）</text>
 
-  <!-- 5 cards across 1296px -> 5 * 246 + 4 * 16.5 = 1296 -->
-  <rect x="52" y="244" width="246" height="74" rx="10" fill="#f6f9f7" stroke="#d5e2da"/>
-  <text x="66" y="266" class="t-card-h">身份权限与 L0–L2 门禁</text>
-  <text x="66" y="285" class="t-card-b">OIDC / SSO · 权限实时复核</text>
-  <text x="66" y="303" class="t-card-b">撤权即时阻断 · 风险分级策略</text>
+  <rect x="52" y="244" width="246" height="76" rx="10" fill="#f6f9f7" stroke="#d5e2da"/>
+  <text x="66" y="265" class="t-card-h">三级空间与身份权限门禁</text>
+  <text x="66" y="284" class="t-card-b">个人私密 / 团队共享 / 全企公共底座</text>
+  <text x="66" y="302" class="t-card-b">OBO 行级权限 · 公私分离调岗交接</text>
 
-  <rect x="314" y="244" width="246" height="74" rx="10" fill="#f6f9f7" stroke="#d5e2da"/>
-  <text x="328" y="266" class="t-card-h">冷热分离 SSE 网关</text>
-  <text x="328" y="285" class="t-card-b">热流 Token / 思考 / 在线态推送</text>
-  <text x="328" y="303" class="t-card-b">冷事实 PG 游标重放 · 零轮询放大</text>
+  <rect x="314" y="244" width="246" height="76" rx="10" fill="#f6f9f7" stroke="#d5e2da"/>
+  <text x="328" y="265" class="t-card-h">冷热分离 SSE 实时网关</text>
+  <text x="328" y="284" class="t-card-b">热流 Token / 思考 / 在线态广播</text>
+  <text x="328" y="302" class="t-card-b">冷事实 PG 游标重放 · 撤权即断连</text>
 
-  <rect x="576" y="244" width="246" height="74" rx="10" fill="#f6f9f7" stroke="#d5e2da"/>
-  <text x="590" y="266" class="t-card-h">团队多人协同引擎</text>
-  <text x="590" y="285" class="t-card-b">任务拉人分工 · Canvas 锚点评论</text>
-  <text x="590" y="303" class="t-card-b">@同事派单 · 乐观锁防并发覆盖</text>
+  <rect x="576" y="244" width="246" height="76" rx="10" fill="#f6f9f7" stroke="#d5e2da"/>
+  <text x="590" y="265" class="t-card-h">团队多人协同 &amp; L2 确认门禁</text>
+  <text x="590" y="284" class="t-card-b">任务拉人分工 · Canvas 锚点 @同事</text>
+  <text x="590" y="302" class="t-card-b">ERP/CRM 写回变更预览卡与审签</text>
 
-  <rect x="838" y="244" width="246" height="74" rx="10" fill="#f6f9f7" stroke="#d5e2da"/>
-  <text x="852" y="266" class="t-card-h">对话式构建器 Studio</text>
-  <text x="852" y="285" class="t-card-b">Meta-Agent 左聊右测 + 标杆反推</text>
-  <text x="852" y="303" class="t-card-b">个人私有零审批 / 团队 / 全企发布</text>
+  <rect x="838" y="244" width="246" height="76" rx="10" fill="#f6f9f7" stroke="#d5e2da"/>
+  <text x="852" y="265" class="t-card-h">对话式 Studio &amp; 黄金体检</text>
+  <text x="852" y="284" class="t-card-b">左聊右测 + 标杆反推 + 个人免审批</text>
+  <text x="852" y="302" class="t-card-b">真实样本回归体检集（换模型先验准）</text>
 
-  <rect x="1100" y="244" width="248" height="74" rx="10" fill="#f6f9f7" stroke="#d5e2da"/>
-  <text x="1114" y="266" class="t-card-h">企业管理与监控 API</text>
-  <text x="1114" y="285" class="t-card-b">双轨有效率大盘 · 模型档位路由</text>
-  <text x="1114" y="303" class="t-card-b">生态扫描源 · 准入审核与脱敏导出</text>
+  <rect x="1100" y="244" width="248" height="76" rx="10" fill="#f6f9f7" stroke="#d5e2da"/>
+  <text x="1114" y="265" class="t-card-h">企业管理、知识与监控 API</text>
+  <text x="1114" y="284" class="t-card-b">双轨有效率大盘 · 知识缺口雷达</text>
+  <text x="1114" y="302" class="t-card-b">术语口径词典 · 官方母版与准入审核</text>
 
   <!-- Connectors L2 -> L3 -->
-  <line x1="270" y1="332" x2="270" y2="356" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
-  <line x1="734" y1="332" x2="734" y2="356" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
-  <line x1="1162" y1="332" x2="1162" y2="356" stroke="#2c6b99" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#arrow-blue)"/>
+  <line x1="270" y1="334" x2="270" y2="358" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
+  <line x1="734" y1="334" x2="734" y2="358" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
+  <line x1="1162" y1="334" x2="1162" y2="358" stroke="#2c6b99" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#arrow-blue)"/>
 
-  <!-- ==================== LAYER 3: RUNTIME & GATEWAYS ==================== -->
+  <!-- ==================== LAYER 3: RUNTIME, HYBRID RAG & DLP GATEWAYS ==================== -->
   <!-- Left Block: General Agent Kernel -->
-  <rect x="36" y="360" width="468" height="172" rx="14" fill="#edf5f0" stroke="#bad4c4" filter="url(#shadow)"/>
-  <text x="54" y="383" class="t-layer">03A · 持久编排与通用执行内核（Temporal + Worker）</text>
+  <rect x="36" y="362" width="458" height="178" rx="14" fill="#edf5f0" stroke="#bad4c4" filter="url(#shadow)"/>
+  <text x="54" y="385" class="t-layer">03A · 持久编排与空间感知执行内核（Temporal + Worker）</text>
 
-  <rect x="52" y="395" width="436" height="56" rx="10" fill="#ffffff" stroke="#c8ddd0"/>
-  <text x="66" y="416" class="t-card-h">Temporal 持久化工作流 &amp; Schedule 定时调度</text>
-  <text x="66" y="435" class="t-card-b">通用长任务断点恢复 · 周期委托与游标 · 幂等调用账本与对账</text>
+  <rect x="52" y="397" width="426" height="58" rx="10" fill="#ffffff" stroke="#c8ddd0"/>
+  <text x="66" y="418" class="t-card-h">Temporal 持久工作流 · Cron 定时 &amp; 事件防抖唤醒</text>
+  <text x="66" y="437" class="t-card-b">长任务断点恢复 · Webhook 事件去重触发 · L2 两阶段幂等写回对账</text>
 
-  <rect x="52" y="461" width="436" height="56" rx="10" fill="#ffffff" stroke="#c8ddd0"/>
-  <text x="66" y="482" class="t-card-h">General Agent Loop &amp; Harness 决策层</text>
-  <text x="66" y="501" class="t-card-b">AdvanceTurn / ExecuteTool · 原生 Tool Calling · 停滞检测 · 上下文压缩</text>
+  <rect x="52" y="465" width="426" height="58" rx="10" fill="#ffffff" stroke="#c8ddd0"/>
+  <text x="66" y="486" class="t-card-h">General Agent Loop &amp; 空间上下文自动装配</text>
+  <text x="66" y="505" class="t-card-b">自动挂载空间知识/口径/母版 · 原生 Tool Calling · 停滞检测与压缩</text>
 
-  <!-- Center Block: Internal LLM Gateway + Ecosystem Scanner -->
-  <rect x="522" y="360" width="424" height="172" rx="14" fill="#ffffff" stroke="#bad4c4" filter="url(#shadow)"/>
-  <text x="540" y="383" class="t-layer">03B · 全局模型网关与生态扫描引擎</text>
+  <!-- Center Block: Internal LLM Gateway + Hybrid RAG + Ecosystem -->
+  <rect x="510" y="362" width="438" height="178" rx="14" fill="#ffffff" stroke="#bad4c4" filter="url(#shadow)"/>
+  <text x="528" y="385" class="t-layer">03B · 内部模型网关、混合检索与生态扫描引擎</text>
 
-  <rect x="538" y="395" width="392" height="56" rx="10" fill="#f5faf7" stroke="#c8ddd0"/>
-  <text x="552" y="416" class="t-card-h">内部全局模型网关（Internal LLM Gateway）</text>
-  <text x="552" y="435" class="t-card-b">6 能力档位 · 主备容灾 Fallback · 精确微元计价 · 不向外部发 Key</text>
+  <rect x="526" y="397" width="406" height="58" rx="10" fill="#f5faf7" stroke="#c8ddd0"/>
+  <text x="540" y="418" class="t-card-h">内部全局模型网关（Internal LLM Gateway）</text>
+  <text x="540" y="437" class="t-card-b">6 档能力路由 · 3s 主备 Fallback · 精确微元计价 · 不对外发 Key</text>
 
-  <rect x="538" y="461" width="392" height="56" rx="10" fill="#f5faf7" stroke="#c8ddd0"/>
-  <text x="552" y="482" class="t-card-h">Skill &amp; Agent 生态定期扫描器（Ecosystem Scanner）</text>
-  <text x="552" y="501" class="t-card-b">定时抓取官方 MCP / Skill / A2A · 许可安全体检 · SHA-256 缓存加载</text>
+  <rect x="526" y="465" width="406" height="58" rx="10" fill="#f5faf7" stroke="#c8ddd0"/>
+  <text x="540" y="486" class="t-card-h">ACL 混合检索引擎 + 术语口径改写 + 生态扫描器</text>
+  <text x="540" y="505" class="t-card-b">BM25+向量+Rerank · 失效制度阻断 · 正规 Skill/MCP 扫描与体检</text>
 
-  <!-- Right Block: External Agent Adapter Hub -->
-  <rect x="964" y="360" width="400" height="172" rx="14" fill="#f0f6fb" stroke="#b9d3e6" filter="url(#shadow)"/>
-  <text x="982" y="383" class="t-layer-blue">03C · 外部 Agent 适配边界（独立模型 · 完全解耦）</text>
+  <!-- Right Block: External Agent Adapter Hub + DLP -->
+  <rect x="964" y="362" width="400" height="178" rx="14" fill="#f0f6fb" stroke="#b9d3e6" filter="url(#shadow)"/>
+  <text x="982" y="385" class="t-layer-blue">03C · 外部 Agent 适配与 DLP 脱敏边界（运行解耦）</text>
 
-  <rect x="980" y="395" width="368" height="56" rx="10" fill="#ffffff" stroke="#c2daeb"/>
-  <text x="994" y="416" class="t-card-h">多协议与框架一键模板（Adapter Hub）</text>
-  <text x="994" y="435" class="t-card-b">OpenAI-Compat (Dify / Coze / LangGraph) · A2A · Webhook</text>
+  <rect x="980" y="397" width="368" height="58" rx="10" fill="#ffffff" stroke="#c2daeb"/>
+  <text x="994" y="418" class="t-card-h">多协议外部接入网关（Adapter Hub）</text>
+  <text x="994" y="437" class="t-card-b">OpenAI-Compat (Dify / Coze / LangGraph) · A2A · Webhook</text>
 
-  <rect x="980" y="461" width="368" height="56" rx="10" fill="#ffffff" stroke="#c2daeb"/>
-  <text x="994" y="482" class="t-card-h">边界观测与出站安全控制</text>
-  <text x="994" y="501" class="t-card-b">UI 出站域名白名单 + SSRF 防护 · 耗时/状态监控 · 可选用量回传解析</text>
+  <rect x="980" y="465" width="368" height="58" rx="10" fill="#ffffff" stroke="#c2daeb"/>
+  <text x="994" y="486" class="t-card-h">DLP 敏感数据护栏 + 出站安全与边界监控</text>
+  <text x="994" y="505" class="t-card-b">手机号/底价可逆掩码脱敏 · 域名白名单 + SSRF · 可选用量回传</text>
 
   <!-- Horizontal links between 3A, 3B, 3C -->
-  <line x1="504" y1="423" x2="520" y2="423" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
-  <line x1="504" y1="489" x2="520" y2="489" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
-  <line x1="946" y1="423" x2="962" y2="423" stroke="#2c6b99" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#arrow-blue)"/>
+  <line x1="494" y1="426" x2="508" y2="426" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
+  <line x1="494" y1="494" x2="508" y2="494" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
+  <line x1="948" y1="426" x2="962" y2="426" stroke="#2c6b99" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#arrow-blue)"/>
 
   <!-- Connectors L3 -> L4 -->
-  <line x1="196" y1="532" x2="196" y2="556" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
-  <line x1="532" y1="532" x2="532" y2="556" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
-  <line x1="862" y1="532" x2="862" y2="556" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
-  <line x1="1198" y1="532" x2="1198" y2="556" stroke="#2c6b99" stroke-width="1.8" marker-end="url(#arrow-blue)"/>
+  <line x1="196" y1="540" x2="196" y2="566" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
+  <line x1="530" y1="540" x2="530" y2="566" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
+  <line x1="864" y1="540" x2="864" y2="566" stroke="#2b6b53" stroke-width="1.8" marker-end="url(#arrow-green)"/>
+  <line x1="1198" y1="540" x2="1198" y2="566" stroke="#2c6b99" stroke-width="1.8" marker-end="url(#arrow-blue)"/>
 
-  <!-- ==================== LAYER 4: EXECUTION & PROVIDERS ==================== -->
-  <!-- Card 4.1: Docker Compose Sandbox -->
-  <rect x="36" y="560" width="320" height="114" rx="14" fill="#fdf8ef" stroke="#e6cfa5" filter="url(#shadow)"/>
-  <text x="52" y="584" class="t-card-h" fill="#824d12">04 · Docker Compose 隔离沙箱池</text>
-  <rect x="268" y="569" width="72" height="22" rx="11" fill="#f7e8cc"/>
-  <text x="304" y="584" text-anchor="middle" class="t-pill" fill="#824d12">断网隔离</text>
-  <text x="52" y="608" class="t-card-b">独立 sandbox-internal (internal: true)</text>
-  <text x="52" y="627" class="t-card-b">只读挂载原件 · Python 数据分析与图表</text>
-  <text x="52" y="646" class="t-card-b">Word / Excel / PPT / PDF 生成与 Skill 运行</text>
+  <!-- ==================== LAYER 4: SANDBOX, KB SYNC & BUSINESS CONNECTORS ==================== -->
+  <!-- Card 4.1: Docker Compose Sandbox + Corporate Templates -->
+  <rect x="36" y="570" width="318" height="120" rx="14" fill="#fdf8ef" stroke="#e6cfa5" filter="url(#shadow)"/>
+  <text x="52" y="594" class="t-card-h" fill="#824d12">04 · Docker 断网沙箱与母版渲染</text>
+  <rect x="266" y="579" width="72" height="22" rx="11" fill="#f7e8cc"/>
+  <text x="302" y="594" text-anchor="middle" class="t-pill" fill="#824d12">断网隔离</text>
+  <text x="52" y="618" class="t-card-b">独立 sandbox-internal · 零凭据只读挂载</text>
+  <text x="52" y="637" class="t-card-b">Python 数据分析 · 图表 · 已固化 Skill 执行</text>
+  <text x="52" y="656" class="t-card-b">原生套用公司官方 PPT / Word / Excel 母版</text>
+  <text x="52" y="674" class="t-card-b">多线程 DuckDB 财务复算 + 隔离预览容器</text>
 
-  <!-- Card 4.2: Deterministic Tools & Preview -->
-  <rect x="372" y="560" width="320" height="114" rx="14" fill="#fdf8ef" stroke="#e6cfa5" filter="url(#shadow)"/>
-  <text x="388" y="584" class="t-card-h" fill="#824d12">高可信工具与隔离预览容器</text>
-  <rect x="610" y="569" width="66" height="22" rx="11" fill="#f7e8cc"/>
-  <text x="643" y="584" text-anchor="middle" class="t-pill" fill="#824d12">零凭据</text>
-  <text x="388" y="608" class="t-card-b">多线程 DuckDB 财务口径复算引擎</text>
-  <text x="388" y="627" class="t-card-b">独立 preview-internal 隔离预览与文本抽取</text>
-  <text x="388" y="646" class="t-card-b">只读根 · cap_drop ALL · 硬 CPU/内存限制</text>
+  <!-- Card 4.2: Enterprise Knowledge Base Sync -->
+  <rect x="370" y="570" width="314" height="120" rx="14" fill="#ffffff" stroke="#cfe0d6" filter="url(#shadow)"/>
+  <text x="386" y="594" class="t-card-h">多源企业知识库与结构保真解析</text>
+  <text x="386" y="618" class="t-card-b">飞书知识库 · 钉钉文档 · Confluence · S3</text>
+  <text x="386" y="637" class="t-card-b">目录级增量同步 · 跨页表格与章节层级保真</text>
+  <text x="386" y="656" class="t-card-b">现行/作废版本权重 · 页码行号精准溯源</text>
+  <text x="386" y="674" class="t-card-b">审签成果一键归档入库 · 知识缺口/冲突巡检</text>
 
-  <!-- Card 4.3: MCP & Enterprise Knowledge -->
-  <rect x="708" y="560" width="312" height="114" rx="14" fill="#ffffff" stroke="#d5e2da" filter="url(#shadow)"/>
-  <text x="724" y="584" class="t-card-h">企业 MCP 工具与知识源</text>
-  <text x="724" y="608" class="t-card-b">标准 MCP Client（Streamable HTTP / SSE）</text>
-  <text x="724" y="627" class="t-card-b">联网公开搜索 · 飞书/钉钉文档 · Wiki / DB</text>
-  <text x="724" y="646" class="t-card-b">按文档 ACL 实时权限过滤 · 凭据 Vault 托管</text>
+  <!-- Card 4.3: ERP / CRM / E-com & Semantic Layer -->
+  <rect x="700" y="570" width="322" height="120" rx="14" fill="#ffffff" stroke="#cfe0d6" filter="url(#shadow)"/>
+  <text x="716" y="594" class="t-card-h">ERP / CRM / 电商连接与业务语义层</text>
+  <text x="716" y="618" class="t-card-b">金蝶/用友/SAP · CRM · 抖店/千牛/聚水潭</text>
+  <text x="716" y="637" class="t-card-b">受控只读数仓视图（防裸猜表名算错口径）</text>
+  <text x="716" y="656" class="t-card-b">OBO 身份行权限透传（仅查本人名下数据）</text>
+  <text x="716" y="674" class="t-card-b">读 L0 秒达 · 写 L2 预览确认 + 幂等回执单号</text>
 
   <!-- Card 4.4: External Providers & External Agents -->
-  <rect x="1036" y="560" width="328" height="114" rx="14" fill="#f0f6fb" stroke="#b9d3e6" filter="url(#shadow)"/>
-  <text x="1052" y="584" class="t-card-h" fill="#255d87">模型供应商与外部 Agent 服务</text>
-  <text x="1052" y="608" class="t-card-b">模型池：百炼 / 方舟 / DeepSeek / OpenAI / 本地 vLLM</text>
-  <text x="1052" y="627" class="t-card-b">外部自研：企业研发团队自建专业 Agent</text>
-  <text x="1052" y="646" class="t-card-b">第三方商业：Manus 等专业 Agent 与正规上游源</text>
+  <rect x="1038" y="570" width="326" height="120" rx="14" fill="#f0f6fb" stroke="#b9d3e6" filter="url(#shadow)"/>
+  <text x="1054" y="594" class="t-card-h" fill="#255d87">模型供应商与外部独立 Agent</text>
+  <text x="1054" y="618" class="t-card-b">内部网关模型池：百炼 / 方舟 / DeepSeek</text>
+  <text x="1054" y="637" class="t-card-b">OpenAI / Anthropic / Gemini / 私有 vLLM</text>
+  <text x="1054" y="656" class="t-card-b">内部自研专业 Agent（独立模型与环境）</text>
+  <text x="1054" y="674" class="t-card-b">第三方商业 Agent 与官方 MCP/Skill 上游源</text>
 
   <!-- Connectors L4 -> L5 -->
-  <line x1="196" y1="674" x2="196" y2="698" stroke="#6b7a72" stroke-width="1.6" marker-end="url(#arrow-slate)"/>
-  <line x1="532" y1="674" x2="532" y2="698" stroke="#6b7a72" stroke-width="1.6" marker-end="url(#arrow-slate)"/>
-  <line x1="864" y1="674" x2="864" y2="698" stroke="#6b7a72" stroke-width="1.6" marker-end="url(#arrow-slate)"/>
-  <line x1="1198" y1="674" x2="1198" y2="698" stroke="#6b7a72" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#arrow-slate)"/>
+  <line x1="196" y1="690" x2="196" y2="716" stroke="#6b7a72" stroke-width="1.6" marker-end="url(#arrow-slate)"/>
+  <line x1="527" y1="690" x2="527" y2="716" stroke="#6b7a72" stroke-width="1.6" marker-end="url(#arrow-slate)"/>
+  <line x1="861" y1="690" x2="861" y2="716" stroke="#6b7a72" stroke-width="1.6" marker-end="url(#arrow-slate)"/>
+  <line x1="1200" y1="690" x2="1200" y2="716" stroke="#6b7a72" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#arrow-slate)"/>
 
-  <!-- ==================== LAYER 5: DATA & OBSERVABILITY ==================== -->
-  <rect x="36" y="702" width="1328" height="114" rx="14" fill="#ffffff" stroke="#dce3dd" filter="url(#shadow)"/>
-  <text x="54" y="724" class="t-layer">05 · 持久化数据、安全存储与企业级可观测底座</text>
+  <!-- ==================== LAYER 5: DATA, VAULT & OBSERVABILITY ==================== -->
+  <rect x="36" y="720" width="1328" height="120" rx="14" fill="#ffffff" stroke="#dce3dd" filter="url(#shadow)"/>
+  <text x="54" y="742" class="t-layer">05 · 持久化数据、安全密钥与企业级可观测合规底座</text>
 
-  <rect x="52" y="736" width="312" height="66" rx="10" fill="#f6f8f6" stroke="#dce3dd"/>
-  <text x="66" y="757" class="t-card-h">PostgreSQL + pgvector</text>
-  <text x="66" y="776" class="t-card-b">业务事实 · 权限账本 · 协同评论</text>
-  <text x="66" y="792" class="t-card-b">小时预聚合监控宽表 · 向量段落索引</text>
+  <rect x="52" y="754" width="312" height="72" rx="10" fill="#f6f8f6" stroke="#dce3dd"/>
+  <text x="66" y="775" class="t-card-h">PostgreSQL + pgvector</text>
+  <text x="66" y="794" class="t-card-b">三级空间与权限账本 · 混合向量与全文索引</text>
+  <text x="66" y="812" class="t-card-b">术语口径词典 · L2 幂等写回单 · 预聚合监控</text>
 
-  <rect x="380" y="736" width="312" height="66" rx="10" fill="#f6f8f6" stroke="#dce3dd"/>
-  <text x="394" y="757" class="t-card-h">私有内容寻址对象卷（/data/objects）</text>
-  <text x="394" y="776" class="t-card-b">资料原件 · 产物不可变版本快照</text>
-  <text x="394" y="792" class="t-card-b">SHA-256 固化 Skill 包 · 离线可用</text>
+  <rect x="380" y="754" width="312" height="72" rx="10" fill="#f6f8f6" stroke="#dce3dd"/>
+  <text x="394" y="775" class="t-card-h">私有内容寻址对象卷（/data/objects）</text>
+  <text x="394" y="794" class="t-card-b">知识原件 · 产物不可变快照 · 官方交付母版</text>
+  <text x="394" y="812" class="t-card-b">SHA-256 固化 Skill 包 · 个人私密隔离封存</text>
 
-  <rect x="708" y="736" width="312" height="66" rx="10" fill="#f6f8f6" stroke="#dce3dd"/>
-  <text x="722" y="757" class="t-card-h">HotStreamBus &amp; Temporal 持久库</text>
-  <text x="722" y="776" class="t-card-b">进程内 PubSub / 可选 Redis Streams 热流</text>
-  <text x="722" y="792" class="t-card-b">Temporal 历史与 Schedule · AES-GCM 密钥库</text>
+  <rect x="708" y="754" width="312" height="72" rx="10" fill="#f6f8f6" stroke="#dce3dd"/>
+  <text x="722" y="775" class="t-card-h">HotStreamBus &amp; AES-GCM 密钥库</text>
+  <text x="722" y="794" class="t-card-b">进程内 PubSub / 可选加密 Redis Streams</text>
+  <text x="722" y="812" class="t-card-b">多版本平滑轮换 Vault · OBO 业务凭据托管</text>
 
-  <rect x="1036" y="736" width="312" height="66" rx="10" fill="#f6f8f6" stroke="#dce3dd"/>
-  <text x="1050" y="757" class="t-card-h">企业可观测与主动告警</text>
-  <text x="1050" y="776" class="t-card-b">OTLP Protobuf Trace（内置 / Langfuse）</text>
-  <text x="1050" y="792" class="t-card-b">双轨有效完成率埋点 · 飞书/钉钉实时告警</text>
+  <rect x="1036" y="754" width="312" height="72" rx="10" fill="#f6f8f6" stroke="#dce3dd"/>
+  <text x="1050" y="775" class="t-card-h">可观测、DLP 审计与回归体检</text>
+  <text x="1050" y="794" class="t-card-b">OTLP Trace 瀑布流 · 双轨有效完成率埋点</text>
+  <text x="1050" y="812" class="t-card-b">DLP 外发脱敏账本 · 黄金体检集与飞书告警</text>
 
   <!-- Footer note -->
-  <text x="36" y="842" class="t-foot">Agent Alliance vNext Architecture · Apache License 2.0 · 所有企业数据、模型凭据与运行账本均留在企业自有实例内</text>
+  <text x="36" y="868" class="t-foot">Agent Alliance vNext 1.2 Architecture · Apache License 2.0 · 所有企业知识、业务连接凭据、模型密钥与审计账本均留在企业自有实例内</text>
 </svg>
