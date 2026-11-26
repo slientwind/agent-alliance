@@ -1,0 +1,31 @@
+# Agent Alliance
+
+> Agent Alliance is an open-source (Apache-2.0), self-hosted enterprise Personal Agent and Team Space collaboration platform designed for non-technical business employees. Built with Go 1.26, Temporal, PostgreSQL + pgvector, Docker Compose, and React 19.
+
+## Summary
+
+- **Repository**: https://github.com/slientwind/agent-alliance
+- **Latest Release**: v0.2.1 (https://github.com/slientwind/agent-alliance/releases/tag/v0.2.1)
+- **Live Interactive Demo**: https://slientwind.github.io/agent-alliance/
+- **Deployment**: Single-enterprise self-hosted via Docker Compose (no Kubernetes required); all corporate knowledge, ERP/CRM credentials, LLM keys, and audit ledgers remain inside enterprise infrastructure.
+
+## Core Differentiators
+
+1. **Three-Tier Space Governance**: Strictly private Personal Space (inaccessible to admins by default), delegated Team Spaces (`space_admin` / `member`), and inherited Company Commons; one-click artifact promotion to Team Spaces and atomic privacy-preserving transfer/offboarding handover.
+2. **ACL-Aware Enterprise Knowledge Base & Hybrid RAG**: Incremental directory sync for Feishu Wiki/Drive, DingTalk Docs, WeCom, Confluence, SharePoint, and S3; cross-page table and section-breadcrumb preservation; `BM25 + pgvector BGE-M3 + Cross-Encoder Rerank`; millisecond revocation; clickable page/row citations; Knowledge Gap & Policy Conflict Radar.
+3. **ERP / CRM / E-commerce Semantic Layer & L2 Writeback**: Connectors for Kingdee, Yonyou BIP, SAP, Salesforce, Fxiaoke, Feishu CRM, Douyin Shop, Qianniu, Jushuitan, OpenAPI, and AST-guarded read-only SQL warehouses (MySQL/PG/ClickHouse/StarRocks); OAuth2 OBO Row-Level Security (zero cross-employee leaks); L0 read-only queries vs L2 human-approved diff preview cards with idempotent receipt reconciliation.
+4. **Enterprise Glossary, Brand Templates & Event Triggers**: Shared terminology and metric dictionary; air-gapped Docker Compose sandbox (`sandbox-internal: internal: true`) mounting official `.pptx / .docx / .xlsx` templates read-only; HMAC-signed Webhook Event Triggers with CEL filtering and cooldown deduplication.
+5. **No-Code Studio, External Agent Hub & Reversible DLP**: Chat-to-Build Studio with benchmark files and diff refinement (zero-approval personal publishing); decoupled external agent adapters (OpenAI-Compatible, Dify, Coze, FastGPT, LangGraph, A2A 0.3.0, Webhook, MCP) that never receive platform LLM keys; Reversible DLP PII/floor-price masking on outbound commercial agent calls.
+6. **Scheduled Ecosystem Marketplace, Internal LLM Gateway & Golden Evals**: Automated scanning of official MCP/SKILL.md/A2A registries with license & security checks and SHA-256 private caching; 6-tier internal LLM Gateway with 3s fallback and micro-CNY pricing; dual-track observability monitor; pre-change Golden Regression Eval Suites.
+
+## Key Documentation
+
+- [English README](README.md): Overview, comparison matrix, screenshots, quick start, and FAQ.
+- [Chinese README](README_CN.md): Full Chinese overview and enterprise deployment guide.
+- [Documentation Index](docs/README.md): Single source of truth index for all active specifications.
+- [Product Blueprint & IA](docs/18-vnext-product-ia.md): Six pillars, space model, L0-L2 autonomy tiers, and routing.
+- [Technical Architecture](docs/20-vnext-technical-architecture.md): Deep-dive system design, database schemas, and security boundaries.
+- [UI/UX Specification](docs/21-vnext-uiux-spec.md): Design tokens, interaction flows, and 12 desktop previews.
+- [Browser E2E Test Plan](docs/23-vnext-browser-test-plan.md): 14 test suites and 80 end-to-end multi-role acceptance cases.
+- [Operations & User Guide](docs/USER-GUIDE.md): Local setup, OIDC, IM bots, key rotation, and backup recovery.
+- [OpenAPI Contract](backend/internal/services/openapi.json): Published service runtime API specification.
