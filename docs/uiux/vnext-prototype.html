@@ -1967,9 +1967,9 @@ function renderAdminShell() {
     ['monitor', 'BarChart', '监控大盘'],
     ['models', 'Cpu', '全局模型网关'],
     ['integrations', 'Plug', '服务与连接器'],
-    ['releases', 'CheckCircle', '发布审核'],
-    ['members', 'Users', '组织与成员'],
-    ['governance', 'Shield', '预算与安全'],
+    ['releases', 'CheckCircle', '发布审批'],
+    ['members', 'Users', '组织、空间与交接'],
+    ['governance', 'Shield', 'DLP 与回归体检'],
   ];
   const pendingRel = state.releases.filter(r => r.status === 'pending').length;
 
@@ -2255,9 +2255,9 @@ function renderAdminShell() {
         <thead><tr><th>成员</th><th>所属团队空间</th><th>角色</th><th>近 30 天任务</th><th>IM 绑定</th><th>状态</th></tr></thead>
         <tbody>
           <tr><td><strong>林予</strong></td><td>采购中心 / 电商增长组</td><td><span class="pill pill-green">企业管理员</span></td><td class="num">186 次</td><td>飞书已绑</td><td>正常</td></tr>
-          <tr><td><strong>周宁</strong></td><td>市场空间 / 电商增长组</td><td><span class="pill pill-blue">团队空间管理员</span></td><td class="num">240 次</td><td>飞书已绑</td><td>正常</td></tr>
+          <tr><td><strong>周宁</strong></td><td>市场空间 / 电商增长组</td><td><span class="pill pill-blue">空间管理员 (space_admin)</span></td><td class="num">240 次</td><td>飞书已绑</td><td>正常</td></tr>
           <tr><td><strong>陈默</strong></td><td>研发能力中心</td><td><span class="pill pill-muted">研发接入者</span></td><td class="num">95 次</td><td>飞书 / Slack</td><td>正常</td></tr>
-          <tr><td><strong>苏敏</strong></td><td>电商增长组 / 采购中心</td><td><span class="pill pill-muted">普通员工</span></td><td class="num">152 次</td><td>飞书已绑</td><td>${state.handoverDone?'已转岗交接':'拟调岗待交接'}</td></tr>
+          <tr><td><strong>苏敏</strong></td><td>电商增长组 / 采购中心</td><td><span class="pill pill-muted">空间成员 (member)</span></td><td class="num">152 次</td><td>飞书已绑</td><td>${state.handoverDone?'已调岗无感交接 ✓':'拟调岗待交接'}</td></tr>
         </tbody>
       </table>
     </div>

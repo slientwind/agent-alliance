@@ -110,21 +110,26 @@
 
 ---
 
-## 5. 高保真原型渲染预览（1440 × 900 桌面实屏 · 共 12 张）
+## 5. 高保真原型渲染预览（1440 × 900 桌面实屏 · 共 17 张）
 
 所有视图均已在 Chromium 离线直开自动化验证通过（0 控制台/页面报错、0 横向溢出、全交互流断言通过）。可直接打开单文件原型体验完整交互：[vnext-prototype.html](uiux/vnext-prototype.html)。
 
 | 视图 | 预览截图 |
 | :--- | :--- |
 | **1. 新对话首屏（含侧栏顶栏空间切换器 · 浅色）** | ![新对话首屏](uiux/previews/vnext/01-start-light.png) |
-| **2. 知识与数据工作台（空间知识库 · 缺口雷达 · ERP/CRM/电商连接 · 口径与母版）** | ![知识与数据工作台](uiux/previews/vnext/11-space-knowledge-data.png) |
-| **3. 知识溯源 + 抖店/金蝶联查 + L2 系统写回预览确认卡** | ![知识与业务系统联查写回](uiux/previews/vnext/12-biz-writeback-dlp.png) |
-| **4. 团队多人协同分工与 Canvas 行内 `@同事` 评论** | ![团队多人协同](uiux/previews/vnext/09-team-collab-canvas.png) |
-| **5. 采购比价对话 + 动态分栏 Canvas + 协作审签** | ![对话与动态分栏](uiux/previews/vnext/02-chat-canvas-light.png) |
-| **6. Agent 企业能力目录** | ![Agent 广场](uiux/previews/vnext/03-agents-plaza.png) |
-| **7. Skill 与 Agent 生态发现市场（定期扫描 + 自主加载）** | ![生态发现市场](uiux/previews/vnext/10-ecosystem-market.png) |
-| **8. 左聊右测对话式构建器（标杆样例 + 指哪改哪）** | ![左聊右测构建器](uiux/previews/vnext/04-studio-builder.png) |
-| **9. 外部 Agent 3 步多协议接入向导** | ![外部接入向导](uiux/previews/vnext/05-external-connect.png) |
-| **10. 全屏企业监控大盘（浅色）** | ![企业监控大盘](uiux/previews/vnext/06-admin-monitor-light.png) |
-| **11. 全局模型网关（深色模式）** | ![全局模型网关深色](uiux/previews/vnext/07-admin-models-dark.png) |
-| **12. 轻量 L0 沙箱分析 + Canvas（深色模式）** | ![轻量分析深色](uiux/previews/vnext/08-chat-canvas-dark.png) |
+| **2. 知识与数据 · 空间知识库、缺口雷达与冲突巡检** | ![知识与数据工作台](uiux/previews/vnext/11-space-knowledge-data.png) |
+| **3. 知识与数据 · ERP/CRM/电商连接器与受控业务语义视图** | ![业务系统与语义视图](uiux/previews/vnext/13-biz-connectors-semantic.png) |
+| **4. 知识与数据 · 企业术语口径词典与官方品牌交付母版库** | ![术语口径与官方母版](uiux/previews/vnext/14-glossary-brand-templates.png) |
+| **5. 知识溯源 + 抖店/金蝶联查 + 官方母版 + L2 写回确认卡** | ![知识与业务系统联查写回](uiux/previews/vnext/12-biz-writeback-dlp.png) |
+| **6. 自动与事件委托 · 业务系统 Webhook 主动唤醒与定时任务** | ![业务事件唤醒与定时委托](uiux/previews/vnext/15-event-webhook-triggers.png) |
+| **7. 团队多人协同分工与 Canvas 行内 `@同事` 评论** | ![团队多人协同](uiux/previews/vnext/09-team-collab-canvas.png) |
+| **8. 采购比价对话 + 动态分栏 Canvas + 协作审签** | ![对话与动态分栏](uiux/previews/vnext/02-chat-canvas-light.png) |
+| **9. Agent 企业能力目录** | ![Agent 广场](uiux/previews/vnext/03-agents-plaza.png) |
+| **10. Skill 与 Agent 生态发现市场（定期扫描 + 自主加载）** | ![生态发现市场](uiux/previews/vnext/10-ecosystem-market.png) |
+| **11. 左聊右测对话式构建器（标杆样例 + 指哪改哪）** | ![左聊右测构建器](uiux/previews/vnext/04-studio-builder.png) |
+| **12. 外部 Agent 3 步多协议接入向导** | ![外部接入向导](uiux/previews/vnext/05-external-connect.png) |
+| **13. 全屏企业监控大盘（浅色）** | ![企业监控大盘](uiux/previews/vnext/06-admin-monitor-light.png) |
+| **14. 企业治理 · 可逆 DLP 脱敏护栏与 45 条黄金回归体检集** | ![DLP 护栏与黄金回归体检](uiux/previews/vnext/16-dlp-eval-governance.png) |
+| **15. 组织治理 · 团队空间角色与公私分离调岗/离职交接** | ![空间角色与公私分离交接](uiux/previews/vnext/17-space-role-handover.png) |
+| **16. 全局模型网关（深色模式）** | ![全局模型网关深色](uiux/previews/vnext/07-admin-models-dark.png) |
+| **17. 轻量 L0 沙箱分析 + Canvas（深色模式）** | ![轻量分析深色](uiux/previews/vnext/08-chat-canvas-dark.png) |

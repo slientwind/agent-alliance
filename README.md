@@ -155,14 +155,38 @@ When choosing a self-hosted AI platform for an organization, here is how **Agent
   </tr>
   <tr>
     <td align="center" width="50%">
-      <img src="docs/uiux/previews/vnext/05-external-connect.png" alt="3-Step External Agent Connect Wizard" />
+      <img src="docs/uiux/previews/vnext/13-biz-connectors-semantic.png" alt="ERP, CRM, E-commerce Connectors and Semantic Layer" />
       <br />
-      <sub><b>External Agent Wizard</b> · 3-step onboarding for Dify/Coze/LangGraph/A2A/Webhook with decoupled credentials</sub>
+      <sub><b>ERP / CRM / E-com Semantic Layer</b> · Kingdee, Douyin, CRM &amp; StarRocks with OBO Row-Level Security &amp; L0/L2 gates</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/uiux/previews/vnext/14-glossary-brand-templates.png" alt="Enterprise Glossary and Corporate Brand Templates" />
+      <br />
+      <sub><b>Glossary &amp; Brand Templates</b> · Unified metric formulas + read-only official PPTX/DOCX/XLSX sandbox templates</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/uiux/previews/vnext/15-event-webhook-triggers.png" alt="Business Event Webhook Triggers and Cron Automations" />
+      <br />
+      <sub><b>Event-Driven Webhook Triggers</b> · Auto-wake Team Space agents on e-commerce spikes, CRM deals &amp; low ERP stock</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/uiux/previews/vnext/16-dlp-eval-governance.png" alt="Reversible DLP Guardrails and Golden Eval Regression Suite" />
+      <br />
+      <sub><b>Reversible DLP &amp; Golden Evals</b> · Auto-mask PII/floor prices on egress + 45-case regression suite before model switches</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/uiux/previews/vnext/17-space-role-handover.png" alt="Team Space Roles and Privacy-Preserving Transfer/Offboarding Handover" />
+      <br />
+      <sub><b>Space Roles &amp; Atomic Handover</b> · Delegated <code>space_admin</code> roles + seal personal privacy while handing over team assets</sub>
     </td>
     <td align="center" width="50%">
       <img src="docs/uiux/previews/vnext/07-admin-models-dark.png" alt="Internal Model Gateway Dark Theme" />
       <br />
-      <sub><b>Internal LLM Gateway (Dark Mode)</b> · 6 logical tiers, primary/fallback routing & micro-CNY pricing</sub>
+      <sub><b>Internal LLM Gateway (Dark Mode)</b> · 6 logical tiers, primary/fallback routing &amp; micro-CNY pricing</sub>
     </td>
   </tr>
 </table>

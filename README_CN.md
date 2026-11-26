@@ -153,9 +153,33 @@
   </tr>
   <tr>
     <td align="center" width="50%">
-      <img src="docs/uiux/previews/vnext/05-external-connect.png" alt="外部 Agent 3 步多协议接入向导" />
+      <img src="docs/uiux/previews/vnext/13-biz-connectors-semantic.png" alt="ERP/CRM/电商连接器与受控语义视图" />
       <br />
-      <sub><b>外部 Agent 接入向导</b> · 一键模板适配自研与商业 Agent，独立模型 + 边界观测</sub>
+      <sub><b>ERP / CRM / 电商语义层</b> · 金蝶、抖店、纷享销客与只读数仓视图，OBO 行级权限 + L0/L2 读写门禁</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/uiux/previews/vnext/14-glossary-brand-templates.png" alt="企业术语口径词典与官方品牌交付母版库" />
+      <br />
+      <sub><b>术语口径与官方母版库</b> · 统一经营指标口径公式 + 沙箱只读挂载 PPTX/DOCX/XLSX 官方母版</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/uiux/previews/vnext/15-event-webhook-triggers.png" alt="业务系统事件驱动唤醒 Webhook 触发器与周期定时" />
+      <br />
+      <sub><b>业务事件 Webhook 主动唤醒</b> · 抖店差评激增、CRM 大单与金蝶库存告急自动唤醒空间 Agent</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/uiux/previews/vnext/16-dlp-eval-governance.png" alt="DLP 敏感数据防泄漏护栏与黄金回归体检集" />
+      <br />
+      <sub><b>可逆 DLP 护栏与黄金回归体检</b> · 外发自动掩码手机号/底价 + 换模型前 45 条真实业务体检跑批</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/uiux/previews/vnext/17-space-role-handover.png" alt="团队空间角色自治与公私分离调岗离职交接" />
+      <br />
+      <sub><b>空间角色与公私分离交接</b> · 支持 <code>space_admin</code> 委派与单事务封存个人隐私 + 平移团队资产</sub>
     </td>
     <td align="center" width="50%">
       <img src="docs/uiux/previews/vnext/07-admin-models-dark.png" alt="全局模型网关深色模式" />
