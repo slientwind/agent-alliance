@@ -1,0 +1,24 @@
+name: Feature or Connector Request
+description: Propose a new capability, ERP/CRM/E-commerce connector, or IM integration
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature Area
+      options:
+        - Business Connector (ERP / CRM / E-commerce / Warehouse)
+        - Knowledge Source Sync (Wiki / Drive / S3)
+        - External Agent / MCP / A2A Integration
+        - Space Governance / DLP / Eval Suite
+        - UI / UX & Collaboration
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Enterprise Use Case & Expected Behavior
+      description: Describe the business workflow you want to solve.
+    validations:
+      required: true

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://slientwind.github.io/agent-alliance/sitemap.xml

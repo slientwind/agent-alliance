@@ -1,0 +1,11 @@
+# Agent Alliance
+
+> Open-source (Apache-2.0) self-hosted enterprise Personal Agent & Team Space platform built with Go 1.26, Temporal, PostgreSQL + pgvector, Docker Compose, and React 19.
+
+- GitHub Repository: https://github.com/slientwind/agent-alliance
+- Latest Release: https://github.com/slientwind/agent-alliance/releases/tag/v0.2.1
+- Interactive Live Demo: https://slientwind.github.io/agent-alliance/uiux/vnext-prototype.html
+- Full English README: https://github.com/slientwind/agent-alliance/blob/main/README.md
+- Full Chinese README: https://github.com/slientwind/agent-alliance/blob/main/README_CN.md
+- Technical Architecture: https://github.com/slientwind/agent-alliance/blob/main/docs/20-vnext-technical-architecture.md
+- Browser E2E Test Plan (80 Cases): https://github.com/slientwind/agent-alliance/blob/main/docs/23-vnext-browser-test-plan.md

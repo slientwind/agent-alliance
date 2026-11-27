@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Live Interactive Demo
+    url: https://slientwind.github.io/agent-alliance/
+    about: Try the Agent Alliance workspace right in your browser (zero install).
+  - name: GitHub Discussions (Q&A & Ideas)
+    url: https://github.com/slientwind/agent-alliance/discussions
+    about: Ask questions, share enterprise use cases, or discuss connector ideas.
